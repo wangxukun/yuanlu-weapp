@@ -1,0 +1,48 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/discover/discover",
+    "pages/review/review",
+    "pages/mine/mine",
+    "pages/episode/episode",
+    "pages/podcast/podcast",
+    "pages/search/search",
+    "pages/login/login"
+  ],
+  "subpackages": [],
+  "window": {
+    "navigationBarTitleText": "远路播客",
+    "navigationBarBackgroundColor": "#FAF8F3",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FAF8F3",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#857C68",
+    "selectedColor": "#1F7A5C",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "主页"
+      },
+      {
+        "pagePath": "pages/discover/discover",
+        "text": "发现"
+      },
+      {
+        "pagePath": "pages/review/review",
+        "text": "复习"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
+    ]
+  },
+  "requiredBackgroundModes": ["audio"],
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

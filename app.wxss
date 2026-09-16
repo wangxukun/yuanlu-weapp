@@ -1,0 +1,327 @@
+/**
+ * app.wxss — 远路播客小程序全局样式
+ *
+ * 设计令牌移植自 Web 端 app/globals.css + tailwind.config.mjs（远路设计系统）：
+ *   ink     —— 暖纸中性色
+ *   primary —— 远青（品牌主色）
+ *   accent  —— 曙光橙（强调）
+ *   info    —— 黛蓝
+ *   error   —— 陶土红
+ * 小程序 WXSS 原生支持 CSS 变量，作用于 page 根节点即可全局生效。
+ * 注意：rpx 单位（750rpx = 屏幕宽度）；字号同时给 px 兜底值。
+ */
+
+page {
+  /* ===== 远路色板 · ink 暖纸中性 ===== */
+  --ink-50: #faf8f3;
+  --ink-100: #f1ede4;
+  --ink-200: #e3ddcf;
+  --ink-300: #cfc7b4;
+  --ink-400: #a79e8a;
+  --ink-500: #857c68;
+  --ink-600: #655d4c;
+  --ink-700: #4a4436;
+  --ink-800: #322d23;
+  --ink-900: #221f18;
+  --ink-950: #151310;
+
+  /* ===== 远路色板 · primary 远青 ===== */
+  --primary-50: #edf7f2;
+  --primary-100: #d5ede1;
+  --primary-200: #aedcc8;
+  --primary-300: #7dc5a8;
+  --primary-400: #4da989;
+  --primary-500: #2e8f6f;
+  --primary-600: #1f7a5c;
+  --primary-700: #1a6349;
+  --primary-800: #164e3b;
+  --primary-900: #0f3628;
+  --primary-950: #0a241b;
+
+  /* ===== 远路色板 · accent 曙光橙 ===== */
+  --accent-50: #fdf4e7;
+  --accent-100: #fae5c6;
+  --accent-200: #f4d09a;
+  --accent-300: #ecb35e;
+  --accent-400: #e59d2e;
+  --accent-500: #d98a17;
+  --accent-600: #b96f0f;
+  --accent-700: #96580d;
+  --accent-800: #74440f;
+  --accent-900: #4e2e0b;
+  --accent-950: #2e1d07;
+
+  /* ===== 远路色板 · info 黛蓝 / error 陶土红 ===== */
+  --info-500: #4a7fa5;
+  --error-500: #d2503f;
+  --error-600: #b8402f;
+
+  /* ===== 语义令牌（浅色模式；深色模式待后续阶段开启 darkmode 后按 Web 端值覆写） ===== */
+  --color-primary: var(--primary-600);
+  --color-primary-content: #ffffff;
+  --color-accent: var(--accent-500);
+  --color-success: var(--primary-500);
+  --color-warning: var(--accent-500);
+  --color-error: var(--error-500);
+  --color-base-100: #ffffff;
+  --color-base-200: var(--ink-50);
+  --color-base-300: var(--ink-100);
+  --color-base-content: #1b1812;
+
+  --page-bg: var(--ink-50);
+  --card-bg: #ffffff;
+  --text-primary: var(--ink-900);
+  --text-secondary: var(--ink-600);
+  --text-tertiary: var(--ink-400);
+  --border-color: var(--ink-200);
+
+  /* ===== 圆角阶梯 ===== */
+  --r-sm: 8rpx;
+  --r-md: 12rpx;
+  --r-lg: 16rpx;
+  --r-xl: 24rpx;
+  --r-full: 999rpx;
+
+  /* ===== 阴影阶梯 ===== */
+  --e1: 0 2rpx 4rpx rgba(27, 24, 18, 0.04), 0 8rpx 24rpx rgba(27, 24, 18, 0.05);
+  --e2: 0 16rpx 48rpx rgba(27, 24, 18, 0.08);
+  --e3: 0 32rpx 96rpx rgba(27, 24, 18, 0.16);
+
+  /* ===== z-index 分层（小程序原生导航/tabBar 层级更高，从 40 起与 Web 对齐） ===== */
+  --z-nav: 40;
+  --z-miniplayer: 50;
+  --z-sheet: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+
+  /* ===== 布局尺寸 ===== */
+  --bottom-nav-height: 100rpx;
+  --mini-player-height: 120rpx;
+  --page-padding: 32rpx;
+  --safe-bottom: env(safe-area-inset-bottom);
+
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-size: 28rpx;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+ * 通用布局类
+ * ========================================================== */
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.around {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+ * 文字排版
+ * ========================================================== */
+.t-display {
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.t-h1 {
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.t-h2 {
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.t-h3 {
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.t-body {
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+.t-caption {
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+.t-mini {
+  font-size: 20rpx;
+  line-height: 1.4;
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+.text-accent {
+  color: var(--color-accent);
+}
+.text-error {
+  color: var(--color-error);
+}
+.text-bold {
+  font-weight: 600;
+}
+
+/* 英文逐字稿/精读内容的衬线字体（对应 Web 端 font-serif） */
+.font-serif {
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+}
+
+/* 单行省略 */
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* 多行省略（默认 2 行） */
+.ellipsis-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ============================================================
+ * 安全区适配（iOS 刘海屏/全面屏手势条）
+ * ========================================================== */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom));
+  /* 兼容低版本基础库 */
+  padding-bottom: constant(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+/* 内容区为 tabBar + mini 播放器预留的底部占位（页面使用 padding-bottom） */
+.pb-page-bottom {
+  padding-bottom: calc(
+    var(--bottom-nav-height) + var(--safe-bottom)
+  );
+}
+.pb-page-bottom-with-player {
+  padding-bottom: calc(
+    var(--bottom-nav-height) + var(--mini-player-height) + var(--safe-bottom)
+  );
+}
+
+/* ============================================================
+ * 通用组件类
+ * ========================================================== */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--r-lg);
+  box-shadow: var(--e1);
+  padding: 24rpx;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 30rpx;
+  font-weight: 600;
+  height: 88rpx;
+  border-radius: var(--r-md);
+}
+.btn-primary.disabled {
+  opacity: 0.5;
+}
+/* 按压反馈（对应 Web 端 active:scale-90） */
+.tap-dim {
+  transition: opacity 0.15s ease;
+}
+.tap-dim:active {
+  opacity: 0.6;
+}
+.tap-scale {
+  transition: transform 0.15s ease;
+}
+.tap-scale:active {
+  transform: scale(0.95);
+}
+
+.hr {
+  height: 1rpx;
+  background: var(--border-color);
+}
+
+/* 骨架屏光晕动画（对应 Web 端 animate-shimmer） */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(241, 237, 228, 0.6) 25%,
+    rgba(250, 248, 243, 0.9) 37%,
+    rgba(241, 237, 228, 0.6) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: var(--r-sm);
+}
+
+/* 播放中均衡器动画（对应 Web 端 animate-eq） */
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.eq-bar {
+  width: 4rpx;
+  height: 20rpx;
+  background: var(--color-primary);
+  border-radius: 2rpx;
+  animation: eq 1s ease-in-out infinite;
+}
