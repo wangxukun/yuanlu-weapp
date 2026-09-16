@@ -1,0 +1,213 @@
+/**
+ * pages/auth/login/login.wxss — 登录页样式
+ *
+ * 视觉规格移植自 Android 端 LoginSheet.kt / PressablePillButton：
+ *   - 胶囊主按钮：52dp(104rpx) 高、全圆角、primary 底、按压 0.95 缩放；
+ *   - 品牌插画：LoginGateScreen 的 PodcastWave 信号图标（SVG data URI，
+ *     避免引入图片资源；fill 用 primary-600）。
+ * 颜色一律引用 app.wxss 的设计令牌，微信品牌绿除外（平台规范色 #07C160）。
+ */
+
+.login-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 140rpx 48rpx 0;
+  /* 顶部品牌渐变（对齐 LoginGateScreen 的 primaryContainer→background） */
+  background: linear-gradient(180deg, var(--primary-50) 0%, var(--ink-50) 460rpx);
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+/* ===== 品牌区 ===== */
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.brand-logo {
+  width: 168rpx;
+  height: 168rpx;
+  /* PodcastWave 信号插画（对齐 Android PodcastWaveVector 的四条 path） */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M17.2989 7.25116C14.371 4.24961 9.62904 4.24961 6.70106 7.25116C3.76631 10.2596 3.76631 15.1424 6.70106 18.1509L5.98523 18.8491C2.67159 15.4522 2.67159 9.94978 5.98523 6.55288C9.30564 3.14904 14.6944 3.14904 18.0148 6.55288C21.3284 9.94978 21.3284 15.4522 18.0148 18.8491L17.2989 18.1509C20.2337 15.1424 20.2337 10.2596 17.2989 7.25116Z'/%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M15.182 9.81802C13.4246 8.06066 10.5754 8.06066 8.81802 9.81802C7.06066 11.5754 7.06066 14.4246 8.81802 16.182L8.11091 16.8891C5.96303 14.7412 5.96303 11.2588 8.11091 9.11091C10.2588 6.96303 13.7412 6.96303 15.8891 9.11091C18.037 11.2588 18.037 14.7412 15.8891 16.8891L15.182 16.182C16.9393 14.4246 16.9393 11.5754 15.182 9.81802Z'/%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M12 12.5C11.4477 12.5 11 12.9477 11 13.5C11 14.0523 11.4477 14.5 12 14.5C12.5523 14.5 13 14.0523 13 13.5C13 12.9477 12.5523 12.5 12 12.5ZM10 13.5C10 12.3954 10.8954 11.5 12 11.5C13.1046 11.5 14 12.3954 14 13.5C14 14.6046 13.1046 15.5 12 15.5C10.8954 15.5 10 14.6046 10 13.5Z'/%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M10.8519 16.7284C11.2159 16.5776 11.606 16.5 12 16.5C12.394 16.5 12.7841 16.5776 13.1481 16.7284C13.512 16.8791 13.8427 17.1001 14.1213 17.3787C14.3999 17.6573 14.6209 17.988 14.7716 18.3519C14.9224 18.7159 15 19.106 15 19.5C15 19.7761 14.7761 20 14.5 20L9.5 20C9.22386 20 9 19.7761 9 19.5C9 19.106 9.0776 18.7159 9.22836 18.3519C9.37913 17.988 9.6001 17.1001 9.87868 17.3787C10.1573 17.1001 10.488 16.8791 10.8519 16.7284ZM12 17.5C11.7374 17.5 11.4773 17.5517 11.2346 17.6522C10.992 17.7528 10.7715 17.9001 10.5858 18.0858C10.4001 18.2715 10.2528 18.492 10.1522 18.7346C10.1164 18.8211 10.0868 18.9098 10.0635 19L13.9365 19C13.9132 18.9098 13.8836 18.8211 13.8478 18.7346C13.7478 18.492 13.5999 18.2715 13.4142 18.0858C13.2287 17.9001 13.008 17.7528 12.7654 17.6522C12.5226 17.5517 12.2626 17.5 12 17.5Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.brand-title {
+  margin-top: 32rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.brand-subtitle {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+}
+
+/* ===== 微信一键登录（加分项） ===== */
+.wx-btn {
+  width: 100%;
+  height: 96rpx;
+  margin-top: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: #07c160; /* 微信品牌绿（平台规范，不进设计令牌） */
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  padding: 0;
+}
+/* 去除 button 默认边框 */
+.wx-btn::after,
+.login-btn::after {
+  border: none;
+}
+
+/* ===== 分隔线 ===== */
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 48rpx 0 40rpx;
+}
+.divider-line {
+  flex: 1;
+  height: 1rpx;
+  background: var(--border-color);
+}
+.divider-text {
+  margin: 0 24rpx;
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+}
+
+/* ===== 输入框（对齐 OutlinedTextField 的卡片化风格） ===== */
+.field {
+  display: flex;
+  align-items: center;
+  height: 104rpx;
+  padding: 0 28rpx;
+  margin-bottom: 24rpx;
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
+  border-radius: var(--r-md);
+}
+
+.field-icon {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.icon-phone {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A79E8A' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.21c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
+}
+.icon-shield {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A79E8A' d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'/%3E%3C/svg%3E");
+}
+
+.field-input {
+  flex: 1;
+  height: 100%;
+  margin-left: 20rpx;
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
+/* 验证码右侧：倒计时态 / 获取按钮态 */
+.code-countdown {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding-left: 24rpx;
+  border-left: 1rpx solid var(--border-color);
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.code-send {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding-left: 24rpx;
+  border-left: 1rpx solid var(--border-color);
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+.code-send--busy {
+  color: var(--text-tertiary);
+}
+
+/* ===== 协议勾选行（对齐 AgreementRow） ===== */
+.agreement {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx;
+}
+.checkbox {
+  width: 34rpx;
+  height: 34rpx;
+  flex-shrink: 0;
+  margin-right: 14rpx;
+  border: 2rpx solid var(--ink-300);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.checkbox--on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.checkbox-mark {
+  font-size: 20rpx;
+  color: #ffffff;
+  line-height: 1;
+}
+.agreement-text {
+  flex: 1;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.agreement-link {
+  color: var(--color-primary);
+}
+
+/* ===== 行内错误提示（对齐 uiState.error） ===== */
+.error-text {
+  margin-top: 20rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-error);
+}
+
+/* ===== 胶囊主按钮（对齐 PressablePillButton） ===== */
+.login-btn {
+  width: 100%;
+  height: 104rpx;
+  margin-top: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  padding: 0;
+}
+.login-btn--dim {
+  opacity: 0.55;
+}

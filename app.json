@@ -7,7 +7,7 @@
     "pages/episode/episode",
     "pages/podcast/podcast",
     "pages/search/search",
-    "pages/login/login"
+    "pages/auth/login/login"
   ],
   "subpackages": [],
   "window": {

@@ -1,0 +1,86 @@
+<!-- pages/auth/login/login.wxml — 登录页
+  对齐 Android 端 LoginSheet.kt 的结构与文案：
+  品牌区（欢迎语）→ 微信一键登录（加分项）→ 分隔线 → 手机号/验证码表单
+  → 协议勾选行 → 行内错误提示 → 胶囊主按钮「登录 / 注册」 -->
+<view class="login-page">
+
+  <!-- ===== 品牌区（对齐 LoginGateScreen 的 PodcastWave 插画 + LoginSheet 标题） ===== -->
+  <view class="brand">
+    <view class="brand-logo" />
+    <text class="brand-title">欢迎来到远路播客</text>
+    <text class="brand-subtitle">请选择登录方式</text>
+  </view>
+
+  <!-- ===== 微信一键登录（骨架，后端接口待阶段三接通） ===== -->
+  <button
+    class="wx-btn tap-scale"
+    open-type="getPhoneNumber"
+    bindgetphonenumber="onWxLogin"
+  >微信一键登录</button>
+
+  <view class="divider">
+    <view class="divider-line" />
+    <text class="divider-text">或使用手机号登录</text>
+    <view class="divider-line" />
+  </view>
+
+  <!-- ===== 手机号输入框 ===== -->
+  <view class="field">
+    <view class="field-icon icon-phone" />
+    <input
+      class="field-input"
+      type="number"
+      maxlength="11"
+      value="{{phone}}"
+      placeholder="请输入11位手机号码"
+      placeholder-style="color: #A79E8A"
+      bindinput="onPhoneInput"
+    />
+  </view>
+
+  <!-- ===== 验证码输入框（右侧：倒计时 / 获取验证码按钮） ===== -->
+  <view class="field">
+    <view class="field-icon icon-shield" />
+    <input
+      class="field-input"
+      type="number"
+      maxlength="6"
+      value="{{code}}"
+      placeholder="输入6位验证码"
+      placeholder-style="color: #A79E8A"
+      bindinput="onCodeInput"
+    />
+    <view wx:if="{{countdownSeconds > 0}}" class="code-countdown">
+      {{countdownSeconds}}s后可重发
+    </view>
+    <view
+      wx:else
+      class="code-send {{isSending ? 'code-send--busy' : ''}}"
+      bindtap="onSendCode"
+    >{{isSending ? '发送中…' : '获取验证码'}}</view>
+  </view>
+
+  <!-- ===== 协议勾选行（对齐 AgreementRow） ===== -->
+  <view class="agreement" bindtap="onToggleAgreement">
+    <view class="checkbox {{agreed ? 'checkbox--on' : ''}}">
+      <text wx:if="{{agreed}}" class="checkbox-mark">✓</text>
+    </view>
+    <text class="agreement-text" user-select>
+      我已阅读并同意
+      <text class="agreement-link" catchtap="onOpenUserAgreement">《用户协议》</text>
+      和
+      <text class="agreement-link" catchtap="onOpenPrivacyPolicy">《隐私政策》</text>
+    </text>
+  </view>
+
+  <!-- ===== 行内错误提示（对齐 uiState.error，primary 红字居中） ===== -->
+  <view wx:if="{{error}}" class="error-text">{{error}}</view>
+
+  <!-- ===== 胶囊主按钮（对齐 PressablePillButton：52dp 高、按压缩放反馈） ===== -->
+  <button
+    class="login-btn tap-scale {{agreed ? '' : 'login-btn--dim'}}"
+    loading="{{isLoading}}"
+    bindtap="onLogin"
+  >登录 / 注册</button>
+
+</view>

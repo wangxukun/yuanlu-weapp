@@ -65,7 +65,7 @@ function redirectToLogin() {
   if (redirectingToLogin) return;
   redirectingToLogin = true;
   wx.navigateTo({
-    url: "/pages/login/login",
+    url: "/pages/auth/login/login",
     complete: () => {
       redirectingToLogin = false;
     },
@@ -227,11 +227,13 @@ function del(url, data, options = {}) {
  * 移动端登录（手机号+验证码 或 邮箱+密码 二选一）
  * 对应后端 app/api/auth/mobile/token/route.ts
  * @param {Object} params { phone, code } 或 { email, password }
+ * @param {Object} [options] 透传给 request 的选项（如 { showError: false }）
  * @returns {Promise<Object>} resolve { userid, token, expiresAt, nickname, ... }
  */
-function mobileLogin(params) {
+function mobileLogin(params, options = {}) {
   return post("/api/auth/mobile/token", params, {
     needAuth: false,
+    ...options,
   }).then((body) => {
     const { token, expiresAt, ...userInfo } = body.data;
     saveLogin(token, expiresAt, userInfo);
