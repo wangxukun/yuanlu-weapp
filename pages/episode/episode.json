@@ -3,5 +3,8 @@
   "navigationBarBackgroundColor": "#faf8f3",
   "navigationBarTextStyle": "black",
   "backgroundColor": "#faf8f3",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ai-deep-dive": "/components/ai-deep-dive/index"
+  }
 }

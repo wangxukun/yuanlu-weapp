@@ -1,0 +1,28 @@
+<view class="pm-mask" wx:if="{{visible}}" catchtap="onClose" catch:touchmove="noop">
+  <view class="pm-card" catchtap="noop">
+    <!-- 头部：渐变图标 + 标题 -->
+    <view class="pm-header center col">
+      <view class="pm-icon-circle center">
+        <image class="pm-icon" src="/assets/icons/sparkles.svg"></image>
+      </view>
+      <text class="pm-title">{{scenario.title}}</text>
+      <text class="pm-desc">{{scenario.description}}</text>
+    </view>
+
+    <!-- 权益清单 -->
+    <view class="pm-benefits col">
+      <view class="pm-benefit-row row" wx:for="{{scenario.benefits}}" wx:key="*this">
+        <image class="pm-benefit-icon" src="/assets/icons/check-circle.svg"></image>
+        <text class="pm-benefit-text">{{item}}</text>
+      </view>
+    </view>
+
+    <!-- CTA -->
+    <view class="pm-cta center tap-scale" bindtap="onCta">
+      <text class="pm-cta-text">立即开通 PRO</text>
+    </view>
+    <view class="pm-later center" bindtap="onClose">
+      <text class="pm-later-text">暂不开通</text>
+    </view>
+  </view>
+</view>

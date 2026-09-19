@@ -22,6 +22,9 @@ Page({
 
     // Intro Expanded
     introExpanded: false,
+
+    // scroll-into-view 锚点（AI 精讲收起时回滚到卡片顶部）
+    scrollIntoView: '',
     
     // AI Modal / Card (Screenshot UI)
     // PRO up-sell card is static layout for now as per Android/Screenshot, just need to render.
@@ -148,6 +151,15 @@ Page({
 
   onToggleIntro() {
     this.setData({ introExpanded: !this.data.introExpanded });
+  },
+
+  /** AI 精讲收起：回滚到卡片锚点（对齐 Web 端 scrollIntoView） */
+  onDeepDiveCollapse() {
+    this.setData({ scrollIntoView: '' });
+    // 下一帧再设置锚点，确保同名锚点重复触发的滚动生效
+    setTimeout(() => {
+      this.setData({ scrollIntoView: 'ai-dive-anchor' });
+    }, 50);
   },
 
   onStartListening() {

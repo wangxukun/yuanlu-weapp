@@ -1,0 +1,369 @@
+/* components/ai-deep-dive — AI 精讲本集（三态卡 + 四类内容） */
+
+.dd-card {
+  background-color: #ffffff;
+  border-radius: 32rpx;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.03);
+  padding: 32rpx;
+}
+
+/* ── 头部（三态共用） ── */
+.dd-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.dd-icon-circle {
+  width: 80rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #7f56d9 0%, #9e77ed 100%);
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 24rpx;
+  box-shadow: 0 8rpx 20rpx rgba(127, 86, 217, 0.3);
+}
+
+.dd-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.dd-spinner {
+  width: 32rpx;
+  height: 32rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: dd-spin 0.9s linear infinite;
+}
+
+@keyframes dd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dd-head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.dd-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.dd-pro-badge {
+  background-color: #feebc8;
+  color: #c05621;
+  font-size: 18rpx;
+  font-weight: 800;
+  padding: 2rpx 12rpx;
+  border-radius: 50rpx;
+  margin-left: 12rpx;
+  border: 1px solid #fbd38d;
+  letter-spacing: 2rpx;
+}
+
+.dd-desc {
+  font-size: 24rpx;
+  color: #6b7280;
+  line-height: 1.6;
+  margin-top: 8rpx;
+}
+
+.dd-lock {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  margin-top: 4rpx;
+}
+
+.dd-chevron {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  margin-top: 2rpx;
+}
+
+/* ── 四分类胶囊（锁定/未展开态） ── */
+.dd-chips {
+  margin-top: 28rpx;
+}
+
+.dd-chip {
+  background-color: #f8f9fa;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  padding: 10rpx 22rpx;
+  border-radius: 50rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.dd-chip-icon {
+  width: 26rpx;
+  height: 26rpx;
+  margin-right: 10rpx;
+}
+
+.dd-chip-text {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+/* ── 展开态内容区 ── */
+.dd-body {
+  margin-top: 8rpx;
+}
+
+.dd-section-title {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 800;
+  color: #9ca3af;
+  letter-spacing: 4rpx;
+  margin: 28rpx 0 20rpx;
+}
+
+/* 难点词汇预扫 */
+.dd-vocab-list {
+  gap: 16rpx;
+}
+
+.dd-vocab-card {
+  background-color: #f6f5f1;
+  border-radius: 20rpx;
+  padding: 24rpx;
+}
+
+.dd-vocab-word {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #1f7a5c;
+}
+
+.dd-vocab-phonetic {
+  font-size: 22rpx;
+  color: #9ca3af;
+  font-style: italic;
+  margin-left: 12rpx;
+}
+
+.dd-vocab-meaning {
+  font-size: 26rpx;
+  color: #374151;
+  margin-top: 10rpx;
+  line-height: 1.5;
+}
+
+.dd-vocab-reason {
+  font-size: 22rpx;
+  color: #6b7280;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* 长难句拆解 */
+.dd-sentence-list {
+  gap: 16rpx;
+}
+
+.dd-sentence-card {
+  background-color: #f6f5f1;
+  border-left: 6rpx solid #1f7a5c;
+  border-radius: 20rpx;
+  padding: 24rpx;
+}
+
+.dd-sentence-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.dd-sentence-analysis {
+  font-size: 24rpx;
+  color: #6b7280;
+  margin-top: 12rpx;
+  line-height: 1.6;
+}
+
+/* 跟读句推荐 */
+.dd-shadow-list {
+  gap: 16rpx;
+}
+
+.dd-shadow-card {
+  background-color: #f6f5f1;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  align-items: flex-start;
+}
+
+.dd-shadow-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+  margin-top: 4rpx;
+}
+
+.dd-shadow-text {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.dd-shadow-reason {
+  font-size: 22rpx;
+  color: #9ca3af;
+  margin-top: 6rpx;
+}
+
+/* 理解测验 */
+.dd-quiz-list {
+  gap: 20rpx;
+}
+
+.dd-quiz-card {
+  background-color: #f6f5f1;
+  border-radius: 20rpx;
+  padding: 24rpx;
+}
+
+.dd-quiz-question {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.5;
+  margin-bottom: 20rpx;
+}
+
+.dd-quiz-options {
+  gap: 14rpx;
+}
+
+.dd-opt {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  align-items: flex-start;
+}
+
+.dd-opt.opt-correct {
+  background-color: rgba(31, 122, 92, 0.08);
+  border-color: rgba(31, 122, 92, 0.55);
+}
+
+.dd-opt.opt-wrong {
+  background-color: rgba(210, 80, 63, 0.06);
+  border-color: rgba(210, 80, 63, 0.55);
+}
+
+.dd-opt-letter {
+  width: 36rpx;
+  font-size: 22rpx;
+  font-weight: 800;
+  color: #9ca3af;
+  text-align: center;
+  flex-shrink: 0;
+  margin-right: 8rpx;
+}
+
+.dd-opt-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-right: 10rpx;
+}
+
+.dd-opt-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.dd-quiz-explain {
+  background-color: #ffffff;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-top: 16rpx;
+}
+
+.dd-quiz-explain-text {
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* 底部收起控制栏 */
+.dd-collapse-bar {
+  justify-content: flex-end;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1px solid #f0ede6;
+}
+
+.dd-collapse-btn {
+  padding: 12rpx 20rpx;
+  border-radius: 14rpx;
+}
+
+.dd-collapse-text {
+  font-size: 24rpx;
+  color: #6b7280;
+  margin-right: 6rpx;
+}
+
+.dd-collapse-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* ── 通用工具类（组件样式隔离，需自带） ── */
+.row {
+  display: flex;
+  flex-direction: row;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.end {
+  display: flex;
+  justify-content: flex-end;
+}
+.align-center {
+  align-items: center;
+}
+.align-baseline {
+  align-items: baseline;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+.tap-scale-light {
+  transition: opacity 0.15s ease;
+}
+.tap-scale-light:active {
+  opacity: 0.75;
+}

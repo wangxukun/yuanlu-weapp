@@ -1,0 +1,123 @@
+<!-- 入口卡：未加载（锁定态 / 会员待生成态） -->
+<view wx:if="{{!content}}" class="dd-card tap-scale-light" bindtap="onCardTap">
+  <view class="dd-head row">
+    <view class="dd-icon-circle center">
+      <view class="dd-spinner" wx:if="{{isLoading}}"></view>
+      <image class="dd-icon" src="/assets/icons/sparkles.svg" wx:else></image>
+    </view>
+    <view class="dd-head-main col flex-1">
+      <view class="row align-center">
+        <text class="dd-title">AI 精讲本集</text>
+        <view class="dd-pro-badge" wx:if="{{isLoggedIn && !isPremium}}">PRO</view>
+      </view>
+      <text class="dd-desc">{{isLoading ? 'AI 正在精读字幕并生成精讲内容，首次生成约需 30-60 秒...' : 'AI 精读本集字幕，生成专属精讲：难点词汇、长难句拆解、跟读句与理解测验。'}}</text>
+    </view>
+    <image class="dd-lock" wx:if="{{isLoggedIn && !isPremium}}" src="/assets/icons/lock.svg"></image>
+    <image class="dd-chevron" wx:elif="{{isPremium && !isLoading}}" src="/assets/icons/chevron-down-gray.svg"></image>
+  </view>
+  <view class="dd-chips row wrap" wx:if="{{!isLoading}}">
+    <view class="dd-chip row" wx:for="{{chips}}" wx:key="text">
+      <image class="dd-chip-icon" src="{{item.icon}}"></image>
+      <text class="dd-chip-text">{{item.text}}</text>
+    </view>
+  </view>
+</view>
+
+<!-- 已加载卡：头部常驻可折叠 + 展开态按分类渲染 -->
+<view wx:else class="dd-card">
+  <view class="dd-head row" bindtap="onHeaderTap">
+    <view class="dd-icon-circle center">
+      <image class="dd-icon" src="/assets/icons/sparkles.svg"></image>
+    </view>
+    <view class="dd-head-main col flex-1">
+      <text class="dd-title">AI 精讲本集</text>
+      <text class="dd-desc">AI 精读本集字幕，生成专属精讲：难点词汇、长难句拆解、跟读句与理解测验。</text>
+    </view>
+    <image class="dd-chevron" src="{{isOpen ? '/assets/icons/chevron-up-gray.svg' : '/assets/icons/chevron-down-gray.svg'}}"></image>
+  </view>
+
+  <block wx:if="{{isOpen}}">
+    <view class="dd-body col">
+
+      <!-- 难点词汇预扫 -->
+      <view wx:if="{{content.vocabulary.length > 0}}">
+        <text class="dd-section-title">难点词汇预扫</text>
+        <view class="dd-vocab-list col">
+          <view class="dd-vocab-card col" wx:for="{{content.vocabulary}}" wx:key="word" wx:for-item="v">
+            <view class="row align-baseline wrap">
+              <text class="dd-vocab-word">{{v.word}}</text>
+              <text class="dd-vocab-phonetic" wx:if="{{v.phonetic}}">{{v.phonetic}}</text>
+            </view>
+            <text class="dd-vocab-meaning">{{v.meaning}}</text>
+            <text class="dd-vocab-reason" wx:if="{{v.reason}}">{{v.reason}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 长难句拆解 -->
+      <view wx:if="{{content.sentences.length > 0}}">
+        <text class="dd-section-title">长难句拆解</text>
+        <view class="dd-sentence-list col">
+          <view class="dd-sentence-card col" wx:for="{{content.sentences}}" wx:key="text" wx:for-item="s">
+            <text class="dd-sentence-text">{{s.text}}</text>
+            <text class="dd-sentence-analysis">{{s.analysis}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 跟读句推荐 -->
+      <view wx:if="{{content.shadowing.length > 0}}">
+        <text class="dd-section-title">跟读句推荐</text>
+        <view class="dd-shadow-list col">
+          <view class="dd-shadow-card row" wx:for="{{content.shadowing}}" wx:key="text" wx:for-item="sd">
+            <image class="dd-shadow-icon" src="/assets/icons/headphones.svg"></image>
+            <view class="col flex-1">
+              <text class="dd-shadow-text">{{sd.text}}</text>
+              <text class="dd-shadow-reason" wx:if="{{sd.reason}}">{{sd.reason}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 理解测验 -->
+      <view wx:if="{{content.quiz.length > 0}}">
+        <text class="dd-section-title">理解测验</text>
+        <view class="dd-quiz-list col">
+          <view class="dd-quiz-card col" wx:for="{{content.quiz}}" wx:key="question" wx:for-item="q" wx:for-index="qi">
+            <text class="dd-quiz-question">{{qi + 1}}. {{q.question}}</text>
+            <view class="dd-quiz-options col">
+              <view
+                class="dd-opt row {{quizAnswers[qi] !== undefined && q.answer === oi ? 'opt-correct' : (quizAnswers[qi] === oi ? 'opt-wrong' : 'opt-normal')}}"
+                wx:for="{{q.options}}"
+                wx:key="*this"
+                wx:for-item="opt"
+                wx:for-index="oi"
+                data-qi="{{qi}}"
+                data-oi="{{oi}}"
+                bindtap="onPickOption"
+              >
+                <image class="dd-opt-icon" wx:if="{{quizAnswers[qi] !== undefined && q.answer === oi}}" src="/assets/icons/check-circle.svg"></image>
+                <image class="dd-opt-icon" wx:elif="{{quizAnswers[qi] === oi}}" src="/assets/icons/x-circle.svg"></image>
+                <text class="dd-opt-letter" wx:else>{{letters[oi]}}</text>
+                <text class="dd-opt-text">{{opt}}</text>
+              </view>
+            </view>
+            <view class="dd-quiz-explain" wx:if="{{quizAnswers[qi] !== undefined && q.explanation}}">
+              <text class="dd-quiz-explain-text">{{q.explanation}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部收起控制栏 -->
+      <view class="dd-collapse-bar row end">
+        <view class="dd-collapse-btn row center tap-scale-light" bindtap="onCollapse">
+          <text class="dd-collapse-text">收起内容</text>
+          <image class="dd-collapse-icon" src="/assets/icons/chevron-up-gray.svg"></image>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>
+
+<premium-modal visible="{{showPremiumModal}}" source="episode_deep_dive" bind:close="onPremiumModalClose" />

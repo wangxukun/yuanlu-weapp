@@ -1,6 +1,6 @@
 <wxs src="../podcast/podcast.wxs" module="fmt" />
 <view class="page-container">
-  <scroll-view scroll-y="true" class="page-scroll">
+  <scroll-view scroll-y="true" class="page-scroll" scroll-into-view="{{scrollIntoView}}" scroll-with-animation="{{true}}">
 
     <!-- Loading & Error -->
     <block wx:if="{{isLoading}}">
@@ -130,33 +130,9 @@
         </view>
       </view>
 
-      <!-- AI PRO Banner -->
-      <view class="ai-banner px-4 mt-4">
-        <view class="ai-card row">
-          <view class="col flex-1">
-            <view class="row align-center mb-3">
-              <view class="ai-icon-circle center mr-3">
-                <image class="icon-sm" src="/assets/icons/sparkles.svg"></image>
-              </view>
-              <view class="col">
-                <view class="row align-center mb-1">
-                  <text class="t-title text-bold mr-2">AI 析讲本集</text>
-                  <view class="pro-badge-sm">PRO</view>
-                </view>
-                <text class="t-mini text-secondary">AI 精炼本集精华，提供背景解读、难点剖析、发音地道解析。跃升你的见解与听力...</text>
-              </view>
-            </view>
-            <view class="ai-tags row wrap">
-              <view class="ai-tag mr-2 mb-2"><text class="t-micro">🌟 独家背景解读</text></view>
-              <view class="ai-tag mr-2 mb-2"><text class="t-micro">🎓 发音难点剖析</text></view>
-              <view class="ai-tag mr-2 mb-2"><text class="t-micro">💡 欧美俚语揭秘</text></view>
-              <view class="ai-tag mr-2 mb-2"><text class="t-micro">🎯 精粹词盘</text></view>
-            </view>
-          </view>
-          <view class="center pl-3">
-            <image class="icon-sm text-secondary" src="/assets/icons/lock.svg"></image>
-          </view>
-        </view>
+      <!-- AI 精讲本集（PRO 专属，三态：锁定 / 解锁未展开 / 已展开） -->
+      <view class="ai-banner px-4 mt-4" id="ai-dive-anchor">
+        <ai-deep-dive episodeid="{{episodeid}}" bind:collapse="onDeepDiveCollapse" />
       </view>
 
       <view class="divider mt-4"></view>

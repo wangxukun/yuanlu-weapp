@@ -1,0 +1,129 @@
+/* components/premium-modal — 会员转化弹窗 */
+.pm-mask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 15, 20, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pm-card {
+  width: 600rpx;
+  background-color: #ffffff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 32rpx;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.2);
+}
+
+.pm-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pm-icon-circle {
+  width: 104rpx;
+  height: 104rpx;
+  background: linear-gradient(135deg, #7f56d9 0%, #9e77ed 100%);
+  border-radius: 50%;
+  box-shadow: 0 8rpx 20rpx rgba(127, 86, 217, 0.35);
+}
+
+.pm-icon {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+.pm-title {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: #1f2937;
+  margin-top: 24rpx;
+}
+
+.pm-desc {
+  font-size: 26rpx;
+  color: #6b7280;
+  line-height: 1.6;
+  margin-top: 16rpx;
+  text-align: center;
+}
+
+.pm-benefits {
+  display: flex;
+  flex-direction: column;
+  margin-top: 36rpx;
+  background-color: #faf9f6;
+  border-radius: 20rpx;
+  padding: 8rpx 28rpx;
+}
+
+.pm-benefit-row {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 0;
+}
+
+.pm-benefit-row + .pm-benefit-row {
+  border-top: 1px solid #efece5;
+}
+
+.pm-benefit-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.pm-benefit-text {
+  font-size: 26rpx;
+  color: #374151;
+  font-weight: 500;
+}
+
+.pm-cta {
+  margin-top: 36rpx;
+  height: 92rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 8rpx 20rpx rgba(217, 119, 6, 0.3);
+}
+
+.pm-cta-text {
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 800;
+  letter-spacing: 2rpx;
+}
+
+.pm-later {
+  padding: 24rpx 0 8rpx;
+}
+
+.pm-later-text {
+  font-size: 26rpx;
+  color: #9ca3af;
+}
+
+/* 通用 */
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  flex-direction: row;
+}
+.tap-scale {
+  transition: transform 0.15s ease;
+}
+.tap-scale:active {
+  transform: scale(0.96);
+}

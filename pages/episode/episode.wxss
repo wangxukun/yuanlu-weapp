@@ -166,29 +166,6 @@
   margin-top: 32rpx;
 }
 
-.ai-card {
-  background-color: #FFFFFF;
-  border-radius: 32rpx;
-  padding: 32rpx;
-  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.03);
-  border: 1px solid var(--border-color);
-}
-
-.pro-badge-sm {
-  background-color: #FEEBC8;
-  color: #C05621;
-  font-size: 16rpx;
-  font-weight: 800;
-  padding: 2rpx 8rpx;
-  border-radius: 50rpx;
-}
-
-.ai-tag {
-  background-color: #F8F9FA;
-  padding: 8rpx 16rpx;
-  border-radius: 8rpx;
-}
-
 .avatar-circle {
   width: 80rpx;
   height: 80rpx;
@@ -254,7 +231,6 @@
 .text-white { color: #FFFFFF; }
 .tracking-wider { letter-spacing: 4rpx; }
 .icon-md { width: 56rpx; height: 56rpx; }
-.ai-icon-circle { width: 80rpx; height: 80rpx; background: linear-gradient(135deg, #7F56D9 0%, #9E77ED 100%); border-radius: 50%; }
 
 .icon-sm { width: 36rpx; height: 36rpx; }
 .icon-xs { width: 28rpx; height: 28rpx; }
