@@ -17,7 +17,8 @@
 const ENV = {
   // 本地开发：指向本机 Next.js dev server
   dev: {
-    BASE_URL: "http://localhost:3000",
+    // BASE_URL: "http://localhost:3000",
+    BASE_URL: "https://www.wxkzd.com",
   },
   // 体验版（灰度/预发可在此覆盖）
   trial: {
