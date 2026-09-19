@@ -1,4 +1,4 @@
-const BASE_URL = 'https://www.wxkzd.com'; // 根据环境可切换为测试服
+const { BASE_URL } = require('./config'); // 环境切换（dev/trial/prod）见 utils/config.js
 
 /**
  * 封装微信请求，支持 Promise，自动注入 Token 及统一错误处理
