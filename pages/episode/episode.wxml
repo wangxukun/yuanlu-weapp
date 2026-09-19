@@ -1,4 +1,237 @@
-<view class="page-placeholder">
-  <text class="t-h2">单集</text>
-  <text class="t-caption text-tertiary">页面建设中 · 阶段二实现</text>
+<wxs src="../podcast/podcast.wxs" module="fmt" />
+<view class="page-container">
+  <scroll-view scroll-y="true" class="page-scroll">
+
+    <!-- Loading & Error -->
+    <block wx:if="{{isLoading}}">
+      <view class="center py-8">
+        <view class="loading-spinner"></view>
+      </view>
+    </block>
+    <block wx:elif="{{error || !episode}}">
+      <view class="center py-8 col">
+        <text class="t-body text-secondary">{{error || '未找到该剧集'}}</text>
+      </view>
+    </block>
+    
+    <block wx:else>
+      <!-- Hero Image -->
+      <view class="hero-section">
+        <view class="hero-card" bindtap="onStartListening">
+          <image class="hero-cover" src="{{episode.coverUrl || episode.podcastCoverUrl || episode.podcast.coverUrl}}" mode="aspectFill"></image>
+          
+          <!-- Top Left: PRO / PlayCount -->
+          <view class="hero-tl row">
+            <view class="pro-badge" wx:if="{{episode.isExclusive}}">PRO</view>
+            <view class="playcount-badge row center" wx:if="{{episode.playCount > 0}}">
+              <image class="icon-xs" src="/assets/icons/headphones.svg"></image>
+              <text class="t-micro text-white ml-1">{{fmt.formatPlayCount(episode.playCount)}}</text>
+            </view>
+          </view>
+          
+          <!-- Top Right: Difficulty -->
+          <view class="hero-tr" wx:if="{{episode.difficulty}}">
+            <view class="difficulty-badge" style="color: {{fmt.difficultyColor(episode.difficulty)}}">{{episode.difficulty}}</view>
+          </view>
+          
+          <!-- Bottom Right: Play Button -->
+          <view class="hero-br">
+            <view class="play-fab center">
+              <image class="icon-md text-white" src="/assets/icons/play-filled.svg"></image>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Meta info: Tags, Date, Duration -->
+      <view class="meta-row row px-4 mt-3">
+        <view class="tag-pill center px-3 py-1 mr-3" wx:if="{{episode.tags && episode.tags[0]}}">
+          <text class="t-mini text-primary text-bold">{{episode.tags[0].name}}</text>
+        </view>
+        <view class="row center text-secondary mr-3" wx:if="{{episode.publishAt}}">
+          <image class="icon-xs" src="/assets/icons/calendar.svg"></image>
+          <text class="t-body ml-1">{{fmt.formatDateZh(episode.publishAt)}}</text>
+        </view>
+        <view class="row center text-secondary" wx:if="{{episode.duration}}">
+          <image class="icon-xs" src="/assets/icons/clock.svg"></image>
+          <text class="t-body ml-1">{{fmt.formatMinutes(episode.duration)}}</text>
+        </view>
+      </view>
+
+      <!-- Title & Translate -->
+      <view class="title-row px-4 mt-2 row align-start">
+        <view class="col flex-1 mr-2">
+          <text class="t-h2 text-bold">{{episode.title}}</text>
+          <text class="t-title text-secondary mt-1" wx:if="{{translatedTitle}}">{{translatedTitle}}</text>
+        </view>
+        <view class="translate-btn center tap-scale {{translatedTitle ? 'active' : ''}}" bindtap="onTranslateTitle">
+          <view class="loading-spinner-sm" wx:if="{{isTranslatingTitle}}"></view>
+          <image class="icon-sm" src="/assets/icons/translate.svg" wx:else></image>
+        </view>
+      </view>
+
+      <!-- Podcast Link -->
+      <view class="podcast-link px-4 mt-2">
+        <view class="row center tap-scale" bindtap="onOpenPodcast" style="display: inline-flex;">
+          <image class="icon-sm text-primary" src="/assets/icons/tv.svg"></image>
+          <text class="t-body text-primary text-bold ml-2">{{episode.podcastTitle || episode.podcast.title || episode.podcast.name || '远路英语'}}</text>
+        </view>
+      </view>
+
+      <!-- Primary Actions -->
+      <view class="actions-primary px-4 mt-4 row">
+        <view class="btn-primary flex-1 row center tap-scale mr-3" bindtap="onStartListening">
+          <image class="icon-sm text-white" src="/assets/icons/play-filled.svg"></image>
+          <text class="t-title text-white text-bold ml-2">开始精听</text>
+        </view>
+        <view class="btn-accent flex-1 row center tap-scale" bindtap="onPractice">
+          <image class="icon-sm text-white" src="/assets/icons/mic.svg"></image>
+          <text class="t-title text-white text-bold ml-2">语音评测</text>
+        </view>
+      </view>
+
+      <!-- Secondary Actions -->
+      <view class="actions-secondary px-4 mt-3 row">
+        <view class="action-box center col tap-scale" bindtap="onDownloadAudio">
+          <image class="icon-sm text-secondary" src="/assets/icons/download.svg"></image>
+        </view>
+        <view class="action-box center col tap-scale" bindtap="onTranscript">
+          <image class="icon-sm text-secondary" src="/assets/icons/file-text.svg"></image>
+        </view>
+        <view class="action-box center col tap-scale" bindtap="onToggleFavorite" style="opacity: {{isFavoriteBusy ? 0.5 : 1}};">
+          <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark-filled.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
+        </view>
+        <view class="action-box center col tap-scale" bindtap="onShare">
+          <image class="icon-sm text-secondary" src="/assets/icons/share.svg"></image>
+        </view>
+      </view>
+
+      <view class="divider mt-4"></view>
+
+      <!-- Program Introduction -->
+      <view class="intro-section px-4 mt-4">
+        <view class="row between align-center mb-3">
+          <text class="t-h2 text-bold">节目介绍</text>
+          <view class="translate-btn center tap-scale {{translatedDesc ? 'active' : ''}}" bindtap="onTranslateDescription">
+            <view class="loading-spinner-sm" wx:if="{{isTranslatingDesc}}"></view>
+            <image class="icon-sm" src="/assets/icons/translate.svg" wx:else></image>
+          </view>
+        </view>
+        
+        <view class="desc-content">
+          <text class="t-desc serif {{!introExpanded ? 'ellipsis-3' : ''}}">{{translatedDesc || episode.description || '暂无介绍'}}</text>
+        </view>
+        
+        <view class="expand-wrapper row center mt-2">
+          <view class="expand-pill row center tap-scale" bindtap="onToggleIntro">
+            <text class="t-mini text-primary text-bold">{{introExpanded ? '收起内容' : '显示全部'}}</text>
+            <image class="icon-xs ml-1" src="{{introExpanded ? '/assets/icons/chevron-up.svg' : '/assets/icons/chevron-down.svg'}}"></image>
+          </view>
+        </view>
+      </view>
+
+      <!-- AI PRO Banner -->
+      <view class="ai-banner px-4 mt-4">
+        <view class="ai-card row">
+          <view class="col flex-1">
+            <view class="row align-center mb-3">
+              <view class="ai-icon-circle center mr-3">
+                <image class="icon-sm" src="/assets/icons/sparkles.svg"></image>
+              </view>
+              <view class="col">
+                <view class="row align-center mb-1">
+                  <text class="t-title text-bold mr-2">AI 析讲本集</text>
+                  <view class="pro-badge-sm">PRO</view>
+                </view>
+                <text class="t-mini text-secondary">AI 精炼本集精华，提供背景解读、难点剖析、发音地道解析。跃升你的见解与听力...</text>
+              </view>
+            </view>
+            <view class="ai-tags row wrap">
+              <view class="ai-tag mr-2 mb-2"><text class="t-micro">🌟 独家背景解读</text></view>
+              <view class="ai-tag mr-2 mb-2"><text class="t-micro">🎓 发音难点剖析</text></view>
+              <view class="ai-tag mr-2 mb-2"><text class="t-micro">💡 欧美俚语揭秘</text></view>
+              <view class="ai-tag mr-2 mb-2"><text class="t-micro">🎯 精粹词盘</text></view>
+            </view>
+          </view>
+          <view class="center pl-3">
+            <image class="icon-sm text-secondary" src="/assets/icons/lock.svg"></image>
+          </view>
+        </view>
+      </view>
+
+      <view class="divider mt-4"></view>
+
+      <!-- Interactive Discussion -->
+      <view class="comments-section px-4 mt-4">
+        <text class="t-h2 text-bold mb-4">互动讨论</text>
+        
+        <view class="comment-input-row row align-start">
+          <view class="avatar-circle center mr-3">
+            <text class="t-body text-white">匿</text>
+          </view>
+          <view class="input-wrapper flex-1 col">
+            <textarea class="comment-textarea" placeholder="分享你的见解或提问..." value="{{commentText}}" bindinput="onCommentInput" auto-height></textarea>
+            <view class="row end mt-2">
+              <view class="btn-send center tap-scale {{commentText.trim() ? 'active' : ''}}" bindtap="onSubmitComment">
+                <text class="t-body">发送</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- Comments List -->
+        <view class="comments-list mt-4 center col" wx:if="{{comments.length === 0}}">
+          <text class="t-body text-secondary mt-4">遇到发人深思，来抢沙发吧</text>
+        </view>
+        <view class="comments-list mt-4 col" wx:else>
+           <!-- For brevity, simplistic comment render -->
+           <block wx:for="{{comments}}" wx:key="id">
+             <view class="comment-item row mb-4">
+               <view class="avatar-circle center mr-3"><text class="t-body text-white">{{item.authorName[0] || 'U'}}</text></view>
+               <view class="col flex-1">
+                 <text class="t-body text-bold">{{item.authorName || 'User'}}</text>
+                 <text class="t-body mt-1">{{item.content}}</text>
+               </view>
+             </view>
+           </block>
+        </view>
+      </view>
+
+      <view class="divider mt-4"></view>
+
+      <!-- Related Episodes -->
+      <view class="related-section px-4 mt-4 mb-5" wx:if="{{relatedEpisodes.length > 0}}">
+        <text class="t-h2 text-bold mb-4">相关剧集</text>
+        <view class="related-list col">
+          <block wx:for="{{relatedEpisodes}}" wx:key="episodeid">
+            <view class="related-row row align-center mb-3 tap-scale" bindtap="onOpenEpisode" data-id="{{item.episodeid}}">
+              <view class="related-cover-wrap">
+                <image class="related-cover" src="{{item.coverUrl || item.podcastCoverUrl || item.podcast.coverUrl || episode.podcastCoverUrl || episode.podcast.coverUrl}}" mode="aspectFill"></image>
+              </view>
+              <view class="col flex-1 ml-3 mr-2">
+                <text class="t-micro text-primary text-bold tracking-wider">EPISODE {{index + 1}}</text>
+                <text class="t-title text-bold ellipsis mt-1">{{item.title}}</text>
+                <view class="row align-center mt-1 text-secondary">
+                  <image class="icon-xs" src="/assets/icons/tv.svg"></image>
+                  <text class="t-mini ml-1">{{item.podcastTitle || item.podcast.title || item.podcast.name || episode.podcastTitle || episode.podcast.title || episode.podcast.name || '远路英语'}}</text>
+                </view>
+              </view>
+              <view class="center p-2">
+                <view class="outline-btn center tap-scale">
+                  <image class="icon-xs" src="/assets/icons/list.svg"></image>
+                </view>
+              </view>
+            </view>
+          </block>
+        </view>
+        
+        <!-- View More -->
+        <view class="view-more-btn center tap-scale mt-2" bindtap="onOpenPodcast">
+          <text class="t-title text-primary text-bold tracking-wider">查看更多内容</text>
+        </view>
+      </view>
+      
+      <view style="height: 60rpx;"></view>
+    </block>
+  </scroll-view>
 </view>

@@ -1,4 +1,103 @@
-<view class="page-placeholder">
-  <text class="t-h2">播客</text>
-  <text class="t-caption text-tertiary">页面建设中 · 阶段二实现</text>
+<wxs src="./podcast.wxs" module="fmt" />
+<view class="page-container">
+  <!-- Top Card -->
+  <view class="podcast-header">
+    <view class="header-content row align-start">
+      <view class="cover-container">
+        <image class="cover-image" src="{{podcast.coverUrl}}" mode="aspectFill"></image>
+        <view class="episode-count" wx:if="{{podcast.episodeCount || total}}">{{podcast.episodeCount || total}}</view>
+      </view>
+      <view class="info-container col flex-1 ml-3">
+        <text class="t-title">{{podcast.title}}</text>
+        <text class="t-platform" wx:if="{{podcast.platform}}">{{podcast.platform}}</text>
+        
+        <scroll-view class="desc-scroll mt-1" scroll-y="{{introExpanded}}" style="max-height: {{introExpanded ? '560rpx' : '76rpx'}};">
+          <text class="t-desc {{!introExpanded ? 'ellipsis-2' : ''}}">{{podcast.description}}</text>
+        </scroll-view>
+        
+        <view class="expand-btn row w-full mt-1" style="justify-content: flex-end;" wx:if="{{podcast.description}}">
+          <text class="t-expand tap-scale" bindtap="onToggleIntro">{{introExpanded ? '收起' : '展开'}}</text>
+        </view>
+        
+        <view class="actions row mt-3" style="gap: 60rpx;">
+          <view class="action-btn row center tap-scale" bindtap="onToggleFavorite" style="opacity: {{isFavoriteBusy ? 0.5 : 1}};">
+            <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark-filled.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
+            <text class="t-action ml-1" style="color: {{isFavorited ? 'var(--error)' : 'var(--text-secondary)'}}">{{isFavorited ? '已收藏' : '收藏'}}</text>
+          </view>
+          <view class="action-btn row center tap-scale" bindtap="onShare">
+            <image class="icon-sm" src="/assets/icons/share.svg"></image>
+            <text class="t-action ml-1 text-secondary">分享</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="divider"></view>
+
+  <!-- Episodes List (Scrollable) -->
+  <view class="episodes-list">
+    <scroll-view scroll-y="true" class="episodes-scroll" bindscrolltolower="loadMore">
+      <view style="padding-top: 8rpx; padding-bottom: 32rpx;">
+        <block wx:if="{{episodes.length === 0 && !isLoading}}">
+          <view class="center" style="padding: 64rpx 0;">
+            <text class="t-body text-secondary">暂无单集</text>
+          </view>
+        </block>
+        
+        <block wx:for="{{episodes}}" wx:key="episodeid">
+          <view class="episode-row tap-scale row" bindtap="onOpenEpisode" data-id="{{item.episodeid}}">
+            <view class="ep-cover-wrap">
+              <image class="ep-cover" src="{{item.coverUrl || podcast.coverUrl}}" mode="aspectFill"></image>
+              <view class="ep-difficulty" wx:if="{{item.difficulty}}" style="color: {{fmt.difficultyColor(item.difficulty)}}">{{item.difficulty}}</view>
+              <view class="ep-duration" wx:if="{{item.duration}}">{{fmt.formatDuration(item.duration)}}</view>
+              <view class="ep-progress-bg w-full" wx:if="{{item.progressSeconds > 0 && !item.isFinished}}">
+                <view class="ep-progress-fill" style="width: {{(item.progressSeconds / item.duration) * 100}}%"></view>
+              </view>
+            </view>
+            <view class="ep-info col flex-1 ml-3">
+              <text class="ep-series ellipsis">{{item.podcastTitle || podcast.title}}</text>
+              <text class="ep-title ellipsis-2 mt-1">{{item.title}}</text>
+              <view class="ep-meta row mt-1 w-full" style="justify-content: space-between; align-items: center;">
+                <view class="row center text-secondary" wx:if="{{item.playCount > 0}}">
+                  <image class="icon-xs" src="/assets/icons/headphones.svg"></image>
+                  <text class="t-mini ml-1">{{fmt.formatPlayCount(item.playCount)}}</text>
+                </view>
+                <!-- If playCount is 0, we still want publishAt to be on the right. 
+                     Using margin-left: auto will ensure it's on the right regardless of left item. -->
+                <view class="row center text-secondary" style="margin-left: auto;" wx:if="{{item.publishAt}}">
+                  <image class="icon-xs" src="/assets/icons/calendar.svg"></image>
+                  <text class="t-mini ml-1">{{fmt.formatDate(item.publishAt)}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </block>
+        
+        <view class="center" style="padding: 32rpx 0;">
+          <view class="loading-spinner" wx:if="{{isLoadingMore}}"></view>
+          <text class="t-body text-secondary" wx:elif="{{!hasMore && episodes.length > 0}}">已经到底了</text>
+        </view>
+        
+        <!-- Channel Podcasts -->
+        <block wx:if="{{channelPodcasts.length > 0}}">
+          <view class="channel-header between" style="padding: 24rpx 32rpx; margin-top: 16rpx;">
+            <text class="t-h3 text-bold">{{podcast.platform || '该频道'}}的更多节目</text>
+            <text class="t-body text-primary tap-scale" bindtap="onOpenChannel" wx:if="{{podcast.platform}}">查看频道</text>
+          </view>
+          <scroll-view scroll-x="true" class="channel-scroll" show-scrollbar="false">
+            <view class="channel-row row">
+              <block wx:for="{{channelPodcasts}}" wx:key="podcastid">
+                <view class="channel-card col tap-scale" bindtap="onOpenPodcast" data-id="{{item.podcastid}}">
+                  <image class="channel-cover" src="{{item.coverUrl}}" mode="aspectFill"></image>
+                  <text class="t-body text-bold ellipsis mt-2">{{item.title}}</text>
+                  <text class="t-mini text-secondary ellipsis mt-1">{{item.episodeCount || 0}} episodes</text>
+                </view>
+              </block>
+            </view>
+          </scroll-view>
+        </block>
+      </view>
+    </scroll-view>
+  </view>
 </view>

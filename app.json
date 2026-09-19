@@ -1,48 +1,53 @@
 {
   "pages": [
-    "pages/home/home",
-    "pages/discover/discover",
-    "pages/review/review",
-    "pages/mine/mine",
-    "pages/episode/episode",
+    "pages/home/index",
+    "pages/discover/index",
+    "pages/review/index",
+    "pages/mine/index",
+    "pages/auth/index",
     "pages/podcast/podcast",
-    "pages/search/search",
-    "pages/auth/login/login"
+    "pages/episode/episode",
+    "pages/search/search"
   ],
-  "subpackages": [],
   "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#faf8f3",
     "navigationBarTitleText": "远路播客",
-    "navigationBarBackgroundColor": "#FAF8F3",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#FAF8F3",
-    "backgroundTextStyle": "dark"
+    "backgroundColor": "#faf8f3"
   },
   "tabBar": {
-    "color": "#857C68",
-    "selectedColor": "#1F7A5C",
-    "backgroundColor": "#FFFFFF",
-    "borderStyle": "white",
+    "color": "#a79e8a",
+    "selectedColor": "#1f7a5c",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/home/home",
-        "text": "主页"
+        "pagePath": "pages/home/index",
+        "text": "主页",
+        "iconPath": "assets/icons/home.png",
+        "selectedIconPath": "assets/icons/home-active.png"
       },
       {
-        "pagePath": "pages/discover/discover",
-        "text": "发现"
+        "pagePath": "pages/discover/index",
+        "text": "发现",
+        "iconPath": "assets/icons/compass.png",
+        "selectedIconPath": "assets/icons/compass-active.png"
       },
       {
-        "pagePath": "pages/review/review",
-        "text": "复习"
+        "pagePath": "pages/review/index",
+        "text": "复习",
+        "iconPath": "assets/icons/book-open.png",
+        "selectedIconPath": "assets/icons/book-open-active.png"
       },
       {
-        "pagePath": "pages/mine/mine",
-        "text": "我的"
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "assets/icons/user.png",
+        "selectedIconPath": "assets/icons/user-active.png"
       }
     ]
   },
-  "requiredBackgroundModes": ["audio"],
-  "lazyCodeLoading": "requiredComponents",
   "style": "v2",
   "sitemapLocation": "sitemap.json"
 }

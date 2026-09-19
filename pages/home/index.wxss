@@ -1,0 +1,398 @@
+.home-container {
+  padding: var(--page-padding);
+  background-color: var(--page-bg);
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.header {
+  margin-bottom: 48rpx;
+}
+
+.header-left {
+  flex: 1;
+  margin-right: 24rpx;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 曙光橙色板 (对应 Android Accent) */
+.text-accent-700 { color: var(--accent-700); }
+.text-accent-300 { color: var(--accent-300); }
+.bg-accent-100 { background-color: var(--accent-100); }
+.bg-accent-400 { background-color: var(--accent-400); }
+
+.streak-badge {
+  background-color: var(--accent-100);
+  padding: 16rpx 24rpx;
+  border-radius: 32rpx;
+  min-width: 160rpx;
+}
+
+.status-text {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--accent-700);
+  margin-bottom: 4rpx;
+}
+
+.streak-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--accent-700);
+}
+
+.card {
+  margin-bottom: 48rpx;
+}
+
+.resume-card {
+  padding: 32rpx;
+}
+
+.empty-resume {
+  padding: 40rpx;
+}
+
+.btn-discover {
+  margin-top: 32rpx;
+  background-color: var(--color-primary);
+  color: #fff;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 20rpx 48rpx;
+  border: none;
+  width: max-content;
+}
+
+.cover-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 ratio */
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.cover-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--ink-200);
+  display: block;
+}
+
+.resume-cover-badge {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background-color: #ffffff;
+  padding: 4rpx;
+}
+
+.resume-author-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: var(--ink-200);
+}
+
+.resume-eyebrow {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.resume-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.resume-subtitle {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.resume-divider {
+  width: 100%;
+  height: 2rpx;
+  background-color: var(--border-color);
+}
+
+.resume-time-left {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.btn-resume {
+  background-color: var(--primary-600); /* Darker green */
+  color: #ffffff;
+  padding: 12rpx 32rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+}
+
+.btn-resume-icon {
+  font-size: 24rpx;
+}
+
+.btn-resume-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  margin-left: 8rpx;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 8rpx;
+  background-color: var(--ink-200);
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: 4rpx;
+}
+
+.accent-fill {
+  background-color: var(--accent-500);
+}
+
+.mileage-card {
+  padding: 40rpx;
+}
+
+.mileage-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+}
+
+.mileage-badge.positive {
+  background-color: var(--primary-100);
+  color: var(--color-primary);
+}
+
+.mileage-badge.negative {
+  background-color: rgba(210, 80, 63, 0.12);
+  color: var(--error-500);
+}
+
+.road-card {
+  padding: 32rpx;
+}
+
+.journey-strip {
+  position: relative;
+  width: 100%;
+  height: 200rpx;
+  margin-top: 16rpx;
+}
+
+.journey-curve-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.journey-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.node-circle {
+  width: 22rpx;
+  height: 22rpx;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.node-circle.unstudied {
+  background-color: #ffffff;
+  border: 3.5rpx solid #CBD5E1;
+}
+
+.node-circle.studied {
+  background-color: var(--primary-600);
+  border: none;
+}
+
+/* 今天外层虚线圆圈 (Accent400) */
+.today-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  border: 3rpx dashed #E59D2E;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* 学习日里程碑小旗 (Accent500) */
+.node-flag {
+  position: absolute;
+  bottom: calc(50% + 11rpx);
+  left: calc(50% - 2rpx);
+  width: 22rpx;
+  height: 26rpx;
+  pointer-events: none;
+}
+
+/* 日期标签（紧随节点上下起伏） */
+.node-label {
+  position: absolute;
+  top: calc(50% + 16rpx);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.node-label.today-label {
+  color: var(--accent-700);
+  font-weight: bold;
+}
+
+.horizontal-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.scroll-row {
+  display: inline-flex;
+  padding-bottom: 20rpx;
+}
+
+.continue-card {
+  width: 600rpx;
+  margin-right: 24rpx;
+  margin-bottom: 0;
+  padding: 24rpx;
+  border-radius: 24rpx;
+}
+
+.continue-cover {
+  width: 256rpx;
+  height: 144rpx;
+  border-radius: 16rpx;
+  background-color: var(--ink-200);
+  flex-shrink: 0;
+}
+
+.vertical-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.episode-card-h {
+  padding: 16rpx;
+  margin-bottom: 24rpx;
+  border-radius: 24rpx;
+  background-color: var(--card-bg);
+  align-items: flex-start;
+}
+
+.episode-cover-wrap {
+  position: relative;
+  width: 256rpx;
+  height: 144rpx;
+  flex-shrink: 0;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.episode-cover-169 {
+  width: 100%;
+  height: 100%;
+  background-color: var(--ink-200);
+  display: block;
+}
+
+.episode-badge-tr {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  background-color: #ffffff;
+  color: #111827;
+  font-size: 20rpx;
+  font-weight: bold;
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+}
+
+.episode-badge-br {
+  position: absolute;
+  bottom: 8rpx;
+  right: 8rpx;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  font-size: 20rpx;
+  padding: 4rpx 8rpx;
+  border-radius: 8rpx;
+}
+
+.badge-icon-clock {
+  width: 20rpx;
+  height: 20rpx;
+  margin-right: 6rpx;
+  display: block;
+}
+
+.badge-icon-headphones {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 6rpx;
+  display: block;
+}
+
+.badge-icon-lock {
+  width: 22rpx;
+  height: 22rpx;
+  margin-left: 8rpx;
+  display: block;
+}
+
+.icon-tiny {
+  font-size: 20rpx;
+}
+
+.tag-pill {
+  background-color: var(--primary-100);
+  color: var(--color-primary);
+  font-size: 20rpx;
+  font-weight: 500;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.h-full { height: 100%; }
+
+.align-bottom {
+  align-items: flex-end;
+}
+
+.w-full {
+  width: 100%;
+}

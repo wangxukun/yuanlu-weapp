@@ -2,7 +2,7 @@
  * app.js — 远路播客小程序入口
  */
 const audioManager = require("./utils/audioManager");
-const { getToken, getUserInfo } = require("./utils/request");
+const authStore = require("./store/authStore");
 
 App({
   globalData: {
@@ -16,9 +16,10 @@ App({
     // 1. 初始化全局音频管理器：绑定后台音频事件、恢复上次播放列表
     audioManager.init();
 
-    // 2. 恢复本地登录态（token 本体由 request.js 管理，这里只预热用户信息）
-    if (getToken()) {
-      this.globalData.userInfo = getUserInfo();
+    // 2. 恢复本地登录态
+    authStore.init();
+    if (authStore.getState().isLoggedIn) {
+      this.globalData.userInfo = authStore.getState().userInfo;
     }
   },
 

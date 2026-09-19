@@ -1,4 +1,6 @@
 {
   "usingComponents": {},
-  "navigationBarTitleText": "播客"
+  "navigationBarTitleText": "播客详情",
+  "navigationBarBackgroundColor": "#faf8f3",
+  "enablePullDownRefresh": false
 }

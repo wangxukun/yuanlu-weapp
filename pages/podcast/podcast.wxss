@@ -1,9 +1,238 @@
 /* pages/podcast/podcast.wxss */
-.page-placeholder {
+.page-container {
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  background-color: var(--page-bg);
+}
+
+.podcast-header {
+  padding: 16rpx 32rpx;
+  background-color: var(--page-bg);
+  flex-shrink: 0;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.cover-container {
+  width: 260rpx;
+  height: 260rpx;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 20rpx;
+  background-color: var(--card-bg);
+}
+
+.episode-count {
+  position: absolute;
+  bottom: 10rpx;
+  right: 10rpx;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+.info-container {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.t-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.t-platform {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+}
+
+.desc-scroll {
+  width: 100%;
+}
+
+.t-desc {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.t-expand {
+  font-size: 24rpx;
+  color: var(--primary-600);
+}
+
+.actions {
+  display: flex;
+  flex-direction: row;
+}
+
+.action-btn {
+  padding: 4rpx 0;
+}
+
+.t-action {
+  font-size: 24rpx;
+}
+
+.t-edit-date {
+  font-size: 20rpx;
+  color: var(--text-secondary);
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--border-color);
+  opacity: 0.5;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.episodes-list {
+  flex: 1;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.episodes-scroll {
+  flex: 1;
+  height: 100%;
+}
+
+.episode-row {
+  padding: 16rpx 32rpx;
+  display: flex;
+  flex-direction: row;
   align-items: center;
+}
+
+.ep-cover-wrap {
+  width: 240rpx;
+  height: 135rpx; /* 16:9 */
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ep-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: 16rpx;
+  background-color: var(--card-bg);
+}
+
+.ep-difficulty {
+  position: absolute;
+  top: 10rpx;
+  left: 10rpx;
+  background-color: rgba(255, 255, 255, 0.95);
+  font-size: 20rpx;
+  font-weight: 800;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.ep-duration {
+  position: absolute;
+  bottom: 10rpx;
+  right: 10rpx;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+.ep-progress-bg {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 6rpx;
+  background-color: rgba(255, 255, 255, 0.4);
+  border-bottom-left-radius: 16rpx;
+  border-bottom-right-radius: 16rpx;
+  overflow: hidden;
+}
+
+.ep-progress-fill {
+  height: 100%;
+  background-color: var(--primary-500);
+}
+
+.ep-info {
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  gap: 16rpx;
-  padding-top: 200rpx;
+  overflow: hidden;
+}
+
+.ep-series {
+  font-size: 20rpx;
+  color: var(--text-secondary);
+}
+
+.ep-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.channel-header {
+  display: flex;
+  align-items: center;
+}
+
+.channel-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.channel-row {
+  padding: 0 32rpx 32rpx 32rpx;
+  display: flex;
+  flex-direction: row;
+}
+
+.channel-card {
+  width: 288rpx;
+  display: inline-flex;
+  flex-direction: column;
+  margin-right: 24rpx;
+}
+
+.channel-cover {
+  width: 288rpx;
+  height: 288rpx;
+  border-radius: 24rpx;
+  background-color: var(--card-bg);
+}
+
+.icon-sm {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.icon-xs {
+  width: 28rpx;
+  height: 28rpx;
 }

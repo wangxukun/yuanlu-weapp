@@ -1,0 +1,17 @@
+/** 播放量格式化（WXS 模块，可在 WXML 中调用） */
+function formatPlays(count) {
+  if (!count || count <= 0) return '';
+  if (count >= 10000) {
+    var v = Math.floor(count / 1000) / 10;
+    return v + '万 次收听';
+  }
+  if (count >= 1000) {
+    var k = Math.floor(count / 100) / 10;
+    return k + 'k 次收听';
+  }
+  return count + ' 次收听';
+}
+
+module.exports = {
+  formatPlays: formatPlays
+};

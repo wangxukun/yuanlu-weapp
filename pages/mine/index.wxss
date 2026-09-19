@@ -1,0 +1,148 @@
+.mine-container {
+  padding: var(--page-padding);
+  background-color: var(--page-bg);
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.card {
+  background-color: var(--card-bg);
+  border-radius: var(--r-xl);
+  box-shadow: var(--e1);
+}
+
+/* ============ 头部身份卡片 ============ */
+.profile-card {
+  padding: 48rpx 40rpx;
+  align-items: center;
+}
+
+.avatar-wrap {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: var(--ink-200);
+  flex-shrink: 0;
+  border: 2rpx solid var(--border-color);
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-icon {
+  width: 64rpx;
+  height: 64rpx;
+  opacity: 0.3;
+}
+
+.profile-info {
+  min-width: 0; /* 允许内部文本截断 */
+}
+
+/* ============ 角色徽章 ============ */
+.role-badge {
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-text {
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.role-badge.admin {
+  background-color: rgba(31, 122, 92, 0.1);
+}
+.role-badge.admin .badge-text {
+  color: var(--color-primary);
+}
+
+.role-badge.premium {
+  background-color: rgba(217, 138, 23, 0.1);
+}
+.role-badge.premium .badge-text {
+  color: var(--accent-500);
+}
+
+.role-badge.normal {
+  background-color: var(--page-bg);
+}
+.role-badge.normal .badge-text {
+  color: var(--text-tertiary);
+}
+
+/* ============ 数据轨迹宫格 ============ */
+.grid-card {
+  padding: 32rpx 16rpx;
+}
+
+.grid-container {
+  justify-content: space-around;
+}
+
+.grid-item {
+  padding: 16rpx;
+}
+
+.grid-icon-wrap {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--r-lg);
+}
+
+.grid-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ============ 系统管理列表 ============ */
+.list-card {
+  overflow: hidden; /* 防止子项 border 超出圆角 */
+}
+
+.list-item {
+  padding: 40rpx;
+}
+
+.border-bottom {
+  border-bottom: 2rpx solid var(--border-color);
+}
+
+.list-icon {
+  font-size: 36rpx;
+  opacity: 0.8;
+}
+
+/* ============ 退出登录 ============ */
+.logout-card {
+  padding: 32rpx;
+}
+
+/* ============ 通用小部件 ============ */
+.chevron-right {
+  font-size: 32rpx;
+  color: var(--text-tertiary);
+  font-family: monospace; /* 防止中文字体箭头变形 */
+  opacity: 0.5;
+}
+
+/* 间距工具 */
+.mt-1 { margin-top: 8rpx; }
+.mt-2 { margin-top: 16rpx; }
+.mt-3 { margin-top: 24rpx; }
+.mt-4 { margin-top: 32rpx; }
+.mr-3 { margin-right: 24rpx; }
+.ml-4 { margin-left: 32rpx; }
+.mb-2 { margin-bottom: 16rpx; }
+.center-v { align-items: center; }

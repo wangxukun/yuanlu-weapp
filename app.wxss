@@ -325,3 +325,23 @@ page {
   border-radius: 2rpx;
   animation: eq 1s ease-in-out infinite;
 }
+
+/* ============ 间距工具类 ============ */
+.mt-1 { margin-top: 8rpx; }
+.mt-2 { margin-top: 16rpx; }
+.mt-3 { margin-top: 24rpx; }
+.mt-4 { margin-top: 32rpx; }
+.mt-5 { margin-top: 40rpx; }
+.mt-6 { margin-top: 48rpx; }
+.ml-1 { margin-left: 8rpx; }
+.ml-2 { margin-left: 16rpx; }
+.ml-3 { margin-left: 24rpx; }
+.mr-1 { margin-right: 8rpx; }
+.mr-2 { margin-right: 16rpx; }
+.mb-3 { margin-bottom: 24rpx; }
+.mb-6 { margin-bottom: 48rpx; }
+
+/* ============ 布局工具类 ============ */
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.align-bottom { align-items: flex-end; }

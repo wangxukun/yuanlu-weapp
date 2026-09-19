@@ -1,0 +1,90 @@
+<view class="mine-container pb-page-bottom-with-player">
+  <!-- 头部身份卡片 -->
+  <view class="card profile-card row tap-scale" bindtap="{{isLoggedIn ? 'onProfile' : 'onLogin'}}">
+    <view class="avatar-wrap center">
+      <image wx:if="{{isLoggedIn && userInfo.avatarUrl}}" class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="avatar-placeholder center">
+        <!-- 默认头像图标 -->
+        <image class="avatar-icon" src="/assets/icons/user.png" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="profile-info col flex-1 ml-4">
+      <block wx:if="{{isLoggedIn}}">
+        <text class="t-h2 text-bold ellipsis">{{userInfo.nickname || userInfo.email || 'User'}}</text>
+        <view class="row mt-1">
+          <view wx:if="{{userInfo.role === 'ADMIN'}}" class="role-badge admin">
+            <text class="badge-text">管理员</text>
+          </view>
+          <view wx:elif="{{userInfo.role === 'PREMIUM'}}" class="role-badge premium">
+            <text class="badge-text">高级会员</text>
+          </view>
+          <view wx:else class="role-badge normal">
+            <text class="badge-text">普通用户</text>
+          </view>
+        </view>
+        <text class="t-caption text-secondary mt-1 ellipsis" wx:if="{{userInfo.email}}">{{userInfo.email}}</text>
+      </block>
+      <block wx:else>
+        <text class="t-h2 text-bold">未登录</text>
+        <text class="t-caption text-secondary mt-1">点击登录或注册，开启学习之旅</text>
+      </block>
+    </view>
+    <view class="chevron-right">〉</view>
+  </view>
+
+  <!-- 数据轨迹宫格（登录可见） -->
+  <block wx:if="{{isLoggedIn}}">
+    <view class="card grid-card mt-4">
+      <view class="grid-container row">
+        <navigator wx:for="{{gridEntries}}" wx:key="name" url="{{item.url}}" class="grid-item col center flex-1 tap-scale">
+          <!-- 对齐 yuanlu Web 端 GRID_ENTRIES 的 Lucide 图标 -->
+          <view class="grid-icon-wrap center mb-2">
+            <image class="grid-icon" src="{{item.icon}}" mode="aspectFit" />
+          </view>
+          <text class="t-mini text-bold text-secondary">{{item.name}}</text>
+        </navigator>
+      </view>
+    </view>
+  </block>
+
+  <!-- 系统管理列表 -->
+  <view class="card list-card mt-4">
+    <!-- 管理员控制台入口 -->
+    <navigator wx:if="{{isLoggedIn && userInfo.role === 'ADMIN'}}" url="/pages/admin/index" class="list-item row between tap-scale border-bottom">
+      <view class="row center-v">
+        <text class="list-icon text-error mr-3">⚙️</text>
+        <text class="t-body text-bold text-error">控制台</text>
+      </view>
+      <view class="chevron-right">〉</view>
+    </navigator>
+
+    <!-- 外观设置 -->
+    <view class="list-item row between tap-scale border-bottom" bindtap="onAppearance">
+      <view class="row center-v">
+        <text class="list-icon text-secondary mr-3">🎨</text>
+        <text class="t-body text-bold">外观设置</text>
+      </view>
+      <view class="chevron-right">〉</view>
+    </view>
+
+    <!-- 帮助与支持 -->
+    <navigator url="/pages/contact/index" class="list-item row between tap-scale">
+      <view class="row center-v">
+        <text class="list-icon text-secondary mr-3">❓</text>
+        <text class="t-body text-bold">帮助与支持</text>
+      </view>
+      <view class="chevron-right">〉</view>
+    </navigator>
+  </view>
+
+  <!-- 退出登录 -->
+  <block wx:if="{{isLoggedIn}}">
+    <view class="card logout-card mt-4 center tap-scale" bindtap="onLogout">
+      <text class="t-h3 text-bold text-error">退出登录</text>
+    </view>
+  </block>
+
+  <!-- 底部留白以防被播放条遮挡 -->
+  <view style="height:96rpx;"></view>
+</view>

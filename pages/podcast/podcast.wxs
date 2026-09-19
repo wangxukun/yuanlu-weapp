@@ -1,0 +1,49 @@
+module.exports = {
+  padZero: function(num) { return num < 10 ? '0' + num : num; },
+  formatDuration: function(seconds) {
+    if (!seconds) return '00:00';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+  },
+  difficultyColor: function(level) {
+    if (!level) return '#44403C';
+    if (level.indexOf('A') !== -1) return '#1F7A5C';
+    if (level.indexOf('B1') !== -1) return '#4A7FA5';
+    if (level.indexOf('B2') !== -1) return '#B96F0F';
+    if (level.indexOf('C') !== -1) return '#D2503F';
+    return '#44403C';
+  },
+  formatPlayCount: function(count) {
+    if (!count) return '0';
+    if (count >= 10000) {
+      var wan = count / 10000;
+      if (wan >= 100 || wan === Math.floor(wan)) {
+        return Math.floor(wan) + '万';
+      }
+      return wan.toFixed(1) + '万';
+    }
+    return count.toString();
+  },
+  formatDate: function(dateStr) {
+    if (!dateStr) return '';
+    var d = getDate(dateStr);
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+  },
+  formatMinutes: function(seconds) {
+    if (!seconds) return '0分钟';
+    var m = Math.floor(seconds / 60);
+    return m + '分钟';
+  },
+  formatDateZh: function(dateStr) {
+    if (!dateStr) return '';
+    var d = getDate(dateStr);
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '年' + m + '月' + day + '日';
+  }
+}

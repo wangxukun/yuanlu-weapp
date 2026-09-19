@@ -1,0 +1,210 @@
+<wxs src="./format.wxs" module="fmt" />
+<view class="discover-container pb-page-bottom-with-player">
+  <!-- 加载态：骨架屏 -->
+  <block wx:if="{{isLoading}}">
+    <view class="skeleton-wrap">
+      <view class="skeleton skeleton-search"></view>
+      <view class="skeleton-grid" wx:for="{{[1,2,3]}}" wx:key="*this">
+        <view class="skeleton-card-wrap">
+          <view class="skeleton skeleton-cover"></view>
+          <view class="skeleton skeleton-line-short"></view>
+          <view class="skeleton skeleton-line-tiny"></view>
+        </view>
+        <view class="skeleton-card-wrap">
+          <view class="skeleton skeleton-cover"></view>
+          <view class="skeleton skeleton-line-short"></view>
+          <view class="skeleton skeleton-line-tiny"></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 错误态 -->
+  <block wx:elif="{{error}}">
+    <view class="error-box center col">
+      <text class="t-body text-secondary">{{error}}</text>
+      <button class="btn-primary" style="margin-top:32rpx;width:240rpx;" bindtap="loadData">重试</button>
+    </view>
+  </block>
+
+  <!-- 搜索结果态 -->
+  <block wx:elif="{{searchResults !== null}}">
+    <!-- 搜索栏（固定在顶部） -->
+    <view class="search-bar row">
+      <view class="search-input-wrap row flex-1">
+        <text class="search-icon">🔍</text>
+        <input class="search-input flex-1" value="{{query}}" bindinput="onSearchInput" placeholder="搜索播客..." confirm-type="search" />
+        <view class="clear-btn tap-dim" bindtap="onClearSearch" wx:if="{{query}}">
+          <text class="clear-icon">✕</text>
+        </view>
+      </view>
+    </view>
+
+    <block wx:if="{{isSearching}}">
+      <view class="center" style="padding:80rpx 0;">
+        <view class="loading-spinner"></view>
+      </view>
+    </block>
+    <block wx:elif="{{searchResults.length === 0}}">
+      <view class="empty-box center col">
+        <text class="t-body text-secondary">没有找到相关播客</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="grid-section">
+        <view class="grid-row" wx:for="{{searchResults}}" wx:key="podcastid">
+          <view class="podcast-card tap-scale" bindtap="onOpenPodcast" data-id="{{item.podcastid}}">
+            <view class="podcast-cover-wrap">
+              <image class="podcast-cover-square" src="{{item.coverUrl}}" mode="aspectFill" />
+            </view>
+            <text class="t-body text-bold ellipsis-2 mt-1">{{item.title}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </block>
+
+  <!-- 正常浏览态 -->
+  <block wx:else>
+    <!-- 搜索栏 -->
+    <view class="search-bar row">
+      <view class="search-input-wrap row flex-1">
+        <text class="search-icon">🔍</text>
+        <input class="search-input flex-1" value="{{query}}" bindinput="onSearchInput" placeholder="搜索播客..." confirm-type="search" />
+      </view>
+    </view>
+
+    <!-- 热门榜 -->
+    <block wx:if="{{trending.length > 0}}">
+      <view class="section-header">
+        <text class="t-h3 text-bold">热门榜</text>
+      </view>
+      <view class="grid-row" wx:for="{{trendingRows}}" wx:key="index">
+        <view class="grid-col" wx:for="{{item}}" wx:for-item="podcast" wx:for-index="colIdx" wx:key="podcastid">
+          <view class="ranked-card tap-scale" bindtap="onOpenPodcast" data-id="{{podcast.podcastid}}">
+            <view class="podcast-cover-wrap">
+              <image class="podcast-cover-square" src="{{podcast.coverUrl}}" mode="aspectFill" />
+              <!-- 排名徽章 -->
+              <view class="rank-badge rank-{{index * 2 + colIdx < 3 ? (index * 2 + colIdx) : 'default'}}">
+                <text class="rank-text">{{index * 2 + colIdx < 9 ? '0' : ''}}{{index * 2 + colIdx + 1}}</text>
+              </view>
+            </view>
+            <text class="t-caption text-primary mt-1 ellipsis" wx:if="{{podcast.platform}}">{{podcast.platform}}</text>
+            <text class="t-body text-bold ellipsis-2 mt-1">{{podcast.title}}</text>
+            <text class="t-caption text-secondary mt-1" wx:if="{{podcast.totalPlays > 0}}">{{fmt.formatPlays(podcast.totalPlays)}}</text>
+          </view>
+        </view>
+        <!-- 单数末行占位 -->
+        <view class="grid-col" wx:if="{{item.length === 1}}"></view>
+      </view>
+    </block>
+
+    <!-- 为您推荐 -->
+    <block wx:if="{{editorPicks.length > 0}}">
+      <view class="section-header">
+        <text class="t-h3 text-bold">为您推荐</text>
+      </view>
+      <view class="grid-row" wx:for="{{picksRows}}" wx:key="index">
+        <view class="grid-col" wx:for="{{item}}" wx:for-item="podcast" wx:key="podcastid">
+          <view class="podcast-card tap-scale" bindtap="onOpenPodcast" data-id="{{podcast.podcastid}}">
+            <view class="podcast-cover-wrap">
+              <image class="podcast-cover-square" src="{{podcast.coverUrl}}" mode="aspectFill" />
+            </view>
+            <text class="t-caption text-primary mt-1 ellipsis" wx:if="{{podcast.platform}}">{{podcast.platform}}</text>
+            <text class="t-body text-bold ellipsis-2 mt-1">{{podcast.title}}</text>
+            <view class="tag-pill mt-1" wx:if="{{podcast.tags && podcast.tags.length > 0}}">
+              <text class="pill-text">{{podcast.tags[0].name}}</text>
+            </view>
+          </view>
+        </view>
+        <view class="grid-col" wx:if="{{item.length === 1}}"></view>
+      </view>
+    </block>
+
+    <!-- 新节目 -->
+    <block wx:if="{{newPodcasts.length > 0}}">
+      <view class="section-header">
+        <text class="t-h3 text-bold">新节目</text>
+      </view>
+      <view class="grid-row" wx:for="{{newRows}}" wx:key="index">
+        <view class="grid-col" wx:for="{{item}}" wx:for-item="podcast" wx:key="podcastid">
+          <view class="podcast-card tap-scale" bindtap="onOpenPodcast" data-id="{{podcast.podcastid}}">
+            <view class="podcast-cover-wrap">
+              <image class="podcast-cover-square" src="{{podcast.coverUrl}}" mode="aspectFill" />
+              <view class="new-badge">
+                <text class="new-badge-text">新</text>
+              </view>
+            </view>
+            <text class="t-caption text-primary mt-1 ellipsis" wx:if="{{podcast.platform}}">{{podcast.platform}}</text>
+            <text class="t-body text-bold ellipsis-2 mt-1">{{podcast.title}}</text>
+          </view>
+        </view>
+        <view class="grid-col" wx:if="{{item.length === 1}}"></view>
+      </view>
+    </block>
+
+    <!-- 推荐频道 -->
+    <block wx:if="{{channels.length > 0}}">
+      <view class="section-header between">
+        <text class="t-h3 text-bold">推荐频道</text>
+        <text class="t-caption text-primary text-bold" bindtap="onViewAllChannels">查看更多</text>
+      </view>
+      <view class="grid-row" wx:for="{{channelRows}}" wx:key="index">
+        <view class="grid-col" wx:for="{{item}}" wx:for-item="channel" wx:key="name">
+          <view class="channel-card tap-scale center col" bindtap="onOpenChannel" data-name="{{channel.name}}">
+            <text class="channel-name t-h3 text-bold">{{channel.name}}</text>
+            <text class="channel-count t-caption mt-1">{{channel.podcastCount}} 档节目</text>
+            <view class="channel-btn row center mt-3">
+              <text class="channel-btn-text t-mini text-primary text-bold">频道主页</text>
+            </view>
+          </view>
+        </view>
+        <view class="grid-col" wx:if="{{item.length === 1}}"></view>
+      </view>
+    </block>
+
+    <!-- 分类标签横滑 -->
+    <block wx:if="{{tags.length > 0}}">
+      <scroll-view class="tag-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="tag-row row">
+          <view class="filter-chip {{selectedTagId === null ? 'active' : ''}}" bindtap="onSelectTag" data-id="">
+            <text class="chip-text">全部</text>
+          </view>
+          <view class="filter-chip {{selectedTagId === item.id ? 'active' : ''}}"
+                wx:for="{{tags}}" wx:key="id"
+                bindtap="onSelectTag" data-id="{{item.id}}">
+            <text class="chip-text">{{item.name}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </block>
+
+    <!-- 全部播客网格（受标签筛选） -->
+    <view class="section-header">
+      <text class="t-h3 text-bold">{{selectedTagId ? tags[0].name : '全部播客'}}</text>
+    </view>
+    <block wx:if="{{filteredPodcasts.length === 0}}">
+      <view class="empty-box center">
+        <text class="t-body text-secondary">{{allPodcasts.length === 0 ? '暂无播客' : '该分类暂无播客'}}</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="grid-row" wx:for="{{filteredRows}}" wx:key="index">
+        <view class="grid-col" wx:for="{{item}}" wx:for-item="podcast" wx:key="podcastid">
+          <view class="podcast-card tap-scale" bindtap="onOpenPodcast" data-id="{{podcast.podcastid}}">
+            <view class="podcast-cover-wrap">
+              <image class="podcast-cover-square" src="{{podcast.coverUrl}}" mode="aspectFill" />
+            </view>
+            <text class="t-caption text-primary mt-1 ellipsis" wx:if="{{podcast.platform}}">{{podcast.platform}}</text>
+            <text class="t-body text-bold ellipsis-2 mt-1">{{podcast.title}}</text>
+            <text class="t-caption text-secondary mt-1" wx:if="{{podcast.totalPlays > 0}}">{{fmt.formatPlays(podcast.totalPlays)}}</text>
+          </view>
+        </view>
+        <view class="grid-col" wx:if="{{item.length === 1}}"></view>
+      </view>
+    </block>
+
+    <!-- 底部留白 -->
+    <view style="height:96rpx;"></view>
+  </block>
+</view>
