@@ -83,8 +83,16 @@
   font-weight: 500;
 }
 
+.pm-price {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+  text-align: center;
+}
+
 .pm-cta {
-  margin-top: 36rpx;
+  margin-top: 20rpx;
   height: 92rpx;
   border-radius: 24rpx;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);

@@ -3,6 +3,7 @@
  */
 const audioManager = require("./utils/audioManager");
 const authStore = require("./store/authStore");
+const membershipStore = require("./store/membershipStore");
 
 App({
   globalData: {
@@ -21,6 +22,10 @@ App({
     if (authStore.getState().isLoggedIn) {
       this.globalData.userInfo = authStore.getState().userInfo;
     }
+
+    // 3. 会员判定服务：本地 role 乐观 + subscription/status 权威校正
+    //    （复习模块 PRO 门禁的事实来源，见 REVIEW-TASK.md T0.2）
+    membershipStore.init();
   },
 
   onShow() {

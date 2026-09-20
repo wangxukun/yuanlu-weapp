@@ -1,1 +1,90 @@
-/* review */
+/* pages/review/index — 复习中心 */
+.review-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--page-bg);
+}
+
+/* ===== 未登录引导态 ===== */
+.guest-guide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 80rpx;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 120rpx);
+  text-align: center;
+}
+/* 大图标裸露呈现（对齐 Web PodcastAuthPrompt：无背景容器，品牌绿 320rpx ≈ w-40） */
+.guest-icon {
+  width: 320rpx;
+  height: 320rpx;
+  margin-top: 48rpx;
+  margin-bottom: 16rpx;
+}
+.guest-title {
+  color: var(--text-primary);
+}
+.guest-desc {
+  color: var(--text-secondary);
+  margin-top: 16rpx;
+}
+.guest-btn {
+  width: 400rpx;
+  margin-top: 64rpx;
+}
+.guest-hint {
+  color: var(--text-tertiary);
+  margin-top: 24rpx;
+}
+
+/* ===== 顶部三 Tab（吸附页面顶部，对齐 Web sticky nav） ===== */
+.review-tabs {
+  background: var(--page-bg);
+  border-bottom: 1rpx solid var(--border-color);
+}
+.review-tabs-track {
+  position: relative;
+  display: flex;
+  height: 88rpx;
+}
+.review-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tab-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 8rpx;
+}
+.tab-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.review-tab.active .tab-name {
+  color: var(--color-primary);
+}
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  width: 33.3333%;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-indicator::after {
+  content: '';
+  display: block;
+  height: 6rpx;
+  margin: 0 32rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+}
+
+/* ===== swiper 内容区（高度由 JS 按视口换算注入） ===== */
+.review-swiper {
+  width: 100%;
+}

@@ -1,3 +1,54 @@
-<view class="page-container">
-  <text>review</text>
+<!-- pages/review/index.wxml — 复习中心：三 Tab + swiper（对齐 Web app/(main)/review） -->
+<view class="review-page">
+
+  <!-- 未登录：整页登录引导态（图标与排布对齐 Web 端 PodcastAuthPrompt） -->
+  <view wx:if="{{!isLoggedIn}}" class="guest-guide">
+    <text class="guest-title t-h2">登录后开启复习</text>
+    <image class="guest-icon" src="/assets/icons/podcast-primary.svg" mode="aspectFit" />
+    <text class="guest-desc t-caption">同步你的生词本、句子本与发音弱项本，按遗忘曲线科学安排复习。</text>
+    <view class="btn-primary guest-btn tap-scale" bindtap="onGoLogin">去登录</view>
+    <text class="guest-hint t-mini">登录后即可免费使用三大复习本</text>
+  </view>
+
+  <!-- 已登录：顶部三 Tab（滑动指示条）+ swiper 内容区 -->
+  <block wx:else>
+    <view class="review-tabs">
+      <view class="review-tabs-track">
+        <view
+          wx:for="{{tabs}}"
+          wx:key="name"
+          class="review-tab {{activeTab === index ? 'active' : ''}}"
+          data-index="{{index}}"
+          bindtap="onTabTap"
+        >
+          <image
+            class="tab-icon"
+            src="{{activeTab === index ? (item.activeIcon || item.icon) : item.icon}}"
+            mode="aspectFit"
+          />
+          <text class="tab-name">{{item.name}}</text>
+        </view>
+        <!-- 滑动指示条：left 随 activeTab 过渡（对齐 Web motion layoutId 指示条） -->
+        <view class="tab-indicator" style="left: {{activeTab * 33.3333}}%"></view>
+      </view>
+    </view>
+
+    <swiper
+      class="review-swiper"
+      current="{{activeTab}}"
+      bindchange="onSwiperChange"
+      style="height: {{swiperHeight}}px"
+    >
+      <swiper-item>
+        <vocab-notebook active="{{activeTab === 0}}" />
+      </swiper-item>
+      <swiper-item>
+        <sentence-notebook active="{{activeTab === 1}}" />
+      </swiper-item>
+      <swiper-item>
+        <pron-notebook active="{{activeTab === 2}}" />
+      </swiper-item>
+    </swiper>
+  </block>
+
 </view>

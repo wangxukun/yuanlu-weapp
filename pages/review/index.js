@@ -1,4 +1,88 @@
+// pages/review/index — 复习中心（tabBar 页）
+// 顶部三 Tab：生词本 / 句子本 / 发音弱项本，对齐 Web 端 components/main/review/ReviewTabs.tsx。
+// 未登录渲染整页登录引导态（Web 端为 redirect("/")，tabBar 页不可重定向的等价替代）。
+const authStore = require('../../store/authStore');
+
+// 顶部 Tab 栏高度（rpx，含底部描边），用于换算 swiper 内容区高度
+const TAB_HEADER_RPX = 89;
+
+// 三 Tab 图标严格复刻 Web 端 ReviewTabs 的 lucide 图标（yuanlu node_modules/lucide-react@0.562.0 原始 path）：
+// BookA / TextQuote / Mic；未激活 ink-400 + 线宽 1.75，激活 primary-600 + 线宽 2.25（对齐 strokeWidth 切换）。
+const TABS = [
+  {
+    name: '生词本',
+    icon: '/assets/icons/book-a.svg',
+    activeIcon: '/assets/icons/book-a-active.svg'
+  },
+  {
+    name: '句子本',
+    icon: '/assets/icons/text-quote.svg',
+    activeIcon: '/assets/icons/text-quote-active.svg'
+  },
+  {
+    name: '发音弱项本',
+    icon: '/assets/icons/mic-ink.svg',
+    activeIcon: '/assets/icons/mic-ink-active.svg'
+  }
+];
+
 Page({
-  data: {},
-  onLoad: function(options) {}
+  data: {
+    isLoggedIn: false,
+    tabs: TABS,
+    activeTab: 0,
+    swiperHeight: 600
+  },
+
+  onLoad() {
+    this.unsubscribeAuth = authStore.subscribe(() => {
+      this.syncAuthState();
+    });
+    this.computeSwiperHeight();
+  },
+
+  onShow() {
+    this.syncAuthState();
+  },
+
+  onUnload() {
+    if (this.unsubscribeAuth) {
+      this.unsubscribeAuth();
+    }
+  },
+
+  syncAuthState() {
+    const { isLoggedIn } = authStore.getState();
+    this.setData({ isLoggedIn });
+  },
+
+  // swiper 高度 = 视口高度 − 顶部 Tab 栏。
+  // tabBar 页的 windowHeight 已扣除原生 tabBar，无需再减。
+  computeSwiperHeight() {
+    let win = null;
+    try {
+      win = wx.getWindowInfo();
+    } catch (e) {
+      win = wx.getSystemInfoSync();
+    }
+    if (!win || !win.windowHeight) return;
+    const tabHeaderPx = Math.ceil((TAB_HEADER_RPX * win.windowWidth) / 750);
+    this.setData({ swiperHeight: win.windowHeight - tabHeaderPx });
+  },
+
+  onTabTap(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (index !== this.data.activeTab) {
+      this.setData({ activeTab: index });
+    }
+  },
+
+  onSwiperChange(e) {
+    this.setData({ activeTab: e.detail.current });
+  },
+
+  /** 未登录引导：去登录页，登录成功 navigateBack 后 onShow 自动恢复内容态 */
+  onGoLogin() {
+    wx.navigateTo({ url: '/pages/auth/index' });
+  }
 });

@@ -11,7 +11,17 @@ module.exports = {
 }
 </wxs>
 <view class="home-container pb-page-bottom-with-player">
-  <block wx:if="{{isLoading}}">
+  <!-- 未登录：整页登录引导态（tabBar 页等价 Web redirect("/")），
+       图标与排布对齐 Web 端 PodcastAuthPrompt（标题上、大图标裸露、描述与按钮在下） -->
+  <view wx:if="{{!isLoggedIn}}" class="guest-guide">
+    <text class="guest-title t-h2">登录后开启你的远路</text>
+    <image class="guest-icon" src="/assets/icons/podcast-primary.svg" mode="aspectFit" />
+    <text class="guest-desc t-caption">同步收听记录、学习里程与个性化推荐，多端进度实时一致。</text>
+    <view class="btn-primary guest-btn tap-scale" bindtap="onGoLogin">去登录</view>
+    <text class="guest-hint t-mini">支持手机验证码 / 邮箱密码登录</text>
+  </view>
+
+  <block wx:elif="{{isLoading}}">
     <view class="center" style="height: 50vh;">
       <view class="loading-spinner"></view>
     </view>

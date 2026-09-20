@@ -396,3 +396,36 @@
 .w-full {
   width: 100%;
 }
+
+/* ===== 未登录整页引导态（tabBar 页等价 Web redirect("/")） ===== */
+.guest-guide {
+  min-height: calc(100vh - 200rpx);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60rpx;
+  text-align: center;
+}
+/* 大图标裸露呈现（对齐 Web PodcastAuthPrompt：无背景容器，品牌绿 320rpx ≈ w-40） */
+.guest-icon {
+  width: 320rpx;
+  height: 320rpx;
+  margin-top: 48rpx;
+  margin-bottom: 16rpx;
+}
+.guest-title {
+  color: var(--text-primary);
+}
+.guest-desc {
+  color: var(--text-secondary);
+  margin-top: 16rpx;
+}
+.guest-btn {
+  width: 400rpx;
+  margin-top: 64rpx;
+}
+.guest-hint {
+  color: var(--text-tertiary);
+  margin-top: 24rpx;
+}

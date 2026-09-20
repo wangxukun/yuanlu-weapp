@@ -1,0 +1,12 @@
+/* 生词卡片复习（占位） */
+.page-stub {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.page-stub .t-caption {
+  margin-top: 12rpx;
+}

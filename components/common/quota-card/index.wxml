@@ -1,0 +1,38 @@
+<!-- 配额双栏状态卡（复刻 Web QuotaStatusCard：PRO 无限态 / 免费双栏态） -->
+<view class="qc-card">
+
+  <!-- PRO 无限态 -->
+  <view class="qc-premium" wx:if="{{isPremium}}">
+    <view class="qc-infinity">
+      <image class="qc-infinity-icon" src="/assets/icons/infinity-accent.svg" mode="aspectFit" />
+    </view>
+    <view class="qc-premium-texts">
+      <text class="qc-premium-title">{{premiumTitle}}</text>
+      <text class="qc-premium-subtitle">{{premiumSubtitle}}</text>
+    </view>
+  </view>
+
+  <!-- 免费双栏态：主容量栏 + 今日栏 -->
+  <block wx:else>
+    <view class="qc-bar">
+      <view class="qc-bar-head">
+        <text class="qc-label">{{primaryLabel}}</text>
+        <text class="qc-status qc-text-{{primary.level}}">{{primaryStatusText}}</text>
+      </view>
+      <view class="qc-track">
+        <view class="qc-fill qc-bg-{{primary.level}}" style="width: {{primary.percent}}%"></view>
+      </view>
+    </view>
+
+    <view class="qc-bar">
+      <view class="qc-bar-head">
+        <text class="qc-label">{{dailyLabel}}</text>
+        <text class="qc-status qc-text-{{daily.level}}">{{dailyStatusText}}</text>
+      </view>
+      <view class="qc-track">
+        <view class="qc-fill qc-bg-{{daily.level}}" style="width: {{daily.percent}}%"></view>
+      </view>
+    </view>
+  </block>
+
+</view>

@@ -14,6 +14,8 @@ const JOURNEY_COORDS = [
 
 Page({
   data: {
+    // 登录态：未登录渲染整页引导（tabBar 页等价 Web redirect("/")），双通道同步见 syncAuthState
+    isLoggedIn: false,
     isLoading: true,
     error: null,
     isRefreshing: false,
@@ -53,30 +55,50 @@ Page({
   },
 
   onLoad() {
-    this._lastToken = wx.getStorageSync('token');
-    
-    // 监听 authStore，账号切换或退出时自动刷新数据
+    this._lastToken = undefined;
+
+    // 监听 authStore：登录/登出/换号自动切换引导态与内容态
     this.unsubscribeAuth = authStore.subscribe(() => {
-      const currentToken = wx.getStorageSync('token');
-      if (this._lastToken !== currentToken) {
-        this._lastToken = currentToken;
-        this.fetchHomeData(true);
-      }
+      this.syncAuthState();
     });
 
-    this.fetchHomeData();
+    // 首次同步：已登录直接拉数据；未登录进引导态（不发任何请求）
+    this.syncAuthState();
   },
 
   onShow() {
-    const currentToken = wx.getStorageSync('token');
-    if (this._lastToken !== currentToken) {
-      this._lastToken = currentToken;
-      this.fetchHomeData(true);
-    }
+    // 双通道之二：从登录页 navigateBack 返回时由此恢复内容态
+    this.syncAuthState();
   },
 
   onUnload() {
     if (this.unsubscribeAuth) this.unsubscribeAuth();
+  },
+
+  /**
+   * 登录态同步（authStore.subscribe + onShow 双通道）：
+   * - 未登录：整页引导态，不发 7 路主页 API（游客请求全部 401）
+   * - 登录返回/换号（token 变化）：自动拉取数据恢复内容态
+   */
+  syncAuthState() {
+    const { isLoggedIn } = authStore.getState();
+    const currentToken = wx.getStorageSync('token');
+    const tokenChanged = this._lastToken !== currentToken;
+    this._lastToken = currentToken;
+
+    if (isLoggedIn !== this.data.isLoggedIn) {
+      this.setData({ isLoggedIn });
+    }
+    if (!isLoggedIn) {
+      if (this.data.isLoading || this.data.error) {
+        this.setData({ isLoading: false, error: null });
+      }
+      return;
+    }
+    if (tokenChanged) {
+      this.setData({ isLoading: true, error: null });
+      this.fetchHomeData(true);
+    }
   },
 
   onPullDownRefresh() {
@@ -86,6 +108,11 @@ Page({
   },
 
   async fetchHomeData(silent = false) {
+    // 登录守卫：未登录不发请求（7 路主页 API 对游客全部 401），停在引导态
+    if (!authStore.getState().isLoggedIn) {
+      this.setData({ isLoading: false });
+      return;
+    }
     if (!silent) this.setData({ isLoading: true, error: null });
     try {
       const { get } = require('../../utils/request');
@@ -248,6 +275,11 @@ Page({
 
   onGoDiscover() {
     wx.switchTab({ url: '/pages/discover/index' });
+  },
+
+  /** 未登录引导：去登录页，登录成功 navigateBack 后 onShow 自动恢复内容态 */
+  onGoLogin() {
+    wx.navigateTo({ url: '/pages/auth/index' });
   },
 
   onOpenHistory() {

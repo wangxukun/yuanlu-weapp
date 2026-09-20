@@ -17,9 +17,12 @@
       </view>
     </view>
 
+    <!-- 价格锚点 -->
+    <text class="pm-price" wx:if="{{scenario.priceAnchor}}">{{scenario.priceAnchor}}</text>
+
     <!-- CTA -->
     <view class="pm-cta center tap-scale" bindtap="onCta">
-      <text class="pm-cta-text">立即开通 PRO</text>
+      <text class="pm-cta-text">{{scenario.cta}}</text>
     </view>
     <view class="pm-later center" bindtap="onClose">
       <text class="pm-later-text">暂不开通</text>

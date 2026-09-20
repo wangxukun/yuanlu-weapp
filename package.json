@@ -4,7 +4,13 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/test-membership.js && node scripts/test-home-guest.js && node scripts/test-premium-modal.js && node scripts/test-quota-card.js && node scripts/test-srs.js && node scripts/test-audio-tts.js",
+    "test:membership": "node scripts/test-membership.js",
+    "test:home": "node scripts/test-home-guest.js",
+    "test:premium-modal": "node scripts/test-premium-modal.js",
+    "test:quota-card": "node scripts/test-quota-card.js",
+    "test:srs": "node scripts/test-srs.js",
+    "test:audio": "node scripts/test-audio-tts.js"
   },
   "repository": {
     "type": "git",

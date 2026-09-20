@@ -1,0 +1,5 @@
+<!-- 生词卡片复习（占位）：阶段一 T1.5 实现 -->
+<view class="page-stub">
+  <text class="t-h2">生词复习</text>
+  <text class="t-caption text-tertiary">四题型卡片复习 · 阶段一落地</text>
+</view>

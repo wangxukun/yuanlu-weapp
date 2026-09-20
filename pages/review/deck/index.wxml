@@ -1,0 +1,5 @@
+<!-- 刷句复习卡片流（占位）：阶段三 T3.3 实现 -->
+<view class="page-stub">
+  <text class="t-h2">刷句复习</text>
+  <text class="t-caption text-tertiary">左滑下一句 · 右滑重听 · 阶段三落地</text>
+</view>

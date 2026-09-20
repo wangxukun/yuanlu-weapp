@@ -1,0 +1,100 @@
+/* components/common/quota-card — 配额双栏状态卡（对齐 Web QuotaStatusCard 视觉） */
+.qc-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg, #ffffff);
+  border-radius: 32rpx;
+  box-shadow: var(--e1);
+  padding: 32rpx 40rpx;
+}
+
+/* ===== PRO 无限态 ===== */
+.qc-premium {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.qc-infinity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 24rpx;
+  background: rgba(217, 138, 23, 0.1); /* amber-500/10 → accent-500/10 */
+  flex-shrink: 0;
+}
+.qc-infinity-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+.qc-premium-texts {
+  display: flex;
+  flex-direction: column;
+  margin-left: 20rpx;
+  min-width: 0;
+}
+.qc-premium-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.qc-premium-subtitle {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  margin-top: 4rpx;
+}
+
+/* ===== 免费双栏态 ===== */
+.qc-bar + .qc-bar {
+  margin-top: 32rpx;
+}
+.qc-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.qc-label {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.qc-status {
+  font-size: 22rpx;
+  font-weight: 900;
+}
+/* 三态文本色：满/耗尽红、≥80% 琥珀、安全弱化（对齐 Web text 梯度） */
+.qc-text-full {
+  color: var(--color-error);
+}
+.qc-text-warning {
+  color: var(--accent-600, #b96f0f);
+}
+.qc-text-safe {
+  color: var(--text-tertiary);
+}
+
+.qc-track {
+  width: 100%;
+  height: 16rpx;
+  border-radius: var(--r-full);
+  background: var(--color-base-200, #faf8f3);
+  overflow: hidden;
+  margin-top: 16rpx;
+}
+.qc-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  transition: width 0.5s ease;
+}
+/* 三态填充色 */
+.qc-bg-full {
+  background: var(--color-error);
+}
+.qc-bg-warning {
+  background: var(--color-warning);
+}
+.qc-bg-safe {
+  background: var(--color-primary);
+}

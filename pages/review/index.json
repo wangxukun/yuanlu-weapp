@@ -1,1 +1,10 @@
-{"usingComponents": {}}
+{
+  "navigationBarBackgroundColor": "#faf8f3",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#faf8f3",
+  "usingComponents": {
+    "vocab-notebook": "/components/review/vocab-notebook/index",
+    "sentence-notebook": "/components/review/sentence-notebook/index",
+    "pron-notebook": "/components/review/pron-notebook/index"
+  }
+}

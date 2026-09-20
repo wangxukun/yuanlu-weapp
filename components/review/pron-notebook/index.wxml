@@ -1,0 +1,13 @@
+<!-- 发音弱项本根视图（占位）：真实实现见 REVIEW-TASK.md 阶段四 -->
+<scroll-view class="notebook-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+  <view class="notebook-pad">
+    <view class="card notebook-placeholder">
+      <view class="np-badge center">
+        <image class="np-icon" src="{{placeholder.icon}}" mode="aspectFit" />
+      </view>
+      <text class="np-title t-h3">{{placeholder.title}}</text>
+      <text class="np-desc t-caption">{{placeholder.desc}}</text>
+      <view class="np-phase">{{placeholder.phase}}</view>
+    </view>
+  </view>
+</scroll-view>
