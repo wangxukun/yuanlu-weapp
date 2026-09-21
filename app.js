@@ -4,6 +4,8 @@
 const audioManager = require("./utils/audioManager");
 const authStore = require("./store/authStore");
 const membershipStore = require("./store/membershipStore");
+// 播放状态镜像 store：require 即激活订阅（audioManager 事件 → 跨页面可订阅，见 3.B.2）
+const playerStore = require("./store/playerStore");
 
 App({
   globalData: {
