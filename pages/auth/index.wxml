@@ -1,53 +1,246 @@
-<view class="auth-container pb-page-bottom">
-  <view class="header">
-    <text class="title t-h1">欢迎来到远路播客</text>
-    <text class="subtitle t-body text-secondary">登录以享受完整的播客体验</text>
+<!-- pages/auth/index.wxml — 登录 / 注册页
+  对齐 Android 端 feature/auth/LoginSheet.kt 的结构与文案：
+  品牌区（欢迎语）→ 双 Tab 分段容器（手机号 / 邮箱）→ 三态表单
+  （手机验证码 / 邮箱登录 / 邮箱注册）→ 协议勾选行 → notice / error → 胶囊主按钮。
+  协议全文弹层对齐 AgreementDialog.kt（全屏覆盖 + 分块排版 + 关闭按钮）。 -->
+
+<view class="login-page">
+
+  <!-- ===== 品牌区（对齐 LoginGateScreen 的 PodcastWave 插画 + LoginSheet 标题） ===== -->
+  <view class="brand">
+    <view class="brand-logo" />
+    <text class="brand-title">欢迎来到远路播客</text>
+    <text class="brand-subtitle">请选择登录方式</text>
   </view>
 
-  <!-- Tabs -->
+  <!-- ===== 双 Tab 分段容器（对齐 LoginModeTabs：surfaceVariant 60% 底 + 激活白底胶囊） ===== -->
   <view class="tabs">
-    <view class="tab {{activeTab === 'phone' ? 'active' : ''}}" bindtap="switchTab" data-tab="phone">手机号登录</view>
-    <view class="tab {{activeTab === 'email' ? 'active' : ''}}" bindtap="switchTab" data-tab="email">邮箱登录</view>
+    <view
+      class="tab {{activeTab === 'phone' ? 'tab--on' : ''}}"
+      bindtap="onSwitchTab"
+      data-tab="phone"
+    >手机号注册 / 登录</view>
+    <view
+      class="tab {{activeTab === 'email' ? 'tab--on' : ''}}"
+      bindtap="onSwitchTab"
+      data-tab="email"
+    >邮箱注册 / 登录</view>
   </view>
 
-  <view class="form-container">
-    <!-- 手机号登录表单 -->
-    <block wx:if="{{activeTab === 'phone'}}">
-      <view class="input-group">
-        <input class="input-field" type="number" placeholder="请输入11位手机号码" maxlength="11" model:value="{{phone}}" bindinput="onInput" />
-      </view>
-      <view class="input-group row">
-        <input class="input-field flex-1" type="number" placeholder="输入6位验证码" maxlength="6" model:value="{{code}}" bindinput="onInput" />
-        <button class="btn-code" disabled="{{countdown > 0 || phone.length !== 11}}" bindtap="sendSmsCode">
-          {{countdown > 0 ? countdown + 's' : '获取验证码'}}
-        </button>
-      </view>
-    </block>
-
-    <!-- 邮箱登录表单 -->
-    <block wx:if="{{activeTab === 'email'}}">
-      <view class="input-group">
-        <input class="input-field" type="text" placeholder="请输入邮箱地址" model:value="{{email}}" bindinput="onInput" />
-      </view>
-      <view class="input-group">
-        <input class="input-field" type="password" placeholder="请输入密码" model:value="{{password}}" bindinput="onInput" />
-      </view>
-    </block>
-
-    <view class="agreement row">
-      <checkbox-group bindchange="onAgreeChange">
-        <label class="row">
-          <checkbox value="agreed" checked="{{agreed}}" color="#1f7a5c" class="cbx" />
-          <text class="t-mini text-tertiary">我已阅读并同意</text>
-          <text class="t-mini text-primary link">用户协议</text>
-          <text class="t-mini text-tertiary">和</text>
-          <text class="t-mini text-primary link">隐私政策</text>
-        </label>
-      </checkbox-group>
+  <!-- ===== 手机号 Tab：手机号 + 短信验证码（对齐 isPhoneMode 分支） ===== -->
+  <view wx:if="{{activeTab === 'phone'}}" class="form">
+    <view class="field {{focusField === 'account' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-phone" />
+      <input
+        class="field-input"
+        type="number"
+        maxlength="11"
+        value="{{account}}"
+        placeholder="请输入11位手机号码"
+        placeholder-style="color: #A79E8A"
+        bindinput="onAccountInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="account"
+      />
     </view>
-
-    <button class="btn-primary submit-btn {{!agreed || isLoading ? 'disabled' : ''}}" bindtap="onSubmit" disabled="{{!agreed || isLoading}}">
-      {{isLoading ? '登录中...' : '登录 / 注册'}}
-    </button>
+    <view class="field {{focusField === 'credential' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-shield" />
+      <input
+        class="field-input"
+        type="number"
+        maxlength="6"
+        value="{{credential}}"
+        placeholder="输入6位验证码"
+        placeholder-style="color: #A79E8A"
+        bindinput="onCredentialInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="credential"
+      />
+      <!-- trailing：倒计时态 / 获取验证码按钮（isSending 时显示转圈） -->
+      <view wx:if="{{countdownSeconds > 0}}" class="field-countdown">{{countdownSeconds}}s</view>
+      <view
+        wx:else
+        class="field-send {{isSending ? 'field-send--busy' : ''}}"
+        bindtap="onSendCode"
+      >
+        <view wx:if="{{isSending}}" class="spin" />
+        <text wx:else>获取验证码</text>
+      </view>
+    </view>
   </view>
+
+  <!-- ===== 邮箱 Tab · 登录态：邮箱 + 密码（对齐 else 分支） ===== -->
+  <view wx:elif="{{!isRegisterMode}}" class="form">
+    <view class="field {{focusField === 'account' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-mail" />
+      <input
+        class="field-input"
+        type="text"
+        value="{{account}}"
+        placeholder="请输入邮箱地址"
+        placeholder-style="color: #A79E8A"
+        bindinput="onAccountInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="account"
+      />
+    </view>
+    <view class="field {{focusField === 'credential' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-lock" />
+      <input
+        class="field-input"
+        password="{{!passwordVisible}}"
+        value="{{credential}}"
+        placeholder="请输入密码"
+        placeholder-style="color: #A79E8A"
+        bindinput="onCredentialInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="credential"
+      />
+      <view class="field-toggle" bindtap="onTogglePasswordVisible" data-field="credential">
+        {{passwordVisible ? '隐藏' : '显示'}}
+      </view>
+    </view>
+    <!-- 状态切换按钮：登录态 → 注册态（对齐 switchToRegister，清空 credential） -->
+    <view class="mode-switch" bindtap="onSwitchToRegister">没有账号？立即注册</view>
+  </view>
+
+  <!-- ===== 邮箱 Tab · 注册态：邮箱 + 验证码 + 密码 + 确认密码（对齐 isRegisterMode 分支） ===== -->
+  <view wx:else class="form">
+    <view class="field {{focusField === 'account' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-mail" />
+      <input
+        class="field-input"
+        type="text"
+        value="{{account}}"
+        placeholder="请输入邮箱地址"
+        placeholder-style="color: #A79E8A"
+        bindinput="onAccountInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="account"
+      />
+    </view>
+    <view class="field {{focusField === 'credential' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-shield" />
+      <input
+        class="field-input"
+        type="number"
+        maxlength="6"
+        value="{{credential}}"
+        placeholder="输入6位邮箱验证码"
+        placeholder-style="color: #A79E8A"
+        bindinput="onCredentialInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="credential"
+      />
+      <view wx:if="{{countdownSeconds > 0}}" class="field-countdown">{{countdownSeconds}}s</view>
+      <view
+        wx:else
+        class="field-send {{isSending ? 'field-send--busy' : ''}}"
+        bindtap="onSendCode"
+      >
+        <view wx:if="{{isSending}}" class="spin" />
+        <text wx:else>获取验证码</text>
+      </view>
+    </view>
+    <view class="field {{focusField === 'registerPassword' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-lock" />
+      <input
+        class="field-input"
+        password="{{!passwordVisible}}"
+        value="{{registerPassword}}"
+        placeholder="设置密码（至少6位）"
+        placeholder-style="color: #A79E8A"
+        bindinput="onRegisterPasswordInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="registerPassword"
+      />
+      <view class="field-toggle" bindtap="onTogglePasswordVisible" data-field="registerPassword">
+        {{passwordVisible ? '隐藏' : '显示'}}
+      </view>
+    </view>
+    <view class="field {{focusField === 'registerConfirm' ? 'field--focus' : ''}}">
+      <view class="field-icon icon-lock" />
+      <input
+        class="field-input"
+        password="{{!passwordVisible}}"
+        value="{{registerConfirm}}"
+        placeholder="确认密码"
+        placeholder-style="color: #A79E8A"
+        bindinput="onRegisterConfirmInput"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="registerConfirm"
+      />
+    </view>
+    <!-- 状态切换按钮：注册态 → 登录态（对齐 switchToLogin，清空验证码与两组密码） -->
+    <view class="mode-switch" bindtap="onSwitchToLogin">已有账号？返回登录</view>
+  </view>
+
+  <!-- ===== 协议勾选行（对齐 AgreementRow：方形 Checkbox + 严格单行排版；
+       四个文本段必须写在同一源码行，text 组件会把源码换行渲染为真实换行） ===== -->
+  <view class="agreement" bindtap="onToggleAgreement">
+    <view class="checkbox {{agreed ? 'checkbox--on' : ''}}">
+      <text wx:if="{{agreed}}" class="checkbox-mark">✓</text>
+    </view>
+    <view class="agreement-text"><text class="agreement-plain" user-select>我已阅读并同意</text><text class="agreement-link" user-select catchtap="onOpenAgreement" data-doc="user">用户协议</text><text class="agreement-plain" user-select>和</text><text class="agreement-link" user-select catchtap="onOpenAgreement" data-doc="privacy">隐私政策</text></view>
+  </view>
+
+  <!-- ===== 非侵扰提示（对齐 uiState.notice，primary 色居中） ===== -->
+  <view wx:if="{{notice}}" class="notice-text">{{notice}}</view>
+
+  <!-- ===== 行内错误（对齐 uiState.error，error 色居中） ===== -->
+  <view wx:if="{{error}}" class="error-text">{{error}}</view>
+
+  <!-- ===== 胶囊主按钮（对齐 PressablePillButton：104rpx 高、按压缩放、文案三态） ===== -->
+  <button
+    class="login-btn tap-scale {{!agreed || isLoading ? 'login-btn--dim' : ''}}"
+    loading="{{isLoading}}"
+    disabled="{{!agreed || isLoading}}"
+    bindtap="onSubmit"
+  >{{activeTab === 'phone' ? '登录 / 注册' : (isRegisterMode ? '立即注册' : '登录')}}</button>
+
+</view>
+
+<!-- ===== 协议全文弹层（对齐 AgreementDialog.kt：全屏覆盖 + 分块排版 + 关闭按钮） ===== -->
+<view wx:if="{{agreementDoc}}" class="agreement-dialog">
+  <view class="agreement-dialog__header">
+    <text class="agreement-dialog__nav-title">{{agreementDoc.title}}</text>
+  </view>
+  <scroll-view scroll-y class="agreement-dialog__body" enhanced show-scrollbar="{{false}}">
+    <view class="agreement-dialog__content">
+      <text class="doc-title">{{agreementDoc.title}}</text>
+      <text class="doc-updated">{{agreementDoc.lastUpdated}}</text>
+      <block wx:for="{{agreementDoc.blocks}}" wx:key="index" wx:for-item="block">
+        <text wx:if="{{block.type === 'heading'}}" class="doc-heading">{{block.text}}</text>
+        <text wx:elif="{{block.type === 'paragraph'}}" class="doc-paragraph">{{block.text}}</text>
+        <block wx:elif="{{block.type === 'bullets'}}">
+          <text
+            wx:for="{{block.items}}"
+            wx:key="*this"
+            wx:for-item="item"
+            class="doc-paragraph"
+            user-select
+          >•  {{item}}</text>
+        </block>
+        <block wx:elif="{{block.type === 'numbered'}}">
+          <text
+            wx:for="{{block.items}}"
+            wx:key="*this"
+            wx:for-item="item"
+            wx:for-index="idx"
+            class="doc-paragraph"
+            user-select
+          >{{idx + 1}}. {{item}}</text>
+        </block>
+      </block>
+      <button class="doc-close tap-scale" bindtap="onCloseAgreement">关闭页面</button>
+    </view>
+  </scroll-view>
 </view>

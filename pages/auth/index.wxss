@@ -1,107 +1,431 @@
-.auth-container {
-  padding: 80rpx 40rpx;
-  background-color: var(--page-bg);
+/**
+ * pages/auth/index.wxss — 登录 / 注册页样式
+ *
+ * 视觉规格移植自 Android 端 feature/auth：
+ *   - LoginGateScreen：品牌渐变背景（primaryContainer 35% → background）+ PodcastWave 插画；
+ *   - LoginModeTabs：surfaceVariant 60% 圆角 14dp 容器 + 4dp 内衬 + 激活白底圆角 10dp 胶囊；
+ *   - OutlinedTextField：卡片化输入框，leadingIcon 24dp 图标（SVG data URI 渲染）；
+ *   - PressablePillButton：52dp(104rpx) 高全圆角主按钮、按压 0.95 缩放反馈；
+ *   - AgreementDialog：全屏协议层，标题 primary 加粗 + 分块正文 + 底部胶囊关闭按钮。
+ * 颜色一律引用 app.wxss 的设计令牌；SVG 内 fill 无法引用变量，使用 --ink-400 实值 #A79E8A。
+ */
+
+.login-page {
   min-height: 100vh;
   box-sizing: border-box;
+  padding: 120rpx 48rpx 0;
+  /* 顶部品牌渐变（对齐 LoginGateScreen 的 primaryContainer→background 垂直渐变） */
+  background: linear-gradient(180deg, var(--primary-50) 0%, var(--ink-50) 520rpx);
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
 }
 
-.header {
-  margin-bottom: 60rpx;
+/* ==================== 品牌区 ==================== */
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.title {
-  display: block;
-  margin-bottom: 12rpx;
+.brand-logo {
+  width: 168rpx;
+  height: 168rpx;
+  /* PodcastWave 信号插画（对齐 Android PodcastWaveVector 的四条 path） */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M17.2989 7.25116C14.371 4.24961 9.62904 4.24961 6.70106 7.25116C3.76631 10.2596 3.76631 15.1424 6.70106 18.1509L5.98523 18.8491C2.67159 15.4522 2.67159 9.94978 5.98523 6.55288C9.30564 3.14904 14.6944 3.14904 18.0148 6.55288C21.3284 9.94978 21.3284 15.4522 18.0148 18.8491L17.2989 18.1509C20.2337 15.1424 20.2337 10.2596 17.2989 7.25116Z'/%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M15.182 9.81802C13.4246 8.06066 10.5754 8.06066 8.81802 9.81802C7.06066 11.5754 7.06066 14.4246 8.81802 16.182L8.11091 16.8891C5.96303 14.7412 5.96303 11.2588 8.11091 9.11091C10.2588 6.96303 13.7412 6.96303 15.8891 9.11091C18.037 11.2588 18.037 14.7412 15.8891 16.8891L15.182 16.182C16.9393 14.4246 16.9393 11.5754 15.182 9.81802Z'/%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M12 12.5C11.4477 12.5 11 12.9477 11 13.5C11 14.0523 11.4477 14.5 12 14.5C12.5523 14.5 13 14.0523 13 13.5C13 12.9477 12.5523 12.5 12 12.5ZM10 13.5C10 12.3954 10.8954 11.5 12 11.5C13.1046 11.5 14 12.3954 14 13.5C14 14.6046 13.1046 15.5 12 15.5C10.8954 15.5 10 14.6046 10 13.5Z'/%3E%3Cpath fill-rule='evenodd' fill='%231F7A5C' d='M10.8519 16.7284C11.2159 16.5776 11.606 16.5 12 16.5C12.394 16.5 12.7841 16.5776 13.1481 16.7284C13.512 16.8791 13.8427 17.1001 14.1213 17.3787C14.3999 17.6573 14.6209 17.988 14.7716 18.3519C14.9224 18.7159 15 19.106 15 19.5C15 19.7761 14.7761 20 14.5 20L9.5 20C9.22386 20 9 19.7761 9 19.5C9 19.106 9.0776 18.7159 9.22836 18.3519C9.37913 17.988 9.6001 17.6573 9.87868 17.3787C10.1573 17.1001 10.488 16.8791 10.8519 16.7284ZM12 17.5C11.7374 17.5 11.4773 17.5517 11.2346 17.6522C10.992 17.7528 10.7715 17.9001 10.5858 18.0858C10.4001 18.2715 10.2528 18.492 10.1522 18.7346C10.1164 18.8211 10.0868 18.9098 10.0635 19L13.9365 19C13.9132 18.9098 13.8836 18.8211 13.8478 18.7346C13.7473 18.492 13.5999 18.2715 13.4142 18.0858C13.2287 17.9001 13.0084 17.7528 12.7654 17.6522C12.5227 17.5517 12.2626 17.5 12 17.5Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
+
+.brand-title {
+  margin-top: 32rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.brand-subtitle {
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+}
+
+/* ==================== 双 Tab 分段容器（对齐 LoginModeTabs / tabs-boxed） ==================== */
 
 .tabs {
   display: flex;
-  margin-bottom: 40rpx;
-  border-bottom: 2rpx solid var(--border-color);
+  margin-top: 32rpx;
+  padding: 8rpx; /* 4dp 内衬 */
+  background: rgba(227, 221, 207, 0.6); /* surfaceVariant.copy(alpha = 0.6) */
+  border-radius: 28rpx; /* 14dp */
 }
 
 .tab {
   flex: 1;
+  padding: 16rpx 0;
   text-align: center;
-  padding: 20rpx 0;
-  font-size: 30rpx;
+  font-size: 26rpx;
   color: var(--text-tertiary);
-  font-weight: 500;
-  position: relative;
-  transition: color 0.2s;
+  border-radius: 20rpx; /* 10dp */
+  transition: background-color 0.2s ease, color 0.2s ease, font-weight 0.2s ease;
 }
 
-.tab.active {
+.tab + .tab {
+  margin-left: 8rpx; /* spacedBy(4dp)，低版本基础库 flex gap 兼容写法 */
+}
+
+.tab--on {
+  background: var(--card-bg); /* surface 白底 */
   color: var(--color-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40rpx;
-  height: 6rpx;
-  background-color: var(--color-primary);
-  border-radius: 4rpx;
+/* ==================== 表单区（wx:if 切换时淡入上移，对齐视图切换体验） ==================== */
+
+.form {
+  margin-top: 32rpx;
+  animation: form-in 0.22s ease;
 }
 
-.input-group {
-  margin-bottom: 30rpx;
+@keyframes form-in {
+  from {
+    opacity: 0;
+    transform: translateY(12rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.input-field {
-  width: 100%;
-  height: 96rpx;
-  background-color: #ffffff;
+/* ==================== 输入框（对齐 OutlinedTextField 卡片化风格 + leadingIcon） ==================== */
+
+.field {
+  display: flex;
+  align-items: center;
+  height: 104rpx;
+  padding: 0 24rpx;
+  margin-bottom: 24rpx; /* 12dp 间距 */
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
   border-radius: var(--r-md);
-  padding: 0 30rpx;
-  font-size: 28rpx;
-  box-sizing: border-box;
-  box-shadow: 0 2rpx 4rpx rgba(27, 24, 18, 0.02);
-  border: 2rpx solid transparent;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
 }
 
-.input-field:focus {
+.field--focus {
   border-color: var(--color-primary);
 }
 
-.btn-code {
-  width: 220rpx;
-  height: 96rpx;
+.field-icon {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+/* 手机（Icons.Filled.PhoneIphone） */
+.icon-phone {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A79E8A' d='M15.5 1h-8A2.5 2.5 0 0 0 5 3.5v17A2.5 2.5 0 0 0 7.5 23h8a2.5 2.5 0 0 0 2.5-2.5v-17A2.5 2.5 0 0 0 15.5 1zm-4 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5-4H7V4h9v14z'/%3E%3C/svg%3E");
+}
+
+/* 护盾 / 验证码（Icons.Filled.Password 的护盾语意替身） */
+.icon-shield {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A79E8A' d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'/%3E%3C/svg%3E");
+}
+
+/* 信封（Icons.Filled.Mail） */
+.icon-mail {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A79E8A' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+}
+
+/* 锁（Icons.Filled.Lock） */
+.icon-lock {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A79E8A' d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z'/%3E%3C/svg%3E");
+}
+
+.field-input {
+  flex: 1;
+  height: 100%;
   margin-left: 20rpx;
-  background-color: var(--color-primary);
-  color: #fff;
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
+/* trailing：倒计时态（labelMedium，onSurfaceVariant） */
+.field-countdown {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding-left: 24rpx;
+  border-left: 1rpx solid var(--border-color);
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* trailing：获取验证码按钮（TextButton，primary 色） */
+.field-send {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding-left: 24rpx;
+  border-left: 1rpx solid var(--border-color);
   font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--r-md);
+}
+
+.field-send--busy {
+  color: var(--text-tertiary);
+}
+
+/* 16dp 环形加载（对齐 CircularProgressIndicator 16dp / 2dp） */
+.spin {
+  width: 30rpx;
+  height: 30rpx;
+  border: 4rpx solid var(--ink-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin-rotate 0.8s linear infinite;
+}
+
+@keyframes spin-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* trailing：密码显示 / 隐藏切换（TextButton） */
+.field-toggle {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding-left: 24rpx;
+  border-left: 1rpx solid var(--border-color);
+  font-size: 26rpx;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* 状态切换按钮（对齐 TextButton fillMaxWidth + labelMedium 居中） */
+.mode-switch {
+  margin: 8rpx 0 4rpx; /* 表单末项 8dp 间距 */
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-primary);
+  padding: 8rpx 0;
+}
+
+/* ==================== 协议勾选行（对齐 AgreementRow：方形 Checkbox + 单行排版） ==================== */
+
+/* flex flex-row items-center：勾选框与整行文本垂直居中；
+   对齐方式与 Android Row(fillMaxWidth) 默认 Start 一致——居左，
+   如需整行居中在此追加 justify-content: center 即可 */
+.agreement {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 24rpx;
+}
+
+/* 方形 Checkbox（对齐 M3 Checkbox：18dp 方块 + 4dp 圆角 + 2dp 描边，
+   替换原 border-radius:50% 圆形单选样式） */
+.checkbox {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+  border: 4rpx solid var(--ink-400); /* 未选中：onSurfaceVariant 描边 */
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.checkbox--on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.checkbox-mark {
+  font-size: 22rpx;
+  color: #ffffff;
+  line-height: 1;
+}
+
+/* whitespace-nowrap：四个文本段为 flex 子项横向排列且禁止换行，
+   从排版层面杜绝任何折行（折行根因是源码换行符，已在 wxml 侧移除） */
+.agreement-text {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 24rpx; /* text-xs（对齐 Android bodySmall 12sp） */
+  line-height: 36rpx; /* 与勾选框等高，保证视觉垂直居中 */
+}
+
+/* 次级文本色（text-gray-500 → --text-secondary） */
+.agreement-plain {
+  color: var(--text-secondary);
+}
+
+/* 品牌主题色链接（text-primary → --color-primary）+ 水平间距替代空格 */
+.agreement-link {
+  margin: 0 8rpx;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* ==================== notice / error（对齐 uiState 双通道提示） ==================== */
+
+.notice-text {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+.error-text {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-error);
+}
+
+/* ==================== 胶囊主按钮（对齐 PressablePillButton） ==================== */
+
+.login-btn {
+  width: 100%;
+  height: 104rpx; /* 52dp */
+  margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
   padding: 0;
 }
 
-.btn-code[disabled] {
-  background-color: var(--ink-200) !important;
-  color: var(--text-tertiary) !important;
+/* 去除 button 默认边框 */
+.login-btn::after,
+.doc-close::after {
+  border: none;
 }
 
-.agreement {
-  margin: 40rpx 0;
+/* 对齐 enabled = agreed && !isLoading 的置灰态 */
+.login-btn--dim {
+  opacity: 0.55;
 }
 
-.cbx {
-  transform: scale(0.7);
-  margin-right: 4rpx;
+/* ==================== 协议全文弹层（对齐 AgreementDialog.kt） ==================== */
+
+.agreement-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-modal);
+  background: var(--page-bg);
+  display: flex;
+  flex-direction: column;
+  animation: dialog-in 0.2s ease;
 }
 
-.link {
-  margin: 0 8rpx;
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(24rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.submit-btn {
-  width: 100% !important;
-  border-radius: 999rpx;
+.agreement-dialog__header {
+  flex-shrink: 0;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 32rpx;
+  border-bottom: 1rpx solid var(--border-color);
+  background: var(--page-bg);
+}
+
+.agreement-dialog__nav-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 绝对定位撑满剩余高度，规避 scroll-view 高度塌陷 */
+.agreement-dialog__body {
+  position: absolute;
+  top: 96rpx;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.agreement-dialog__content {
+  padding: 40rpx 48rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.doc-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 800; /* ExtraBold */
+  color: var(--color-primary);
+}
+
+.doc-updated {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+}
+
+.doc-heading {
+  display: block;
+  margin-top: 24rpx; /* padding(top = 6dp) */
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.doc-paragraph {
+  display: block;
+  margin-top: 20rpx; /* spacedBy(10dp) */
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: var(--text-primary);
+  opacity: 0.9; /* onSurface.copy(alpha = 0.9) */
+}
+
+.doc-close {
+  width: 100%;
+  height: 96rpx; /* 48dp */
+  margin-top: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  padding: 0;
 }

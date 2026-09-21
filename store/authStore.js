@@ -41,7 +41,9 @@ class AuthStore extends Store {
   // 增加 fetchProfile 真实对接 `/api/user/profile` (或视后端接口调整)
   fetchProfile() {
     const { get } = require('../utils/request');
-    get('/api/user/profile').then(res => {
+    // showError:false —— 邮箱注册只建 User 行、不建 user_profile 行（Web/Android sign-up 同口径），
+    // 首次编辑资料前该接口恒 404 "Profile not found"，静默降级保留登录时写入的最小身份信息
+    get('/api/user/profile', undefined, { showError: false }).then(res => {
       // 提取核心信息，展平 User 对象
       const user = res;
       if (res.User) {
