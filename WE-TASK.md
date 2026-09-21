@@ -1,6 +1,6 @@
 # 远路播客微信小程序复刻任务清单 (WE-TASK)
 
-> 更新日期：2026-09-21（全量代码走查 + 3.A.8 独立搜索页 + 3.A.9 全部频道 + 3.A.10 频道详情 + 标签筛选修复：15 个注册页面 / 6 个组件 / 4 个 store / 9 个 utils / 11 套单测 414 断言）
+> 更新日期：2026-09-21（全量代码走查 + 3.A.8/3.A.9/3.A.10 + 标签筛选修复 + **3.B.1 剧集页接入播放 + 3.B.2 状态同步**：15 个注册页面 / 6 个组件 / 4 个 store / 9 个 utils / 13 套单测 478 断言）
 
 ## 1. 项目概览
 - **复刻目标**：将现有的 `yuanlu` (Web/H5) 核心业务流平滑迁移至微信小程序端，部分特定交互参考 `yuanlu-android` 客户端。
@@ -9,7 +9,7 @@
   - 状态管理：自研轻量 Store（`store/core.js` 发布-订阅基类），实例有 `authStore` / `playerStore` / `membershipStore`。
   - 网络请求：`utils/request.js` 唯一出口（get/post/put/delete + Bearer token 自动注入 + 401 清 token），`BASE_URL` 由 `utils/config.js` 按 envVersion 自动切换。
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
-  - 测试：`npm test` 11 套件全绿（membership 16 / home-guest 13 / premium-modal 25 / quota-card 14 / srs 20 / audio-tts 32 / login 83 / favorites 33 / search 74 / channels 89 / **discover-tags 15**，共 414 断言）。
+  - 测试：`npm test` 13 套件全绿（membership 16 / home-guest 13 / premium-modal 25 / quota-card 14 / srs 20 / audio-tts 32 / login 83 / favorites 33 / search 74 / channels 89 / discover-tags 15 / episode-player 55 / **player-store 14**，共 478 断言）。
 - **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），WE-TASK 仅保留汇总行，避免双头跟踪。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略
@@ -56,8 +56,8 @@
 - [x] 3.A.10 频道详情页 `pages/channel/index`（2026-09-21 完成，融合复刻）。数据层照搬 Android `ChannelViewModel`/`ContentRepository`：`GET /api/channel/{name}`（信封 `{success,data:{platformName,podcastCount,topShows,topEpisodes}}`，topShows=该平台播客 totalPlays 降序、topEpisodes=playCount 降序 take 9、封面 3h 签名；success:false/404 → 错误态+重试，`loadedName` 复用）。UI 上半部复刻 `ChannelScreen.kt`+`频道页面.jpg`（titleLarge 页头 +「X 档播客」、热门节目双列 `PodcastCard`：1:1 封面 16dp 圆角、平台眉标大写字距 1.4sp、标题 2 行截断、「N episodes」）；下半部「热门单集」逐字复刻本工程播客详情页 `episode-row`（16:9 封面 + 等级徽章 + 半透明黑时长遮罩 + 播客名/标题 2 行/耳机+收听数/日历+日期，`ep-*` 样式与 `pages/podcast/podcast.wxss` 逐字一致、wxs 复用 `podcast.wxs`；channel 接口无 difficulty 字段故徽章按数据有无渲染）。跳转：节目→播客详情、单集→剧集详情。测试并入 `scripts/test-channels.js`（89 断言）。
 
 #### 模块 B：音频播放器（核心难点，⏳ 未开始页面接入；底座已备）
-- [ ] 3.B.1 剧集页接入播放：episode 页目前**无任何播放代码**——接入 `utils/audioManager`（BGM 单例、OSS 签名直链、进度/拖拽）。
-- [ ] 3.B.2 状态同步：`playerStore` 对接播放进度/时长，锁屏 onPrev/onNext/pause（audioManager 已封装，需页面接线验证）。
+- [x] 3.B.1 剧集页接入播放（2026-09-21 完成）。「开始精听」/hero 封面 → `audioBus.stopAll()` 互停（停 TTS/复习原声片段）→ `audioManager.playEpisode`（BGM 单例；无直链时经 `/api/episode/subtitles` 解析 OSS 签名直链）；锁屏元数据注入（title/epname/singer/coverImgUrl）；播放列表 = 当前剧集 + 相关剧集（ended 自动连播、锁屏上/下一首）。页内播放控制卡（对齐 Web `MobilePlayerSheet` 控件集）：拖拽进度条（拖动期不追 timeupdate）、快退 15s/快进 30s、上一首/下一首、播放大钮、倍速循环 `1→1.25→1.5→2→0.75` 与循环模式 `none→all→one→随机` chips；「开始精听」按钮随播放态切换「暂停精听」。控件图标 12 个从 Material 官方源提取烘焙（play/pause FILL、skip/replay/forward/repeat/repeat_one/shuffle）；「开始精听」按钮文案与图标（含 hero 封面右下角播放浮钮）随播放态幂等切换（`isCurrentPlaying` 派生态，暂停/他集在播均正确回落）。单测 `scripts/test-episode-player.js`（55 断言，mock BGM 全链路）。
+- [x] 3.B.2 状态同步（2026-09-21 完成）。`store/playerStore.js` 从空架子重写为 **audioManager 的全局只读镜像 store**：模块加载即订阅全部播放事件（play/pause/stop/ended/waiting/timeupdate/episodeChange/modeChange/seek/error），快照字段（当前剧集/播放态/缓冲/进度/时长/倍速/循环模式/播放列表）与事实源 `getState()` 全字段一致；跨页面组件统一用与 authStore 同款的 `subscribe` 感知播放态（3.B.3 迷你播放条直用），播放命令仍走 audioManager（单向依赖，状态经事件回流永不分叉），app.js 已接线激活。锁屏三键回调链（`onPrev`/`onNext`/`onPause`）与 ended 自动连播经 mock BGM 验证。单测 `scripts/test-player-store.js`（14 断言）。
 - [ ] 3.B.3 迷你播放条与全屏面板：跨页面底部迷你播放器（`pb-page-bottom-with-player` 样式已备）+ 全屏播放详情；与 audio-bus 互斥（复习片段播放时暂停 BGM）。
 
 #### 模块 C：跟读测评系统（→ 详细拆解见 REVIEW-TASK.md 阶段 3）
