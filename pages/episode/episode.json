@@ -5,6 +5,7 @@
   "backgroundColor": "#faf8f3",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "ai-deep-dive": "/components/ai-deep-dive/index"
+    "ai-deep-dive": "/components/ai-deep-dive/index",
+    "premium-modal": "/components/premium-modal/index"
   }
 }

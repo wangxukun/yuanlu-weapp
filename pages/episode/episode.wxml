@@ -210,4 +210,7 @@
       <view style="height: 60rpx;"></view>
     </block>
   </scroll-view>
+
+  <!-- 词典/翻译配额超限时的会员转化弹窗（对齐 Web openPremiumModal("dictionary_quota")） -->
+  <premium-modal visible="{{showPremiumModal}}" source="dictionary_quota" bind:close="onPremiumModalClose" />
 </view>

@@ -37,6 +37,9 @@ Page({
     isTranslatingDesc: false,
     translatedTitle: null,
     isTranslatingTitle: false,
+
+    // 词典/翻译配额超限时的会员转化弹窗（对齐 Web openPremiumModal("dictionary_quota")）
+    showPremiumModal: false,
   },
 
   onLoad(query) {
@@ -216,22 +219,61 @@ Page({
     }
   },
 
+  // ==================== 标题 / 节目介绍翻译（对齐 Web 端真实链路） ====================
+  // Android 端 Episode 模型不含中文翻译字段，翻译是登录用户的按次操作：
+  // Web 端 ShowNotes.tsx / useEpisodeSummarize.ts 均调用有道翻译代理
+  // POST /api/dictionary/youdao { word: 原文 }，成功返回 { definition: 中文翻译 }。
+
+  /**
+   * 调用有道翻译代理，resolve 中文译文（失败 resolve null 并自行提示）。
+   * 403 配额超限（code=DICTIONARY_QUOTA_EXCEEDED）对齐 Web handleDictionaryQuotaBlock：
+   * toast 后端配额文案 + 拉起会员转化弹窗。
+   */
+  translateText(text) {
+    return post('/api/dictionary/youdao', { word: text }, { showError: false })
+      .then((data) => {
+        const definition = data && data.definition;
+        if (!definition) {
+          wx.showToast({ title: '翻译失败，请稍后重试', icon: 'none' });
+          return null;
+        }
+        return definition;
+      })
+      .catch((err) => {
+        const body = err && err.body;
+        if (body && body.code === 'DICTIONARY_QUOTA_EXCEEDED') {
+          wx.showToast({
+            title: body.message || '今日免费词典查询次数已用完',
+            icon: 'none',
+            duration: 2500,
+          });
+          this.setData({ showPremiumModal: true });
+        } else {
+          // 401「登录已过期」等已由 request 层全局提示，这里兜底其余网络/服务错误
+          wx.showToast({ title: (err && err.message) || '翻译请求出错', icon: 'none' });
+        }
+        return null;
+      });
+  },
+
   onTranslateTitle() {
-    // 模拟翻译，真实需调用有道接口
     if (!this.data.isLoggedIn) {
       return wx.navigateTo({ url: '/pages/auth/index' });
     }
     if (this.data.translatedTitle) {
+      // 再次点击收起译文（对齐 Web toggle），标题区随 wx:if 隐藏译文行
       this.setData({ translatedTitle: null });
       return;
     }
+    if (this.data.isTranslatingTitle) return; // 防重入
+
+    const title = this.data.episode && this.data.episode.title;
+    if (!title) return; // 判空降级：无标题不发请求，译文区不渲染
+
     this.setData({ isTranslatingTitle: true });
-    setTimeout(() => {
-      this.setData({ 
-        isTranslatingTitle: false, 
-        translatedTitle: '我能拯救这家家庭餐厅吗？' // 模拟返回
-      });
-    }, 1000);
+    this.translateText(title).then((translatedTitle) => {
+      this.setData({ isTranslatingTitle: false, translatedTitle: translatedTitle || null });
+    });
   },
 
   onTranslateDescription() {
@@ -242,13 +284,19 @@ Page({
       this.setData({ translatedDesc: null });
       return;
     }
+    if (this.data.isTranslatingDesc) return; // 防重入
+
+    const description = this.data.episode && this.data.episode.description;
+    if (!description) return; // 判空降级：无介绍不发请求，展示区维持「暂无介绍」兜底
+
     this.setData({ isTranslatingDesc: true });
-    setTimeout(() => {
-      this.setData({ 
-        isTranslatingDesc: false, 
-        translatedDesc: '经营餐厅很难。工作时间长，利润微薄，压力持续不断。在本周的节目中，我们将讨论如何拯救家族餐厅的业务。'
-      });
-    }, 1000);
+    this.translateText(description).then((translatedDesc) => {
+      this.setData({ isTranslatingDesc: false, translatedDesc: translatedDesc || null });
+    });
+  },
+
+  onPremiumModalClose() {
+    this.setData({ showPremiumModal: false });
   },
 
   onCommentInput(e) {
