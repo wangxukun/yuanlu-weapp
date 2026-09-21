@@ -1,0 +1,180 @@
+/* pages/channel/index.wxss — 频道详情页
+   上半部（页头/热门节目）复刻 Android ChannelScreen + Components.kt{PodcastCard,
+   EyebrowText, CoverImage(16dp)}（1dp = 2rpx，色值取 theme/Color.kt）；
+   下半部 ep-* 系列逐字拷贝 pages/podcast/podcast.wxss（单集行不改动一字）。 */
+
+.channel-container {
+  background-color: var(--page-bg);
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+/* ============ 页头（titleLarge bold + bodySmall onSurfaceVariant） ============ */
+.page-header {
+  padding: 16rpx 32rpx 8rpx; /* Row padding h16dp v8dp */
+}
+
+.page-title {
+  font-size: 44rpx;           /* titleLarge = 22sp */
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.page-sub {
+  margin-top: 4rpx;
+  font-size: 24rpx;           /* bodySmall = 12sp */
+  color: var(--text-secondary); /* onSurfaceVariant */
+}
+
+/* ============ 区块标题（SectionHeader） ============ */
+.section-header {
+  padding: 24rpx 32rpx 16rpx;
+}
+
+/* ============ 热门节目双列网格（chunked(2)，spacedBy 12dp） ============ */
+.shows-grid {
+  padding: 0 32rpx;
+}
+
+.show-row {
+  display: flex;
+  gap: 24rpx; /* spacedBy(12dp) */
+  margin-bottom: 24rpx;
+}
+
+.show-card,
+.show-card-spacer {
+  flex: 1;
+  min-width: 0; /* Box weight(1f) */
+}
+
+.show-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 封面：1:1 圆角 16dp（CoverImage 默认 cornerRadius） */
+.show-cover-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 32rpx;
+  overflow: hidden;
+  background-color: var(--ink-200);
+}
+
+.show-cover {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 眉标（EyebrowText）：大写 labelSmall + 字距 1.4sp，primary，单行省略；Spacer(6dp) */
+.show-eyebrow {
+  margin-top: 12rpx;
+  font-size: 22rpx;           /* labelSmall = 11sp */
+  letter-spacing: 2.8rpx;     /* 1.4sp */
+  text-transform: uppercase;
+  color: var(--primary-600);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 标题：bodyMedium(14sp) SemiBold，maxLines=2 */
+.show-title {
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* meta：「N episodes」bodySmall onSurfaceVariant 单行 */
+.show-meta {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ============ 热门单集行（逐字拷贝 pages/podcast/podcast.wxss） ============ */
+.episode-row {
+  padding: 16rpx 32rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.ep-cover-wrap {
+  width: 240rpx;
+  height: 135rpx; /* 16:9 */
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ep-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: 16rpx;
+  background-color: var(--card-bg);
+}
+
+.ep-difficulty {
+  position: absolute;
+  top: 10rpx;
+  left: 10rpx;
+  background-color: rgba(255, 255, 255, 0.95);
+  font-size: 20rpx;
+  font-weight: 800;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.ep-duration {
+  position: absolute;
+  bottom: 10rpx;
+  right: 10rpx;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+.ep-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ep-series {
+  font-size: 20rpx;
+  color: var(--text-secondary);
+}
+
+.ep-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* 播客页局部类 icon-xs（28rpx），频道页单集行同款 */
+.icon-xs {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* ============ 状态态 ============ */
+.state-box {
+  padding: 200rpx 0;
+}

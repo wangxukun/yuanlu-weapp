@@ -1,0 +1,53 @@
+<!-- pages/channel/all/index — 全部频道页
+  复刻 ChannelListScreen.kt：titleLarge 大标题 + LazyVerticalGrid(Fixed(2), 12dp 间距) +
+  ChannelCard（1:1 方卡、primaryContainer 底、内容垂直居中、白底胶囊按钮）。 -->
+<view class="channel-all-container">
+
+  <!-- 页头：左对齐大号加粗标题（titleLarge bold，padding h16dp/v8dp） -->
+  <view class="page-header">
+    <text class="page-title">全部频道</text>
+  </view>
+
+  <!-- 加载态（CircularProgressIndicator 居中） -->
+  <view class="state-box center" wx:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+  </view>
+
+  <!-- 错误态（ErrorBox + 重试） -->
+  <view class="state-box center col" wx:elif="{{error}}">
+    <text class="t-body text-secondary">{{error}}</text>
+    <button class="btn-primary" style="margin-top: 32rpx; width: 240rpx;" bindtap="onRetry">重试</button>
+  </view>
+
+  <!-- 空态（EmptyBox "暂无频道"） -->
+  <view class="state-box center col" wx:elif="{{channels.length === 0}}">
+    <text class="t-body text-secondary">暂无频道</text>
+  </view>
+
+  <!-- 双列网格（GridCells.Fixed(2)，横竖 12dp 间距） -->
+  <block wx:else>
+    <view class="grid-row" wx:for="{{channelRows}}" wx:key="index">
+      <view
+        class="channel-card"
+        wx:for="{{item}}"
+        wx:for-item="channel"
+        wx:key="name"
+        bindtap="onOpenChannel"
+        data-name="{{channel.name}}"
+      >
+        <!-- 频道名：titleMedium 加粗，单行溢出省略 -->
+        <text class="channel-name">{{channel.name}}</text>
+        <!-- 节目数：bodySmall，onPrimaryContainer 70% -->
+        <text class="channel-count">{{channel.podcastCount}} 档节目</text>
+        <!-- 频道主页胶囊：白底 rounded-full + Computer 图标(primary) + 加粗文字 -->
+        <view class="channel-btn">
+          <image class="channel-btn-icon" src="/assets/icons/computer.svg" />
+          <text class="channel-btn-text">频道主页</text>
+        </view>
+      </view>
+      <!-- 奇数末卡补空占位，保持半宽 -->
+      <view class="grid-col-spacer" wx:if="{{item.length === 1}}"></view>
+    </view>
+  </block>
+
+</view>

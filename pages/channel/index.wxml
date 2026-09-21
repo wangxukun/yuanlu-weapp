@@ -1,0 +1,101 @@
+<!-- pages/channel/index — 频道详情页
+  数据：GET /api/channel/{name}（Android ChannelScreen 同源）。
+  上半部：页头（频道名 + X 档播客）+ 热门节目双列网格（PodcastCard 默认参数）。
+  下半部：热门单集——逐字复刻 pages/podcast/podcast.wxml 的 episode-row
+  （16:9 封面/等级徽章/时长遮罩/耳机+收听数/日历+日期），wxs 复用 podcast.wxs。 -->
+<wxs src="../podcast/podcast.wxs" module="fmt" />
+<view class="channel-container">
+
+  <!-- 页头（titleLarge 加粗频道名 + bodySmall onSurfaceVariant「X 档播客」） -->
+  <view class="page-header">
+    <text class="page-title">{{name}}</text>
+    <text class="page-sub" wx:if="{{channel}}">{{channel.podcastCount}} 档播客</text>
+  </view>
+
+  <!-- 加载态（LoadingBox 居中） -->
+  <view class="state-box center" wx:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+  </view>
+
+  <!-- 错误态（ErrorBox + 重试） -->
+  <view class="state-box center col" wx:elif="{{error}}">
+    <text class="t-body text-secondary">{{error}}</text>
+    <button class="btn-primary" style="margin-top: 32rpx; width: 240rpx;" bindtap="onRetry">重试</button>
+  </view>
+
+  <!-- 空态（channel == null → EmptyBox「未找到该频道」） -->
+  <view class="state-box center col" wx:elif="{{!channel}}">
+    <text class="t-body text-secondary">未找到该频道</text>
+  </view>
+
+  <block wx:else>
+
+    <!-- ========== 热门节目（SectionHeader + chunked(2) 双列） ========== -->
+    <view class="section-header">
+      <text class="t-h3 text-bold">热门节目</text>
+    </view>
+
+    <view class="shows-grid">
+      <view class="show-row" wx:for="{{showRows}}" wx:key="index">
+        <view
+          class="show-card"
+          wx:for="{{item}}"
+          wx:for-item="podcast"
+          wx:key="podcastid"
+          bindtap="onOpenPodcast"
+          data-id="{{podcast.podcastid}}"
+        >
+          <!-- 封面：1:1 圆角 16dp（CoverImage 默认） -->
+          <view class="show-cover-wrap">
+            <image class="show-cover" src="{{podcast.coverUrl}}" mode="aspectFill" />
+          </view>
+          <!-- 眉标：平台大写小字加字距（EyebrowText），单行省略 -->
+          <text class="show-eyebrow" wx:if="{{podcast.platform}}">{{podcast.platform}}</text>
+          <!-- 标题：bodyMedium 半粗，最多两行 -->
+          <text class="show-title">{{podcast.title}}</text>
+          <!-- meta：「N episodes」（takeIf > 0 才显示） -->
+          <text class="show-meta" wx:if="{{podcast.episodeCount > 0}}">{{podcast.episodeCount}} episodes</text>
+        </view>
+        <!-- 奇数末卡补空占位（Spacer weight(1f)) -->
+        <view class="show-card-spacer" wx:if="{{item.length === 1}}"></view>
+      </view>
+    </view>
+
+    <!-- ========== 热门单集（复刻播客详情页 episode-row） ========== -->
+    <view class="section-header">
+      <text class="t-h3 text-bold">热门单集</text>
+    </view>
+
+    <view class="episodes-list">
+      <view
+        class="episode-row tap-scale row"
+        wx:for="{{topEpisodes}}"
+        wx:key="episodeid"
+        bindtap="onOpenEpisode"
+        data-id="{{item.episodeid}}"
+      >
+        <view class="ep-cover-wrap">
+          <image class="ep-cover" src="{{item.coverUrl || item.podcastCoverUrl}}" mode="aspectFill" />
+          <view class="ep-difficulty" wx:if="{{item.difficulty}}" style="color: {{fmt.difficultyColor(item.difficulty)}}">{{item.difficulty}}</view>
+          <view class="ep-duration" wx:if="{{item.duration}}">{{fmt.formatDuration(item.duration)}}</view>
+        </view>
+        <view class="ep-info col flex-1 ml-3">
+          <text class="ep-series ellipsis">{{item.podcastTitle}}</text>
+          <text class="ep-title ellipsis-2 mt-1">{{item.title}}</text>
+          <view class="ep-meta row mt-1 w-full" style="justify-content: space-between; align-items: center;">
+            <view class="row center text-secondary" wx:if="{{item.playCount > 0}}">
+              <image class="icon-xs" src="/assets/icons/headphones.svg"></image>
+              <text class="t-mini ml-1">{{fmt.formatPlayCount(item.playCount)}}</text>
+            </view>
+            <view class="row center text-secondary" style="margin-left: auto;" wx:if="{{item.publishAt}}">
+              <image class="icon-xs" src="/assets/icons/calendar.svg"></image>
+              <text class="t-mini ml-1">{{fmt.formatDate(item.publishAt)}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+  </block>
+
+</view>
