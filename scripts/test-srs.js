@@ -133,7 +133,8 @@ assertModule.ok(srs.getIntervalLabel(5, ReviewQuality.GOOD, NOW) === '90天', 'l
 assertModule.ok(srs.isDue(null) === true, 'isDue: 空 → 到期（新词立即进队列）');
 assertModule.ok(srs.isDue(undefined) === true, 'isDue: undefined → 到期');
 assertModule.ok(srs.isDue('') === true, 'isDue: 空串 → 到期');
-assertModule.ok(srs.isDue('2026-09-19T00:00:00.000Z') === true, 'isDue: 过去 → 到期');
-assertModule.ok(srs.isDue('2026-09-21T00:00:00.000Z') === false, 'isDue: 未来 → 未到期');
+// 相对当前时间动态构造，避免硬编码日期跨天后翻转（原 2026-09-21 用例次日即失败）
+assertModule.ok(srs.isDue(new Date(Date.now() - 86400000).toISOString()) === true, 'isDue: 过去 → 到期');
+assertModule.ok(srs.isDue(new Date(Date.now() + 86400000).toISOString()) === false, 'isDue: 未来 → 未到期');
 
 assertModule.done();

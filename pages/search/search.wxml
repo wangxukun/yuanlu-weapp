@@ -1,4 +1,104 @@
-<view class="page-placeholder">
-  <text class="t-h2">搜索</text>
-  <text class="t-caption text-tertiary">页面建设中 · 阶段二实现</text>
+<!-- pages/search/search — 独立搜索页
+  复刻 Web 端 app/(main)/search/page.tsx + SearchResultsContent.tsx（文案逐字一致）：
+  标题区 / 空态 / 骨架屏（Suspense fallback）/ 结果网格 / 无结果态；
+  搜索输入复刻 components/header/SearchBar.tsx（placeholder 与图标）。
+  注：Web 空态 material 图标 podcast_search 在字体中不存在（ligature 未命中），
+  以官方最接近的 manage_search 替代；无结果态 search_off 原样复刻。 -->
+<view class="search-container">
+
+  <!-- 搜索输入栏（SearchBar：h-12 胶囊 bg-ink-100 + 左 search 图标 + 400ms 防抖/回车即搜） -->
+  <view class="search-bar row">
+    <view class="search-input-wrap row flex-1">
+      <image class="search-icon" src="/assets/icons/search.svg" />
+      <input
+        class="search-input flex-1"
+        value="{{query}}"
+        bindinput="onSearchInput"
+        bindconfirm="onConfirm"
+        confirm-type="search"
+        placeholder="搜索“日常生活”或“新闻”……"
+        placeholder-class="search-placeholder"
+      />
+      <view class="clear-btn tap-dim" wx:if="{{query}}" bindtap="onClear">
+        <text class="clear-icon">✕</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 页面标题区（page heading：搜索 "query" / 搜索播客） -->
+  <view class="page-heading">
+    <view class="heading-title" wx:if="{{searched}}">
+      <text>搜索 “</text><text class="heading-query">{{searched}}</text><text>”</text>
+    </view>
+    <view class="heading-title" wx:else>搜索播客</view>
+    <text class="heading-sub">{{searched ? '根据标题、标签、描述为你找到以下播客' : '在上方搜索栏输入关键词，按标题、标签和描述查找播客'}}</text>
+  </view>
+
+  <!-- 加载骨架（Web Suspense fallback：8 张 aspect-square 脉冲卡 + 双行文本条） -->
+  <block wx:if="{{isSearching}}">
+    <view class="grid-row" wx:for="{{[0, 1, 2, 3]}}" wx:key="*this">
+      <view class="skeleton-card">
+        <view class="skeleton-cover sk-pulse"></view>
+        <view class="skeleton-line sk-pulse" style="width: 75%;"></view>
+        <view class="skeleton-line sk-pulse short" style="width: 50%;"></view>
+      </view>
+      <view class="skeleton-card">
+        <view class="skeleton-cover sk-pulse"></view>
+        <view class="skeleton-line sk-pulse" style="width: 75%;"></view>
+        <view class="skeleton-line sk-pulse short" style="width: 50%;"></view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 空态：从未搜索（SearchResultsContent query 为空分支） -->
+  <view class="empty-box col" wx:elif="{{!searched}}">
+    <image class="empty-icon" src="/assets/icons/manage-search.svg" />
+    <text class="empty-title">输入关键词开始搜索</text>
+    <text class="empty-sub">支持按播客标题、标签和描述搜索</text>
+  </view>
+
+  <!-- 无结果态（SearchResultsContent results.length === 0 分支） -->
+  <view class="empty-box col" wx:elif="{{results.length === 0}}">
+    <image class="empty-icon" src="/assets/icons/search-off.svg" />
+    <text class="empty-title">没有找到与 “{{searched}}” 相关的播客</text>
+    <view class="empty-sub row-center">试试换个关键词，或浏览 <text class="empty-link" bindtap="onGoDiscover">发现页面</text></view>  </view>
+
+  <!-- 结果态：计数行 + 双列卡片网格 -->
+  <block wx:else>
+    <view class="result-count">
+      <text>共找到 </text><text class="result-count-num">{{total}}</text><text> 个相关播客</text>
+    </view>
+
+    <view class="grid-row" wx:for="{{resultRows}}" wx:key="index">
+      <view class="grid-col" wx:for="{{item}}" wx:for-item="podcast" wx:key="podcastid">
+        <view class="result-card" bindtap="onOpenPodcast" data-id="{{podcast.podcastid}}">
+          <!-- 封面：aspect-square rounded-[1rem]，底色 ink-200 -->
+          <view class="result-cover-wrap">
+            <image class="result-cover" src="{{podcast.coverUrl}}" mode="aspectFill" />
+          </view>
+
+          <!-- 平台标签：10px 加粗大写字距加宽主色 -->
+          <text class="result-platform">{{podcast.platform || '播客'}}</text>
+
+          <!-- 标题：单行截断 -->
+          <text class="result-title">{{podcast.title}}</text>
+
+          <!-- 描述：两行截断 -->
+          <text class="result-desc" wx:if="{{podcast.description}}">{{podcast.description}}</text>
+
+          <!-- meta：前 2 个标签 + 耳机图标 + 集数 -->
+          <view class="result-meta">
+            <text class="meta-tag" wx:for="{{podcast.topTags}}" wx:key="id">{{item.name}}</text>
+            <view class="meta-episodes">
+              <image class="meta-headphones" src="/assets/icons/headphones.svg" />
+              <text class="meta-count">{{podcast.episodeCount}} 集</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <!-- 奇数末卡补空占位：末卡保持半宽，对齐 Web 网格与发现页（修复末卡拉满整行） -->
+      <view class="grid-col" wx:if="{{item.length === 1}}"></view>
+    </view>
+  </block>
+
 </view>
