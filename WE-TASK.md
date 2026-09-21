@@ -34,7 +34,7 @@
 ### 阶段二：全局框架搭建
 - [x] 2.1 路由规划：在 `app.json` 中注册核心页面（`pages/home/index`, `pages/discover/index`, `pages/review/index`, `pages/mine/index`，以及 `pages/auth/index`）。
 - [x] 2.2 底部导航栏：配置原生 `tabBar`，包含“主页”、“发现”、“复习”、“我的”4个核心入口。
-- [x] 2.3 全局授权拦截：完全复刻 yuanlu 项目的登录逻辑（提供手机号/邮箱及验证码/密码的登录入口），替换原有静默登录方案。
+- [x] 2.3 全局授权拦截：完全复刻 yuanlu-android `feature/auth` 的登录/注册体验（双 Tab「手机号验证码 / 邮箱密码」、输入框左图标、邮箱 Tab 内部登录⇄注册切换、《用户协议》《隐私政策》全文弹层与强制勾选门禁、60s 验证码倒计时、邮箱注册三步 verify-code→sign-up→自动登录、token 落库与路由回退；单测见 `scripts/test-login.js`），替换原有静默登录方案。
 
 ### 阶段三：核心业务模块开发 (按优先级)
 
@@ -58,7 +58,7 @@
 #### 模块 D：个人中心与句子收藏
 - [ ] 3.D.1 用户中心页（`pages/library/index`）。
 - [ ] 3.D.2 播放历史（Listening History）展示。
-- [ ] 3.D.3 句子本与生词本（Favorites, Vocabulary, Saved Sentences）列表展示。
+- [x] 3.D.3 我的收藏（`pages/library/favorites`，对齐 yuanlu-android `FavoritesScreen`：双 Tab「播客系列 (X)/单集 (Y)」+ 搜索过滤 + 1:1/16:9 封面卡片 + 时长遮罩 + 乐观取消收藏/失败回滚；单测 `scripts/test-favorites.js`）。
 
 ### 阶段四：测试与多端适配
 - [ ] 4.1 真机调试与鉴权全链路走查。

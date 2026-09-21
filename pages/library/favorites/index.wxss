@@ -1,0 +1,413 @@
+/**
+ * pages/library/favorites/index.wxss — 我的收藏
+ *
+ * 视觉规格移植自 Android 端 FavoritesScreen.kt + 设计稿两图：
+ *   - FavoritesTabSwitcher：surfaceVariant 60% 圆角 16dp 容器 + 激活白底胶囊 12dp + primary 加粗；
+ *   - SearchField：surfaceVariant 50% 底 + outlineVariant 描边 + 圆角 16dp；
+ *   - 播客卡片：96dp(192rpx) 1:1 封面 + 首标签胶囊(primary 10% 底) + 统计行(12dp 灰图标) + 30dp 圆形删除钮(error 10% 底)；
+ *   - 单集卡片：140dp(280rpx)×16:9(158rpx) 封面 + 右下角 0x99000000 时长遮罩(白 clock 图标)；
+ *   - EmptyState：2dp 虚线圆角框 + 圆形书签 + 去发现胶囊按钮。
+ * 图标为 Material Symbols 的 SVG data-URI 内联渲染（颜色实值，无法引用 CSS 变量）。
+ * 顶部导航（返回 + 标题）由原生导航栏提供。
+ */
+
+.fav-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 32rpx 0;
+  background: var(--page-bg);
+}
+
+/* ==================== 状态盒（加载 / 错误 / 未登录） ==================== */
+
+.state-box {
+  padding: 160rpx 48rpx;
+}
+
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid var(--ink-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: fav-spin 0.8s linear infinite;
+}
+
+@keyframes fav-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-text {
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.state-btn {
+  margin-top: 32rpx;
+  padding: 18rpx 72rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* ==================== 双 Tab 切换卡（对齐 FavoritesTabSwitcher） ==================== */
+
+.fav-tabs {
+  display: flex;
+  padding: 8rpx; /* 4dp 内衬 */
+  background: rgba(227, 221, 207, 0.6); /* surfaceVariant 60% */
+  border-radius: 32rpx; /* 16dp */
+}
+
+.fav-tab {
+  flex: 1;
+  padding: 16rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  border-radius: 24rpx; /* 12dp */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.fav-tab + .fav-tab {
+  margin-left: 8rpx; /* spacedBy(4dp)，flex gap 兼容写法 */
+}
+
+.fav-tab--on {
+  background: var(--card-bg); /* surface 白底胶囊 */
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* ==================== 搜索框（对齐 SearchField） ==================== */
+
+.fav-search {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  padding: 20rpx 24rpx;
+  background: rgba(227, 221, 207, 0.5); /* surfaceVariant 50% */
+  border: 2rpx solid var(--ink-200); /* outlineVariant */
+  border-radius: 32rpx; /* 16dp */
+}
+
+.fav-search-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  /* 注意：WXSS 不支持 background 简写中的 position / size 斜杠语法，
+     且该写法会中止整批页面样式编译（全项目 UI 失效事故根因），必须分属性书写 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23b3a993' d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.fav-search-input {
+  flex: 1;
+  margin-left: 16rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.fav-search-ph {
+  color: var(--text-tertiary);
+}
+
+/* ==================== 图标基座（尺寸/平铺属性）与 SVG 源 ==================== */
+
+.stat-icon,
+.stat-icon-lg,
+.del-icon,
+.du-icon,
+.si-empty {
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  flex-shrink: 0;
+}
+
+.stat-icon {
+  width: 24rpx; /* 12dp（对齐 StatItem） */
+  height: 24rpx;
+}
+
+.stat-icon-lg {
+  width: 28rpx; /* 14dp（对齐单集卡片底部行） */
+  height: 28rpx;
+}
+
+.del-icon {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+
+.du-icon {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 4rpx;
+}
+
+/* 图层（剧集数，Icons.Filled.Layers 同形） */
+.si-layers {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23a79e8a' d='M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z'/%3E%3C/svg%3E");
+}
+
+/* 耳机（收听数，Icons.Filled.Headphones 同形） */
+.si-headphones {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23a79e8a' d='M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z'/%3E%3C/svg%3E");
+}
+
+/* 书签轮廓（收藏数，Icons.Filled.BookmarkBorder 同形；空态复用） */
+.si-bookmark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23a79e8a' d='M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z'/%3E%3C/svg%3E");
+}
+
+/* 时钟（时长遮罩，Icons.Filled.Schedule 同形，白色叠深底） */
+.si-clock {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E");
+}
+
+/* 垃圾桶（取消收藏，Icons.Filled.Delete 同形，error 红） */
+.si-delete {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23d2503f' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/%3E%3C/svg%3E");
+}
+
+/* 空态书签（30% 透明灰） */
+.si-empty {
+  width: 64rpx; /* 32dp */
+  height: 64rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23cfc7b4' d='M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z'/%3E%3C/svg%3E");
+}
+
+/* ==================== 卡片公共（16dp 圆角白卡 + outline 描边） ==================== */
+
+.pcard,
+.ecard {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx; /* spacedBy(12dp) */
+  padding: 24rpx; /* 12dp */
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
+  border-radius: 32rpx; /* 16dp */
+}
+
+/* ==================== 播客系列卡片（对齐 FavoritePodcastCard） ==================== */
+
+/* 1:1 方形封面：192rpx × 192rpx（96dp），圆角 12dp */
+.pcard-cover {
+  width: 192rpx;
+  height: 192rpx;
+  flex-shrink: 0;
+  border-radius: 24rpx;
+  background: var(--ink-100); /* 封面缺失时的占位底 */
+}
+
+.pcard-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 首个分类标签：primary 10% 底胶囊（对齐 tag.name.uppercase()，中文原样） */
+.pcard-tag {
+  align-self: flex-start;
+  padding: 4rpx 16rpx;
+  background: rgba(31, 122, 92, 0.1);
+  border-radius: 8rpx; /* 4dp */
+  font-size: 20rpx; /* labelSmall */
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.pcard-title {
+  margin-top: 8rpx;
+  font-size: 32rpx; /* bodyLarge */
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pcard-author {
+  margin-top: 4rpx;
+  font-size: 22rpx; /* labelSmall */
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 底部统计行：三项靠左 + 取消收藏按钮绝对靠右（并入本行） */
+.pcard-bottom {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx; /* 6dp */
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  margin-right: 20rpx; /* spacedBy(10dp) */
+}
+
+.stat-num {
+  margin-left: 4rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary); /* 浅灰数字 */
+}
+
+/* 取消收藏：30dp 圆形 error 10% 底 + 16dp 红垃圾桶 */
+.del-btn {
+  width: 60rpx;
+  height: 60rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(210, 80, 63, 0.1);
+}
+
+/* ==================== 单集卡片（对齐 FavoriteEpisodeCard） ==================== */
+
+/* 16:9 封面：280rpx × 158rpx（140dp × 78.75dp），圆角 8dp */
+.ecard-cover-box {
+  position: relative;
+  width: 280rpx;
+  height: 158rpx;
+  flex-shrink: 0;
+}
+
+.ecard-cover {
+  width: 280rpx;
+  height: 158rpx;
+  border-radius: 16rpx;
+  background: var(--ink-100);
+}
+
+/* 时长遮罩：封面右下角，半透明黑底（对齐 0x99000000）+ 白 clock 图标 */
+.ecard-duration {
+  position: absolute;
+  right: 8rpx;
+  bottom: 8rpx;
+  display: flex;
+  align-items: center;
+  padding: 4rpx 12rpx;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8rpx; /* 4dp */
+}
+
+.du-text {
+  font-size: 20rpx; /* labelSmall */
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.ecard-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 副标题：所属播客 · 平台（labelSmall 灰） */
+.ecard-source {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 标题：最多两行省略（对齐 maxLines=2 SemiBold） */
+.ecard-title {
+  margin-top: 8rpx;
+  font-size: 28rpx; /* bodyMedium */
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 底部操作行：左中右分布（双 spacer 均衡，对齐 Android 双 Spacer(weight(1f))） */
+.ecard-bottom {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.ecard-bottom .stat {
+  margin-right: 0;
+}
+
+/* ==================== 空态（对齐 FavoritesEmptyState：虚线框 + 圆形书签 + 去发现） ==================== */
+
+.fav-empty {
+  margin-top: 24rpx;
+  padding: 48rpx;
+  align-items: center;
+  border: 2rpx dashed var(--ink-200); /* outlineVariant 虚线圆角框 */
+  border-radius: 48rpx; /* 24dp */
+}
+
+.fav-empty-circle {
+  width: 144rpx; /* 72dp */
+  height: 144rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-100); /* surfaceVariant */
+  border-radius: 50%;
+}
+
+.fav-empty-title {
+  margin-top: 32rpx;
+  font-size: 32rpx; /* titleMedium */
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.fav-empty-desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.fav-empty-btn {
+  margin-top: 32rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  padding-left: 64rpx;
+  padding-right: 64rpx;
+}
+
+.fav-empty-btn::after {
+  border: none;
+}
+
+.fav-footer-space {
+  height: calc(48rpx + env(safe-area-inset-bottom));
+}

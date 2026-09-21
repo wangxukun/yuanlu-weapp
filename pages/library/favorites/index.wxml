@@ -1,0 +1,135 @@
+<!-- pages/library/favorites/index.wxml — 我的收藏
+  对齐 Android 端 FavoritesScreen.kt（复刻 Web /library/favorites 移动端）：
+  双 Tab 切换卡（带数量角标）→ 搜索框 → 播客卡片（1:1 封面/标签/统计行/取消收藏）
+  / 单集卡片（16:9 封面 + 时长遮罩 / 来源行 / 两行标题 / 统计行）。
+  顶部返回 + 标题由原生导航栏提供（navigationBarTitleText: 我的收藏）。 -->
+
+<view class="fav-page">
+
+  <!-- ===== 加载态 ===== -->
+  <view wx:if="{{isLoading}}" class="state-box col center">
+    <view class="loading-spinner" />
+    <text class="state-text">正在加载收藏…</text>
+  </view>
+
+  <!-- ===== 错误 / 未登录态 ===== -->
+  <view wx:elif="{{needLogin || error}}" class="state-box col center">
+    <text class="state-text">{{needLogin ? '登录后即可查看收藏内容' : error}}</text>
+    <view
+      class="state-btn center tap-scale"
+      bindtap="{{needLogin ? 'onGoLogin' : 'onRetry'}}"
+    >{{needLogin ? '去登录' : '重试'}}</view>
+  </view>
+
+  <!-- ===== 内容区 ===== -->
+  <block wx:else>
+
+    <!-- 双 Tab 切换卡（对齐 FavoritesTabSwitcher：segmented 容器 + 白底激活胶囊 + 数量角标） -->
+    <view class="fav-tabs">
+      <view
+        class="fav-tab {{activeTab === 'podcasts' ? 'fav-tab--on' : ''}}"
+        bindtap="onSelectTab"
+        data-tab="podcasts"
+      >播客系列 ({{podcasts.length}})</view>
+      <view
+        class="fav-tab {{activeTab === 'episodes' ? 'fav-tab--on' : ''}}"
+        bindtap="onSelectTab"
+        data-tab="episodes"
+      >单集 ({{episodes.length}})</view>
+    </view>
+
+    <!-- 搜索框（占位文本随 Tab 切换，对齐 SearchField） -->
+    <view class="fav-search">
+      <view class="fav-search-icon" />
+      <input
+        class="fav-search-input"
+        value="{{searchQuery}}"
+        placeholder="{{activeTab === 'podcasts' ? '搜索收藏的播客...' : '搜索收藏的单集...'}}"
+        placeholder-class="fav-search-ph"
+        confirm-type="search"
+        bindinput="onSearchInput"
+      />
+    </view>
+
+    <!-- ===== 播客系列 Tab ===== -->
+    <block wx:if="{{activeTab === 'podcasts'}}">
+
+      <view wx:if="{{filteredPodcasts.length === 0}}" class="fav-empty col">
+        <view class="fav-empty-circle"><view class="si-bookmark si-empty" /></view>
+        <text class="fav-empty-title">还没有收藏任何播客</text>
+        <text class="fav-empty-desc">开始探索并点击收藏图标，将你喜欢的播客系列保存到这里以便稍后学习。</text>
+        <button class="fav-empty-btn" bindtap="onGoDiscover">去发现</button>
+      </view>
+
+      <view
+        wx:for="{{filteredPodcasts}}"
+        wx:key="id"
+        class="pcard"
+        bindtap="onOpenPodcast"
+        data-id="{{item.id}}"
+      >
+        <!-- 1:1 方形封面（192rpx × 192rpx 严格锁定比例） -->
+        <image class="pcard-cover" src="{{item.thumbnailUrl}}" mode="aspectFill" lazy-load />
+        <view class="pcard-info">
+          <view wx:if="{{item.firstTag}}" class="pcard-tag">{{item.firstTag}}</view>
+          <text class="pcard-title">{{item.title}}</text>
+          <text class="pcard-author">{{item.author}}</text>
+          <!-- 底部统计行：图层(剧集数)/耳机(收听数)/书签(收藏数) + 右端取消收藏 -->
+          <view class="pcard-bottom">
+            <view class="stat"><view class="si-layers stat-icon" /><text class="stat-num">{{item.episodeCount}}</text></view>
+            <view class="stat"><view class="si-headphones stat-icon" /><text class="stat-num">{{item.playsShort}}</text></view>
+            <view class="stat"><view class="si-bookmark stat-icon" /><text class="stat-num">{{item.followers}}</text></view>
+            <view class="flex-1" />
+            <view class="del-btn center" catchtap="onRemovePodcast" data-id="{{item.id}}">
+              <view class="si-delete del-icon" />
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- ===== 单集 Tab ===== -->
+    <block wx:else>
+
+      <view wx:if="{{filteredEpisodes.length === 0}}" class="fav-empty col">
+        <view class="fav-empty-circle"><view class="si-bookmark si-empty" /></view>
+        <text class="fav-empty-title">还没有收藏任何单集</text>
+        <text class="fav-empty-desc">开始探索并点击收藏图标，将你喜欢的精彩单集保存到这里以便稍后学习。</text>
+        <button class="fav-empty-btn" bindtap="onGoDiscover">去发现</button>
+      </view>
+
+      <view
+        wx:for="{{filteredEpisodes}}"
+        wx:key="id"
+        class="ecard"
+        bindtap="onOpenEpisode"
+        data-id="{{item.id}}"
+      >
+        <!-- 16:9 封面（280rpx × 158rpx 严格锁定比例）+ 右下角半透明黑底时长遮罩 -->
+        <view class="ecard-cover-box">
+          <image class="ecard-cover" src="{{item.thumbnailUrl}}" mode="aspectFill" lazy-load />
+          <view class="ecard-duration">
+            <view class="si-clock du-icon" />
+            <text class="du-text">{{item.durationText}}</text>
+          </view>
+        </view>
+        <view class="ecard-info">
+          <text class="ecard-source">{{item.subtitle}}</text>
+          <text class="ecard-title">{{item.title}}</text>
+          <!-- 底部操作行（左中右分布）：收听数 / 收藏数 / 取消收藏 -->
+          <view class="ecard-bottom">
+            <view class="stat"><view class="si-headphones stat-icon-lg" /><text class="stat-num">{{item.playCountText}}</text></view>
+            <view class="flex-1" />
+            <view class="stat"><view class="si-bookmark stat-icon-lg" /><text class="stat-num">{{item.favoriteCountText}}</text></view>
+            <view class="flex-1" />
+            <view class="del-btn center" catchtap="onRemoveEpisode" data-id="{{item.id}}">
+              <view class="si-delete del-icon" />
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="fav-footer-space" />
+  </block>
+</view>

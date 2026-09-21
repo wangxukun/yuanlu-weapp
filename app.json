@@ -10,6 +10,7 @@
     "pages/review/leaderboard/index",
     "pages/mine/index",
     "pages/auth/index",
+    "pages/library/favorites/index",
     "pages/podcast/podcast",
     "pages/episode/episode",
     "pages/search/search"
