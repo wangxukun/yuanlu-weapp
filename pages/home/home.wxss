@@ -1,9 +1,0 @@
-/* pages/home/home.wxss */
-.page-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16rpx;
-  padding-top: 200rpx;
-}

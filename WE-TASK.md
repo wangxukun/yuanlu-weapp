@@ -89,7 +89,7 @@
 - [ ] 4.5 录音评测真机闭环：wav/16k/mono 产物被有道 ISE 正常评测（REVIEW-TASK 阶段 3 最先打通项）。
 
 ### 工程债与清理（走查发现，随近任务顺手处理）
-- [ ] 5.1 死代码清理：`pages/home/home.*` 4 件套未在 app.json 注册（现役为 `pages/home/index.*`），确认后删除。
+- [x] 5.1 ~~死代码清理~~ → **已解决（2026-09-21）**：`pages/home/home.*` 四件套（阶段一 10 行 TODO 桩，未注册、零引用）已删除，现役首页为 `pages/home/index.*`；`npm test` 11 套件回归全绿。
 - [ ] 5.2 `utils/config.js` dev `BASE_URL` 当前临时指向生产 `https://www.wxkzd.com`（commit cad6670，便于真机预览联调），联调完切回 `localhost:3000`。
 - [ ] 5.3 mine 页 3 个死链宫格入口在对应页面建成前做隐藏或「敬请期待」降级，避免线上点击报错。
 - [ ] 5.4 「外观设置」当前仅 toast 占位（"小程序暂不支持主题切换"），确认产品口径后转正式任务或移除入口。
