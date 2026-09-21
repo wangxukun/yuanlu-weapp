@@ -13,6 +13,7 @@ Page({
     // 分类标签
     tags: [],
     selectedTagId: null,
+    selectedTagName: '',
 
     // 区块数据
     trending: [],      // 热门榜 (totalPlays 降序 TOP6)
@@ -41,10 +42,19 @@ Page({
     this.setData({ isLoading: true, error: null });
     try {
       // 对接真实 API (对齐 Android ContentApi 路由)
-      const [podcasts, tags] = await Promise.all([
-        get('/api/podcast/list'),
-        get('/api/tag/list')
-      ]);
+      const podcasts = await get('/api/podcast/list');
+
+      // 分类标签数据源：由播客列表实际挂的标签派生（按命中播客数降序）。
+      // 不用 /api/tag/list —— 那是标签全库（课程/语法型），与播客实际标签
+      // 交集≈0（2026-09-21 实测 20 个仅 1 个命中），点了必空；Android 端
+      // FilterChip 即因同款数据源失效。派生保证每个 chip 至少命中 1 档。
+      const tagMap = {};
+      podcasts.forEach(p => (p.tags || []).forEach(t => {
+        if (!t || t.id == null) return;
+        if (!tagMap[t.id]) tagMap[t.id] = { id: t.id, name: t.name, count: 0 };
+        tagMap[t.id].count += 1;
+      }));
+      const tags = Object.values(tagMap).sort((a, b) => b.count - a.count);
 
       // 客户端派生区块（对齐 Android DiscoverViewModel）
       const trending = [...podcasts]
@@ -115,24 +125,38 @@ Page({
   async doSearch(query) {
     this.setData({ isSearching: true });
     try {
-      // 对接真实搜索 API
-      const results = await get(`/api/podcast/search?q=${encodeURIComponent(query)}`);
-      this.setData({ searchResults: results, isSearching: false });
+      // 对接真实搜索 API（该接口返回 {success, data, query, total} 包装，取 data 数组）
+      const res = await get(`/api/podcast/search?q=${encodeURIComponent(query)}`);
+      const results = Array.isArray(res.data)
+        ? res.data.map((p) => ({ ...p, topTags: (p.tags || []).slice(0, 2) }))
+        : [];
+      this.setData({ searchResults: results, searchResultRows: this._chunkPairs(results), isSearching: false });
     } catch {
-      this.setData({ searchResults: [], isSearching: false });
+      this.setData({ searchResults: [], searchResultRows: [], isSearching: false });
     }
   },
 
-  /** 标签筛选（对齐 Android selectTag） */
+  /** 搜索结果底部「查看全部结果」→ 独立搜索页（对齐 Web SearchBar 下拉的“搜索 q 的全部结果”） */
+  onOpenFullSearch() {
+    const q = (this.data.query || '').trim();
+    if (!q) return;
+    wx.navigateTo({ url: `/pages/search/search?q=${encodeURIComponent(q)}` });
+  },
+
+  /** 标签筛选（对齐 Android selectTag 的 toggle 语义：再点同标签取消） */
   onSelectTag(e) {
     const tagId = e.currentTarget.dataset.id || null;
     const newTagId = tagId === this.data.selectedTagId ? null : tagId;
     const filtered = newTagId
       ? this.data.allPodcasts.filter(p => p.tags && p.tags.some(t => t.id === newTagId))
       : this.data.allPodcasts;
+    const selectedTag = newTagId
+      ? this.data.tags.find(t => t.id === newTagId)
+      : null;
 
     this.setData({
       selectedTagId: newTagId,
+      selectedTagName: selectedTag ? selectedTag.name : '',
       filteredPodcasts: filtered,
       filteredRows: this._chunkPairs(filtered)
     });

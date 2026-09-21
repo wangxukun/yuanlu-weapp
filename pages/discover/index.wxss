@@ -24,6 +24,124 @@
   opacity: 0.5;
 }
 
+/* Material Symbols 官方 search 图标（替换原 emoji 近似，对齐 Web/Android） */
+.search-icon-img {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+/* 搜索结果底部「全部结果」入口（对齐 Web SearchBar 下拉按钮） */
+.full-search-link {
+  justify-content: center;
+  align-items: center;
+  gap: 10rpx;
+  padding: 28rpx 0 8rpx;
+}
+
+.full-search-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.full-search-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--primary-600);
+}
+
+/* ============ 就地搜索结果卡（与 pages/search 同款，规格见 search.wxss） ============ */
+.result-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.result-cover-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%;
+  border-radius: 32rpx;
+  overflow: hidden;
+  margin-bottom: 32rpx;
+}
+
+.result-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--ink-200);
+  display: block;
+}
+
+.result-platform {
+  font-size: 20rpx;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+  color: var(--primary-600);
+  margin-bottom: 8rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.result-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink-900);
+  line-height: 1.4;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.result-desc {
+  font-size: 24rpx;
+  color: var(--ink-500);
+  line-height: 1.625;
+  margin-bottom: 24rpx;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.meta-tag {
+  font-size: 20rpx;
+  color: var(--primary-600);
+  background-color: var(--primary-50);
+  padding: 4rpx 16rpx;
+  border-radius: var(--r-full);
+  font-weight: 500;
+}
+
+.meta-episodes {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.meta-headphones {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+.meta-count {
+  font-size: 20rpx;
+  color: var(--ink-400);
+}
+
 .search-input {
   font-size: 28rpx;
   height: 80rpx;

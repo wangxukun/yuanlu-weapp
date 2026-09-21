@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "node scripts/test-membership.js && node scripts/test-home-guest.js && node scripts/test-premium-modal.js && node scripts/test-quota-card.js && node scripts/test-srs.js && node scripts/test-audio-tts.js && node scripts/test-login.js && node scripts/test-favorites.js",
+    "test": "node scripts/test-membership.js && node scripts/test-home-guest.js && node scripts/test-premium-modal.js && node scripts/test-quota-card.js && node scripts/test-srs.js && node scripts/test-audio-tts.js && node scripts/test-login.js && node scripts/test-favorites.js && node scripts/test-search.js && node scripts/test-channels.js && node scripts/test-discover-tags.js",
     "test:membership": "node scripts/test-membership.js",
     "test:home": "node scripts/test-home-guest.js",
     "test:premium-modal": "node scripts/test-premium-modal.js",
@@ -12,7 +12,10 @@
     "test:srs": "node scripts/test-srs.js",
     "test:audio": "node scripts/test-audio-tts.js",
     "test:login": "node scripts/test-login.js",
-    "test:favorites": "node scripts/test-favorites.js"
+    "test:favorites": "node scripts/test-favorites.js",
+    "test:search": "node scripts/test-search.js",
+    "test:channels": "node scripts/test-channels.js",
+    "test:discover-tags": "node scripts/test-discover-tags.js"
   },
   "repository": {
     "type": "git",

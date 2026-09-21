@@ -32,7 +32,7 @@
     <!-- 搜索栏（固定在顶部） -->
     <view class="search-bar row">
       <view class="search-input-wrap row flex-1">
-        <text class="search-icon">🔍</text>
+        <image class="search-icon-img" src="/assets/icons/search.svg" />
         <input class="search-input flex-1" value="{{query}}" bindinput="onSearchInput" placeholder="搜索播客..." confirm-type="search" />
         <view class="clear-btn tap-dim" bindtap="onClearSearch" wx:if="{{query}}">
           <text class="clear-icon">✕</text>
@@ -52,14 +52,32 @@
     </block>
     <block wx:else>
       <view class="grid-section">
-        <view class="grid-row" wx:for="{{searchResults}}" wx:key="podcastid">
-          <view class="podcast-card tap-scale" bindtap="onOpenPodcast" data-id="{{item.podcastid}}">
-            <view class="podcast-cover-wrap">
-              <image class="podcast-cover-square" src="{{item.coverUrl}}" mode="aspectFill" />
+        <view class="grid-row" wx:for="{{searchResultRows}}" wx:key="index">
+          <view class="grid-col" wx:for="{{item}}" wx:for-item="podcast" wx:key="podcastid">
+            <!-- 与独立搜索页同款结果卡：平台/单行标题/两行描述/前2标签/集数 -->
+            <view class="result-card tap-scale" bindtap="onOpenPodcast" data-id="{{podcast.podcastid}}">
+              <view class="result-cover-wrap">
+                <image class="result-cover" src="{{podcast.coverUrl}}" mode="aspectFill" />
+              </view>
+              <text class="result-platform">{{podcast.platform || '播客'}}</text>
+              <text class="result-title">{{podcast.title}}</text>
+              <text class="result-desc" wx:if="{{podcast.description}}">{{podcast.description}}</text>
+              <view class="result-meta">
+                <text class="meta-tag" wx:for="{{podcast.topTags}}" wx:key="id">{{item.name}}</text>
+                <view class="meta-episodes">
+                  <image class="meta-headphones" src="/assets/icons/headphones.svg" />
+                  <text class="meta-count">{{podcast.episodeCount}} 集</text>
+                </view>
+              </view>
             </view>
-            <text class="t-body text-bold ellipsis-2 mt-1">{{item.title}}</text>
           </view>
+          <view class="grid-col" wx:if="{{item.length === 1}}"></view>
         </view>
+      </view>
+      <!-- 查看全部结果 → 独立搜索页（对齐 Web SearchBar“搜索 q 的全部结果”） -->
+      <view class="full-search-link row" bindtap="onOpenFullSearch">
+        <image class="full-search-icon" src="/assets/icons/search.svg" />
+        <text class="full-search-text">搜索 “{{query}}” 的全部结果</text>
       </view>
     </block>
   </block>
@@ -69,7 +87,7 @@
     <!-- 搜索栏 -->
     <view class="search-bar row">
       <view class="search-input-wrap row flex-1">
-        <text class="search-icon">🔍</text>
+        <image class="search-icon-img" src="/assets/icons/search.svg" />
         <input class="search-input flex-1" value="{{query}}" bindinput="onSearchInput" placeholder="搜索播客..." confirm-type="search" />
       </view>
     </view>
@@ -181,7 +199,7 @@
 
     <!-- 全部播客网格（受标签筛选） -->
     <view class="section-header">
-      <text class="t-h3 text-bold">{{selectedTagId ? tags[0].name : '全部播客'}}</text>
+      <text class="t-h3 text-bold">{{selectedTagName || '全部播客'}}</text>
     </view>
     <block wx:if="{{filteredPodcasts.length === 0}}">
       <view class="empty-box center">
