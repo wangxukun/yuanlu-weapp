@@ -1,0 +1,163 @@
+/* ============ 迷你播放条（复刻 Web MobilePlayerBar） ============ */
+
+.mp-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: env(safe-area-inset-bottom);
+  bottom: constant(safe-area-inset-bottom);
+  z-index: var(--z-miniplayer);
+  background-color: rgba(255, 255, 255, 0.95);
+  border-top: 1rpx solid var(--ink-100);
+  box-shadow: 0 -8rpx 24rpx rgba(27, 24, 18, 0.05);
+}
+
+/* tabBar 页：webview 视口底边即原生 tabBar 顶边（原生 tabBar 不占页面高度），
+   无需导航高度/safe 偏移——与底部导航条固定 2rpx 缝隙 */
+.mp-elevated {
+  bottom: 2rpx;
+}
+
+/* 顶缘 2px 渐变进度线 */
+.mp-progress-track {
+  height: 4rpx;
+  background-color: var(--ink-200);
+}
+
+.mp-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--primary-500), var(--primary-600));
+  transition: width 0.3s linear;
+}
+
+.mp-inner {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 0 32rpx;
+  height: var(--mini-player-height);
+}
+
+/* 封面缩略图 40×40 圆角 8px，播放中叠遮罩 + 均衡器 */
+.mp-cover {
+  position: relative;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1rpx solid rgba(227, 221, 207, 0.5);
+  box-shadow: var(--e1);
+}
+
+.mp-cover-img {
+  width: 100%;
+  height: 100%;
+}
+
+.mp-cover-eq {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3rpx;
+}
+
+/* 均衡器条：白柱 scaleY 脉冲（对齐 Web animate-eq，组件内自持 keyframes 防样式隔离丢失） */
+@keyframes mp-eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.mp-eq-bar {
+  width: 4rpx;
+  height: 24rpx;
+  background-color: #ffffff;
+  border-radius: 2rpx;
+  animation: mp-eq 1s ease-in-out infinite;
+}
+
+.mp-texts {
+  gap: 2rpx;
+}
+
+.mp-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink-800);
+}
+
+.mp-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx; /* Android：标签与播客名间距 5dp */
+}
+
+/* 「精听」小标签（复刻 Android MiniPlayerBar）：
+   Primary600@12% 底 + GraphicEq 9dp 图标 + 9sp 粗体「精听」，圆角 50、padding 5dp/1dp */
+.mp-intensive-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx; /* 图标与文字间距 2dp */
+  padding: 2rpx 10rpx;
+  border-radius: var(--r-full);
+  background-color: rgba(31, 122, 92, 0.12);
+  flex-shrink: 0;
+}
+
+.mp-intensive-icon {
+  width: 18rpx;
+  height: 18rpx;
+}
+
+.mp-intensive-text {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: var(--primary-600);
+  line-height: 1.2;
+}
+
+.mp-sub {
+  font-size: 22rpx;
+  color: var(--ink-500);
+}
+
+/* 播放/暂停圆钮：primary-600 底 + 白色 FILL 图标（对齐 Web togglePlay） */
+.mp-play {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background-color: var(--primary-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 16rpx rgba(31, 122, 92, 0.3);
+}
+
+.mp-play-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 关闭播放器钮：ink-400 弱化 */
+.mp-close {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mp-close-icon {
+  width: 40rpx;
+  height: 40rpx;
+}

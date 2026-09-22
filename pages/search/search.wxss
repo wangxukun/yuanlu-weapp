@@ -4,7 +4,7 @@
 
 .search-container {
   padding: var(--page-padding);
-  padding-bottom: calc(var(--page-padding) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--page-padding) + var(--mini-player-height) + env(safe-area-inset-bottom));
   background-color: var(--page-bg);
   min-height: 100vh;
   box-sizing: border-box;

@@ -1,5 +1,7 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "mini-player": "/components/player/mini-player/index"
+  },
   "navigationBarTitleText": "播客详情",
   "navigationBarBackgroundColor": "#faf8f3",
   "enablePullDownRefresh": false

@@ -1,0 +1,212 @@
+<!-- 全屏播放详情面板（复刻 Android FullScreenPlayerScreen：无字幕模块，控制排五枚） -->
+<view class="pp-sheet" wx:if="{{visible}}">
+
+  <!-- ── 顶部窄栏：expand_more 收起 / close 关闭播放器 ── -->
+  <view class="pp-header row">
+    <view class="pp-header-btn tap-dim" bindtap="onCollapse">
+      <image class="pp-header-icon" src="/assets/icons/chevron-down-gray.svg" />
+    </view>
+    <view class="flex-1"></view>
+    <view class="pp-header-btn tap-dim" bindtap="onClosePlayer">
+      <image class="pp-header-close" src="/assets/icons/close.svg" />
+    </view>
+  </view>
+  <view class="pp-header-divider"></view>
+
+  <!-- ── 主体：上部弹性留白（对齐 Android 评论区预留）+ 下沉控制模块 ── -->
+  <view class="pp-body col">
+
+    <!-- 拖把 -->
+    <view class="pp-handle"></view>
+
+    <!-- 封面：16:9，点击进剧集详情；精听会话右上角「精听中」角标 -->
+    <view class="pp-cover-wrap tap-scale" bindtap="onCoverTap">
+      <image class="pp-cover" src="{{coverUrl}}" mode="aspectFill" />
+      <view class="pp-intensive-badge row" wx:if="{{isIntensiveMode}}">
+        <image class="pp-intensive-badge-icon" src="/assets/icons/graphic-eq-white.svg" />
+        <text class="pp-intensive-badge-text">精听中</text>
+      </view>
+    </view>
+
+    <!-- 标题 / 播客名（居中） -->
+    <text class="pp-title">{{title}}</text>
+    <text class="pp-podcast">{{podcastTitle}}</text>
+
+    <!-- ── 功能行（进度条正上方）：左「播放列表」/ 右「定时关闭」── -->
+    <view class="pp-actions row">
+      <view class="pp-action row tap-dim" bindtap="onOpenPlaylistSheet">
+        <image class="pp-action-icon" src="/assets/icons/queue-music.svg" />
+        <text class="pp-action-text">播放列表</text>
+      </view>
+      <view class="flex-1"></view>
+      <view class="pp-action row tap-dim {{sleepActive ? 'active' : ''}}" bindtap="onOpenSleepSheet">
+        <image class="pp-action-icon" src="/assets/icons/alarm.svg" />
+        <text class="pp-action-text">{{sleepText}}</text>
+      </view>
+    </view>
+
+    <!-- 进度条：拖动中显示拖动值，松手才 seek -->
+    <slider
+      class="pp-slider"
+      min="0"
+      max="{{sliderMax}}"
+      value="{{sliderValue}}"
+      activeColor="#1f7a5c"
+      backgroundColor="#e3ddcf"
+      block-size="20"
+      block-color="#ffffff"
+      disabled="{{!episodeid}}"
+      bindchanging="onSeekChanging"
+      bindchange="onSeekChanged"
+    />
+    <view class="row between pp-time-row">
+      <text class="pp-time">{{timeLabel}}</text>
+      <text class="pp-time">{{remainLabel}}</text>
+    </view>
+
+    <!-- ── 控制排：倍速 / 上一首 / 播放大钮 / 下一首 / 循环 ── -->
+    <view class="pp-controls row">
+      <view class="pp-pill tap-scale {{rateLabel !== '1x' ? 'active' : ''}}" bindtap="onCycleRate">
+        <text class="pp-pill-text">{{rateLabel}}</text>
+      </view>
+      <view class="pp-ctl tap-scale" bindtap="onPrev">
+        <image class="pp-ctl-icon" src="/assets/icons/skip-previous.svg" />
+      </view>
+      <view class="pp-play tap-scale" bindtap="onTogglePlay">
+        <view class="pp-spinner" wx:if="{{isLoading}}"></view>
+        <image class="pp-play-icon" wx:else
+          src="{{isPlaying ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled.svg'}}" />
+      </view>
+      <view class="pp-ctl tap-scale" bindtap="onNext">
+        <image class="pp-ctl-icon" src="/assets/icons/skip-next.svg" />
+      </view>
+      <view class="pp-pill tap-scale {{(loopMode !== 'none' || isShuffle) ? 'active' : ''}}" bindtap="onCycleMode">
+        <image class="pp-pill-icon"
+          src="{{isShuffle ? '/assets/icons/shuffle-active.svg' : (loopMode === 'one' ? '/assets/icons/repeat-one-active.svg' : (loopMode === 'all' ? '/assets/icons/repeat-active.svg' : '/assets/icons/repeat.svg'))}}" />
+      </view>
+    </view>
+
+    <view class="flex-1"></view>
+
+    <!-- ── 精听模式入口：整个页面最底部（橙色胶囊，对齐 Android Accent500） ── -->
+    <view class="pp-safe-bottom">
+      <view class="pp-intensive-btn row tap-scale" bindtap="onOpenIntensive">
+        <image class="pp-intensive-btn-icon" src="/assets/icons/graphic-eq-white.svg" />
+        <text class="pp-intensive-btn-text">精听模式</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- ── 「定时」底部弹层（复刻 Android SleepTimerSheet / 截图） ── -->
+<view class="pp-sheet-mask" wx:if="{{sleepSheetVisible}}" bindtap="onCloseSleepSheet">
+  <view class="pp-bottom-sheet" catchtap="">
+    <!-- 标题行 -->
+    <view class="row pp-bs-head">
+      <text class="pp-bs-title flex-1">定时</text>
+      <view class="pp-header-btn tap-dim" bindtap="onCloseSleepSheet">
+        <image class="pp-header-close" src="/assets/icons/close.svg" />
+      </view>
+    </view>
+
+    <view class="pp-bs-card col">
+      <!-- 上次定时 + Switch -->
+      <view class="row">
+        <view class="col flex-1">
+          <text class="pp-bs-row-title">上次定时</text>
+          <text class="pp-bs-sub">{{lastSleepDesc}}</text>
+        </view>
+        <switch checked="{{sleepChecked}}" color="#1f7a5c" bindchange="onSleepSwitchChange" />
+      </view>
+
+      <view class="pp-bs-divider"></view>
+
+      <!-- 按时间 + 播完整集停止单选 -->
+      <view class="row">
+        <text class="pp-bs-row-title flex-1">按时间</text>
+        <view class="row pp-bs-radio tap-dim {{selectedSleep.mode === 'episodeEnd' ? 'on' : ''}}" bindtap="onSelectEpisodeEnd">
+          <text class="pp-bs-radio-dot">{{selectedSleep.mode === 'episodeEnd' ? '●' : '○'}}</text>
+          <text class="pp-bs-radio-text">播完整集声音再停止</text>
+        </view>
+      </view>
+
+      <!-- 时间胶囊：15/30/60/90分 + 自定义 -->
+      <view class="row pp-bs-chip-row">
+        <view
+          wx:for="{{minuteOptions}}"
+          wx:key="*this"
+          class="pp-bs-chip tap-scale {{selectedSleep.mode === 'minutes' && selectedSleep.minutes === item ? 'on' : ''}}"
+          bindtap="onSelectSleepMinutes"
+          data-minutes="{{item}}"
+        >
+          <text class="pp-bs-chip-text">{{item}}分</text>
+        </view>
+        <view class="pp-bs-chip tap-scale" bindtap="onSelectSleepCustom">
+          <text class="pp-bs-chip-text">自定义</text>
+        </view>
+      </view>
+
+      <!-- 按集数 -->
+      <text class="pp-bs-row-title pp-bs-section">按集数</text>
+      <view class="row pp-bs-chip-row">
+        <view
+          wx:for="{{episodeOptions}}"
+          wx:key="*this"
+          class="pp-bs-chip tap-scale {{selectedSleep.mode === 'episodes' && selectedSleep.count === item ? 'on' : ''}}"
+          bindtap="onSelectSleepEpisodes"
+          data-count="{{item}}"
+        >
+          <text class="pp-bs-chip-text">{{item === 1 ? '播完本集' : '播完' + item + '集'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 定时启播占位入口 -->
+    <view class="pp-bs-card row pp-bs-later tap-dim" bindtap="onStartLaterToast">
+      <view class="col flex-1">
+        <text class="pp-bs-row-title">设置定时启播</text>
+        <text class="pp-bs-sub">到点自动开始播放，不错过更新内容</text>
+      </view>
+      <image class="pp-bs-later-arrow" src="/assets/icons/chevron-down-gray.svg" style="transform: rotate(-90deg);" />
+    </view>
+  </view>
+</view>
+
+<!-- ── 「播放列表」底部弹层（Android 为 toast 占位，小程序按真实播放列表实现） ── -->
+<view class="pp-sheet-mask" wx:if="{{playlistSheetVisible}}" bindtap="onClosePlaylistSheet">
+  <view class="pp-bottom-sheet" catchtap="">
+    <view class="row pp-bs-head">
+      <text class="pp-bs-title flex-1">播放列表</text>
+      <view class="pp-header-btn tap-dim" bindtap="onClosePlaylistSheet">
+        <image class="pp-header-close" src="/assets/icons/close.svg" />
+      </view>
+    </view>
+
+    <scroll-view scroll-y class="pp-pl-list">
+      <view class="pp-pl-empty col center" wx:if="{{playlist.length === 0}}">
+        <text class="pp-bs-sub">播放列表为空</text>
+      </view>
+      <view
+        wx:for="{{playlist}}"
+        wx:key="episodeid"
+        class="row pp-pl-item tap-scale {{item.episodeid === currentEpisodeId ? 'current' : ''}}"
+        bindtap="onPlaylistItemTap"
+        data-id="{{item.episodeid}}"
+      >
+        <image class="pp-pl-cover" src="{{item.coverUrl}}" mode="aspectFill" />
+        <view class="col flex-1 pp-pl-texts">
+          <view class="row">
+            <view class="pp-pl-eq" wx:if="{{item.episodeid === currentEpisodeId && isPlaying}}">
+              <view class="pp-pl-eq-bar" style="animation-delay: 0ms;"></view>
+              <view class="pp-pl-eq-bar" style="animation-delay: 200ms;"></view>
+              <view class="pp-pl-eq-bar" style="animation-delay: 400ms;"></view>
+            </view>
+            <text class="pp-pl-title ellipsis">{{item.title}}</text>
+          </view>
+          <text class="pp-pl-sub ellipsis">{{item.podcastTitle || '远路播客'}}</text>
+        </view>
+        <text class="pp-pl-playing-text" wx:if="{{item.episodeid === currentEpisodeId}}">正在播放</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

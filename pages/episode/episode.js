@@ -3,9 +3,6 @@ const authStore = require('../../store/authStore');
 const audioManager = require('../../utils/audioManager');
 const audioBus = require('../../utils/audio-bus');
 
-// 倍速循环顺序对齐 Web MobilePlayerSheet.cyclePlaybackRate：1 → 1.25 → 1.5 → 2 → 0.75
-const PLAYBACK_RATES = [1, 1.25, 1.5, 2, 0.75];
-
 Page({
   data: {
     episodeid: '',
@@ -16,22 +13,12 @@ Page({
     isLoading: true,
     error: null,
 
-    // 播放控制卡（utils/audioManager 状态快照；hasEpisode=true 时渲染）
-    player: {
-      currentEpisode: null,
-      hasEpisode: false,
-      isPlaying: false,
-      isLoading: false,
-      currentTime: 0,
-      duration: 0,
-      playbackRate: 1,
-      loopMode: 'none',
-      isShuffle: false,
-    },
-    isSeeking: false, // 进度条拖动中：不追 timeupdate，显示拖动值
-    dragTime: 0,
-    rateLabel: '1x',
-    isCurrentPlaying: false, // 「本剧集」正在播放（按钮图标/文案与 hero 封面播放钮的切换依据）
+    // 精听深链（全屏播放面板「精听模式」按钮 / 外部分享链 practice=true）：
+    // 详情与相关剧集就绪后自动起播精听（见 _maybeAutoPractice）
+    autoPractice: false,
+
+    isCurrentPlaying: false, // 「本剧集」正在播放（主按钮/hero 封面播放钮的图标文案切换依据；
+                             // 播放控制收敛到全局迷你条 + 全屏面板，见 3.B.3 方案 B）
 
     // Favorites
     isFavorited: false,
@@ -65,7 +52,10 @@ Page({
   },
 
   onLoad(query) {
-    this.setData({ episodeid: query.id });
+    this.setData({
+      episodeid: query.id,
+      autoPractice: query.practice === 'true' || query.practice === true,
+    });
     
     // Subscribe to auth state
     const updateAuth = () => {
@@ -78,16 +68,13 @@ Page({
     this.unsubscribeAuth = authStore.subscribe(updateAuth);
     updateAuth();
 
-    // 订阅全局播放器事件（audioManager 事件总线），刷新页内播放控制卡
+    // 订阅全局播放器事件（audioManager 事件总线），维护「本集在播」派生态
+    // （isCurrentPlaying：主按钮/封面 FAB 图标文案切换；控制 UI 在迷你条/全屏面板）
     this._onPlayerEvent = (s) => this.syncPlayerState(s);
     ['play', 'pause', 'stop', 'ended', 'waiting', 'episodeChange', 'modeChange', 'seek', 'error'].forEach(
       (evt) => audioManager.on(evt, this._onPlayerEvent)
     );
-    // timeupdate 高频：拖动进度条时跳过，避免把手拖的值又弹回去
-    this._onTimeUpdate = (s) => {
-      if (!this.data.isSeeking) this.syncPlayerState(s);
-    };
-    audioManager.on('timeupdate', this._onTimeUpdate);
+    // timeupdate 高频且不影响 isCurrentPlaying，不订阅
 
     // 页面可能带着既有播放会话进入（迷你条跳转/返回），先同步一次快照
     this.syncPlayerState(audioManager.getState());
@@ -102,7 +89,6 @@ Page({
         (evt) => audioManager.off(evt, this._onPlayerEvent)
       );
     }
-    if (this._onTimeUpdate) audioManager.off('timeupdate', this._onTimeUpdate);
   },
 
   onPullDownRefresh() {
@@ -120,7 +106,7 @@ Page({
       // 剧集到达后重算「本集在播」态（播放会话可能早于详情加载建立）
       this.syncPlayerState(audioManager.getState());
 
-      // 2. Fetch Related Episodes
+      // 2. Fetch Related Episodes（就绪后处理精听深链自动起播）
       if (episode && episode.podcastid) {
         get(`/api/episode/list-by-podcastid?podcastId=${episode.podcastid}&page=1&limit=20`)
           .then(res => {
@@ -129,7 +115,10 @@ Page({
               .filter(ep => ep.episodeid !== episodeid)
               .slice(0, 5);
             this.setData({ relatedEpisodes });
-          }).catch(console.error);
+          }).catch(console.error)
+          .then(() => this._maybeAutoPractice());
+      } else {
+        this._maybeAutoPractice();
       }
 
       // 3. Fetch Comments
@@ -209,9 +198,9 @@ Page({
     }, 50);
   },
 
-  // ==================== 播放控制（3.B.1 接入 utils/audioManager） ====================
+  // ==================== 播放接入（3.B.1 起播链路；控制 UI 在迷你条/全屏面板） ====================
 
-  /** audioManager 状态快照 → 页内控制卡 data */
+  /** audioManager 快照 → 本集在播派生态（主按钮/封面 FAB 图标文案切换依据） */
   syncPlayerState(s) {
     if (!s) return;
     const ep = this.data.episode;
@@ -219,21 +208,7 @@ Page({
       s.hasEpisode && s.isPlaying && ep && s.currentEpisode &&
       s.currentEpisode.episodeid === ep.episodeid
     );
-    this.setData({
-      player: {
-        currentEpisode: s.currentEpisode,
-        hasEpisode: s.hasEpisode,
-        isPlaying: s.isPlaying,
-        isLoading: s.isLoading,
-        currentTime: s.currentTime || 0,
-        duration: s.duration || 0,
-        playbackRate: s.playbackRate,
-        loopMode: s.loopMode,
-        isShuffle: s.isShuffle,
-      },
-      rateLabel: `${s.playbackRate}x`,
-      isCurrentPlaying,
-    });
+    this.setData({ isCurrentPlaying });
   },
 
   /**
@@ -253,54 +228,43 @@ Page({
     }
 
     audioBus.stopAll(); // 停 TTS / 复习原声片段，防双声
-    const playlist = [episode, ...relatedEpisodes];
-    audioManager.playEpisode(episode, { playlist }); // 无 audioUrl 时 manager 内部解析签名直链
+    // 播放列表条目补齐 podcastTitle/coverUrl：list-by-podcastid 返回的剧集对象
+    // 可能缺这两字段（与相关剧集行的兜底链一致），否则播放列表切播后
+    // 迷你条副标题/锁屏元数据会回落「远路播客」兜底
+    const podcastTitle = episode.podcastTitle ||
+      (episode.podcast && episode.podcast.title) ||
+      (episode.podcast && episode.podcast.name) || '远路英语';
+    const fallbackCover = episode.coverUrl || episode.podcastCoverUrl ||
+      (episode.podcast && episode.podcast.coverUrl);
+    const playlist = [
+      episode,
+      ...relatedEpisodes.map((ep) => ({
+        ...ep,
+        podcastTitle: ep.podcastTitle ||
+          (ep.podcast && ep.podcast.title) ||
+          (ep.podcast && ep.podcast.name) || podcastTitle,
+        coverUrl: ep.coverUrl || ep.podcastCoverUrl ||
+          (ep.podcast && ep.podcast.coverUrl) || fallbackCover,
+      })),
+    ];
+    // 「开始精听」是精听入口：置位精听标记（迷你条「精听」标签/面板「精听中」角标），
+    // 对齐 Android PlayerController.play(episode, intensive = true)
+    audioManager.playEpisode(episode, { playlist, intensive: true }); // 无 audioUrl 时 manager 内部解析签名直链
   },
 
-  onTogglePlay() {
-    audioManager.togglePlay();
-  },
-
-  onPrevEpisode() {
-    audioManager.playPrevious();
-  },
-
-  onNextEpisode() {
-    audioManager.playNext();
-  },
-
-  /** 快退 15 秒（对齐 Web backward） */
-  onBackward15() {
-    audioManager.backward(15);
-  },
-
-  /** 快进 30 秒（对齐 Web forward） */
-  onForward30() {
-    audioManager.forward(30);
-  },
-
-  /** 进度条拖动中：只更新拖动值，不 seek */
-  onSeekChanging(e) {
-    this.setData({ isSeeking: true, dragTime: e.detail.value });
-  },
-
-  /** 松手 seek（对齐 Web handleSeekEnd：拖动值落盘 + 退出拖动态） */
-  onSeekChanged(e) {
-    const time = e.detail.value;
-    audioManager.seek(time);
-    this.setData({ isSeeking: false, dragTime: time });
-  },
-
-  /** 倍速循环：1 → 1.25 → 1.5 → 2 → 0.75（Web cyclePlaybackRate 同序） */
-  onCycleRate() {
-    const idx = PLAYBACK_RATES.indexOf(this.data.player.playbackRate);
-    const next = PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length];
-    audioManager.setPlaybackRate(next);
-  },
-
-  /** 循环模式：不循环 → 列表循环 → 单曲循环 → 随机（Web toggleLoopMode/cyclePlayMode） */
-  onCycleMode() {
-    audioManager.cyclePlayMode();
+  /** 精听深链：practice=true 进入时自动起播精听（相关剧集就绪后调用，列表完整） */
+  _maybeAutoPractice() {
+    if (!this.data.autoPractice) return;
+    this.setData({ autoPractice: false });
+    const episode = this.data.episode;
+    if (!episode) return;
+    const current = audioManager.getState().currentEpisode;
+    if (current && current.episodeid === episode.episodeid) {
+      // 已在播本集（如携带会话从面板进入）：仅补精听标记，不打断播放
+      audioManager.setIntensiveMode(true);
+      return;
+    }
+    this.onStartListening();
   },
 
   onPractice() {

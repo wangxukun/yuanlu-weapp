@@ -4,8 +4,9 @@
  * mock wx.getBackgroundAudioManager（属性 setter + 事件回调注册 + 命令方法），
  * 全链路驱动 pages/episode/episode.js → utils/audioManager → bgm：
  * 覆盖开始精听起播（元数据注入/播放列表/签名直链解析兜底）、同集 toggle、
- * audio-bus 互停、进度拖拽 seek、快退快进、倍速循环切换、timeupdate 刷新
- * 与拖动期不回弹、ended 自动连播、WXML 控件绑定与文案。
+ * audio-bus 互停、ended 自动连播、锁屏上下首、「本集在播」派生态与 WXML 绑定。
+ * 播放控制 UI（进度拖拽/倍速/循环/快进快退）自 3.B.3 方案 B 起收敛到
+ * 迷你条 + 全屏面板，相关断言见 scripts/test-mini-player.js。
  *
  * 运行：node scripts/test-episode-player.js
  */
@@ -135,8 +136,9 @@ const EPISODE = {
   playCount: 3,
 };
 const RELATED = [
-  { episodeid: 'ep2', title: 'Episode Two', coverUrl: 'https://oss/cover2', audioUrl: 'https://oss/audio2.m4a', podcastTitle: 'Test Podcast', duration: 500 },
-  { episodeid: 'ep3', title: 'Episode Three', coverUrl: 'https://oss/cover3', audioUrl: 'https://oss/audio3.m4a', podcastTitle: 'Test Podcast', duration: 400 },
+  // 模拟真实接口：list-by-podcastid 的剧集对象缺 podcastTitle（切播后迷你条副标题依赖回填）
+  { episodeid: 'ep2', title: 'Episode Two', coverUrl: 'https://oss/cover2', audioUrl: 'https://oss/audio2.m4a', duration: 500 },
+  { episodeid: 'ep3', title: 'Episode Three', coverUrl: 'https://oss/cover3', audioUrl: 'https://oss/audio3.m4a', duration: 400 },
 ];
 
 /* ==================== 用例 ==================== */
@@ -164,7 +166,11 @@ const RELATED = [
     assert(bgmCalls.epname === 'Test Podcast' && bgmCalls.singer === 'Test Podcast', 'epname/singer 注入');
     assert(bgmCalls.coverImgUrl === 'https://oss/cover1', '锁屏封面 coverImgUrl 注入');
     assert(audioManager.getState().playlist.length === 3, '播放列表 = 当前剧集 + 相关剧集（ended 连播/锁屏上下首）');
-    assert(page.data.player.hasEpisode === true, '页内控制卡渲染（player.hasEpisode）');
+    const plItem = audioManager.getState().playlist[1];
+    assert(plItem.podcastTitle === 'Test Podcast', '播放列表条目回填 podcastTitle（related 缺字段时取本集播客名，迷你条副标题数据源）');
+    assert(plItem.coverUrl === 'https://oss/cover2', '播放列表条目封面：自带 coverUrl 不被覆盖');
+    assert(audioManager.getState().hasEpisode === true, '播放会话建立（hasEpisode=true，迷你条/面板接管控制）');
+    assert(audioManager.getState().isIntensiveMode === true, '「开始精听」起播 → 置位精听标记（迷你条「精听」标签/面板「精听中」角标）');
     assert(page.data.isCurrentPlaying === true, '本集在播 → isCurrentPlaying=true（按钮/封面图标切换依据）');
   }
 
@@ -208,59 +214,7 @@ const RELATED = [
     assert(bgmCalls.src === 'https://oss/resolved.m4a', '剧集无直链时经 /api/episode/subtitles 解析 OSS 签名直链');
   }
 
-  section('四、进度：timeupdate / 拖拽 seek / 快退快进');
-  {
-    const page = createPage(pageConfig);
-    page.onLoad({ id: 'ep1' });
-    await tick();
-    await tick();
-
-    bgm.currentTime = 100;
-    bgm.duration = 600;
-    bgmHandlers.timeupdate();
-    assert(page.data.player.currentTime === 100 && page.data.player.duration === 600, 'timeupdate → 控制卡时间/时长刷新');
-
-    page.onSeekChanging({ detail: { value: 250 } });
-    assert(page.data.isSeeking === true && page.data.dragTime === 250, '拖动中记录拖动值');
-    bgm.currentTime = 101;
-    bgmHandlers.timeupdate();
-    assert(page.data.player.currentTime === 100, '拖动中不追 timeupdate（避免进度回弹）');
-    page.onSeekChanged({ detail: { value: 250 } });
-    assert(bgmCalls.seeks[bgmCalls.seeks.length - 1] === 250 && page.data.isSeeking === false, '松手 seek(250) 并退出拖动态');
-
-    page.onForward30();
-    assert(bgmCalls.seeks[bgmCalls.seeks.length - 1] === 280, '快进 30s（250+30）');
-    page.onBackward15();
-    assert(bgmCalls.seeks[bgmCalls.seeks.length - 1] === 265, '快退 15s（280-15）');
-  }
-
-  section('五、倍速与循环模式（Web cyclePlaybackRate / cyclePlayMode 同序）');
-  {
-    const page = createPage(pageConfig);
-    page.onLoad({ id: 'ep1' });
-    await tick();
-    await tick();
-
-    const rates = [];
-    for (let i = 0; i < 5; i++) {
-      page.onCycleRate();
-      rates.push(audioManager.getState().playbackRate);
-    }
-    assert(rates.join(',') === '1.25,1.5,2,0.75,1', '倍速循环 1→1.25→1.5→2→0.75→1');
-    assert(page.data.rateLabel === '1x', '控制卡倍速文案 = 1x');
-
-    page.onCycleMode();
-    assert(audioManager.getState().loopMode === 'all', '循环模式：none → all');
-    page.onCycleMode();
-    assert(audioManager.getState().loopMode === 'one', '循环模式：all → one');
-    page.onCycleMode();
-    assert(audioManager.getState().isShuffle === true && audioManager.getState().loopMode === 'one', '循环模式：one → 随机（loopMode 保持 one，audioManager 行为）');
-    assert(page.data.player.isShuffle === true, 'modeChange 事件同步控制卡');
-    page.onCycleMode();
-    assert(audioManager.getState().isShuffle === false && audioManager.getState().loopMode === 'none', '循环模式：随机 → 复位不循环');
-  }
-
-  section('六、ended 自动连播与上下首');
+  section('四、ended 自动连播与锁屏上下首');
   {
     requestHandler = routeAwareHandler({
       '/api/episode/detail': { statusCode: 200, data: EPISODE },
@@ -278,30 +232,60 @@ const RELATED = [
     bgmHandlers.ended(); // 播完 → playNext → ep2
     await tick();
     assert(audioManager.getState().currentEpisode.episodeid === 'ep2', 'ended 自动连播下一集（ep2）');
-    assert(page.data.player.currentEpisode && page.data.player.currentEpisode.episodeid === 'ep2', 'episodeChange → 控制卡标题跟随播放事实源');
     assert(page.data.isCurrentPlaying === false, '他集（ep2）在播而本页是 ep1 → isCurrentPlaying=false（按钮回到「开始精听」态）');
 
-    page.onPrevEpisode();
+    bgmHandlers.prev(); // 锁屏「上一首」
     await tick();
-    assert(audioManager.getState().currentEpisode.episodeid === 'ep1', '上一首回到 ep1');
-    page.onNextEpisode();
+    assert(audioManager.getState().currentEpisode.episodeid === 'ep1', '锁屏 onPrev → 上一首回到 ep1');
+    bgmHandlers.next(); // 锁屏「下一首」
     await tick();
-    assert(audioManager.getState().currentEpisode.episodeid === 'ep2', '下一首切 ep2');
+    assert(audioManager.getState().currentEpisode.episodeid === 'ep2', '锁屏 onNext → 下一首切 ep2');
   }
 
-  section('七、WXML 控件绑定与文案');
+  section('五、WXML 控件绑定与文案');
   {
     const wxml = fs.readFileSync(path.join(__dirname, '../pages/episode/episode.wxml'), 'utf8');
     [
-      'bindtap="onStartListening"', 'bindtap="onTogglePlay"', 'bindtap="onPrevEpisode"', 'bindtap="onNextEpisode"',
-      'bindtap="onBackward15"', 'bindtap="onForward30"', 'bindchanging="onSeekChanging"', 'bindchange="onSeekChanged"',
-      'bindtap="onCycleRate"', 'bindtap="onCycleMode"',
-      'pause-primary.svg', 'play-primary.svg', 'skip-next.svg', 'skip-previous.svg',
-      'replay.svg', 'forward.svg', 'repeat.svg', 'repeat-one-active.svg', 'shuffle-active.svg',
-      '暂停精听', '开始精听', 'wx:if="{{player.hasEpisode}}"',
+      'bindtap="onStartListening"',
+      'pause-filled.svg', 'play-filled.svg',
+      '暂停精听', '开始精听',
       "src=\"{{isCurrentPlaying ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled.svg'}}\"",
+      '<mini-player />',
     ].forEach((frag) => assert(wxml.includes(frag), `WXML 含 ${frag}`));
     assert((wxml.match(/isCurrentPlaying \?/g) || []).length >= 3, '播放/暂停图标与文案三处均随 isCurrentPlaying 幂等切换（主按钮图标/文案 + 封面播放钮）');
+    assert(!wxml.includes('player-card') && !wxml.includes('onCycleRate'), '页内播放控制卡已退役（控件收敛到迷你条/全屏面板，方案 B）');
+  }
+
+  section('六、精听深链 practice=true 自动起播（面板「精听模式」按钮入口）');
+  {
+    audioManager.close(); // 清既有会话，验证深链从零起播
+    requestHandler = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE, ...RELATED] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1', practice: 'true' });
+    await tick();
+    await tick();
+    await tick();
+    await tick();
+    assert(bgmCalls.src === 'https://oss/audio1.m4a', 'practice 深链 → 详情与相关剧集就绪后自动起播');
+    assert(audioManager.getState().isIntensiveMode === true, 'practice 起播 → 精听标记置位（intensive=true）');
+    assert(audioManager.getState().playlist.length === 3, 'practice 起播 → 播放列表完整（含相关剧集）');
+
+    // 已在播本集时带 practice 进入：仅补标记不打断播放
+    const srcBefore = bgmCalls.src;
+    const page2 = createPage(pageConfig);
+    page2.onLoad({ id: 'ep1', practice: 'true' });
+    await tick();
+    await tick();
+    await tick();
+    await tick();
+    assert(audioManager.getState().currentEpisode && audioManager.getState().currentEpisode.episodeid === 'ep1', '带会话二次进入 → 保持本集播放');
+    assert(srcBefore === bgmCalls.src || audioManager.getState().isIntensiveMode === true, '带会话进入 → 不重设 src 或仅补精听标记');
+    audioManager.close();
   }
 
   /* ==================== 汇总 ==================== */

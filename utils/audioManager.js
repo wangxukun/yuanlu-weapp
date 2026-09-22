@@ -63,10 +63,33 @@ const state = {
   loopMode: "none", // 'none' | 'all' | 'one'
   isShuffle: false,
   isLoading: false, // 缓冲中（onWaiting → onCanplay 之间）
+  // 精听模式标记（对齐 Android PlayerState.isIntensiveMode）：
+  // 由「开始精听」入口起播时置位、普通起播复位；迷你条「精听」标签、
+  // 全屏面板封面「精听中」角标据此显示。
+  isIntensiveMode: false,
+  // 激活中的定时关闭任务；null 表示未开启。mode：
+  //   'minutes'   N 分钟后暂停（endsAt/remainingMs 驱动倒计时展示）
+  //   'episodes'  播完 N 集后停止（ended 结算递减）
+  //   'episodeEnd' 播完整集声音再停止（ended 即停）
+  sleepTimer: null,
+  // 上次使用的定时配置（定时弹层「上次定时」行 + Switch 快捷重开）
+  lastSleepConfig: null,
 };
 
 let bgm = null; // wx.getBackgroundAudioManager() 实例（微信侧本就是全局单例）
 let initialized = false;
+let sleepInterval = null; // 分钟定时的 1s 倒计时句柄
+
+/** 定时配置的展示文案（对齐 Android SleepConfig.describe） */
+function describeSleepConfig(config) {
+  if (!config) return "";
+  if (config.mode === "minutes") return `${config.minutes}分钟后关闭`;
+  if (config.mode === "episodes") {
+    return (config.count || 1) <= 1 ? "播完本集后关闭" : `播完${config.count}集后关闭`;
+  }
+  if (config.mode === "episodeEnd") return "播完整集后关闭";
+  return "";
+}
 
 // TODO(阶段二)：进度恢复 / 进度上报 相关的中间变量（对齐 GlobalAudio.tsx）
 // let resumeTime = null;          // 待恢复的历史进度（/api/episode/[id] → userState.progressSeconds）
@@ -105,6 +128,8 @@ function init() {
       return;
     }
     emit("ended", getState());
+    // 定时关闭-按集数/播完本集：本集自然播完时结算，到量即停（不连播）
+    if (_settleSleepOnEpisodeEnded()) return;
     playNext();
   });
 
@@ -146,7 +171,10 @@ function init() {
  * 播放单集。若剧集未带直链 audioUrl，会先经
  * /api/episode/subtitles?id= 解析 OSS 签名直链（对齐 Web 端 getEpisodeAudioUrl）。
  * @param {Object} episode 剧集对象，至少含 episodeid/title
- * @param {Object} [context] 可选上下文 { playlist } 一并设置播放列表
+ * @param {Object} [context] 可选上下文 { playlist, intensive }：
+ *   playlist 一并设置播放列表；intensive=true 表示本次起播来自「开始精听」/
+ *   「精听模式」入口（对齐 Android PlayerController.play 的 intensive 参数），
+ *   置位精听标记供迷你条/全屏面板展示指示器；普通起播复位该标记。
  */
 async function playEpisode(episode, context) {
   if (!episode || !episode.episodeid) return;
@@ -162,6 +190,7 @@ async function playEpisode(episode, context) {
   state.currentEpisode = episode;
   state.currentTime = 0;
   state.isLoading = true;
+  state.isIntensiveMode = !!(context && context.intensive);
 
   let audioUrl = episode.audioUrl;
   if (!audioUrl) {
@@ -320,6 +349,151 @@ function playPrevious() {
   }
 }
 
+// ==================== 精听模式标记（对齐 Android setIntensiveMode） ====================
+
+/** 手动切换精听标记（如从全屏播放器「精听模式」进入精听流时补标记），不改变播放行为 */
+function setIntensiveMode(enabled) {
+  state.isIntensiveMode = !!enabled;
+  emit("episodeChange", getState());
+}
+
+// ==================== 定时关闭（对齐 Android applySleepConfig / handleSleepOnEpisodeEnded） ====================
+
+function _stopSleepInterval() {
+  if (sleepInterval) {
+    clearInterval(sleepInterval);
+    sleepInterval = null;
+  }
+}
+
+function _clearSleepTimer() {
+  _stopSleepInterval();
+  state.sleepTimer = null;
+  emit("sleepTimer", getState());
+}
+
+/** 分钟倒计时的 1s 心跳（运行时由 setInterval 驱动；单测以 _sleepTick 直驱） */
+function _sleepTick() {
+  const timer = state.sleepTimer;
+  if (!timer || timer.mode !== "minutes") {
+    _stopSleepInterval();
+    return;
+  }
+  const remainingMs = Math.max(0, timer.endsAt - Date.now());
+  // 整体替换（非原地改字段）：引用变化驱动镜像 store / 面板的差异化更新
+  state.sleepTimer = { ...timer, remainingMs };
+  if (remainingMs <= 0) {
+    _clearSleepTimer();
+    pause(); // 对齐 Android：到点暂停（会话保留，迷你条显示暂停态）
+    emit("sleepTimerFired", getState());
+    emit("sleepTimer", getState());
+    return;
+  }
+  emit("sleepTimer", getState());
+}
+
+/**
+ * 应用定时关闭配置（定时弹层选项）。按时间走 1s 倒计时到点暂停；
+ * 按集数/播完本集在 ended 时结算。同时记忆为「上次定时」供弹层 Switch 快捷重开。
+ * @param {{mode:'minutes'|'episodes'|'episodeEnd', minutes?:number, count?:number}} config
+ */
+function applySleepConfig(config) {
+  _stopSleepInterval();
+  if (!config || !config.mode) return;
+
+  if (config.mode === "minutes") {
+    const minutes = Math.max(1, Math.floor(Number(config.minutes) || 0));
+    state.lastSleepConfig = { mode: "minutes", minutes };
+    state.sleepTimer = {
+      mode: "minutes",
+      minutes,
+      label: describeSleepConfig(state.lastSleepConfig),
+      endsAt: Date.now() + minutes * 60 * 1000,
+      remainingMs: minutes * 60 * 1000,
+    };
+    sleepInterval = setInterval(_sleepTick, 1000);
+  } else if (config.mode === "episodes") {
+    const count = Math.max(1, Math.floor(Number(config.count) || 1));
+    state.lastSleepConfig = { mode: "episodes", count };
+    state.sleepTimer = {
+      mode: "episodes",
+      count,
+      label: describeSleepConfig(state.lastSleepConfig),
+    };
+  } else if (config.mode === "episodeEnd") {
+    state.lastSleepConfig = { mode: "episodeEnd" };
+    state.sleepTimer = {
+      mode: "episodeEnd",
+      label: describeSleepConfig(state.lastSleepConfig),
+    };
+  }
+  emit("sleepTimer", getState());
+}
+
+/** 取消定时关闭 */
+function cancelSleepTimer() {
+  _clearSleepTimer();
+}
+
+/**
+ * 播完一集（ended）结算定时任务（对齐 Android handleSleepOnEpisodeEnded，
+ * 到量时补上真正的停止——不连播）。
+ * @returns {boolean} true 表示本集播完即停（调用方不得再 playNext）
+ */
+function _settleSleepOnEpisodeEnded() {
+  const timer = state.sleepTimer;
+  if (!timer) return false;
+
+  if (timer.mode === "episodeEnd") {
+    _clearSleepTimer();
+    emit("sleepTimerFired", getState());
+    return true;
+  }
+  if (timer.mode === "episodes") {
+    const remaining = (timer.count || 1) - 1;
+    if (remaining <= 0) {
+      _clearSleepTimer();
+      emit("sleepTimerFired", getState());
+      return true;
+    }
+    state.lastSleepConfig = { mode: "episodes", count: remaining };
+    state.sleepTimer = {
+      mode: "episodes",
+      count: remaining,
+      label: describeSleepConfig(state.lastSleepConfig),
+    };
+    emit("sleepTimer", getState());
+    return false;
+  }
+  return false; // minutes：到点由倒计时暂停，不影响连播
+}
+
+/**
+ * 关闭播放会话（3.B.3 迷你播放条 ×，对齐 Web closePlayer / Android stop）：
+ * 停声并清空当前剧集/播放列表/进度与定时任务，hasEpisode 经事件回流为 false，
+ * 跨页迷你播放条随镜像 store 整条收起（区别于 pause——会话保留、条体仍在）。
+ */
+function close() {
+  if (bgm) {
+    try {
+      bgm.stop();
+    } catch (e) {
+      // 未起播等场景 stop 可能报错，静默
+    }
+  }
+  _stopSleepInterval();
+  state.currentEpisode = null;
+  state.playlist = [];
+  state.isPlaying = false;
+  state.isLoading = false;
+  state.currentTime = 0;
+  state.duration = 0;
+  state.isIntensiveMode = false;
+  state.sleepTimer = null;
+  emit("episodeChange", getState());
+  emit("stop", getState());
+}
+
 // ==================== 生命周期与快照 ====================
 
 /** 供页面 setData 使用的状态快照（浅拷贝，避免页面直接改内部状态） */
@@ -335,6 +509,9 @@ function getState() {
     isShuffle: state.isShuffle,
     playlist: state.playlist,
     hasEpisode: !!state.currentEpisode,
+    isIntensiveMode: state.isIntensiveMode,
+    sleepTimer: state.sleepTimer,
+    lastSleepConfig: state.lastSleepConfig,
   };
 }
 
@@ -366,6 +543,12 @@ module.exports = {
   cyclePlayMode,
   playNext,
   playPrevious,
+  close,
+  setIntensiveMode,
+  applySleepConfig,
+  cancelSleepTimer,
+  describeSleepConfig,
+  _sleepTick,
   getState,
   onAppShow,
   onAppHide,

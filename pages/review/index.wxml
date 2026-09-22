@@ -52,3 +52,6 @@
   </block>
 
 </view>
+
+<!-- 跨页迷你播放条（3.B.3）：无播放会话时整条不渲染 -->
+<mini-player elevated />

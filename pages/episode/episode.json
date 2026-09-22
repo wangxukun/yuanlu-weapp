@@ -6,6 +6,7 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ai-deep-dive": "/components/ai-deep-dive/index",
-    "premium-modal": "/components/premium-modal/index"
+    "premium-modal": "/components/premium-modal/index",
+    "mini-player": "/components/player/mini-player/index"
   }
 }

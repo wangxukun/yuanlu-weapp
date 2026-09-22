@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "player-panel": "/components/player/player-panel/index"
+  }
+}

@@ -409,5 +409,5 @@
 }
 
 .fav-footer-space {
-  height: calc(48rpx + env(safe-area-inset-bottom));
+  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
 }

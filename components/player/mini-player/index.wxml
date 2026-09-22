@@ -1,0 +1,48 @@
+<!-- 跨页迷你播放条（复刻 Web MobilePlayerBar / Android MiniPlayerBar）：
+     无播放会话、或全屏面板展开（互斥）时整条不渲染 -->
+<view class="mp-bar {{elevated ? 'mp-elevated' : ''}}" wx:if="{{hasEpisode && !panelVisible}}">
+
+  <!-- 顶缘 2px 渐变进度线（primary-500 → primary-600，300ms 线性补间） -->
+  <view class="mp-progress-track">
+    <view class="mp-progress-fill" style="width: {{progress}}%;"></view>
+  </view>
+
+  <view class="mp-inner" bindtap="onOpenPanel">
+    <!-- 封面缩略图：播放中叠黑色遮罩 + 4 根白色均衡器条（延迟 0/200/400/600ms） -->
+    <view class="mp-cover">
+      <image class="mp-cover-img" src="{{coverUrl}}" mode="aspectFill" />
+      <view class="mp-cover-eq" wx:if="{{isPlaying}}">
+        <view class="mp-eq-bar" style="animation-delay: 0ms;"></view>
+        <view class="mp-eq-bar" style="animation-delay: 200ms;"></view>
+        <view class="mp-eq-bar" style="animation-delay: 400ms;"></view>
+        <view class="mp-eq-bar" style="animation-delay: 600ms;"></view>
+      </view>
+    </view>
+
+    <!-- 标题 + 播客名（精听会话时播客名前带「精听」小标签，对齐 Android MiniPlayerBar） -->
+    <view class="mp-texts col flex-1">
+      <text class="mp-title ellipsis">{{title}}</text>
+      <view class="row mp-sub-row">
+        <view class="mp-intensive-tag" wx:if="{{isIntensiveMode}}">
+          <image class="mp-intensive-icon" src="/assets/icons/graphic-eq-primary.svg" />
+          <text class="mp-intensive-text">精听</text>
+        </view>
+        <text class="mp-sub ellipsis">{{podcastTitle}}</text>
+      </view>
+    </view>
+
+    <!-- 播放/暂停（primary-600 圆钮 + 白色 FILL 图标） -->
+    <view class="mp-play tap-scale" catchtap="onTogglePlay">
+      <image class="mp-play-icon"
+        src="{{isPlaying ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled.svg'}}" />
+    </view>
+
+    <!-- 关闭播放器 -->
+    <view class="mp-close tap-dim" catchtap="onClose">
+      <image class="mp-close-icon" src="/assets/icons/close.svg" />
+    </view>
+  </view>
+</view>
+
+<!-- 全屏播放详情面板（visible 由迷你条持有） -->
+<player-panel visible="{{panelVisible}}" bind:close="onPanelClose" />

@@ -1,4 +1,6 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "mini-player": "/components/player/mini-player/index"
+  },
   "navigationBarTitleText": "全部频道"
 }

@@ -88,3 +88,6 @@
   <!-- 底部留白以防被播放条遮挡 -->
   <view style="height:96rpx;"></view>
 </view>
+
+<!-- 跨页迷你播放条（3.B.3）：无播放会话时整条不渲染 -->
+<mini-player elevated />

@@ -4,7 +4,7 @@
 
 .channel-all-container {
   padding: 16rpx 32rpx 48rpx; /* contentPadding h16dp v8dp + 底部余量 */
-  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
   background-color: var(--page-bg);
   min-height: 100vh;
   box-sizing: border-box;

@@ -90,67 +90,6 @@
         </view>
       </view>
 
-      <!-- 播放控制卡（全局后台播放器会话，控件对齐 Web MobilePlayerSheet） -->
-      <view class="player-card mt-3" wx:if="{{player.hasEpisode}}">
-        <!-- 当前播放剧集（上下首切换后与页头剧集可能不同，以播放事实源为准） -->
-        <view class="row center">
-          <view class="player-playing-dot {{player.isPlaying ? 'on' : ''}}"></view>
-          <text class="player-card-title flex-1 ellipsis">{{player.currentEpisode.title}}</text>
-          <view class="loading-spinner-sm" wx:if="{{player.isLoading}}"></view>
-        </view>
-
-        <!-- 进度条：拖动中显示拖动值，松手才 seek -->
-        <slider
-          class="player-slider"
-          min="0"
-          max="{{player.duration > 0 ? player.duration : 100}}"
-          value="{{isSeeking ? dragTime : player.currentTime}}"
-          activeColor="#1f7a5c"
-          backgroundColor="#e3ddcf"
-          block-size="20"
-          block-color="#ffffff"
-          disabled="{{!player.currentEpisode}}"
-          bindchanging="onSeekChanging"
-          bindchange="onSeekChanged"
-        />
-        <view class="row between player-time-row">
-          <text class="player-time">{{fmt.formatDuration(isSeeking ? dragTime : player.currentTime)}}</text>
-          <text class="player-time">{{fmt.formatDuration(player.duration)}}</text>
-        </view>
-
-        <!-- 控件行：快退15 / 上一首 / 播放大钮 / 下一首 / 快进30 -->
-        <view class="player-controls row">
-          <view class="player-ctl tap-scale" bindtap="onBackward15">
-            <image class="player-ctl-icon" src="/assets/icons/replay.svg"></image>
-          </view>
-          <view class="player-ctl tap-scale" bindtap="onPrevEpisode">
-            <image class="player-ctl-icon" src="/assets/icons/skip-previous.svg"></image>
-          </view>
-          <view class="player-play tap-scale" bindtap="onTogglePlay">
-            <image class="player-play-icon" src="{{player.isPlaying ? '/assets/icons/pause-primary.svg' : '/assets/icons/play-primary.svg'}}"></image>
-          </view>
-          <view class="player-ctl tap-scale" bindtap="onNextEpisode">
-            <image class="player-ctl-icon" src="/assets/icons/skip-next.svg"></image>
-          </view>
-          <view class="player-ctl tap-scale" bindtap="onForward30">
-            <image class="player-ctl-icon" src="/assets/icons/forward.svg"></image>
-          </view>
-        </view>
-
-        <!-- 次行：倍速 / 循环模式（1→1.25→1.5→2→0.75；不循环→列表→单曲→随机） -->
-        <view class="row center player-sub-controls">
-          <view class="player-chip tap-scale {{player.playbackRate !== 1 ? 'active' : ''}}" bindtap="onCycleRate">
-            <text class="player-chip-text">{{rateLabel}}</text>
-          </view>
-          <view class="player-chip tap-scale ml-2 {{(player.loopMode !== 'none' || player.isShuffle) ? 'active' : ''}}" bindtap="onCycleMode">
-            <image class="player-chip-icon" src="{{player.isShuffle ? '/assets/icons/shuffle-active.svg' : (player.loopMode === 'one' ? '/assets/icons/repeat-one-active.svg' : (player.loopMode === 'all' ? '/assets/icons/repeat-active.svg' : '/assets/icons/repeat.svg'))}}"></image>
-            <text class="player-chip-text" wx:if="{{player.isShuffle}}">随机</text>
-            <text class="player-chip-text" wx:elif="{{player.loopMode === 'all'}}">列表</text>
-            <text class="player-chip-text" wx:elif="{{player.loopMode === 'one'}}">单曲</text>
-          </view>
-        </view>
-      </view>
-
       <!-- Secondary Actions -->
       <view class="actions-secondary px-4 mt-3 row">
         <view class="action-box center col tap-scale" bindtap="onDownloadAudio">
@@ -268,10 +207,14 @@
         </view>
       </view>
       
-      <view style="height: 60rpx;"></view>
+      <!-- 底部留白为迷你播放条让位（3.B.3 方案 B：页内控制卡退役，播放控制收敛到迷你条+全屏面板） -->
+      <view style="height: calc(var(--mini-player-height) + 48rpx + env(safe-area-inset-bottom));"></view>
     </block>
   </scroll-view>
 
   <!-- 词典/翻译配额超限时的会员转化弹窗（对齐 Web openPremiumModal("dictionary_quota")） -->
   <premium-modal visible="{{showPremiumModal}}" source="dictionary_quota" bind:close="onPremiumModalClose" />
+
+  <!-- 跨页迷你播放条：无播放会话时整条不渲染 -->
+  <mini-player />
 </view>

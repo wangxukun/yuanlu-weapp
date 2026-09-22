@@ -27,10 +27,14 @@ class PlayerStore extends Store {
       loopMode: 'none',
       isShuffle: false,
       playlist: [],
+      // 精听模式标记 + 定时关闭（对齐 Android PlayerState，audioManager 为事实源）
+      isIntensiveMode: false,
+      sleepTimer: null,
+      lastSleepConfig: null,
     });
 
-    // 全事件镜像：任何播放态变化（含锁屏/耳机线控触发的 play/pause/prev/next）
-    // 都会回流到本 store 并通知订阅者
+    // 全事件镜像：任何播放态变化（含锁屏/耳机线控触发的 play/pause/prev/next、
+    // 定时关闭的设置/倒计时/结算）都会回流到本 store 并通知订阅者
     this._mirror = (s) => {
       if (!s) return;
       this.setState({
@@ -44,11 +48,15 @@ class PlayerStore extends Store {
         loopMode: s.loopMode,
         isShuffle: s.isShuffle,
         playlist: s.playlist,
+        isIntensiveMode: s.isIntensiveMode,
+        sleepTimer: s.sleepTimer,
+        lastSleepConfig: s.lastSleepConfig,
       });
     };
     [
       'play', 'pause', 'stop', 'ended', 'waiting',
       'timeupdate', 'episodeChange', 'modeChange', 'seek', 'error',
+      'sleepTimer', 'sleepTimerFired',
     ].forEach((evt) => audioManager.on(evt, this._mirror));
   }
 }
