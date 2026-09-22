@@ -727,6 +727,31 @@ assert(tagBlock.indexOf('flex-shrink: 0') >= 0, '胶囊单体 flex-shrink 0（�
 const chipsBlock = vmWxss.slice(vmWxss.indexOf('.vm-ety-chips'), vmWxss.indexOf('}', vmWxss.indexOf('.vm-ety-chips')));
 assert(chipsBlock.indexOf('display: flex') >= 0 && chipsBlock.indexOf('flex-wrap: wrap') >= 0, '词源 chips：同根因 flex-wrap 联动修复');
 
+/* ==================== 八、抽屉标签选中态渲染（WXML 表达式不支持方法调用） ==================== */
+
+section('抽屉标签选中态渲染（indexOf 绑定恒假修复）');
+
+// 纯函数：tag.wxs has()（Node 按 JS 加载 .wxs，直接单测）
+const tagWxs = require(path.join(__dirname, '../components/sentence-tag-drawer/tag.wxs'));
+assert(tagWxs.has(['地道表达', '长难句'], '地道表达') === 'std-tag--on', 'tag.has：命中已选 → std-tag--on');
+assert(tagWxs.has(['地道表达'], '长难句') === '', 'tag.has：未选 → 空串');
+assert(tagWxs.has(null, '地道表达') === '', 'tag.has：空数组兜底');
+
+// 结构：绑定必须走 WXS，不再有 indexOf 方法调用（WXML 表达式不支持，恒为假）
+const drawerWxml = fs.readFileSync(path.join(__dirname, '../components/sentence-tag-drawer/index.wxml'), 'utf8');
+assert(drawerWxml.indexOf('tag.has(selectedTags, item)') >= 0, 'WXML：选中态经 tag.wxs 求值');
+assert(drawerWxml.indexOf('<wxs src="./tag.wxs" module="tag" />') >= 0, 'WXML：引入 tag.wxs 模块');
+assert(drawerWxml.indexOf('selectedTags.indexOf(item)') === -1, 'WXML：原 indexOf 绑定已清除（该写法在 WXML 恒为假）');
+// 全工程新页面/组件无方法调用绑定（防再踩）
+const wxmlFiles = [
+  '../pages/intensive-listening/index.wxml',
+  '../components/vocabulary-modal/index.wxml',
+  '../components/sentence-tag-drawer/index.wxml',
+];
+const methodCall = wxmlFiles.map((p) => fs.readFileSync(path.join(__dirname, p), 'utf8'))
+  .filter((t) => /\{\{[^}]*\.(indexOf|includes|map|filter|slice|join)\(/.test(t));
+assert(methodCall.length === 0, '全组件 WXML：绑定表达式零方法调用（indexOf/includes/map/filter/slice/join）');
+
 /* ==================== 汇总 ==================== */
 
 console.log('\n────────────────────────');

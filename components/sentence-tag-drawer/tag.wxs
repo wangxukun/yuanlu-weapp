@@ -1,0 +1,21 @@
+/**
+ * tag.wxs — 标签胶囊选中态求值（视图层）
+ *
+ * WXML 数据绑定表达式不支持方法调用（selectedTags.indexOf(item) 恒为假，
+ * 选中态渲染不出来的走查根因），数组包含判断必须经 WXS。
+ * 手写遍历而非依赖 WXS 数组库的 indexOf，保证各基础库版本行为一致。
+ * @param {Array} arr 已选标签
+ * @param {string} v 当前标签
+ * @returns {string} 'std-tag--on'（选中）或 ''（未选中）
+ */
+function has(arr, v) {
+  if (!arr) return '';
+  for (var i = 0; i < arr.length; i++) {
+    if (arr[i] === v) return 'std-tag--on';
+  }
+  return '';
+}
+
+module.exports = {
+  has: has,
+};
