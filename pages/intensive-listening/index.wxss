@@ -1,0 +1,516 @@
+/**
+ * pages/intensive-listening/index.wxss — 独立精听工作流页样式
+ *
+ * 逐项映射 Web 端 Tailwind 类（远路设计系统）：
+ *   字幕卡   ← SubtitleItem（border-b ink-100/80 + border-l-4、active primary-50/500）
+ *   词扫光   ← bg-accent-100（曙光橙浅底包词）
+ *   时间戳胶囊 ← bg-ink-100/70 → 播放中 bg-primary-100/700 + SpeakerWave
+ *   收藏态   ← text-accent-600 + bg-accent-50；循环态 ← primary-100/700 + pulse
+ *   听写卡   ← DictationItem（虚线槽 80rpx、错误红删改线、提示词 info-500）
+ *   toast    ← sonner（白卡 + 中性黑 action 按钮）
+ * 色值一律走 app.wxss 设计令牌（与 Web tailwind.config.mjs 同源）。
+ */
+
+.il-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--card-bg);
+}
+
+/* ============ 顶部固定区 ============ */
+
+.il-header {
+  background: var(--card-bg);
+  border-bottom: 1rpx solid var(--border-color);
+  z-index: 5;
+}
+
+.il-header-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 16rpx;
+}
+
+.il-icon-btn {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 右侧占位（Bug 2：原关闭钮与原生胶囊重叠已删，占位维持 Tab 居中） */
+.il-icon-btn--ghost {
+  visibility: hidden;
+}
+.il-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 精读 / 听写 分段 Tab（bg-base-200 容器 + 选中白底阴影，对齐 TranscriptToolbar） */
+.il-tabs {
+  display: flex;
+  flex-direction: row;
+  background: var(--color-base-200);
+  border-radius: var(--r-lg);
+  padding: 8rpx;
+}
+.il-tab {
+  padding: 12rpx 32rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--ink-500);
+  border-radius: var(--r-md);
+  transition: all 0.15s ease;
+}
+.il-tab--on {
+  background: var(--card-bg);
+  color: var(--primary-600);
+  box-shadow: var(--e1);
+}
+
+/* 工具行 */
+.il-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 24rpx 16rpx;
+}
+
+/* 播放态 pill：正在精听（primary 微底 + 呼吸）/ 点击段落播放（灰底） */
+.il-live {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--ink-400);
+  background: var(--color-base-200);
+  padding: 8rpx 16rpx;
+  border-radius: var(--r-full);
+}
+.il-live--on {
+  color: var(--primary-600);
+  background: rgba(31, 122, 92, 0.1);
+  font-weight: 700;
+  animation: il-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.il-live-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.il-tools {
+  gap: 16rpx;
+}
+.il-tool {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 24rpx;
+  color: var(--ink-400);
+  padding: 8rpx 12rpx;
+  border-radius: var(--r-md);
+  transition: all 0.15s ease;
+}
+.il-tool--on {
+  color: var(--primary-600);
+  background: var(--primary-50);
+}
+.il-tool-icon {
+  width: 28rpx;
+  height: 28rpx;
+  transition: transform 0.2s ease;
+}
+.il-tool-icon--rot {
+  transform: rotate(90deg);
+}
+
+@keyframes il-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============ 字幕滚动区 ============ */
+
+.il-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 骨架 / 错误态 */
+.il-skeleton {
+  padding: 32rpx;
+}
+.il-skeleton-line {
+  height: 40rpx;
+  margin-bottom: 40rpx;
+}
+.il-error {
+  align-items: center;
+  padding: 160rpx 64rpx;
+}
+.il-error-text {
+  font-size: 28rpx;
+  color: var(--ink-500);
+  margin-bottom: 32rpx;
+}
+.il-error-btn {
+  padding: 16rpx 48rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* ============ 精读字幕卡（SubtitleItem 复刻：扁平无缝排版） ============ */
+
+.sub {
+  position: relative;
+  padding: 40rpx 28rpx;
+  border-bottom: 1rpx solid rgba(241, 237, 228, 0.8); /* ink-100/80 */
+  border-left: 8rpx solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.sub--active {
+  background: var(--primary-50);
+  border-left-color: var(--primary-500);
+}
+/* 听写活动卡：圆角浮起（对齐 DictationItem rounded-xl + shadow-e2 + scale） */
+.sub--dict {
+  margin: 16rpx;
+  border-radius: var(--r-xl);
+  border-left-width: 8rpx;
+  border-bottom-color: transparent;
+  box-shadow: var(--e2);
+}
+
+.sub-text {
+  font-size: 36rpx;
+  line-height: 1.85;
+  letter-spacing: 0.025em;
+  color: var(--ink-700);
+  /* Bug 4：超长英文句/词在容器边界内换行（break-word 仅在整词超行时拆词） */
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.sub--active .sub-text {
+  /* 常规字重（走查修复：原粗体已移除，对齐参考图 1-精听页面-精读2） */
+  color: var(--primary-600);
+}
+.sub-plain {
+  font-size: 36rpx;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 词级扫光三态（useWordHighlight 离散移植，色值为 Web 端 ACCENT_BG_LIGHT/READ_TEXT_LIGHT 原值）：
+ *   已读 .w--past → accent-700 #96580D 棕字（Web: applyReadColor p=1）
+ *   当前 .w--cur  → accent-100 #FAE5C6 底光斑 + 保持主题绿字（Web: applyBg op=1）
+ *   未读 .w       → 继承活动句 primary-600（Web: 清 inline 样式回落父级） */
+.w {
+  margin-right: 8rpx;
+  border-radius: 8rpx;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.w--past {
+  color: var(--accent-700);
+}
+.w--cur {
+  color: var(--primary-600);
+  background: var(--accent-100);
+}
+
+/* 译文 */
+.sub-trans {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: var(--ink-400);
+}
+.sub-trans--on {
+  color: var(--ink-600);
+  font-weight: 500;
+}
+
+/* 底部微型控制条 */
+.sub-bar {
+  margin-top: 24rpx;
+}
+
+/* 时间戳胶囊：灰底 Play 图标 → 播放中浅绿底 SpeakerWave */
+.sub-time {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  border-radius: var(--r-full);
+  padding: 8rpx 16rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--ink-500);
+  background: rgba(241, 237, 228, 0.7); /* ink-100/70 */
+  transition: all 0.2s ease;
+}
+.sub-time--on {
+  background: var(--primary-100);
+  color: var(--primary-700);
+}
+.sub-time-icon {
+  width: 26rpx;
+  height: 26rpx;
+}
+
+/* 收藏 / 循环 操作 */
+.sub-act {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+  border-radius: var(--r-full);
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--ink-400);
+  margin-left: 12rpx;
+  transition: all 0.15s ease;
+}
+.sub-act-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+/* 已收藏：主题橙（bg-accent-50 + text-accent-600） */
+.sub-act--saved {
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+/* 循环中：主题绿 + 呼吸 */
+.sub-act--loop {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  animation: il-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============ 听写卡（DictationItem 复刻） ============ */
+
+.dict {
+  align-items: flex-start;
+  gap: 24rpx;
+}
+
+/* 原句复读按钮 */
+.dict-play {
+  width: 64rpx;
+  height: 64rpx;
+  margin-top: 8rpx;
+  flex-shrink: 0;
+}
+.dict-play-icon {
+  width: 56rpx;
+  height: 56rpx;
+}
+.dict-eq {
+  justify-content: center;
+  gap: 6rpx;
+}
+.dict-eq-bar {
+  width: 5rpx;
+  height: 32rpx;
+}
+
+.dict-body {
+  position: relative;
+}
+
+/* 挖空槽位流：baseline 对齐 + 自动换行 */
+.dict-slots {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  align-content: flex-start;
+  row-gap: 8rpx;
+  font-size: 40rpx;
+  line-height: 1.85;
+  letter-spacing: 0.025em;
+  font-weight: 500;
+  color: var(--ink-700);
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 正确：主题绿粗体 + 原词 */
+.dict-word {
+  margin-right: 16rpx;
+}
+.dict-word--ok {
+  color: var(--primary-600);
+  font-weight: 700;
+  word-break: break-all;
+}
+.dict-word--wrap {
+  position: relative;
+  word-break: break-all;
+}
+/* 错误：陶土红 + 删除线 */
+.dict-word--err {
+  color: var(--error-500);
+  text-decoration: line-through;
+  text-decoration-thickness: 4rpx;
+}
+/* 错误提示词：底部黛蓝小字 */
+.dict-hint-below {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  font-size: 24rpx;
+  color: var(--info-500);
+  white-space: nowrap;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* 待填：虚线下划线槽（min-width 40px） */
+.dict-slot {
+  display: inline-flex;
+  align-items: center;
+  min-width: 80rpx;
+  height: 48rpx;
+  margin-right: 16rpx;
+  border-bottom: 4rpx dashed var(--ink-300);
+  font-size: 36rpx;
+  line-height: 1.2;
+  word-break: break-all;
+}
+/* 槽内提示词（错满 3 次后空槽显示目标词首) */
+.dict-hint-in {
+  color: var(--info-500);
+  opacity: 0.6;
+  font-size: 28rpx;
+  font-weight: 400;
+}
+
+.dict-trans {
+  margin-top: 32rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--ink-200);
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: var(--ink-600);
+  font-weight: 500;
+}
+
+/* 隐形全句输入框（捕获键盘，视图层渲染槽位） */
+.dict-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.il-bottom-space {
+  height: calc(200rpx + env(safe-area-inset-bottom));
+}
+
+/* ============ 收藏成功 toast（sonner 复刻） ============ */
+
+.il-toast-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 底部让位迷你播放条（Bug 1 挂载后常驻）+ 安全区 */
+  bottom: calc(var(--mini-player-height) + 48rpx + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+.il-toast {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center; /* 图标 / 双行文案 / action 按钮同行垂直居中 */
+  gap: 24rpx;          /* ≈ mr-3：图标与文案间距 */
+  max-width: 88vw;
+  background: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--r-lg); /* sonner 默认 8px 圆角 */
+  box-shadow: 0 8rpx 24rpx rgba(27, 24, 18, 0.08); /* ≈ shadow-sm */
+  padding: 28rpx 24rpx 28rpx 32rpx;
+  animation: il-toast-in 0.25s ease;
+}
+/* 收藏成功：sonner richColors success 富色主题原值
+ * （--success-bg hsl(143,85%,96%)≈#ECFDF3 / --success-border hsl(145,92%,87%)≈#BFFCD9
+ *   / --success-text hsl(140,100%,27%)≈#008A2E，取自 node_modules/sonner/dist/styles.css） */
+.il-toast--saved {
+  background: #ecfdf3;
+  border: 1rpx solid #bffcd9;
+}
+/* 移除提示：sonner 中性 toast（白底灰边，无图标） */
+.il-toast--plain {
+  padding-right: 32rpx;
+}
+/* 左侧对钩状态图标（lucide check-circle，烘焙 success 绿 #008A2E） */
+.il-toast-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+}
+@keyframes il-toast-in {
+  from {
+    transform: translateY(32rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.il-toast-main {
+  flex: 1;
+  min-width: 0;
+}
+.il-toast-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500; /* sonner [data-title]: font-weight 500 */
+  color: var(--ink-900);
+}
+.il-toast--saved .il-toast-title {
+  color: #008a2e; /* success-text：标题随富色主题转绿 */
+}
+.il-toast-quote {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: rgba(27, 24, 18, 0.62);
+}
+/* action 按钮：中性黑底白字（sonner 默认主题） */
+.il-toast-btn {
+  flex-shrink: 0;
+  background: #18181b;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 500;
+  padding: 16rpx 24rpx;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+}

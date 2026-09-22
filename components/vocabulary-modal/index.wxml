@@ -1,0 +1,110 @@
+<!-- 生词收藏全屏弹窗（VocabularyModal 移动端形态复刻：全屏白底 + 底部滑入） -->
+<view wx:if="{{visible}}" class="vm-mask">
+  <view class="vm-sheet col">
+
+    <scroll-view class="vm-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="vm-content">
+
+        <!-- ── 单词标题行：词 + 收藏 / 关闭（顶部安全区避让原生胶囊，Bug 3） ── -->
+        <view class="vm-title-row between" style="padding-top: {{headerSafeTop}}px">
+          <text class="vm-word">{{word}}</text>
+          <view class="row">
+            <view class="vm-title-btn center tap-scale {{isSaved ? 'vm-title-btn--saved' : ''}}" bindtap="onSave">
+              <view wx:if="{{saving}}" class="vm-spin"></view>
+              <image wx:else class="vm-title-icon"
+                     src="{{isSaved ? '/assets/icons/bookmark-filled-primary.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+            </view>
+            <view class="vm-title-btn center tap-scale" bindtap="onClose">
+              <image class="vm-title-icon" src="/assets/icons/close.svg" />
+            </view>
+          </view>
+        </view>
+
+        <!-- ── 查询中 ── -->
+        <view wx:if="{{loading}}" class="vm-loading row">
+          <view class="vm-spin vm-spin--lg"></view>
+          <text class="vm-loading-text">请耐心等待，正在查询词典…</text>
+        </view>
+
+        <block wx:elif="{{dictData}}">
+          <!-- ── 音标 + 发音（UK | US） ── -->
+          <view wx:if="{{dictData.phonetics.uk || dictData.phonetics.us}}" class="vm-phons row">
+            <block wx:if="{{dictData.phonetics.uk}}">
+              <text class="vm-phon">{{dictData.phonetics.uk}}</text>
+              <view wx:if="{{dictData.audio_urls.uk}}" class="vm-phon-btn center tap-dim"
+                    data-url="{{dictData.audio_urls.uk}}" bindtap="onPlayAudio">
+                <image class="vm-phon-icon" src="/assets/icons/speaker-wave-gray.svg" />
+              </view>
+            </block>
+            <block wx:if="{{dictData.phonetics.us && dictData.phonetics.us !== dictData.phonetics.uk}}">
+              <text class="vm-phon-sep">|</text>
+              <text class="vm-phon">{{dictData.phonetics.us}}</text>
+              <view wx:if="{{dictData.audio_urls.us}}" class="vm-phon-btn center tap-dim"
+                    data-url="{{dictData.audio_urls.us}}" bindtap="onPlayAudio">
+                <image class="vm-phon-icon" src="/assets/icons/speaker-wave-gray.svg" />
+              </view>
+            </block>
+          </view>
+
+          <!-- ── 词性与释义卡 ── -->
+          <view wx:if="{{dictData.definitions.length > 0}}" class="vm-defs">
+            <text class="vm-label">词性与释义</text>
+            <view wx:for="{{dictData.definitions}}" class="vm-def">
+              <view class="vm-def-row row">
+                <text class="vm-def-pos">[{{item.pos}}]</text>
+                <text class="vm-def-cn">{{item.meaning_cn}}</text>
+              </view>
+              <text wx:if="{{item.meaning_en}}" class="vm-def-en">{{item.meaning_en}}</text>
+            </view>
+          </view>
+
+          <!-- ── 🧬 词源记忆折叠面板（默认收缩；收缩态预览词根） ── -->
+          <view wx:if="{{dictData.etymology && (dictData.etymology.breakdown || dictData.etymology.mnemonic || dictData.etymology.prefix || dictData.etymology.root || dictData.etymology.suffix)}}" class="vm-ety">
+            <view class="vm-ety-head between" bindtap="onToggleEty">
+              <text class="vm-ety-label">🧬 词源记忆</text>
+              <view class="row">
+                <text wx:if="{{!etyOpen && (dictData.etymology.root || dictData.etymology.prefix || dictData.etymology.suffix)}}"
+                      class="vm-ety-preview ellipsis">{{dictData.etymology.root || dictData.etymology.prefix || dictData.etymology.suffix}}</text>
+                <image class="vm-ety-chev {{etyOpen ? 'vm-ety-chev--open' : ''}}" src="/assets/icons/chevron-down.svg" />
+              </view>
+            </view>
+
+            <view wx:if="{{etyOpen}}" class="vm-ety-body">
+              <view wx:if="{{dictData.etymology.prefix || dictData.etymology.root || dictData.etymology.suffix}}" class="vm-ety-chips wrap">
+                <text wx:if="{{dictData.etymology.prefix}}" class="vm-chip vm-chip--prefix">前缀 · {{dictData.etymology.prefix}}</text>
+                <text wx:if="{{dictData.etymology.root}}" class="vm-chip vm-chip--root">词根 · {{dictData.etymology.root}}</text>
+                <text wx:if="{{dictData.etymology.suffix}}" class="vm-chip vm-chip--suffix">后缀 · {{dictData.etymology.suffix}}</text>
+              </view>
+              <text wx:if="{{dictData.etymology.breakdown}}" class="vm-ety-text">{{dictData.etymology.breakdown}}</text>
+              <view wx:if="{{dictData.etymology.mnemonic}}" class="vm-ety-memo">
+                <text class="vm-ety-memo-text"><text class="vm-ety-memo-hl">💡 记忆技巧：</text>{{dictData.etymology.mnemonic}}</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- ── 例句 ── -->
+          <view wx:if="{{dictData.examples.length > 0}}" class="vm-defs">
+            <text class="vm-label">例句</text>
+            <view wx:for="{{dictData.examples}}" class="vm-def">
+              <text class="vm-ex-en font-serif">{{item.en}}</text>
+              <text class="vm-ex-cn">{{item.cn}}</text>
+            </view>
+          </view>
+        </block>
+
+        <!-- ── 无数据态 ── -->
+        <view wx:else class="vm-empty center">
+          <text class="vm-empty-text">暂无词典数据</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- ── 底栏：来源 + 完成学习 ── -->
+    <view class="vm-footer between">
+      <text class="vm-source ellipsis">{{episodeTitle ? '来源：' + episodeTitle : ''}}</text>
+      <view class="vm-done tap-dim" bindtap="onComplete">
+        <text>完成学习 →</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -338,8 +338,9 @@ Component({
 
     /**
      * 「精听模式」橙色胶囊（对齐 Android onOpenIntensive → IntensiveListeningNav）：
-     * 补精听标记 + 收起面板，跳转本集精听工作流（episode 页 practice 深链自动起播）；
-     * 栈顶已是本集剧集页时直接就地驱动精听起播，不重复入栈。
+     * 补精听标记 + 收起面板，跳转本集独立精听工作流页（3.B.4，对齐 Android
+     * IntensiveListeningScreen；此前由 episode 页 practice 深链承接）；
+     * 栈顶已是本集精听页时 no-op，防重复入栈。
      */
     onOpenIntensive() {
       const ep = playerStore.getState().currentEpisode;
@@ -349,16 +350,14 @@ Component({
       try {
         const pages = wx.getCurrentPages();
         const top = pages[pages.length - 1];
-        if (top && top.route === 'pages/episode/episode' &&
-          top.options && String(top.options.id) === String(ep.episodeid) &&
-          typeof top.onStartListening === 'function') {
-          top.onStartListening();
+        if (top && top.route === 'pages/intensive-listening/index' &&
+          top.options && String(top.options.id) === String(ep.episodeid)) {
           return;
         }
       } catch (e) {
         // 页面栈不可用时按常规跳转
       }
-      wx.navigateTo({ url: '/pages/episode/episode?id=' + ep.episodeid + '&practice=true' });
+      wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + ep.episodeid });
     },
 
     /** header chevron-down：仅收起面板（会话保留） */

@@ -1,0 +1,87 @@
+<!-- 句子收藏完善抽屉（QuickTagDrawer 复刻：底部滑出 + 遮罩） -->
+<view wx:if="{{sentence}}" class="std-mask" bindtap="onClose">
+  <view class="std-sheet col" catchtap="noop">
+
+    <!-- ── 头部：书签图标 + 标题 + 关闭 ── -->
+    <view class="std-header between">
+      <view class="row">
+        <view class="std-header-icon center">
+          <image class="std-header-icon-img" src="/assets/icons/bookmark-check-primary.svg" />
+        </view>
+        <view class="col">
+          <text class="std-title">完善句子本收藏</text>
+          <text class="std-subtitle">添加分类标签与学习心得</text>
+        </view>
+      </view>
+      <view class="std-close center tap-dim" bindtap="onClose">
+        <image class="std-close-icon" src="/assets/icons/close.svg" />
+      </view>
+    </view>
+
+    <scroll-view class="std-body" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="std-body-inner">
+
+        <!-- ── 原句预览（英文衬线 + 中文） ── -->
+        <view class="std-preview">
+          <text class="std-preview-en font-serif ellipsis-2">"{{sentence.enText}}"</text>
+          <text wx:if="{{sentence.zhText}}" class="std-preview-zh ellipsis">{{sentence.zhText}}</text>
+        </view>
+
+        <!-- ── 选择分类标签（预设多选 + 自定义） ── -->
+        <view class="std-section">
+          <view class="std-label row">
+            <image class="std-label-icon" src="/assets/icons/tag-primary.svg" />
+            <text>选择分类标签</text>
+          </view>
+          <view class="std-tags wrap">
+            <view wx:for="{{presets}}" wx:key="*this"
+                  class="std-tag {{selectedTags.indexOf(item) >= 0 ? 'std-tag--on' : ''}} tap-scale"
+                  data-tag="{{item}}" bindtap="onToggleTag">{{item}}</view>
+
+            <!-- 已添加的自定义标签（accent 微底 + ✕ 移除） -->
+            <view wx:for="{{customTags}}" wx:key="*this"
+                  class="std-tag std-tag--custom tap-scale"
+                  data-tag="{{item}}" bindtap="onToggleTag">{{item}} ✕</view>
+
+            <!-- 自定义输入行 / + 自定义 按钮 -->
+            <view wx:if="{{isAddingTag}}" class="std-tag-input-row row">
+              <input class="std-tag-input" value="{{customTagInput}}" maxlength="20"
+                     placeholder="输入标签名..." focus="{{isAddingTag}}"
+                     bindinput="onCustomInput" bindconfirm="onConfirmAddTag" />
+              <view class="std-tag-confirm center tap-scale" bindtap="onConfirmAddTag">
+                <image class="std-tag-confirm-icon" src="/assets/icons/check-white.svg" />
+              </view>
+            </view>
+            <view wx:else class="std-tag std-tag--add row tap-dim" bindtap="onStartAddTag">
+              <image class="std-tag-add-icon" src="/assets/icons/plus-gray.svg" />
+              <text>自定义</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- ── 个人学习笔记 ── -->
+        <view class="std-section">
+          <view class="std-label row">
+            <image class="std-label-icon" src="/assets/icons/file-text-primary.svg" />
+            <text>个人学习笔记（语法解析、运用场景、生词搭配等）</text>
+          </view>
+          <textarea class="std-note" value="{{note}}" maxlength="2000" rows="4"
+                    placeholder="例如：长难句宾语从句倒装结构，写作开头句式..."
+                    bindinput="onNoteInput" />
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- ── 底部操作：稍后完善 / 保存修改 ── -->
+    <view class="std-footer row">
+      <view class="std-btn-ghost tap-dim" bindtap="onClose">
+        <text>稍后完善</text>
+      </view>
+      <view class="std-btn-save row center tap-scale {{isSaving ? 'std-btn-save--busy' : ''}}" bindtap="onSave">
+        <view wx:if="{{isSaving}}" class="std-spin"></view>
+        <image wx:else class="std-btn-save-icon" src="/assets/icons/check-white.svg" />
+        <text>保存修改</text>
+      </view>
+    </view>
+  </view>
+</view>

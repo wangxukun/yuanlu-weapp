@@ -1,0 +1,21 @@
+/**
+ * intensive.wxs — 精听页面视图层助手
+ *
+ * 单词扫光三态 class 计算（useWordHighlight 离散移植）：
+ * 词状态由 (sweepIdx, sweepOn) 两个标量唯一确定，随最小差量 setData
+ * 重算，WXS 在视图层就地求值，避免 JS 侧为每个词构建 class 数组：
+ *   wi < sweepIdx（或 === 且 !on）→ w--past   已读：accent-700 棕字
+ *   wi === sweepIdx 且 on         → w--cur    当前：accent-100 底光斑 + 主题绿字
+ *   wi > sweepIdx                 → w         未读：继承活动句 primary-600
+ * 非活动句 / 未播放 → 全部回落 w（Web: clearAll 回落 className 兜底）。
+ */
+function wordCls(subIndex, activeIndex, isPlaying, wi, sweepIdx, sweepOn) {
+  if (subIndex !== activeIndex || !isPlaying) return 'w';
+  if (wi === sweepIdx && sweepOn) return 'w w--cur';
+  if (wi < sweepIdx || (wi === sweepIdx && !sweepOn)) return 'w w--past';
+  return 'w';
+}
+
+module.exports = {
+  wordCls: wordCls,
+};

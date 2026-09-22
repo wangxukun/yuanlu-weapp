@@ -1,0 +1,295 @@
+/**
+ * components/vocabulary-modal/index.wxss — 生词全屏弹窗样式
+ * 逐项映射 Web VocabularyModal 的 Tailwind 类（text-3xl 词题、音标 mono 行、
+ * base-200 释义卡、primary-50 词源折叠卡、amber/primary/灰 三色词素 chips）。
+ */
+
+.vm-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-modal) + 5);
+  background: var(--card-bg);
+}
+
+.vm-sheet {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: vm-in 0.25s ease;
+}
+@keyframes vm-in {
+  from {
+    transform: translateY(48rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.vm-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.vm-content {
+  padding: 48rpx;
+}
+
+/* ── 标题行 ── */
+.vm-title-row {
+  align-items: flex-start;
+}
+.vm-word {
+  flex: 1;
+  min-width: 0;
+  font-size: 60rpx;
+  font-weight: 700;
+  color: var(--primary-600);
+  line-height: 1.25;
+  word-break: break-all;
+  margin-right: 16rpx;
+}
+.vm-title-btn {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+}
+.vm-title-btn--saved {
+  opacity: 1;
+}
+.vm-title-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ── 加载 ── */
+.vm-loading {
+  padding: 32rpx 0;
+  gap: 16rpx;
+}
+.vm-loading-text {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+.vm-spin {
+  width: 32rpx;
+  height: 32rpx;
+  border: 4rpx solid rgba(31, 122, 92, 0.2);
+  border-top-color: var(--primary-600);
+  border-radius: 50%;
+  animation: vm-rotate 0.8s linear infinite;
+}
+.vm-spin--lg {
+  width: 48rpx;
+  height: 48rpx;
+}
+@keyframes vm-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 音标行 ── */
+.vm-phons {
+  margin-top: 24rpx;
+  gap: 16rpx;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+.vm-phon {
+  font-family: Menlo, Consolas, monospace;
+}
+.vm-phon-btn {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+}
+.vm-phon-icon {
+  width: 30rpx;
+  height: 30rpx;
+}
+.vm-phon-sep {
+  color: var(--ink-300);
+}
+
+/* ── 词性与释义卡（base-200/30 底 + base-200 描边） ── */
+.vm-defs {
+  margin-top: 32rpx;
+  background: var(--color-base-200);
+  border: 1rpx solid var(--color-base-300);
+  border-radius: var(--r-xl);
+  padding: 32rpx;
+}
+.vm-label {
+  display: block;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--ink-400);
+  letter-spacing: 0.12em;
+  margin-bottom: 20rpx;
+}
+.vm-def {
+  margin-bottom: 16rpx;
+}
+.vm-def:last-child {
+  margin-bottom: 0;
+}
+.vm-def-row {
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.vm-def-pos {
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--primary-600);
+}
+.vm-def-cn {
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--ink-900);
+}
+.vm-def-en {
+  display: block;
+  margin-left: 96rpx;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--ink-400);
+}
+
+/* ── 例句 ── */
+.vm-ex-en {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: var(--ink-800);
+}
+.vm-ex-cn {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--ink-500);
+}
+
+/* ── 🧬 词源记忆折叠卡（primary-50 底） ── */
+.vm-ety {
+  margin-top: 32rpx;
+  background: rgba(237, 247, 242, 0.8); /* primary-50/80 */
+  border: 1rpx solid var(--primary-100);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+.vm-ety-head {
+  padding: 32rpx 32rpx 20rpx;
+}
+.vm-ety-label {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--primary-500);
+  letter-spacing: 0.12em;
+}
+.vm-ety-preview {
+  max-width: 300rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--primary-500);
+  margin-right: 12rpx;
+}
+.vm-ety-chev {
+  width: 32rpx;
+  height: 32rpx;
+  transition: transform 0.2s ease;
+}
+.vm-ety-chev--open {
+  transform: rotate(180deg);
+}
+.vm-ety-body {
+  padding: 0 32rpx 32rpx;
+}
+.vm-ety-chips {
+  /* 词素 chips 横向流式换行（.wrap 工具类只含 flex-wrap，须自带 display:flex） */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+/* 前缀 amber / 词根 primary / 后缀中性（对齐 Web amber-100·800 等三色 chips） */
+.vm-chip {
+  padding: 8rpx 20rpx;
+  border-radius: var(--r-md);
+  font-size: 24rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.vm-chip--prefix {
+  background: #fef3c7;
+  color: #92400e;
+}
+.vm-chip--root {
+  background: var(--primary-100);
+  color: var(--primary-700);
+}
+.vm-chip--suffix {
+  background: var(--color-base-200);
+  color: var(--ink-600);
+}
+.vm-ety-text {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--ink-700);
+  margin-bottom: 16rpx;
+}
+.vm-ety-memo {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1rpx solid var(--primary-100);
+  border-radius: var(--r-md);
+  padding: 20rpx;
+}
+.vm-ety-memo-text {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--ink-600);
+}
+.vm-ety-memo-hl {
+  font-weight: 700;
+  color: var(--primary-600);
+}
+
+/* ── 空态 ── */
+.vm-empty {
+  padding: 32rpx 0;
+}
+.vm-empty-text {
+  font-size: 28rpx;
+  color: var(--ink-400);
+}
+
+/* ── 底栏 ── */
+.vm-footer {
+  flex-shrink: 0;
+  padding: 24rpx 48rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid var(--color-base-300);
+}
+.vm-source {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: var(--ink-400);
+  margin-right: 24rpx;
+}
+.vm-done {
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--primary-600);
+}

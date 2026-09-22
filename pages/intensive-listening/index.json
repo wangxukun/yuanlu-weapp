@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "mini-player": "/components/player/mini-player/index",
+    "vocabulary-modal": "/components/vocabulary-modal/index",
+    "sentence-tag-drawer": "/components/sentence-tag-drawer/index",
+    "premium-modal": "/components/premium-modal/index"
+  }
+}

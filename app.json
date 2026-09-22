@@ -15,7 +15,8 @@
     "pages/episode/episode",
     "pages/search/search",
     "pages/channel/all/index",
-    "pages/channel/index"
+    "pages/channel/index",
+    "pages/intensive-listening/index"
   ],
   "requiredBackgroundModes": ["audio"],
   "window": {

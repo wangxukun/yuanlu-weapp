@@ -1,0 +1,196 @@
+<wxs src="./intensive.wxs" module="fmt" />
+
+<!--
+  独立精听工作流页 · 视图结构（复刻 Web InteractiveTranscript 移动端全屏态）：
+  il-header   顶部：收起 / 📖精读·✍️听写 Tab / 关闭 + 工具行（播放态 pill + 跟随/译文）
+  il-scroll   字幕流（精读卡 / 听写卡混排：仅听写模式的活动句渲染挖空输入）
+  弹窗层      vocabulary-modal 全屏生词弹窗 / sentence-tag-drawer 完善抽屉 /
+              premium-modal 配额墙 / il-toast 收藏成功提示（带 action 按钮）
+-->
+<view class="il-page">
+
+  <!-- ═══ 顶部固定区 ═══ -->
+  <view class="il-header" style="padding-top: {{statusBarH}}px">
+    <view class="il-header-row">
+      <view class="il-icon-btn tap-scale" bindtap="onBack">
+        <image class="il-icon" src="/assets/icons/chevron-down.svg" />
+      </view>
+
+      <!-- 精读 / 听写 双 Tab（📖 / ✍️ 前缀原样保留，选中白底 + 阴影） -->
+      <view class="il-tabs">
+        <view class="il-tab {{mode === 'read' ? 'il-tab--on' : ''}}" data-mode="read" bindtap="onSwitchMode">📖 精读</view>
+        <view class="il-tab {{mode === 'dictate' ? 'il-tab--on' : ''}}" data-mode="dictate" bindtap="onSwitchMode">✍️ 听写</view>
+      </view>
+
+      <!-- 占位：右侧不再放关闭钮（与原生胶囊重叠，Bug 2 已删），仅维持 Tab 居中 -->
+      <view class="il-icon-btn il-icon-btn--ghost"></view>
+    </view>
+
+    <!-- 工具行：播放态 pill | 跟随 / 译文 -->
+    <view class="il-toolbar">
+      <view class="il-live {{isPlayingHere ? 'il-live--on' : ''}}">
+        <image wx:if="{{isPlayingHere}}" class="il-live-icon" src="/assets/icons/speaker-wave-primary.svg" />
+        <text>{{isPlayingHere ? '正在精听' : '点击段落播放'}}</text>
+      </view>
+      <view class="il-tools row">
+        <view class="il-tool {{autoScroll ? 'il-tool--on' : ''}} tap-dim" bindtap="onToggleAutoScroll">
+          <image class="il-tool-icon {{autoScroll ? 'il-tool-icon--rot' : ''}}"
+                 src="{{autoScroll ? '/assets/icons/arrows-right-left-primary.svg' : '/assets/icons/arrows-right-left-gray.svg'}}" />
+          <text>跟随</text>
+        </view>
+        <view class="il-tool {{showTranslation ? 'il-tool--on' : ''}} tap-dim" bindtap="onToggleTranslation">
+          <image class="il-tool-icon"
+                 src="{{showTranslation ? '/assets/icons/translate-primary.svg' : '/assets/icons/translate-gray.svg'}}" />
+          <text>译文</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ 字幕流 ═══ -->
+  <scroll-view class="il-scroll" scroll-y enhanced show-scrollbar="{{false}}"
+               scroll-into-view="{{scrollIntoView}}" scroll-with-animation scroll-into-view-offset="-80"
+               bindscrolltolower="onScrollLower">
+
+    <!-- 加载骨架 -->
+    <view wx:if="{{isLoading}}" class="il-skeleton">
+      <view wx:for="{{[1, 2, 3, 4, 5, 6]}}" wx:key="*this" class="il-skeleton-line skeleton"></view>
+    </view>
+
+    <!-- 错误态 -->
+    <view wx:elif="{{error}}" class="il-error col">
+      <text class="il-error-text">{{error}}</text>
+      <view class="il-error-btn tap-scale" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <view wx:for="{{viewList}}" wx:key="id" id="sub-{{item.id}}"
+            data-index="{{item.index}}" bindtap="onCardTap"
+            class="sub {{item.index === activeIndex ? 'sub--active' : ''}} {{mode === 'dictate' && item.index === activeIndex ? 'sub--dict' : ''}}">
+
+        <!-- ── 听写模式 · 活动句：挖空输入卡（DictationItem 复刻） ── -->
+        <block wx:if="{{mode === 'dictate' && item.index === activeIndex}}">
+          <view class="dict row">
+            <!-- 原句复读按钮：播放中显示均衡器动效 -->
+            <view class="dict-play center tap-scale" data-index="{{item.index}}" catchtap="onCardTap">
+              <view wx:if="{{isPlaying}}" class="dict-eq row">
+                <view class="eq-bar dict-eq-bar"></view>
+                <view class="eq-bar dict-eq-bar" style="animation-delay: 0.2s"></view>
+                <view class="eq-bar dict-eq-bar" style="animation-delay: 0.4s"></view>
+              </view>
+              <image wx:else class="dict-play-icon" src="/assets/icons/play-circle-primary.svg" />
+            </view>
+
+            <view class="dict-body flex-1">
+              <!-- 渲染层挖空槽位（正确=绿粗原文 / 错误=红删改 + 底部提示 / 待填=虚线槽） -->
+              <view class="dict-slots wrap">
+                <block wx:for="{{dictSlots}}" wx:for-item="slot" wx:for-index="si" wx:key="i">
+                  <text wx:if="{{slot.status === 'correct'}}" class="dict-word dict-word--ok font-serif">{{slot.target}}</text>
+                  <view wx:elif="{{slot.status === 'error'}}" class="dict-word dict-word--wrap">
+                    <text class="dict-word--err font-serif">{{slot.input}}</text>
+                    <text wx:if="{{slot.hint}}" class="dict-hint-below">{{slot.target}}</text>
+                  </view>
+                  <view wx:else class="dict-slot">
+                    <text wx:if="{{slot.input}}" class="font-serif">{{slot.input}}</text>
+                    <text wx:if="{{slot.hint && !slot.input}}" class="dict-hint-in">{{slot.target}}</text>
+                  </view>
+                </block>
+              </view>
+
+              <view wx:if="{{showTranslation && item.zhClean}}" class="dict-trans">
+                <text>{{item.zhClean}}</text>
+              </view>
+
+              <!-- 隐形全句输入：捕获键盘，槽位由 JS 切块渲染（对齐 Web 隐藏 input 方案） -->
+              <input class="dict-input" value="{{dictInput}}" focus="{{mode === 'dictate'}}"
+                     bindinput="onDictInput" bindconfirm="onDictConfirm"
+                     confirm-hold confirm-type="done" adjust-position
+                     autocomplete="off" />
+            </view>
+          </view>
+        </block>
+
+        <!-- ── 精读卡（含听写模式下的非活动句）：SubtitleItem 复刻 ── -->
+        <block wx:else>
+          <view class="sub-text">
+            <block wx:if="{{item.words.length > 0}}">
+              <text wx:for="{{item.words}}" wx:for-item="w" wx:for-index="wi" wx:key="wi"
+                    class="{{fmt.wordCls(item.index, activeIndex, isPlaying, wi, activeWordIndex, wordSweepOn)}} font-serif"
+                    catchtap="onWordTap" data-index="{{item.index}}" data-wi="{{wi}}">{{w.word}} </text>
+            </block>
+            <text wx:else class="sub-plain font-serif">{{item.textEn}}</text>
+          </view>
+
+          <!-- 译文（可折叠） -->
+          <view wx:if="{{showTranslation && item.zhClean}}" class="sub-trans {{item.index === activeIndex ? 'sub-trans--on' : ''}}">
+            <text>{{item.zhClean}}</text>
+          </view>
+
+          <!-- 底部微型控制条：时间戳胶囊（左） | 收藏 / 循环（右） -->
+          <view class="sub-bar between">
+            <view class="sub-time {{item.index === activeIndex && isPlaying ? 'sub-time--on' : ''}} tap-scale"
+                  data-index="{{item.index}}" catchtap="onCardTap">
+              <image class="sub-time-icon"
+                     src="{{item.index === activeIndex && isPlaying ? '/assets/icons/speaker-wave-primary.svg' : '/assets/icons/play-filled-ink.svg'}}" />
+              <text>{{item.tsLabel}}</text>
+            </view>
+
+            <view class="row">
+              <view class="sub-act {{savedMap[item.id] ? 'sub-act--saved' : ''}} tap-scale"
+                    data-index="{{item.index}}" catchtap="onToggleSave">
+                <image class="sub-act-icon"
+                       src="{{savedMap[item.id] ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+                <text>{{savedMap[item.id] ? '已收藏' : '收藏'}}</text>
+              </view>
+              <view class="sub-act {{loopIndex === item.index ? 'sub-act--loop' : ''}} tap-scale"
+                    data-index="{{item.index}}" catchtap="onToggleLoop">
+                <image class="sub-act-icon"
+                       src="{{loopIndex === item.index ? '/assets/icons/repeat-one-active.svg' : '/assets/icons/repeat.svg'}}" />
+                <text>{{loopIndex === item.index ? '循环中' : '循环'}}</text>
+              </view>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <!-- 底部让位（键盘 / 安全区） -->
+      <view class="il-bottom-space"></view>
+    </block>
+  </scroll-view>
+
+  <!-- ═══ 生词收藏全屏弹窗 ═══ -->
+  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    episode-title="{{episode ? episode.title : ''}}"
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+
+  <!-- ═══ 句子完善收藏抽屉 ═══ -->
+  <sentence-tag-drawer sentence="{{drawerSentence}}"
+                       bind:close="onDrawerClose" bind:updated="onDrawerUpdated" />
+
+  <!-- ═══ 会员转化弹窗（配额墙） ═══ -->
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
+
+  <!-- ═══ 底部迷你播放条（跨页组件复用：播放/暂停 + 关闭；点条身可展开全屏面板） ═══
+       关闭联动（Bug 1）：条上 × → audioManager.close() 清空会话 → 本页
+       _onPlayerState 感知 hasEpisode 翻 false 后随音频停止一并 navigateBack -->
+  <mini-player />
+
+  <!-- ═══ 收藏成功 toast（对齐 Web sonner richColors success：浅绿底/绿边/对钩图标 + 黑色 action） ═══ -->
+  <view wx:if="{{toast}}" class="il-toast-wrap">
+    <view class="il-toast {{toast.type === 'saved' ? 'il-toast--saved' : 'il-toast--plain'}}" catchtap="noop">
+      <!-- 左：对钩状态图标（success 绿，与图标/文案/按钮同行垂直居中，间距由容器 gap=mr-3 提供） -->
+      <image wx:if="{{toast.type === 'saved'}}" class="il-toast-icon"
+             src="/assets/icons/check-circle-success.svg" />
+      <!-- 中：标题 + 引文（上下两行） -->
+      <view class="il-toast-main">
+        <text class="il-toast-title">{{toast.type === 'saved' ? '已收藏至「句子本」' : '已从「句子本」移除'}}</text>
+        <text wx:if="{{toast.type === 'saved'}}" class="il-toast-quote ellipsis">"{{toast.quote}}..."</text>
+      </view>
+      <!-- 右：黑色 action 按钮 -->
+      <view wx:if="{{toast.type === 'saved' && toast.sentence}}" class="il-toast-btn tap-scale"
+            catchtap="onToastAction">添加标签/笔记</view>
+    </view>
+  </view>
+</view>

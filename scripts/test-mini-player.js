@@ -372,7 +372,7 @@ const subRequestCount = () => requestUrls.filter((u) => u === '/api/episode/subt
     panel.onClosePlaylistSheet();
     assert(panel.data.playlistSheetVisible === false, '播放列表弹层关闭');
 
-    // —— 精听模式按钮：补标记 + practice 深链 ——
+    // —— 精听模式按钮：补标记 + 独立精听工作流页路由（3.B.4 起） ——
     await audioManager.playEpisode(EP('ep4'), { playlist: [EP('ep4')] }); // 普通起播复位标记
     await tick();
     navCalls.length = 0;
@@ -380,18 +380,16 @@ const subRequestCount = () => requestUrls.filter((u) => u === '/api/episode/subt
     panel.onOpenIntensive();
     assert(audioManager.getState().isIntensiveMode === true, '「精听模式」→ 补精听标记（对齐 Android setIntensiveMode）');
     assert(panel.events.includes('close'), '「精听模式」→ 触发 close（收起面板）');
-    assert(navCalls[0] === '/pages/episode/episode?id=ep4&practice=true', '「精听模式」→ practice 深链跳剧集精听工作流');
+    assert(navCalls[0] === '/pages/intensive-listening/index?id=ep4', '「精听模式」→ 跳转独立精听工作流页（原 practice 深链由 3.B.4 页承接）');
 
-    // 栈顶守卫：已在目标剧集页 → 就地驱动精听起播，不重复入栈
-    const intensiveSpies = [];
+    // 栈顶守卫：已是本集精听页 → no-op，不重复入栈
     currentPages = [{
-      route: 'pages/episode/episode',
+      route: 'pages/intensive-listening/index',
       options: { id: 'ep4' },
-      onStartListening: () => intensiveSpies.push('fired'),
     }];
     navCalls.length = 0;
     panel.onOpenIntensive();
-    assert(intensiveSpies.length === 1 && navCalls.length === 0, '守卫：栈顶即本集剧集页 → 调 onStartListening 且不重复入栈');
+    assert(navCalls.length === 0, '守卫：栈顶即本集精听页 → 不重复入栈');
     currentPages = [];
 
     // —— 封面点按守卫（保留）——
