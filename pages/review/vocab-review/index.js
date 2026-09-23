@@ -1,16 +1,20 @@
-// pages/review/vocab-review — 生词卡片复习（REVIEW-TASK T1.5）
-// 复刻 Web ReviewModal.tsx 的全屏复习流（小程序以独立页承载 createPortal 全屏弹层）：
+// pages/review/vocab-review — 生词复习·闪卡模式（REVIEW-TASK T1.5，2026-09-23 重构）
+// 复刻 yuanlu-android VocabularyReviewScreen.kt（四题型模式已退役删除）：
 //
-// - 入场自拉 /api/vocabulary/all 筛到期词（isDue && !MASTERED，无服务端池一次全量入队）
-// - 四题型按数据可用性随机分配（填空/选择/中译英/猜词，对齐 assignMode）
-// - 3D 翻卡：perspective 1200 + rotateY 180° + 0.6s cubic-bezier（backface-visibility 隐藏）
-// - 换卡/翻面自动播词典发音（uk 优先，dictvoice 失败 TTS 合成兜底）；翻面停原声
-// - 填空/中译英/猜词：输入大小写与首尾空格不敏感，答对立即翻面，回车错答 600ms 抖红
-// - 选择：2×2 选项，选对 500ms 后翻面、选错标红 800ms 复位可重选
-// - 读音提示：显示音标并播放一次发音（不泄露拼写）
-// - SRS 四档（忘记/模糊/认识/简单）带下次间隔预览；提交 POST /api/vocabulary/review
-//   本地乐观更新（失败 toast 不中断流程）；键盘快捷键为 Web 专属，移动端不移植
-// - 总结页：四格统计 + 逐词结果 + 「再来一轮 (N个)」仅重测忘记子集
+// 状态机（对齐 Android VocabularyUiState）：
+// - queue/currentIndex/isFlipped/submitting/results/showSummary 五元组驱动全页
+// - 正面（Front）：居中大字单词 + 浅绿圆底发音钮 + 「回忆词义，点击卡片查看答案」
+//   + 「来自《剧集名》」；点击卡片任意区域或底部「显示答案」→ 翻面
+// - 背面（Back）：可滚动长列表（单词 + US/UK 音标发音 / 释义卡 / 原声出处卡 /
+//   词源记忆卡）；3D 翻转 perspective 1200 + rotateY 180° + 0.6s
+//   cubic-bezier(0.4,0,0.2,1)（Android FastOutSlowInEasing 同曲线）
+// - 左右滑动切换上/下一张（浏览式不评分，阈值 80dp；回到上一张可重看，
+//   重评时覆盖旧结果——对齐 Android goToPrev/goToNext + results.filterNot）
+// - FSRS 四档提交：POST /api/vocabulary/review {vocabularyid, quality}，
+//   成功回写 proficiency/nextReviewAt（乐观更新），失败 toast 不中断；
+//   最后一张提交完进入总结页（2×2 四档统计 + 逐词结果 + 再来一轮忘记子集）
+// - 开卡/翻面自动播词典发音（音源链 audioUs → audioUk → speakUrl →
+//   dictvoice 兜底，对齐 Android LaunchedEffect）
 const vocabCore = require('../../../utils/vocab-core');
 const srs = require('../../../utils/srs');
 const { get, post } = require('../../../utils/request');
@@ -19,34 +23,29 @@ const audioClip = require('../../../utils/audio-clip');
 
 const QUALITY_LABELS = ['忘记', '模糊', '认识', '简单'];
 
+/** 滑动切卡阈值（dp → px 运行时换算；Android detectHorizontalDragGestures 80dp） */
+const SWIPE_THRESHOLD_DP = 80;
+
 Page({
   data: {
     loading: true,
     queue: [],
-    modes: [],
-    choiceOptions: [],
     index: 0,
-    flipped: false,
-    inputValue: '',
-    showHint: false,
-    selectedChoice: null, // 当前选中选项下标（答对锁定 / 答错短暂标红）
-    inputWrong: false,
+    isFlipped: false,
     submitting: false,
-    results: [], // {vocabularyid, word, quality, qualityLabel, qualityCls}
+    results: [], // [{vocabularyid, word, quality, qualityLabel, qualityCls}]
     showSummary: false,
     summary: { forgot: 0, hard: 0, good: 0, easy: 0, total: 0 },
     progress: 0,
-    modeLabel: '',
-    inputSlotWidth: 160, // 填空输入框宽度（rpx，随词长）
-    playingText: '',
-    origKey: '',
-    origLoading: '',
-    showPremiumModal: false,
-    premiumSource: '',
+    current: null, // queue[index] 的 decorate 快照（WXML 就绪字段）
+    dragOffset: 0, // 跟手横移反馈（px）
   },
 
   onLoad() {
     this._list = []; // 全量列表（乐观更新 + 再来一轮过滤）
+    this._touchStartX = 0;
+    this._touchStartY = 0;
+    this._touchLocked = false; // 纵向滚动锁定（背面 scroll 区不误触切卡）
     this.initQueue();
     this._unsubTts = tts.subscribe(() => this.syncAudioState());
     this._unsubClip = audioClip.subscribe(() => this.syncAudioState());
@@ -55,6 +54,7 @@ Page({
     tts.setQuotaHandler((source) => {
       this.setData({ showPremiumModal: true, premiumSource: source });
     });
+    this.setData({ showPremiumModal: false, premiumSource: '' });
   },
 
   onUnload() {
@@ -81,7 +81,7 @@ Page({
     }
   },
 
-  /** 组装复习队列（初次与「再来一轮」共用）：题型分配 + 选项 + 间隔预览 */
+  /** 组装复习队列（初次与「再来一轮」共用） */
   setupQueue(dueItems) {
     if (!dueItems.length) {
       wx.showToast({ title: '暂无到期生词', icon: 'none' });
@@ -90,7 +90,8 @@ Page({
     }
     const queue = dueItems.map((item) => {
       const d = vocabCore.decorateItem(item);
-      d.hiddenParts = vocabCore.splitHidden(item.contextSentence, item.word);
+      // SRS 四档副文案（对齐 Android nextIntervalLabel：忘记=今天、模糊=1天、
+      // 认识/简单=升级后等级阶梯天数封顶 90 天）
       d.intervalPreviews = {
         forgot: srs.getIntervalLabel(item.proficiency, srs.ReviewQuality.FORGOT),
         hard: srs.getIntervalLabel(item.proficiency, srs.ReviewQuality.HARD),
@@ -99,63 +100,46 @@ Page({
       };
       return d;
     });
-    const modes = queue.map((item) => {
-      let m = vocabCore.assignMode(item, queue.length, Math.random);
-      // 防御降级（assignMode 已按数据可用性分配，此处兜底数据残缺的边缘态）：
-      // 猜词无英文释义 / 填空句挖不出槽 → 回落中译英（Web renderDefGuess 同款后路）
-      if (m === 'def_guess' && !item.guessDef) m = 'cn_to_en';
-      if (
-        m === 'fill_blank' &&
-        !item.hiddenParts.some((seg) => seg.type === 'slot')
-      ) {
-        m = 'cn_to_en';
-      }
-      return m;
-    });
-    const choiceOptions = vocabCore.generateChoiceOptions(queue, Math.random);
     this.setData(
       {
         loading: false,
         queue,
-        modes,
-        choiceOptions,
         index: 0,
-        flipped: false,
+        isFlipped: false,
         results: [],
         showSummary: false,
         summary: vocabCore.summaryStats([]),
       },
-      () => this.resetPerCard(true),
+      () => this.syncCurrent(true),
     );
   },
 
-  /** 换卡复位 + 自动播发音（对齐 Web useEffect [currentReviewIndex, isCardFlipped]） */
-  resetPerCard(autoPlay) {
+  /**
+   * 由 index/isFlipped 派生当前卡快照与进度（对齐 Android currentCard +
+   * ReviewProgressHeader 的 (index + flipped) / total 口径）并自动播发音。
+   */
+  syncCurrent(autoPlay) {
     const item = this.data.queue[this.data.index];
     if (!item) return;
-    const mode = this.data.modes[this.data.index] || 'cn_to_en';
-    const slot = item.word
-      ? Math.max(Math.min(item.word.length, 16) * 28, 120)
-      : 160;
     this.setData({
-      inputValue: '',
-      showHint: false,
-      selectedChoice: null,
-      inputWrong: false,
-      flipped: false,
-      modeLabel: vocabCore.MODE_LABELS[mode] || '复习',
-      inputSlotWidth: slot,
-      progress: ((this.data.index + 0) / this.data.queue.length) * 100,
+      current: item,
+      progress:
+        ((this.data.index + (this.data.isFlipped ? 1 : 0)) /
+          this.data.queue.length) *
+        100,
     });
     if (autoPlay) this.autoPlayWord(item);
   },
 
-  /** 换卡/翻面自动播发音：uk 优先 us 兜底（对齐 Web audioUrl 取值顺序） */
+  /** 开卡/翻面自动播发音：audioUs → audioUk → speakUrl → dictvoice（Android 同链） */
   autoPlayWord(item) {
     audioClip.stop();
     const dict = item.dictData || {};
     const url =
-      (dict.audio_urls && (dict.audio_urls.uk || dict.audio_urls.us)) || null;
+      (dict.audio_urls && (dict.audio_urls.us || dict.audio_urls.uk)) ||
+      item.speakUrl ||
+      null;
+    // 无词典音源时传词本身：tts.playUrl 无 url 分支会走 TTS 合成（dictvoice）
     tts.playUrl(url, item.word);
   },
 
@@ -169,116 +153,75 @@ Page({
     if (Object.keys(patch).length) this.setData(patch);
   },
 
-  /* ---------------- 正面交互 ---------------- */
+  /* ---------------- 翻面与滑动切卡 ---------------- */
 
-  onShowAnswer() {
-    this.setData({
-      flipped: true,
-      progress: ((this.data.index + 1) / this.data.queue.length) * 100,
-    });
-    // 翻面自动播发音（对齐 Web effect）
+  /** 点击卡片 / 显示答案：翻面（对齐 Android flipCard toggle） */
+  onFlip() {
+    if (this.data.showSummary) return;
     const item = this.data.queue[this.data.index];
-    if (item) this.autoPlayWord(item);
+    this.setData({ isFlipped: !this.data.isFlipped });
+    this.syncCurrent(this.data.isFlipped && !!item); // 翻到背面时自动播一次
   },
 
-  /** 填空/中译英/猜词共用输入：答对立即翻面（实时判定，对齐 handleInputChange） */
-  onAnswerInput(e) {
-    const val = e.detail.value || '';
-    const item = this.data.queue[this.data.index];
-    this.setData({ inputValue: val, inputWrong: false });
-    if (item && vocabCore.checkAnswer(val, item.word)) {
-      this.setData({
-        flipped: true,
-        progress: ((this.data.index + 1) / this.data.queue.length) * 100,
-      });
-      this.autoPlayWord(item);
+  onTouchStart(e) {
+    const t = e.touches[0];
+    this._touchStartX = t.clientX;
+    this._touchStartY = t.clientY;
+    this._touchLocked = false;
+  },
+
+  onTouchMove(e) {
+    if (this._touchLocked) return;
+    const t = e.touches[0];
+    const dx = t.clientX - this._touchStartX;
+    const dy = t.clientY - this._touchStartY;
+    // 纵向意图明显（背面滚动区）即锁定，不再切卡
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+      this._touchLocked = true;
+      if (this.data.dragOffset !== 0) this.setData({ dragOffset: 0 });
+      return;
+    }
+    if (Math.abs(dx) > 10) this.setData({ dragOffset: dx });
+  },
+
+  onTouchEnd() {
+    const offset = this.data.dragOffset;
+    this.setData({ dragOffset: 0 });
+    if (this._touchLocked || !offset) return;
+    let threshold = SWIPE_THRESHOLD_DP;
+    try {
+      const win = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      threshold = (SWIPE_THRESHOLD_DP * win.windowWidth) / 375;
+    } catch (e) {
+      // 保底 80px
+    }
+    if (offset <= -threshold) this.goNextCard();
+    else if (offset >= threshold) this.goPrevCard();
+  },
+
+  /** 浏览式下一张（不评分；对齐 Android goToNextCard） */
+  goNextCard() {
+    if (this.data.index < this.data.queue.length - 1) {
+      this.setData({ index: this.data.index + 1, isFlipped: false });
+      this.syncCurrent(true);
     }
   },
 
-  /** 回车确认：错答 600ms 抖红（对齐 handleInputKeyDown） */
-  onAnswerConfirm(e) {
-    const val = (e.detail.value || '').trim();
-    const item = this.data.queue[this.data.index];
-    if (!item) return;
-    if (val && !vocabCore.checkAnswer(val, item.word)) {
-      this.setData({ inputWrong: true });
-      if (this._wrongTimer) clearTimeout(this._wrongTimer);
-      this._wrongTimer = setTimeout(
-        () => this.setData({ inputWrong: false }),
-        600,
-      );
+  /** 浏览式上一张（重看；重评时覆盖旧结果） */
+  goPrevCard() {
+    if (this.data.index > 0) {
+      this.setData({ index: this.data.index - 1, isFlipped: false });
+      this.syncCurrent(true);
     }
   },
 
-  /** 选择题：对 500ms 翻面 / 错 800ms 复位（对齐 handleChoiceSelect） */
-  onChoiceTap(e) {
-    const idx = Number(e.currentTarget.dataset.idx);
-    const options = this.data.choiceOptions[this.data.index];
-    if (!options) return;
-    // 已答对锁定
-    if (this.data.selectedChoice === options.correctIndex) return;
-    if (idx === options.correctIndex) {
-      this.setData({ selectedChoice: idx });
-      if (this._choiceTimer) clearTimeout(this._choiceTimer);
-      this._choiceTimer = setTimeout(() => {
-        this.setData({
-          flipped: true,
-          progress: ((this.data.index + 1) / this.data.queue.length) * 100,
-        });
-        const item = this.data.queue[this.data.index];
-        if (item) this.autoPlayWord(item);
-      }, 500);
-    } else {
-      this.setData({ selectedChoice: idx });
-      if (this._choiceTimer) clearTimeout(this._choiceTimer);
-      this._choiceTimer = setTimeout(
-        () => this.setData({ selectedChoice: null }),
-        800,
-      );
-    }
-  },
+  /* ---------------- 发音 ---------------- */
 
-  /** 读音提示：显示音标并播一次发音（不泄露拼写） */
-  onHintTap() {
+  /** 正面发音钮 / 背面 US·UK 音标喇叭 */
+  onPlayWord() {
     const item = this.data.queue[this.data.index];
     if (!item) return;
-    audioClip.stop();
-    const dict = item.dictData || {};
-    const url =
-      (dict.audio_urls && (dict.audio_urls.us || dict.audio_urls.uk)) ||
-      item.speakUrl ||
-      null;
-    this.setData({ showHint: true });
-    tts.playUrl(url, item.word);
-  },
-
-  /** 读音提示后再次播放 */
-  onHintPlay() {
-    const item = this.data.queue[this.data.index];
-    if (!item) return;
-    const dict = item.dictData || {};
-    const url =
-      (dict.audio_urls && (dict.audio_urls.us || dict.audio_urls.uk)) ||
-      item.speakUrl ||
-      null;
-    tts.playUrl(url, item.word);
-  },
-
-  onPlaySentence(e) {
-    const text = e.currentTarget.dataset.text;
-    if (text) tts.speak(text);
-  },
-
-  onPlayOriginal(e) {
-    const { episodeid, word, timestamp, context } = e.currentTarget.dataset;
-    if (!episodeid) return;
-    audioClip.play({
-      key: episodeid + ':' + word,
-      episodeid: String(episodeid),
-      timestamp: timestamp ? Number(timestamp) : null,
-      contextSentence: context || null,
-      onBeforePlay: () => tts.stop(),
-    });
+    this.autoPlayWord(item);
   },
 
   onPlayPhon(e) {
@@ -286,35 +229,28 @@ Page({
     tts.playUrl(url, word);
   },
 
-  onCopyDict(e) {
-    const url = e.currentTarget.dataset.url;
-    if (!url) return;
-    wx.setClipboardData({
-      data: url,
-      success: () => wx.showToast({ title: '词典链接已复制', icon: 'none' }),
-    });
-  },
+  /* ---------------- FSRS 四档提交（对齐 Android submitReview） ---------------- */
 
-  /* ---------------- SRS 提交与流转 ---------------- */
-
-  async onQualityTap(e) {
+  async onSubmit(e) {
     if (this.data.submitting) return;
     const quality = Number(e.currentTarget.dataset.quality);
     const item = this.data.queue[this.data.index];
     if (!item) return;
 
-    const results = this.data.results.concat([
-      {
-        vocabularyid: item.vocabularyid,
-        word: item.word,
-        quality,
-        qualityLabel: QUALITY_LABELS[quality] || '',
-        qualityCls: 'vr-q--' + quality,
-      },
-    ]);
+    // 同词重评覆盖旧结果（回滑重测场景，对齐 Android results.filterNot）
+    const results = this.data.results
+      .filter((r) => r.vocabularyid !== item.vocabularyid)
+      .concat([
+        {
+          vocabularyid: item.vocabularyid,
+          word: item.word,
+          quality,
+          qualityLabel: QUALITY_LABELS[quality] || '',
+          qualityCls: 'vr-q--' + quality,
+        },
+      ]);
     this.setData({ results, submitting: true });
 
-    // POST 复习打卡：成功本地乐观更新（失败 toast 不中断，对齐 handleSRS）
     try {
       const res = await post('/api/vocabulary/review', {
         vocabularyid: item.vocabularyid,
@@ -322,14 +258,25 @@ Page({
       });
       if (res && res.success && res.data) {
         const updated = res.data;
-        this._list = this._list.map((v) =>
-          v.vocabularyid === updated.vocabularyid
-            ? Object.assign({}, v, {
-                proficiency: updated.proficiency,
-                nextReviewAt: updated.nextReviewAt,
-              })
-            : v,
-        );
+        // 乐观更新：全量列表与队列内同词同步回写（对齐 Android 双列表回写）；
+        // 队列项同时重算 SRS 副文案（回看重评时按新等级预演）
+        const applyUpdate = (v) => {
+          if (v.vocabularyid !== updated.vocabularyid) return v;
+          const merged = Object.assign({}, v, {
+            proficiency: updated.proficiency,
+            nextReviewAt: updated.nextReviewAt,
+          });
+          merged.intervalPreviews = {
+            forgot: srs.getIntervalLabel(updated.proficiency, 0),
+            hard: srs.getIntervalLabel(updated.proficiency, 1),
+            good: srs.getIntervalLabel(updated.proficiency, 2),
+            easy: srs.getIntervalLabel(updated.proficiency, 3),
+          };
+          return merged;
+        };
+        this._list = this._list.map(applyUpdate);
+        const queue = this.data.queue.map(applyUpdate);
+        this.setData({ queue });
       } else {
         throw new Error('save failed');
       }
@@ -339,6 +286,7 @@ Page({
 
     const isLast = this.data.index >= this.data.queue.length - 1;
     if (isLast) {
+      // 最后一张：留在当前卡直接进总结（对齐 Android reviewFinished）
       this.setData({
         showSummary: true,
         submitting: false,
@@ -348,15 +296,12 @@ Page({
       tts.stop();
       audioClip.stop();
     } else {
-      this.setData({
-        submitting: false,
-        index: this.data.index + 1,
-      });
-      this.resetPerCard(true);
+      this.setData({ submitting: false, index: this.data.index + 1, isFlipped: false });
+      this.syncCurrent(true);
     }
   },
 
-  /** 再来一轮：仅重测忘记子集（对齐 retryForgotten，从乐观更新后的全量列表取） */
+  /** 再来一轮：仅重测忘记子集（对齐 retryForgotten） */
   onRetry() {
     const forgottenIds = this.data.results
       .filter((r) => r.quality === srs.ReviewQuality.FORGOT)
@@ -378,4 +323,7 @@ Page({
   onClose() {
     wx.navigateBack();
   },
+
+  /** 背面滚动区 tap 阻断（Android 背面无翻面手势，对齐之） */
+  noop() {},
 });

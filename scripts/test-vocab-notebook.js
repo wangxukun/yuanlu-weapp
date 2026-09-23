@@ -359,13 +359,6 @@ const WXML_REVIEW = fs.readFileSync(
 
     assert(vocabCore.splitContext(null, 'x').length === 0, 'splitContext：无文本 → []');
     assert(vocabCore.splitContext('abc', null).length === 0, 'splitContext：无词 → []');
-
-    const hidden = vocabCore.splitHidden('The resilient economy is resilient today.', 'resilient');
-    assert(hidden[0].type === 'text' && hidden[0].text === 'The ', 'splitHidden：前导 text');
-    assert(hidden[1].type === 'slot' && hidden[1].width >= 120, 'splitHidden：槽位带宽度（min 120rpx）');
-    const slotIdx = [1, 3];
-    assert(hidden[2].type === 'text' && hidden[2].text === ' economy is ', 'splitHidden：槽间 text 合并（两句之间不再碎裂）');
-    assert(hidden.length === 5 && hidden[3].type === 'slot' && hidden[4].text === ' today.', 'splitHidden：多槽交替');
   }
 
   section('五、decorateItem（WXML 就绪字段）');
@@ -380,7 +373,6 @@ const WXML_REVIEW = fs.readFileSync(
     assert(d.hasEty === true, 'hasEty：root 存在');
     assert(d.mmss === '2:05', 'mmss：125s → 2:05');
     assert(d.origKey === 'ep1:resilient', 'origKey：episodeid:word');
-    assert(d.guessDef && d.guessDef.meaning_en === 'able to recover quickly', 'guessDef：find(meaning_en) 命中第 0 条');
     assert(d.dictExamples.length === 1 && d.dictExamples[0].parts.length === 3, 'dictExamples：例句分词预计算');
     assert(d.contextParts[1].hit === true, 'contextParts：上下文句命中段');
 
@@ -393,61 +385,17 @@ const WXML_REVIEW = fs.readFileSync(
 
     const d4 = vocabCore.decorateItem(makeItem(5, { definition: null, dictData: null }));
     assert(d4.defText === '暂无定义', 'defText 兜底：暂无定义');
-    const noGuess = makeItem(7, {
-      definition: '只有中文',
-      dictData: { definitions: [{ pos: 'n.', meaning_cn: '只有中文', meaning_en: null }] },
-    });
-    assert(vocabCore.decorateItem(noGuess).guessDef === null, 'guessDef：无 meaning_en → null（复习页降级中译英）');
   }
 
-  /* ---- 六、四题型纯逻辑 ---- */
+  /* ---- 六、闪卡复习纯逻辑 ---- */
 
-  section('六、复习页纯逻辑（T1.5）');
+  section('六、复习页纯逻辑（T1.5 闪卡模式）');
   {
     const due = vocabCore.buildDueQueue(SAMPLE_LIST);
     assert(due.length === 2 && due[0].word === 'audit' && due[1].word === 'vibrant', 'buildDueQueue：isDue && !MASTERED（2 条）');
-
-    // assignMode：rng=()=>0 → 恒取 available[0]
-    const m1 = vocabCore.assignMode(RICH, 4, () => 0);
-    assert(m1 === 'fill_blank', 'assignMode(rng=0)：有 contextSentence → 填空');
-    const noCtx = Object.assign({}, RICH, { contextSentence: null });
-    const m2 = vocabCore.assignMode(noCtx, 4, () => 0);
-    assert(m2 === 'choice', 'assignMode：无 contextSentence 且队列 4 → 选择');
-    assert(vocabCore.assignMode(noCtx, 3, () => 0) === 'cn_to_en', 'assignMode：队列 <4 不给选择 → 中译英');
-    const noDict = Object.assign({}, DUE_ITEM, { definition: null });
-    assert(vocabCore.assignMode(noDict, 4, () => 0.9) === 'cn_to_en', 'assignMode：全无数据兜底中译英');
-    const onlyEn = makeItem(6, {
-      contextSentence: null, definition: null,
-      dictData: { definitions: [{ pos: 'n.', meaning_cn: null, meaning_en: 'a thing' }] },
-    });
-    assert(vocabCore.assignMode(onlyEn, 4, () => 0.9) === 'def_guess', 'assignMode：仅有英文释义 → 猜词（rng 取末位）');
-
-    // generateChoiceOptions
-    const queue = [RICH, DUE_ITEM, NO_DICT, MASTERED_ITEM];
-    const fixed = () => 0.4; // 洗牌稳定
-    const opts = vocabCore.generateChoiceOptions(queue, fixed);
-    assert(opts.length === 4, 'generateChoiceOptions：逐词生成');
-    const o0 = opts[0];
-    assert(o0.choices.length === 4, '每题 4 选项');
-    assert(o0.choices[o0.correctIndex] === '有弹性的；能快速恢复的', 'correctIndex 指向正确释义');
-    const dupQueue = [
-      makeItem(11, { word: 'a', definition: '同义' }),
-      makeItem(12, { word: 'b', definition: '同义' }),
-    ];
-    const oDup = vocabCore.generateChoiceOptions(dupQueue, fixed)[0];
-    assert(oDup.choices.length === 4 && oDup.choices[oDup.correctIndex] === '同义',
-      '干扰项去重后不足 3 → 补位「释义 N」（correctIndex 恒指向正确项）');
-    assert(oDup.choices.filter((c) => /^释义 \d$/.test(c)).length === 3, '补位项恰 3 个「释义 N」');
-
-    assert(vocabCore.checkAnswer('  Resilient ', 'resilient') === true, 'checkAnswer：大小写+首尾空格不敏感');
-    assert(vocabCore.checkAnswer('resilien', 'resilient') === false, 'checkAnswer：错答 false');
-    assert(vocabCore.checkAnswer('', 'resilient') === false, 'checkAnswer：空答 false');
-
-    const sum = vocabCore.summaryStats([
-      { quality: 0 }, { quality: 0 }, { quality: 1 }, { quality: 3 },
-    ]);
-    assert(sum.forgot === 2 && sum.hard === 1 && sum.good === 0 && sum.easy === 1 && sum.total === 4,
-      'summaryStats：四档计数');
+    assert(srs.getIntervalLabel(2, 0) === '今天', 'SRS 副文案口径：忘记 = 今天（对齐 Android nextIntervalLabel）');
+    assert(srs.getIntervalLabel(2, 1) === '1天', 'SRS 副文案口径：模糊 = 1天');
+    assert(srs.getIntervalLabel(2, 2) === '7天', 'SRS 副文案口径：认识/简单 = 升级后阶梯（3级→7天）');
   }
 
   /* ---- 七、tts.playUrl ---- */
@@ -628,63 +576,93 @@ const WXML_REVIEW = fs.readFileSync(
 
   /* ---- 十二、复习页 ---- */
 
-  section('十二、vocab-review：队列初始化与四题型流转（T1.5）');
+  section('十二、vocab-review：闪卡队列初始化（T1.5 闪卡模式）');
   {
-    apiResponses['/api/vocabulary/all'] = { success: true, data: SAMPLE_LIST };
+    apiResponses['/api/vocabulary/all'] = () => ({ success: true, data: freshSample() });
     requestLog.length = 0;
     const page = makeInstance(reviewPageDef);
     page.onLoad();
     await tick(); await tick();
     assert(page.data.loading === false, '入场加载完成');
     assert(page.data.queue.length === 2, '队列 = due 且非 MASTERED（2 张）');
-    assert(page.data.modes.length === 2 && page.data.choiceOptions.length === 2, '题型与选项逐词生成');
-    assert(page.data.progress === 0, '初始进度 0');
-    assert(page.data.modeLabel !== '', '题型徽章已定');
+    assert(page.data.progress === 0, '初始进度 0（未翻面不计，(0+0)/2）');
+    assert(page.data.current && page.data.current.word === page.data.queue[0].word, 'current 快照 = 队首卡（WXML 就绪字段）');
+    assert(page.data.current.intervalPreviews.forgot === '今天', 'SRS 副文案：忘记=今天（Leitner 预演入队时计算）');
+    assert(page.data.isFlipped === false, '初始正面态');
     global.__vr = page;
   }
 
   {
-    section('十三、vocab-review：答题与 SRS 提交');
+    section('十三、闪卡翻转 / 滑动切卡 / FSRS 提交');
     const page = global.__vr;
-    // 答对立即翻面（中译英/填空/猜词共用）
-    const word = page.data.queue[0].word;
-    page.onAnswerInput({ detail: { value: word.toUpperCase() + ' ' } });
-    assert(page.data.flipped === true, '答对（大小写/空格不敏感）→ 立即翻面');
-    assert(page.data.progress === (1 / page.data.queue.length) * 100, '翻面推进进度条');
+    // 翻面：进度推进与回落
+    page.onFlip();
+    assert(page.data.isFlipped === true, '点击卡片 → 翻面（Front→Back）');
+    assert(page.data.progress === 50, '翻面推进进度条 ((0+1)/2)');
+    page.onFlip();
+    assert(page.data.isFlipped === false && page.data.progress === 0, '再点翻回正面，进度回落');
 
-    // 错答抖红
-    page.onAnswerInput({ detail: { value: '' } }); // 不会命中（空）
-    page.onAnswerConfirm({ detail: { value: 'wronganswer' } });
-    assert(page.data.inputWrong === true, '回车错答 → 抖红标记');
+    // 浏览式切卡（不评分）：下一张 / 上一张
+    page.goNextCard();
+    assert(page.data.index === 1 && page.data.isFlipped === false, 'goNextCard：进入下一张（浏览式不评分）');
+    page.goPrevCard();
+    assert(page.data.index === 0, 'goPrevCard：回到上一张（可重看重评）');
 
-    // SRS 提交：非最后一张 → 下一卡
+    // 手势：横移超阈值切卡 + 跟手反馈
+    page.onTouchStart({ touches: [{ clientX: 300, clientY: 200 }] });
+    page.onTouchMove({ touches: [{ clientX: 200, clientY: 202 }] });
+    assert(page.data.dragOffset === -100, '横移跟手反馈（dragOffset=-100）');
+    page.onTouchEnd();
+    assert(page.data.index === 1 && page.data.dragOffset === 0, '左滑超 80dp 阈值 → 下一张，偏移复位');
+
+    // 纵向滚动锁定：背面滚动区不误触切卡
+    page.goPrevCard();
+    page.onTouchStart({ touches: [{ clientX: 300, clientY: 200 }] });
+    page.onTouchMove({ touches: [{ clientX: 295, clientY: 320 }] });
+    page.onTouchEnd();
+    assert(page.data.index === 0, '纵向手势锁定：不切卡（背面滚动保护）');
+
+    // FSRS 提交：POST 参数 + 结果累计
     apiResponses['/api/vocabulary/review'] = {
       success: true,
       data: { vocabularyid: page.data.queue[0].vocabularyid, proficiency: 3, nextReviewAt: FUTURE, daysAdded: 7 },
     };
     requestLog.length = 0;
-    await page.onQualityTap({ currentTarget: { dataset: { quality: 2 } } });
+    page.onFlip();
+    await page.onSubmit({ currentTarget: { dataset: { quality: 2 } } });
     await tick();
     const reviewCall = requestLog.find((r) => r.path === '/api/vocabulary/review');
     assert(!!reviewCall && reviewCall.data.quality === 2, 'POST /api/vocabulary/review {vocabularyid, quality}');
-    assert(page.data.index === 1 && page.data.flipped === false, '提交后进入下一卡（翻面复位）');
+    assert(page.data.index === 1 && page.data.isFlipped === false, '提交后进入下一卡（翻面复位）');
     assert(page.data.results.length === 1 && page.data.results[0].qualityLabel === '认识', '结果累计（qualityLabel 派生）');
 
-    // 乐观更新写入 _list
-    const updated = page._list.find((v) => v.vocabularyid === page.data.results[0].vocabularyid);
-    assert(updated.proficiency === 3 && updated.nextReviewAt === FUTURE, '_list 乐观更新 proficiency/nextReviewAt');
+    // 回滑重评：覆盖旧结果（对齐 Android results.filterNot）
+    page.goPrevCard();
+    page.onFlip();
+    await page.onSubmit({ currentTarget: { dataset: { quality: 0 } } });
+    await tick();
+    assert(page.data.results.length === 1 && page.data.results[0].quality === 0,
+      '同词重评覆盖旧结果（回滑重测场景）');
 
-    // 最后一张 → 总结页
-    page.onShowAnswer();
-    assert(page.data.flipped === true, '显示答案翻面');
-    await page.onQualityTap({ currentTarget: { dataset: { quality: 0 } } });
+    // 乐观更新 + 队列项 SRS 副文案按新等级重算
+    const qid = page.data.results[0].vocabularyid;
+    const updated = page._list.find((v) => v.vocabularyid === qid);
+    assert(updated.proficiency === 3, '_list 乐观更新 proficiency');
+    const qItem = page.data.queue.find((v) => v.vocabularyid === qid);
+    assert(qItem.intervalPreviews.good === srs.getIntervalLabel(3, 2),
+      '队列项 SRS 副文案按新等级重算（回看时预演准确）');
+
+    // 最后一张 → 总结页（此时 index 已随重评提交推进到最后一张）
+    page.onFlip();
+    assert(page.data.isFlipped === true, '显示答案翻面');
+    await page.onSubmit({ currentTarget: { dataset: { quality: 1 } } });
     await tick();
     assert(page.data.showSummary === true, '最后一张提交 → 总结页');
-    assert(page.data.summary.total === 2 && page.data.summary.forgot === 1 && page.data.summary.good === 1,
-      '总结四格统计');
+    assert(page.data.summary.total === 2 && page.data.summary.forgot === 1 && page.data.summary.hard === 1,
+      '总结 2×2 统计（重评覆盖后：忘记1 + 模糊1）');
     assert(page.data.progress === 100, '总结页进度 100%');
 
-    // 再来一轮：仅忘记子集（results 中 quality=FORGOT 的词）
+    // 再来一轮：仅忘记子集
     const forgotId = page.data.results.find((r) => r.quality === srs.ReviewQuality.FORGOT).vocabularyid;
     await page.onRetry();
     await tick(); await tick();
@@ -734,9 +712,16 @@ const WXML_REVIEW = fs.readFileSync(
 
     assert(WXML_REVIEW.includes('显示答案'), 'SRS 底栏：显示答案');
     assert(WXML_REVIEW.includes('再来一轮'), '总结页：再来一轮');
-    assert(WXML_REVIEW.includes('vr-flip-inner'), '3D 翻卡结构');
-    ['补全句子', '选择正确释义', '中译英', '看释义猜词'].forEach((label) => {
-      assert(WXML_REVIEW.includes(label), `四题型文案：${label}`);
+    assert(WXML_REVIEW.includes('vr-flip'), '3D 翻卡结构');
+    assert(WXML_REVIEW.includes('回忆词义，点击卡片查看答案'), '闪卡正面提示文案（截图复刻）');
+    assert(WXML_REVIEW.includes('来自《{{current.episodeTitle}}》'), '正面/原声卡「来自《剧集名》」');
+    assert(WXML_REVIEW.includes('>闪卡</text>'), '顶部灰底「闪卡」标签');
+    assert(WXML_REVIEW.includes('psychology-primary.svg'), '顶部大脑图标（Material psychology）');
+    assert(WXML_REVIEW.includes('vr-srs-btn'), 'FSRS 2×2 四档按钮');
+    assert(WXML_REVIEW.includes('data-quality="0"') && WXML_REVIEW.includes('data-quality="3"'), '四档 quality 0-3 绑定');
+    assert(WXML_REVIEW.includes('intervalPreviews.forgot') && WXML_REVIEW.includes('intervalPreviews.easy'), '四档副文案 = Leitner 间隔预演');
+    ['补全句子', '选择正确释义', '中译英', '看释义猜词', '读音提示', 'onAnswerInput'].forEach((label) => {
+      assert(!WXML_REVIEW.includes(label), `四题型残留已清除：${label}`);
     });
     assert(WXML_REVIEW.includes('<premium-modal'), '复习页：premium-modal 挂载');
 

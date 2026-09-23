@@ -10,10 +10,9 @@
  *   搜索 + 三排序：复习时间 nextReviewAt 升序 / 添加时间 addedDate 降序 / A-Z）
  * - decorateItem：把 VocabularyItem 预计算成 WXML 就绪字段（dueText/defText/
  *   phonetic/contextParts…）——WXML 绑定不支持方法调用，一切派生值须先落 data
- * - splitContext / splitHidden：例句生词高亮 / 填空挖空分词（对齐 renderContext
- *   的 `(word)` 正则切分 + 小写比较）
- * - buildDueQueue / assignMode / generateChoiceOptions / checkAnswer /
- *   summaryStats：复习页四题型纯逻辑（随机性经 rng 参数注入，测试可复现）
+ * - splitContext：例句生词高亮分词（renderContext 的 `(word)` 正则切分 + 小写比较）
+ * - buildDueQueue / nextIntervalLabel 语义复用 utils/srs：闪卡复习页队列与 SRS 间隔预演
+ *   （2026-09-23 四题型模式退役，对齐 Android VocabularyReviewScreen 闪卡流）
  *
  * 配额常量与 Web lib/quota.ts 同源：FREE_VOCABULARY_LIMIT=50、DAILY=5。
  */
@@ -104,32 +103,6 @@ function splitContext(text, word) {
 }
 
 /**
- * 填空题挖空分词（对齐 renderContext(text, word, true)：命中段变槽位，
- * 槽宽随词长——Web `max(word.length*14, 60)px` 折算 rpx ×2）。
- * 非命中段合并相邻 text 减少节点数。
- * @returns {Array<{type: 'text'|'slot', text: string, width?: number}>}
- */
-function splitHidden(text, word) {
-  const segs = splitContext(text, word);
-  const out = [];
-  for (const seg of segs) {
-    const last = out[out.length - 1];
-    if (!seg.hit && last && last.type === 'text') {
-      last.text += seg.text;
-    } else if (seg.hit) {
-      out.push({
-        type: 'slot',
-        text: seg.text,
-        width: Math.max(Math.min(seg.text.length, 16) * 28, 120),
-      });
-    } else {
-      out.push({ type: 'text', text: seg.text });
-    }
-  }
-  return out;
-}
-
-/**
  * 把 VocabularyItem 预计算成 WXML 就绪的展示字段（原字段保留不动）。
  * 返回新对象（不 mutate 入参，便于列表 diff）。
  */
@@ -164,10 +137,6 @@ function decorateItem(item) {
     ).map((ex) => ({ en: ex.en, cn: ex.cn, context: ex.context, parts: splitContext(ex.en, item.word) })),
     // 原声播放 key（惯例 `${episodeid}:${word}`，WXML 直接比较高亮）
     origKey: item.episodeid ? item.episodeid + ':' + item.word : '',
-    // 猜词题英文释义（对齐 Web definitions.find(d => d.meaning_en)，未必是第 0 条）
-    guessDef: dict && dict.definitions
-      ? dict.definitions.find((d) => d.meaning_en) || null
-      : null,
     // 词形变化 chips：label + 值（Web 五种逐一判空渲染）
     inflChips: !inflections
       ? []
@@ -206,110 +175,10 @@ function quotaTexts(total, today) {
   };
 }
 
-/* ==================== 复习页四题型（ReviewModal 纯逻辑） ==================== */
-
-const REVIEW_MODES = {
-  FILL_BLANK: 'fill_blank',
-  MULTIPLE_CHOICE: 'choice',
-  CN_TO_EN: 'cn_to_en',
-  DEF_GUESS: 'def_guess',
-};
-
-const MODE_LABELS = {
-  fill_blank: '填空',
-  choice: '选择',
-  cn_to_en: '中译英',
-  def_guess: '猜词',
-};
-
 /** 到期队列（对齐 Web startReview / 复习页自取筛 due） */
 function buildDueQueue(list) {
   return (Array.isArray(list) ? list : []).filter(
     (v) => isDue(v.nextReviewAt) && v.status !== 'MASTERED',
-  );
-}
-
-/**
- * 四题型按数据可用性随机分配（对齐 Web assignMode）：
- * 填空需 contextSentence；选择需队列 ≥4 且有释义；中译英需中文释义；
- * 猜词需英文释义；全不可用兜底中译英。rng 注入供测试。
- */
-function assignMode(item, queueLength, rng) {
-  const rand = typeof rng === 'function' ? rng : Math.random;
-  const dict = item.dictData;
-  const available = [];
-  if (item.contextSentence) available.push(REVIEW_MODES.FILL_BLANK);
-  if (
-    queueLength >= 4 &&
-    ((dict && dict.definitions && dict.definitions.length) || item.definition)
-  ) {
-    available.push(REVIEW_MODES.MULTIPLE_CHOICE);
-  }
-  if (
-    (dict && dict.definitions && dict.definitions.some((d) => d.meaning_cn)) ||
-    item.definition
-  ) {
-    available.push(REVIEW_MODES.CN_TO_EN);
-  }
-  if (dict && dict.definitions && dict.definitions.some((d) => d.meaning_en)) {
-    available.push(REVIEW_MODES.DEF_GUESS);
-  }
-  if (available.length === 0) available.push(REVIEW_MODES.CN_TO_EN);
-  return available[Math.floor(rand() * available.length)];
-}
-
-/**
- * 选择题选项（对齐 Web generateChoiceOptions）：正确释义 + 队列内干扰项
- * （去重）洗牌取 3，不足补「释义 N」；四选项整体洗牌，记录正确下标。
- */
-function generateChoiceOptions(queue, rng) {
-  const rand = typeof rng === 'function' ? rng : Math.random;
-  const shuffle = (arr) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      const t = arr[i];
-      arr[i] = arr[j];
-      arr[j] = t;
-    }
-    return arr;
-  };
-  return queue.map((item, idx) => {
-    const correctDef =
-      (item.dictData &&
-        item.dictData.definitions &&
-        item.dictData.definitions[0] &&
-        item.dictData.definitions[0].meaning_cn) ||
-      item.definition ||
-      item.word;
-    const otherDefs = queue
-      .filter((_, i) => i !== idx)
-      .map(
-        (other) =>
-          (other.dictData &&
-            other.dictData.definitions &&
-            other.dictData.definitions[0] &&
-            other.dictData.definitions[0].meaning_cn) ||
-          other.definition ||
-          other.word,
-      )
-      .filter((d) => d && d !== correctDef);
-    const distractors = shuffle(otherDefs.slice()).slice(0, 3);
-    while (distractors.length < 3) {
-      distractors.push('释义 ' + (distractors.length + 1));
-    }
-    const allChoices = shuffle([correctDef].concat(distractors));
-    return {
-      choices: allChoices,
-      correctIndex: allChoices.indexOf(correctDef),
-    };
-  });
-}
-
-/** 填空/中译英/猜词答案判定（大小写与首尾空格不敏感，对齐 Web） */
-function checkAnswer(input, word) {
-  if (!input || !word) return false;
-  return (
-    input.toLowerCase().trim() === String(word).toLowerCase().trim()
   );
 }
 
@@ -329,20 +198,14 @@ function summaryStats(results) {
 module.exports = {
   FREE_VOCABULARY_LIMIT,
   FREE_VOCABULARY_DAILY_LIMIT,
-  REVIEW_MODES,
-  MODE_LABELS,
   isDue,
   deriveStats,
   todayAddedCount,
   formatDate,
   filterAndSort,
   splitContext,
-  splitHidden,
   decorateItem,
   quotaTexts,
   buildDueQueue,
-  assignMode,
-  generateChoiceOptions,
-  checkAnswer,
   summaryStats,
 };
