@@ -31,10 +31,12 @@ Page({
     isLoggedIn: false,
     tabs: TABS,
     activeTab: 0,
-    swiperHeight: 600
+    swiperHeight: 600,
+    refreshSeq: 0,
   },
 
   onLoad() {
+    this._seq = 0;
     this.unsubscribeAuth = authStore.subscribe(() => {
       this.syncAuthState();
     });
@@ -43,6 +45,11 @@ Page({
 
   onShow() {
     this.syncAuthState();
+    // 从复习/剧集等子页返回时通知各 notebook 重拉数据（vocab-notebook 等
+    // swiper 常驻组件无法感知页面 onShow，经 refreshSeq 属性变化触发）
+    if (this.data.isLoggedIn) {
+      this.setData({ refreshSeq: ++this._seq });
+    }
   },
 
   onUnload() {

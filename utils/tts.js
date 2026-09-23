@@ -1,9 +1,11 @@
 /**
  * utils/tts.js — 有道 TTS 朗读服务
- * 复刻 Web 端 useVocabularyNotebook 的 speakViaTts / playContextAudio：
+ * 复刻 Web 端 useVocabularyNotebook 的 speakViaTts / playContextAudio / playAudio：
  *
  * - POST /api/dictionary/youdao { word: text } → speakUrl → InnerAudioContext 播放
  * - 同文本播放中再调 = 停止（toggle）；playingText 供按钮高亮
+ * - playUrl(url, fallbackText)：词典发音直链播放，音源失败降级 TTS 合成
+ *   （dictvoice 对部分复合词/生僻词返回 5xx，Web 同款兜底）
  * - 配额触墙（403 DICTIONARY_QUOTA_EXCEEDED，免费 30 次/日）：
  *   request.js 已统一 toast message，这里只触发 quotaHandler('dictionary_quota')
  *   打开会员弹窗（对齐 Web「先 toast 再 openPremiumModal」的顺序，不重复 toast）
@@ -16,12 +18,13 @@ const { post } = require('./request');
 const audioBus = require('./audio-bus');
 
 let audioCtx = null;
-let playingText = null;
+let playingText = null; // TTS 合成朗读中的文本（高亮用，对齐 Web playingText）
+let playingUrl = null; // 词典发音直链播放中的 url（playUrl，toggle 用）
 let quotaHandler = null;
 const listeners = new Set();
 
 function getState() {
-  return { playingText };
+  return { playingText, playingUrl };
 }
 
 function subscribe(fn) {
@@ -42,6 +45,11 @@ function notify() {
 /** 页面注册配额触墙处理器（打开 premium-modal，source = dictionary_quota） */
 function setQuotaHandler(fn) {
   quotaHandler = typeof fn === 'function' ? fn : null;
+}
+
+/** 读取当前处理器（子页面入栈/退栈时保存-恢复用，避免误清宿主页面的注册） */
+function getQuotaHandler() {
+  return quotaHandler;
 }
 
 function clearCtx() {
@@ -66,7 +74,63 @@ function clearCtx() {
 function stop() {
   clearCtx();
   playingText = null;
+  playingUrl = null;
   notify();
+}
+
+/**
+ * 词典发音直链播放 + TTS 合成兜底（复刻 Web playAudio）。
+ *
+ * @param {string|null} url 词典音源直链（dictData.audio_urls.us/uk、speakUrl）
+ * @param {string|null} fallbackText 音源失败（dictvoice 未收录复合词/生僻词返回 5xx）
+ *   或 url 为空时降级 TTS 合成的文本（通常为单词本身）
+ * @returns {Promise<boolean>} true = 已开始播放；false = 停止或失败
+ */
+async function playUrl(url, fallbackText) {
+  if (!url) {
+    // 无词典发音地址：直接走 TTS 合成（Web 同款分支）
+    if (fallbackText) {
+      const ok = await speak(fallbackText);
+      if (!ok) wx.showToast({ title: '暂无发音', icon: 'none' });
+      return ok;
+    }
+    wx.showToast({ title: '暂无发音', icon: 'none' });
+    return false;
+  }
+  if (playingUrl === url) {
+    stop(); // 同直链再点 = 停止（toggle，与 speak 行为一致）
+    return false;
+  }
+  stop();
+  audioBus.stopAll(TTS_STOP); // 停原声片段与全局播放器（互斥）
+
+  playingUrl = url;
+  notify();
+  const ctx = wx.createInnerAudioContext();
+  audioCtx = ctx;
+  ctx.src = url;
+  const fallback = async () => {
+    if (audioCtx !== ctx) return;
+    clearCtx();
+    playingUrl = null;
+    notify();
+    if (fallbackText) {
+      const ok = await speak(fallbackText);
+      if (!ok) wx.showToast({ title: '播放失败', icon: 'none' });
+    } else {
+      wx.showToast({ title: '播放失败', icon: 'none' });
+    }
+  };
+  ctx.onEnded(() => {
+    if (audioCtx === ctx) {
+      clearCtx();
+      playingUrl = null;
+      notify();
+    }
+  });
+  ctx.onError(() => fallback());
+  ctx.play();
+  return true;
 }
 
 /**
@@ -137,8 +201,10 @@ audioBus.register(TTS_STOP);
 
 module.exports = {
   speak,
+  playUrl,
   stop,
   getState,
   subscribe,
   setQuotaHandler,
+  getQuotaHandler,
 };

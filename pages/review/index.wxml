@@ -40,7 +40,7 @@
       style="height: {{swiperHeight}}px"
     >
       <swiper-item>
-        <vocab-notebook active="{{activeTab === 0}}" />
+        <vocab-notebook active="{{activeTab === 0}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
       <swiper-item>
         <sentence-notebook active="{{activeTab === 1}}" />

@@ -1,13 +1,406 @@
-<!-- 生词本根视图（占位）：真实实现见 REVIEW-TASK.md 阶段一 -->
-<scroll-view class="notebook-scroll" scroll-y enhanced show-scrollbar="{{false}}">
-  <view class="notebook-pad">
-    <view class="card notebook-placeholder">
-      <view class="np-badge center">
-        <image class="np-icon" src="{{placeholder.icon}}" mode="aspectFit" />
-      </view>
-      <text class="np-title t-h3">{{placeholder.title}}</text>
-      <text class="np-desc t-caption">{{placeholder.desc}}</text>
-      <view class="np-phase">{{placeholder.phase}}</view>
+<!-- components/review/vocab-notebook — 生词本根视图（对齐 Web app/(main)/library/vocabulary 移动端形态） -->
+<scroll-view
+  class="vn-scroll"
+  scroll-y
+  enhanced
+  show-scrollbar="{{false}}"
+  scroll-into-view="{{scrollInto}}"
+  scroll-with-animation
+>
+  <view class="vn-page">
+
+    <!-- 首次加载 -->
+    <view wx:if="{{loading && !loaded}}" class="vn-firstload col">
+      <view class="vn-spin"></view>
+      <text class="t-caption text-tertiary">正在加载生词本…</text>
     </view>
+
+    <block wx:else>
+      <!-- ══ 1. 统计三格（全局空态隐藏，避免全 0 空仪表盘） ══ -->
+      <view wx:if="{{stats.total > 0}}" class="vn-stats row">
+        <view class="vn-stat col">
+          <view class="vn-stat-ic center"><image class="vn-stat-img" src="/assets/icons/book-open-gray.svg" /></view>
+          <text class="vn-stat-label">总计</text>
+          <text class="vn-stat-num">{{stats.total}}</text>
+        </view>
+        <view class="vn-stat col">
+          <view class="vn-stat-ic vn-stat-ic--due center"><image class="vn-stat-img" src="/assets/icons/clock-warning.svg" /></view>
+          <text class="vn-stat-label">待复习</text>
+          <text class="vn-stat-num">{{stats.due}}</text>
+        </view>
+        <view class="vn-stat col">
+          <view class="vn-stat-ic vn-stat-ic--done center"><image class="vn-stat-img" src="/assets/icons/award-success.svg" /></view>
+          <text class="vn-stat-label">已掌握</text>
+          <text class="vn-stat-num">{{stats.mastered}}</text>
+        </view>
+      </view>
+
+      <!-- ══ 2. 复习横幅 / 全部完成 ══ -->
+      <block wx:if="{{stats.total > 0}}">
+        <view wx:if="{{stats.due > 0}}" class="vn-banner">
+          <view class="row vn-banner-head">
+            <image class="vn-banner-ic" src="/assets/icons/brain-circuit-light.svg" />
+            <text class="vn-banner-title">复习计划已就绪</text>
+          </view>
+          <text class="vn-banner-desc">根据遗忘曲线，你有 <text class="vn-banner-strong">{{stats.due}} 个生词</text> 需要复习。</text>
+          <view class="vn-banner-btn center tap-scale" bindtap="onStartReview">
+            <image class="vn-banner-btn-ic" src="/assets/icons/play-circle-primary.svg" />
+            <text>开始复习</text>
+          </view>
+        </view>
+
+        <view wx:else class="vn-allclear col">
+          <image class="vn-allclear-ic" src="/assets/icons/check-circle.svg" />
+          <text class="vn-allclear-title">全部完成了！</text>
+          <text class="vn-allclear-desc">你做得很好，今日复习任务已清空。快去听播客添加新词吧。</text>
+        </view>
+      </block>
+
+      <!-- ══ 3. 配额双栏卡 ══ -->
+      <quota-card
+        isPremium="{{isPremium}}"
+        premiumTitle="PRO 无限收藏 · 已收 {{stats.total}} 词"
+        premiumSubtitle="容量不设限，每日新增也不限"
+        primaryLabel="生词本容量"
+        primaryStatusText="{{quota.primaryStatusText}}"
+        primaryUsed="{{stats.total}}"
+        primaryLimit="{{vocabLimit}}"
+        dailyLabel="今日收藏生词"
+        dailyStatusText="{{quota.dailyStatusText}}"
+        dailyUsed="{{todayAddedCount}}"
+        dailyLimit="{{dailyLimit}}"
+      />
+
+      <!-- ══ 4. 全局空态（账号从未收藏过生词；与筛选无结果严格区分） ══ -->
+      <view wx:if="{{stats.total === 0}}" class="vn-empty col">
+        <view class="vn-empty-ic center">
+          <image class="vn-empty-img" src="/assets/icons/book-a.svg" />
+        </view>
+        <text class="vn-empty-title">暂无收藏生词</text>
+        <text class="vn-empty-desc">去听听播客积累词汇吧，在剧集的沉浸式逐字稿中点按生词即可一键收藏。</text>
+        <view class="vn-empty-btn tap-scale" bindtap="onGoDiscover">去发现播客</view>
+      </view>
+
+      <!-- ══ 5. 筛选栏 ══ -->
+      <view wx:else class="vn-controls">
+        <view class="vn-pills row">
+          <view class="vn-pill {{filterStatus === 'LEARNING' ? 'vn-pill--learn' : ''}}" data-status="LEARNING" bindtap="onFilterTap">学习中</view>
+          <view class="vn-pill {{filterStatus === 'MASTERED' ? 'vn-pill--done' : ''}}" data-status="MASTERED" bindtap="onFilterTap">已掌握</view>
+        </view>
+        <view class="vn-search row">
+          <image class="vn-search-ic" src="/assets/icons/search.svg" />
+          <input
+            class="vn-search-input"
+            placeholder="搜索单词或释义..."
+            placeholder-class="vn-search-ph"
+            value="{{searchQuery}}"
+            confirm-type="search"
+            bindinput="onSearchInput"
+          />
+          <view wx:if="{{searchQuery}}" class="vn-search-clear center tap-dim" bindtap="onClearSearch">
+            <image class="vn-search-clear-ic" src="/assets/icons/close.svg" />
+          </view>
+        </view>
+        <view class="vn-sorts row">
+          <view class="vn-sort {{sortMethod === 'review' ? 'vn-sort--on' : ''}}" data-sort="review" bindtap="onSortTap">复习时间</view>
+          <view class="vn-sort {{sortMethod === 'added' ? 'vn-sort--on' : ''}}" data-sort="added" bindtap="onSortTap">添加时间</view>
+          <view class="vn-sort {{sortMethod === 'alpha' ? 'vn-sort--on' : ''}}" data-sort="alpha" bindtap="onSortTap">A-Z</view>
+        </view>
+      </view>
+
+      <!-- ══ 6. 卡片列表 ══ -->
+      <view wx:if="{{stats.total > 0}}" class="vn-list">
+        <view
+          wx:for="{{filteredList}}"
+          wx:key="vocabularyid"
+          id="vn-top-{{item.vocabularyid}}"
+          class="vn-card {{expandedId === item.vocabularyid ? 'vn-card--open' : ''}}"
+          data-id="{{item.vocabularyid}}"
+          bindtap="onCardTap"
+        >
+          <!-- ── 紧凑面 ── -->
+          <view class="vn-compact">
+            <view class="vn-word-row row">
+              <view class="vn-word-wrap row">
+                <text class="vn-word ellipsis">{{item.word}}</text>
+                <view class="vn-dot {{item.due && !item.mastered ? 'vn-dot--due' : ''}}"></view>
+              </view>
+              <view
+                wx:if="{{item.playUrl && expandedId !== item.vocabularyid}}"
+                class="vn-play center tap-dim"
+                data-id="{{item.vocabularyid}}"
+                catchtap="onPlayWord"
+              >
+                <image class="vn-play-ic" src="/assets/icons/volume-2-primary.svg" />
+              </view>
+            </view>
+            <text class="vn-def ellipsis">{{item.defText}}</text>
+            <view class="vn-meta row between">
+              <!-- 熟练度 5 格竖条（level <= proficiency 亮起） -->
+              <view class="vn-profs row">
+                <view wx:for="{{[1,2,3,4,5]}}" wx:for-item="level" wx:key="*this"
+                      class="vn-prof {{level <= item.proficiency ? 'vn-prof--on' : ''}} vn-prof--h{{level}}"></view>
+              </view>
+              <view class="vn-meta-right row">
+                <view wx:if="{{item.mastered}}" class="vn-badge-done row">
+                  <image class="vn-badge-ic" src="/assets/icons/check-circle.svg" />
+                  <text>已掌握</text>
+                </view>
+                <view wx:elif="{{item.due}}" class="vn-badge-due row">
+                  <image class="vn-badge-ic" src="/assets/icons/clock-warning.svg" />
+                  <text>需要复习</text>
+                </view>
+                <text wx:else class="vn-badge-date">{{item.dateText}}</text>
+                <image class="vn-chev" src="{{expandedId === item.vocabularyid ? '/assets/icons/chevron-up.svg' : '/assets/icons/chevron-down.svg'}}" />
+              </view>
+            </view>
+          </view>
+
+          <!-- ── 展开面板（catchtap 阻止冒泡：点击面板内容不收起卡片，对齐 Web stopPropagation） ── -->
+          <view wx:if="{{expandedId === item.vocabularyid}}" class="vn-panel" catchtap="noop">
+
+            <!-- 富视图（有 dictData） -->
+            <block wx:if="{{item.dictData}}">
+              <!-- 音标胶囊 -->
+              <view wx:if="{{item.dictData.phonetics.us || item.dictData.phonetics.uk}}" class="vn-phons row">
+                <view wx:if="{{item.dictData.phonetics.us}}" class="vn-phon-pill row">
+                  <text class="vn-phon-tag">US</text>
+                  <text class="vn-phon-text">{{item.dictData.phonetics.us}}</text>
+                  <view wx:if="{{item.dictData.audio_urls.us}}" class="vn-phon-btn center tap-dim"
+                        data-url="{{item.dictData.audio_urls.us}}" data-word="{{item.word}}" catchtap="onPlayPhon">
+                    <image class="vn-phon-btn-ic" src="/assets/icons/volume-2-primary.svg" />
+                  </view>
+                </view>
+                <view wx:if="{{item.dictData.phonetics.uk}}" class="vn-phon-pill row">
+                  <text class="vn-phon-tag vn-phon-tag--uk">UK</text>
+                  <text class="vn-phon-text">{{item.dictData.phonetics.uk}}</text>
+                  <view wx:if="{{item.dictData.audio_urls.uk}}" class="vn-phon-btn center tap-dim"
+                        data-url="{{item.dictData.audio_urls.uk}}" data-word="{{item.word}}" catchtap="onPlayPhon">
+                    <image class="vn-phon-btn-ic vn-phon-btn-ic--uk" src="/assets/icons/volume-2-secondary.svg" />
+                  </view>
+                </view>
+              </view>
+
+              <!-- 核心释义 -->
+              <view wx:if="{{item.dictData.definitions.length > 0}}" class="vn-sec">
+                <view class="vn-sec-head row">
+                  <image class="vn-sec-ic" src="/assets/icons/book-open-primary.svg" />
+                  <text class="vn-sec-title">核心释义</text>
+                </view>
+                <view wx:for="{{item.dictData.definitions}}" wx:for-item="def" wx:key="pos"
+                      class="vn-defcard row">
+                  <view class="vn-defcard-bar"></view>
+                  <view class="vn-defcard-side col">
+                    <text class="vn-defcard-pos">{{def.pos}}</text>
+                    <text wx:if="{{def.cefr_level}}" class="vn-defcard-cefr">{{def.cefr_level}}</text>
+                  </view>
+                  <view class="vn-defcard-main col">
+                    <text class="vn-defcard-cn">{{def.meaning_cn}}</text>
+                    <text wx:if="{{def.meaning_en}}" class="vn-defcard-en">{{def.meaning_en}}</text>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 语境与例句 -->
+              <view class="vn-sec">
+                <view class="vn-sec-head row">
+                  <image class="vn-sec-ic" src="/assets/icons/sparkles-warning.svg" />
+                  <text class="vn-sec-title">语境与例句</text>
+                </view>
+
+                <!-- 原声出处卡（优先展示原播客例句） -->
+                <view wx:if="{{item.contextSentence}}" class="vn-ctx">
+                  <view class="vn-ctx-tag">原声出处</view>
+                  <view class="vn-ctx-sentence font-serif">
+                    <text wx:for="{{item.contextParts}}" wx:for-item="seg" wx:key="index"
+                          class="{{seg.hit ? 'vn-ctx-hl' : ''}}">{{seg.text}}</text>
+                  </view>
+                  <text wx:if="{{item.translation}}" class="vn-ctx-trans">{{item.translation}}</text>
+                  <view class="vn-ctx-foot row between">
+                    <view class="vn-ctx-ep row">
+                      <image class="vn-ctx-ep-ic" src="/assets/icons/play-circle-primary.svg" />
+                      <text class="vn-ctx-ep-name ellipsis">{{item.episodeTitle}}</text>
+                    </view>
+                    <view class="row">
+                      <view class="vn-ctx-btn center tap-dim {{playText === item.contextSentence ? 'vn-ctx-btn--on' : ''}}"
+                            data-text="{{item.contextSentence}}" catchtap="onPlayContext">
+                        <image class="vn-ctx-btn-ic" src="/assets/icons/volume-2-primary.svg" />
+                      </view>
+                      <view wx:if="{{item.episodeid}}"
+                            class="vn-ctx-btn center tap-dim {{origKey === item.origKey || origLoading === item.origKey ? 'vn-ctx-btn--on' : ''}}"
+                            data-episodeid="{{item.episodeid}}" data-word="{{item.word}}"
+                            data-timestamp="{{item.timestamp}}" data-context="{{item.contextSentence}}"
+                            catchtap="onPlayOriginal">
+                        <view wx:if="{{origLoading === item.origKey}}" class="vn-mini-spin"></view>
+                        <image wx:else class="vn-ctx-btn-ic" src="/assets/icons/podcast-primary.svg" />
+                      </view>
+                    </view>
+                  </view>
+                </view>
+
+                <!-- 字典例句 -->
+                <view wx:for="{{item.dictExamples}}" wx:for-item="ex" wx:key="en" class="vn-example col">
+                  <view class="row between vn-example-row">
+                    <view class="vn-example-main col">
+                      <view class="vn-example-en font-serif">
+                        <text wx:for="{{ex.parts}}" wx:for-item="seg" wx:key="index"
+                              class="{{seg.hit ? 'vn-ctx-hl' : ''}}">{{seg.text}}</text>
+                      </view>
+                      <text class="vn-example-cn">{{ex.cn}}</text>
+                      <text wx:if="{{ex.context}}" class="vn-example-ctx">场景: {{ex.context}}</text>
+                    </view>
+                    <view class="vn-example-play center tap-dim {{playText === ex.en ? 'vn-example-play--on' : ''}}"
+                          data-text="{{ex.en}}" catchtap="onPlayContext">
+                      <image class="vn-example-play-ic" src="/assets/icons/volume-2-gray.svg" />
+                    </view>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 词形变化 -->
+              <view wx:if="{{item.inflChips.length > 0}}" class="vn-sec">
+                <view class="vn-sec-head row">
+                  <image class="vn-sec-ic" src="/assets/icons/activity-info.svg" />
+                  <text class="vn-sec-title">词形变化</text>
+                </view>
+                <view class="vn-infls row">
+                  <view wx:for="{{item.inflChips}}" wx:for-item="chip" wx:key="label" class="vn-infl col">
+                    <text class="vn-infl-label">{{chip.label}}</text>
+                    <text class="vn-infl-value">{{chip.value}}</text>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 词源与记忆 -->
+              <view wx:if="{{item.hasEty}}" class="vn-sec">
+                <view class="vn-sec-head row">
+                  <image class="vn-sec-ic" src="/assets/icons/history-warning.svg" />
+                  <text class="vn-sec-title">词源与记忆</text>
+                </view>
+                <view class="vn-ety col">
+                  <view wx:if="{{item.dictData.etymology.prefix || item.dictData.etymology.root || item.dictData.etymology.suffix}}" class="vn-ety-chips row">
+                    <text wx:if="{{item.dictData.etymology.prefix}}" class="vn-ety-chip vn-ety-chip--prefix">前缀 {{item.dictData.etymology.prefix}}</text>
+                    <text wx:if="{{item.dictData.etymology.root}}" class="vn-ety-chip vn-ety-chip--root">词根 {{item.dictData.etymology.root}}</text>
+                    <text wx:if="{{item.dictData.etymology.suffix}}" class="vn-ety-chip vn-ety-chip--suffix">后缀 {{item.dictData.etymology.suffix}}</text>
+                  </view>
+                  <view wx:if="{{item.dictData.etymology.mnemonic}}" class="col">
+                    <text class="vn-ety-label">Mnemonic 记忆法</text>
+                    <text class="vn-ety-memo">{{item.dictData.etymology.mnemonic}}</text>
+                  </view>
+                  <view wx:if="{{item.dictData.etymology.breakdown}}" class="col vn-ety-break-wrap">
+                    <text class="vn-ety-label vn-ety-label--dim">Breakdown 溯源</text>
+                    <text class="vn-ety-break">{{item.dictData.etymology.breakdown}}</text>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 短语搭配 -->
+              <view wx:if="{{item.dictData.phrases_and_collocations.length > 0}}" class="vn-sec">
+                <view class="vn-sec-head row">
+                  <image class="vn-sec-ic" src="/assets/icons/tags-accent.svg" />
+                  <text class="vn-sec-title">短语搭配</text>
+                </view>
+                <view class="vn-phrases col">
+                  <view wx:for="{{item.dictData.phrases_and_collocations}}" wx:for-item="ph" wx:key="phrase"
+                        class="vn-phrase row between">
+                    <text class="vn-phrase-en">{{ph.phrase}}</text>
+                    <text class="vn-phrase-cn">{{ph.meaning_cn}}</text>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 扩展词汇（同义/反义） -->
+              <view wx:if="{{item.dictData.synonyms.length > 0 || item.dictData.antonyms.length > 0}}" class="vn-sec">
+                <view class="vn-sec-head row">
+                  <image class="vn-sec-ic" src="/assets/icons/refresh-ccw-gray.svg" />
+                  <text class="vn-sec-title">扩展词汇</text>
+                </view>
+                <view class="col vn-syn-wrap">
+                  <view wx:if="{{item.dictData.synonyms.length > 0}}" class="vn-ext row">
+                    <text class="vn-ext-tag vn-ext-tag--syn">同义 Synonyms</text>
+                    <view class="vn-ext-words row">
+                      <text wx:for="{{item.dictData.synonyms}}" wx:for-item="syn" wx:key="*this"
+                            class="vn-ext-word">{{syn}}</text>
+                    </view>
+                  </view>
+                  <view wx:if="{{item.dictData.antonyms.length > 0}}" class="vn-ext row">
+                    <text class="vn-ext-tag vn-ext-tag--ant">反义 Antonyms</text>
+                    <view class="vn-ext-words row">
+                      <text wx:for="{{item.dictData.antonyms}}" wx:for-item="ant" wx:key="*this"
+                            class="vn-ext-word">{{ant}}</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </block>
+
+            <!-- 降级视图（无 dictData） -->
+            <block wx:else>
+              <view class="vn-sec">
+                <text class="vn-fallback-label">例句</text>
+                <view class="vn-fallback-card col">
+                  <view class="vn-ctx-sentence font-serif">
+                    <text wx:for="{{item.contextParts}}" wx:for-item="seg" wx:key="index"
+                          class="{{seg.hit ? 'vn-ctx-hl' : ''}}">{{seg.text}}</text>
+                  </view>
+                  <view wx:if="{{item.contextSentence}}" class="vn-fallback-play row">
+                    <view class="vn-example-play center tap-dim {{playText === item.contextSentence ? 'vn-example-play--on' : ''}}"
+                          data-text="{{item.contextSentence}}" catchtap="onPlayContext">
+                      <image class="vn-example-play-ic" src="/assets/icons/volume-2-gray.svg" />
+                    </view>
+                  </view>
+                </view>
+              </view>
+              <view class="vn-sec">
+                <text class="vn-fallback-label">中文</text>
+                <text class="vn-fallback-trans">{{item.translation || '暂无翻译'}}</text>
+              </view>
+              <view class="vn-sec">
+                <text class="vn-fallback-label">来源</text>
+                <view class="vn-fallback-src row">
+                  <image class="vn-ctx-ep-ic" src="/assets/icons/play-circle-primary.svg" />
+                  <text class="ellipsis">{{item.episodeTitle}}</text>
+                </view>
+                <text wx:if="{{item.mmss}}" class="vn-fallback-time">时间点 {{item.mmss}}</text>
+              </view>
+            </block>
+
+            <!-- 底部操作区（两种视图共享） -->
+            <view class="vn-actions row between">
+              <view class="row vn-actions-left">
+                <view class="vn-action {{item.mastered ? 'vn-action--relearn' : 'vn-action--master'}} row tap-scale"
+                      data-id="{{item.vocabularyid}}" catchtap="onToggleStatus">
+                  <image class="vn-action-ic" src="{{item.mastered ? '/assets/icons/refresh-ccw-gray.svg' : '/assets/icons/check-circle.svg'}}" />
+                  <text>{{item.mastered ? '重新学习' : '标记为已掌握'}}</text>
+                </view>
+                <view wx:if="{{item.mastered}}" class="vn-action vn-action--del row tap-scale"
+                      data-id="{{item.vocabularyid}}" catchtap="onDeleteTap">
+                  <image class="vn-action-ic" src="/assets/icons/trash-2-red.svg" />
+                  <text>彻底删除</text>
+                </view>
+              </view>
+              <view wx:if="{{item.webUrl}}" class="vn-action vn-action--dict tap-dim"
+                    data-url="{{item.webUrl}}" catchtap="onCopyDict">查看网络词典</view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 筛选/搜索无结果 -->
+        <view wx:if="{{filteredList.length === 0}}" class="vn-nomatch col">
+          <view class="vn-nomatch-ic center">
+            <image class="vn-nomatch-img" src="/assets/icons/filter-gray.svg" />
+          </view>
+          <text class="vn-nomatch-title">{{filterStatus === 'MASTERED' ? '空空如也，暂无已掌握的单词' : '未找到匹配的生词'}}</text>
+          <text class="vn-nomatch-desc">{{filterStatus === 'MASTERED' ? '继续学习，将生词转化为你的永久财富吧！' : '调整搜索词或切换状态试试'}}</text>
+        </view>
+      </view>
+
+    </block>
+
+    <!-- 底部让位：跨页迷你播放条 + 安全区（3.B.3 遗留项随本组件填充收口） -->
+    <view class="vn-bottom-space"></view>
   </view>
 </scroll-view>
+
+<!-- TTS 配额触墙会员弹窗 -->
+<premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onModalClose" />

@@ -1,12 +1,753 @@
-/* 生词卡片复习（占位） */
-.page-stub {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/**
+ * pages/review/vocab-review/index.wxss — 生词卡片复习样式
+ * 映射 Web ReviewModal 的 Tailwind 类：h-1 渐变进度条、primary-600 大按钮、
+ * 3D 翻卡（perspective 1200 + rotateY 180 + 0.6s cubic-bezier(0.4,0,0.2,1)，
+ * backface-visibility 加 -webkit- 前缀）、四题型正面、SRS 四档灰钮 + 间隔预览、
+ * 总结页 trophy + 四格（error/warning/success/info）。
+ */
+
+.vr-page {
+  height: 100vh;
+  background: var(--page-bg);
+}
+
+/* ── Header ── */
+.vr-header {
+  flex-shrink: 0;
+  background: var(--card-bg);
+}
+.vr-progress-track {
+  height: 2rpx;
+  background: var(--color-base-200);
+}
+.vr-progress-bar {
+  height: 100%;
+  background: linear-gradient(to right, var(--primary-600), var(--color-secondary));
+  border-radius: 0 var(--r-full) var(--r-full) 0;
+  transition: width 0.5s ease-out;
+}
+.vr-header-row {
+  padding: 20rpx 32rpx;
+  border-bottom: 1rpx solid var(--color-base-200);
+}
+.vr-header-left {
+  gap: 14rpx;
+}
+.vr-header-ic {
+  width: 30rpx;
+  height: 30rpx;
+}
+.vr-header-count {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.vr-mode-badge {
+  background: var(--color-base-200);
+  color: var(--text-secondary);
+  font-size: 18rpx;
+  border-radius: var(--r-full);
+  padding: 4rpx 18rpx;
+  letter-spacing: 0.06em;
+}
+.vr-close {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+}
+.vr-close-ic {
+  width: 34rpx;
+  height: 34rpx;
+}
+
+/* ── 加载 ── */
+.vr-loading {
+  flex: 1;
   align-items: center;
   justify-content: center;
-  padding-bottom: env(safe-area-inset-bottom);
+  gap: 24rpx;
 }
-.page-stub .t-caption {
-  margin-top: 12rpx;
+.vr-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid rgba(31, 122, 92, 0.2);
+  border-top-color: var(--primary-600);
+  border-radius: 50%;
+  animation: vr-rotate 0.8s linear infinite;
+}
+.vr-mini-spin {
+  width: 26rpx;
+  height: 26rpx;
+  border: 3rpx solid rgba(31, 122, 92, 0.2);
+  border-top-color: var(--primary-600);
+  border-radius: 50%;
+  animation: vr-rotate 0.8s linear infinite;
+}
+@keyframes vr-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 3D 翻转 ── */
+.vr-body {
+  flex: 1;
+  min-height: 0;
+}
+.vr-flip-stage {
+  height: 100%;
+  perspective: 1200px;
+}
+.vr-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vr-flip-inner--back {
+  transform: rotateY(180deg);
+}
+.vr-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--page-bg);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 0;
+  overflow: hidden;
+}
+.vr-face--back {
+  transform: rotateY(180deg);
+}
+
+/* ── 正面通用 ── */
+.vr-front {
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx 40rpx;
+  box-sizing: border-box;
+}
+.vr-front-label {
+  gap: 10rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.2em;
+  margin-bottom: 48rpx;
+}
+.vr-front-label-ic {
+  width: 26rpx;
+  height: 26rpx;
+}
+
+/* 填空 */
+.vr-fill-sentence {
+  font-size: 34rpx;
+  line-height: 2;
+  color: var(--text-primary);
+  text-align: center;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.vr-fill-slot {
+  display: inline-block;
+  min-width: 120rpx;
+  border-bottom: 4rpx solid var(--primary-600);
+  background: rgba(31, 122, 92, 0.1);
+  margin: 0 8rpx;
+}
+.vr-fill-trans {
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  margin-top: 32rpx;
+  text-align: center;
+}
+.vr-input {
+  margin-top: 40rpx;
+  height: 88rpx;
+  border: 2rpx solid var(--color-base-300);
+  border-radius: var(--r-md);
+  background: var(--card-bg);
+  text-align: center;
+  font-size: 32rpx;
+  font-family: Menlo, Consolas, monospace;
+  color: var(--text-primary);
+}
+.vr-input--wrong {
+  border-color: var(--error-500);
+}
+.vr-shake {
+  animation: vr-shake 0.3s ease;
+}
+@keyframes vr-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-12rpx);
+  }
+  75% {
+    transform: translateX(12rpx);
+  }
+}
+.vr-input-ph {
+  color: var(--text-tertiary);
+}
+
+/* 读音提示行 */
+.vr-hint-row {
+  margin-top: 40rpx;
+  gap: 20rpx;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.vr-hint-btn {
+  gap: 10rpx;
+  padding: 10rpx 24rpx;
+  border-radius: var(--r-full);
+  color: var(--color-warning);
+  font-size: 24rpx;
+  font-weight: 500;
+}
+.vr-hint-ic {
+  width: 26rpx;
+  height: 26rpx;
+}
+.vr-hint-phon {
+  font-size: 28rpx;
+  font-family: Menlo, Consolas, monospace;
+  color: var(--text-tertiary);
+}
+.vr-hint-none {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+.vr-hint-play {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+}
+.vr-hint-play-ic {
+  width: 26rpx;
+  height: 26rpx;
+}
+.vr-mini-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+.vr-mini-btn--on {
+  color: var(--primary-600);
+  background: rgba(31, 122, 92, 0.1);
+}
+.vr-mini-btn-ic {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* 选择 */
+.vr-choice-word {
+  font-size: 72rpx;
+  font-weight: 700;
+  color: var(--primary-600);
+  margin-bottom: 12rpx;
+}
+.vr-choice-phon {
+  gap: 14rpx;
+  margin-bottom: 44rpx;
+}
+.vr-choice-phon-text {
+  font-size: 26rpx;
+  font-family: Menlo, Consolas, monospace;
+  color: var(--text-tertiary);
+}
+.vr-choices {
+  width: 100%;
+  gap: 20rpx;
+}
+.vr-choice {
+  align-items: flex-start;
+  width: 100%;
+  border: 2rpx solid var(--color-base-300);
+  border-radius: var(--r-md);
+  background: var(--card-bg);
+  padding: 22rpx 26rpx;
+  gap: 18rpx;
+  text-align: left;
+}
+.vr-choice-key {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  margin-top: 4rpx;
+}
+.vr-choice-text {
+  flex: 1;
+  font-size: 26rpx;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.vr-choice--ok {
+  border-color: var(--color-success);
+  background: rgba(46, 143, 111, 0.08);
+}
+.vr-choice--bad {
+  border-color: var(--error-500);
+  background: rgba(210, 80, 63, 0.06);
+}
+
+/* 中译英 */
+.vr-cn-defs {
+  gap: 20rpx;
+  margin-bottom: 48rpx;
+  align-items: center;
+}
+.vr-cn-def {
+  gap: 16rpx;
+  align-items: center;
+}
+.vr-cn-pos {
+  background: rgba(31, 122, 92, 0.1);
+  color: var(--primary-600);
+  font-size: 22rpx;
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  padding: 4rpx 14rpx;
+}
+.vr-cn-text {
+  font-size: 34rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.vr-cn-text--single {
+  text-align: center;
+}
+
+/* 猜词 */
+.vr-guess-pos {
+  align-self: center;
+  background: rgba(217, 138, 23, 0.1);
+  color: var(--color-secondary);
+  font-size: 22rpx;
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  padding: 4rpx 16rpx;
+  margin-bottom: 24rpx;
+}
+.vr-guess-def {
+  font-size: 32rpx;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  margin-bottom: 48rpx;
+  max-width: 600rpx;
+  word-break: break-word;
+}
+
+/* ── 背面 ── */
+.vr-back-scroll {
+  height: 100%;
+}
+.vr-back {
+  padding: 40rpx 40rpx 60rpx;
+  gap: 32rpx;
+}
+.vr-back-word {
+  font-size: 64rpx;
+  font-weight: 700;
+  color: var(--primary-600);
+  text-align: center;
+  word-break: break-all;
+}
+.vr-back-phons {
+  justify-content: center;
+  gap: 40rpx;
+  flex-wrap: wrap;
+}
+.vr-back-phon {
+  gap: 12rpx;
+}
+.vr-back-phon-tag {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--primary-600);
+}
+.vr-back-phon-tag--uk {
+  color: var(--color-secondary);
+}
+.vr-back-phon-text {
+  font-size: 26rpx;
+  font-family: Menlo, Consolas, monospace;
+  color: var(--text-tertiary);
+}
+.vr-back-dict {
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 22rpx;
+  color: rgba(31, 122, 92, 0.6);
+  margin-top: -12rpx;
+}
+.vr-back-dict-ic {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.vr-back-sec-ic {
+  width: 24rpx;
+  height: 24rpx;
+}
+.vr-back-sec-title {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.08em;
+}
+.vr-back-defs {
+  background: rgba(241, 237, 228, 0.5);
+  border-radius: var(--r-xl);
+  padding: 28rpx;
+  gap: 20rpx;
+}
+.vr-back-defs-head {
+  gap: 10rpx;
+}
+.vr-back-def {
+  align-items: flex-start;
+  gap: 14rpx;
+}
+.vr-back-def-pos {
+  flex-shrink: 0;
+  background: rgba(31, 122, 92, 0.1);
+  color: var(--primary-600);
+  font-size: 18rpx;
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  padding: 4rpx 12rpx;
+  margin-top: 6rpx;
+}
+.vr-back-def-main {
+  flex: 1;
+  min-width: 0;
+  gap: 4rpx;
+}
+.vr-back-def-cn {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.vr-back-def-en {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+.vr-back-def-cefr {
+  flex-shrink: 0;
+  background: rgba(74, 127, 165, 0.1);
+  color: var(--info-500);
+  font-size: 18rpx;
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  padding: 4rpx 10rpx;
+  margin-top: 6rpx;
+}
+
+.vr-back-ctx {
+  background: linear-gradient(135deg, rgba(31, 122, 92, 0.05), rgba(217, 138, 23, 0.05));
+  border-radius: var(--r-xl);
+  padding: 28rpx;
+  gap: 16rpx;
+}
+.vr-back-ctx-sentence {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.vr-back-hl {
+  font-weight: 700;
+  color: var(--primary-600);
+  background: rgba(31, 122, 92, 0.2);
+  padding: 0 6rpx;
+  border-radius: 4rpx;
+}
+.vr-back-ctx-trans {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+
+.vr-back-ety {
+  background: rgba(217, 138, 23, 0.05);
+  border-radius: var(--r-xl);
+  padding: 28rpx;
+  gap: 16rpx;
+}
+.vr-back-ety-parts {
+  gap: 8rpx;
+}
+.vr-back-ety-line {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+.vr-back-ety-memo {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.vr-back-phrases {
+  background: rgba(241, 237, 228, 0.3);
+  border-radius: var(--r-xl);
+  padding: 28rpx;
+  gap: 20rpx;
+}
+.vr-back-phrase-wrap {
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.vr-back-phrase {
+  background: var(--card-bg);
+  border: 1rpx solid var(--color-base-200);
+  border-radius: var(--r-md);
+  box-shadow: var(--e1);
+  padding: 12rpx 20rpx;
+  font-size: 22rpx;
+}
+.vr-back-phrase-en {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.vr-back-phrase-cn {
+  color: var(--text-tertiary);
+}
+
+.vr-back-ext-wrap {
+  gap: 24rpx 40rpx;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.vr-back-ext {
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+.vr-back-ext-tag {
+  font-size: 20rpx;
+  font-weight: 700;
+}
+.vr-back-ext-tag--syn {
+  color: var(--color-success);
+}
+.vr-back-ext-tag--ant {
+  color: var(--error-500);
+}
+.vr-back-ext-words {
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+.vr-back-ext-word {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  background: rgba(46, 143, 111, 0.05);
+  border-radius: var(--r-sm);
+  padding: 4rpx 14rpx;
+}
+.vr-back-ext-word--ant {
+  background: rgba(210, 80, 63, 0.05);
+}
+
+/* ── SRS 底栏 ── */
+.vr-footer {
+  flex-shrink: 0;
+  border-top: 1rpx solid var(--color-base-200);
+  background: rgba(241, 237, 228, 0.5);
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+.vr-show-answer {
+  height: 96rpx;
+  border-radius: var(--r-xl);
+  background: var(--primary-600);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
+  box-shadow: 0 8rpx 32rpx rgba(31, 122, 92, 0.2);
+}
+.vr-srs {
+  gap: 16rpx;
+}
+.vr-srs-btn {
+  flex: 1;
+  background: var(--card-bg);
+  border: 1rpx solid var(--color-base-200);
+  border-radius: var(--r-xl);
+  padding: 18rpx 0 14rpx;
+  gap: 8rpx;
+}
+.vr-srs-btn--disabled {
+  opacity: 0.5;
+}
+.vr-srs-ic {
+  width: 36rpx;
+  height: 36rpx;
+}
+.vr-srs-label {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+}
+.vr-srs-interval {
+  font-size: 20rpx;
+  color: var(--text-tertiary);
+}
+
+/* ── 总结页 ── */
+.vr-summary {
+  align-items: center;
+  padding: 72rpx 48rpx 60rpx;
+  gap: 0;
+}
+.vr-summary-trophy {
+  width: 136rpx;
+  height: 136rpx;
+  border-radius: 50%;
+  background: rgba(46, 143, 111, 0.1);
+  margin-bottom: 40rpx;
+}
+.vr-summary-trophy-ic {
+  width: 88rpx;
+  height: 88rpx;
+}
+.vr-summary-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.vr-summary-sub {
+  font-size: 28rpx;
+  color: var(--text-tertiary);
+  margin: 14rpx 0 48rpx;
+}
+.vr-summary-grid {
+  width: 100%;
+  gap: 20rpx;
+  margin-bottom: 40rpx;
+}
+.vr-sum-cell {
+  flex: 1;
+  border-radius: var(--r-xl);
+  padding: 24rpx 0;
+  gap: 6rpx;
+}
+.vr-sum-cell--0 {
+  background: rgba(210, 80, 63, 0.1);
+}
+.vr-sum-cell--0 .vr-sum-num {
+  color: var(--error-500);
+}
+.vr-sum-cell--0 .vr-sum-label {
+  color: rgba(210, 80, 63, 0.6);
+}
+.vr-sum-cell--1 {
+  background: rgba(217, 138, 23, 0.1);
+}
+.vr-sum-cell--1 .vr-sum-num {
+  color: var(--color-warning);
+}
+.vr-sum-cell--1 .vr-sum-label {
+  color: rgba(217, 138, 23, 0.6);
+}
+.vr-sum-cell--2 {
+  background: rgba(46, 143, 111, 0.1);
+}
+.vr-sum-cell--2 .vr-sum-num {
+  color: var(--color-success);
+}
+.vr-sum-cell--2 .vr-sum-label {
+  color: rgba(46, 143, 111, 0.6);
+}
+.vr-sum-cell--3 {
+  background: rgba(74, 127, 165, 0.1);
+}
+.vr-sum-cell--3 .vr-sum-num {
+  color: var(--info-500);
+}
+.vr-sum-cell--3 .vr-sum-label {
+  color: rgba(74, 127, 165, 0.6);
+}
+.vr-sum-num {
+  font-size: 44rpx;
+  font-weight: 700;
+}
+.vr-sum-label {
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.vr-result-list {
+  width: 100%;
+  gap: 12rpx;
+  margin-bottom: 48rpx;
+  max-height: 420rpx;
+}
+.vr-result {
+  background: rgba(241, 237, 228, 0.5);
+  border-radius: var(--r-md);
+  padding: 16rpx 24rpx;
+}
+.vr-result-word {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.vr-result-q {
+  font-size: 22rpx;
+  font-weight: 700;
+}
+.vr-q--0 {
+  color: var(--error-500);
+}
+.vr-q--1 {
+  color: var(--color-warning);
+}
+.vr-q--2 {
+  color: var(--color-success);
+}
+.vr-q--3 {
+  color: var(--info-500);
+}
+.vr-summary-btns {
+  width: 100%;
+  gap: 20rpx;
+}
+.vr-btn {
+  height: 104rpx;
+  border-radius: var(--r-xl);
+  font-size: 30rpx;
+  font-weight: 700;
+  gap: 14rpx;
+}
+.vr-btn-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.vr-btn--primary {
+  background: var(--primary-600);
+  color: #ffffff;
+  box-shadow: 0 16rpx 48rpx rgba(31, 122, 92, 0.2);
+}
+.vr-btn--ghost {
+  background: var(--color-base-200);
+  color: var(--text-primary);
 }

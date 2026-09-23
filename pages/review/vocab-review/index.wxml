@@ -1,5 +1,408 @@
-<!-- 生词卡片复习（占位）：阶段一 T1.5 实现 -->
-<view class="page-stub">
-  <text class="t-h2">生词复习</text>
-  <text class="t-caption text-tertiary">四题型卡片复习 · 阶段一落地</text>
+<!-- pages/review/vocab-review — 生词卡片复习（对齐 Web ReviewModal：四题型 + 3D 翻卡 + SRS 四档 + 总结页） -->
+<view class="vr-page col">
+
+  <!-- ══ Header：渐变进度条 + 计数/题型徽章/关闭 ══ -->
+  <view class="vr-header">
+    <view class="vr-progress-track">
+      <view class="vr-progress-bar" style="width: {{showSummary ? 100 : progress}}%"></view>
+    </view>
+    <view class="vr-header-row row between">
+      <view class="row vr-header-left">
+        <image class="vr-header-ic" src="/assets/icons/brain-circuit-primary.svg" />
+        <text class="vr-header-count">{{showSummary ? '复习总结' : (index + 1) + ' / ' + queue.length}}</text>
+        <text wx:if="{{!showSummary}}" class="vr-mode-badge">{{modeLabel}}</text>
+      </view>
+      <view class="vr-close center tap-dim" bindtap="onClose">
+        <image class="vr-close-ic" src="/assets/icons/close.svg" />
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 加载态 ══ -->
+  <view wx:if="{{loading}}" class="vr-loading col">
+    <view class="vr-spin"></view>
+    <text class="t-caption text-tertiary">正在准备复习…</text>
+  </view>
+
+  <!-- ══ 总结页 ══ -->
+  <scroll-view wx:elif="{{showSummary}}" class="vr-body" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="vr-summary col">
+      <view class="vr-summary-trophy center">
+        <image class="vr-summary-trophy-ic" src="/assets/icons/trophy-success.svg" />
+      </view>
+      <text class="vr-summary-title">复习完成！</text>
+      <text class="vr-summary-sub">本轮共复习了 {{summary.total}} 个生词</text>
+
+      <!-- 四格统计 -->
+      <view class="vr-summary-grid row">
+        <view class="vr-sum-cell col vr-sum-cell--0">
+          <text class="vr-sum-num">{{summary.forgot}}</text>
+          <text class="vr-sum-label">忘记</text>
+        </view>
+        <view class="vr-sum-cell col vr-sum-cell--1">
+          <text class="vr-sum-num">{{summary.hard}}</text>
+          <text class="vr-sum-label">模糊</text>
+        </view>
+        <view class="vr-sum-cell col vr-sum-cell--2">
+          <text class="vr-sum-num">{{summary.good}}</text>
+          <text class="vr-sum-label">认识</text>
+        </view>
+        <view class="vr-sum-cell col vr-sum-cell--3">
+          <text class="vr-sum-num">{{summary.easy}}</text>
+          <text class="vr-sum-label">简单</text>
+        </view>
+      </view>
+
+      <!-- 逐词结果 -->
+      <view class="vr-result-list col">
+        <view wx:for="{{results}}" wx:key="index" class="vr-result row between">
+          <text class="vr-result-word">{{item.word}}</text>
+          <text class="vr-result-q {{item.qualityCls}}">{{item.qualityLabel}}</text>
+        </view>
+      </view>
+
+      <view class="vr-summary-btns col">
+        <view wx:if="{{summary.forgot > 0}}" class="vr-btn vr-btn--primary row center tap-scale" bindtap="onRetry">
+          <image class="vr-btn-ic" src="/assets/icons/refresh-ccw-white.svg" />
+          <text>再来一轮 ({{summary.forgot}}个)</text>
+        </view>
+        <view class="vr-btn vr-btn--ghost row center tap-scale" bindtap="onFinish">
+          <image class="vr-btn-ic" src="/assets/icons/check-circle.svg" />
+          <text>完成</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- ══ 复习卡区（3D 翻转） ══ -->
+  <block wx:else>
+    <scroll-view class="vr-body" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="vr-flip-stage">
+        <view class="vr-flip-inner {{flipped ? 'vr-flip-inner--back' : ''}}">
+          <!-- ── 正面 ── -->
+          <view class="vr-face vr-face--front">
+
+            <!-- 题型 1：填空 -->
+            <view wx:if="{{modes[index] === 'fill_blank'}}" class="vr-front col">
+              <view class="vr-front-label row">
+                <image class="vr-front-label-ic" src="/assets/icons/book-open-primary.svg" />
+                <text>补全句子</text>
+              </view>
+              <view class="vr-fill-sentence font-serif">
+                <block wx:for="{{queue[index].hiddenParts}}" wx:for-item="seg" wx:key="index">
+                  <text wx:if="{{seg.type === 'text'}}">{{seg.text}}</text>
+                  <text wx:else class="vr-fill-slot" style="min-width: {{seg.width}}rpx"></text>
+                </block>
+              </view>
+              <text wx:if="{{queue[index].translation}}" class="vr-fill-trans">{{queue[index].translation}}</text>
+              <input
+                class="vr-input {{inputWrong ? 'vr-input--wrong' : ''}} {{inputWrong ? 'vr-shake' : ''}}"
+                style="width: {{inputSlotWidth}}rpx"
+                value="{{inputValue}}"
+                placeholder="补全单词"
+                placeholder-class="vr-input-ph"
+                bindinput="onAnswerInput"
+                bindconfirm="onAnswerConfirm"
+                confirm-type="done"
+              />
+              <view class="row vr-hint-row">
+                <block wx:if="{{!showHint}}">
+                  <view class="vr-hint-btn row tap-dim" bindtap="onHintTap">
+                    <image class="vr-hint-ic" src="/assets/icons/volume-2-primary.svg" />
+                    <text>读音提示</text>
+                  </view>
+                </block>
+                <block wx:else>
+                  <text wx:if="{{queue[index].phonetic}}" class="vr-hint-phon">{{queue[index].phonetic}}</text>
+                  <text wx:else class="vr-hint-none">暂无音标</text>
+                  <view wx:if="{{queue[index].playUrl}}" class="vr-hint-play center tap-dim" bindtap="onHintPlay">
+                    <image class="vr-hint-play-ic" src="/assets/icons/volume-2-primary.svg" />
+                  </view>
+                </block>
+                <view wx:if="{{queue[index].contextSentence}}"
+                      class="vr-mini-btn center tap-dim {{playingText === queue[index].contextSentence ? 'vr-mini-btn--on' : ''}}"
+                      data-text="{{queue[index].contextSentence}}" bindtap="onPlaySentence">
+                  <image class="vr-mini-btn-ic" src="/assets/icons/volume-2-primary.svg" />
+                </view>
+                <view wx:if="{{queue[index].episodeid}}"
+                      class="vr-mini-btn center tap-dim {{origKey === queue[index].origKey || origLoading === queue[index].origKey ? 'vr-mini-btn--on' : ''}}"
+                      data-episodeid="{{queue[index].episodeid}}" data-word="{{queue[index].word}}"
+                      data-timestamp="{{queue[index].timestamp}}" data-context="{{queue[index].contextSentence}}"
+                      bindtap="onPlayOriginal">
+                  <view wx:if="{{origLoading === queue[index].origKey}}" class="vr-mini-spin"></view>
+                  <image wx:else class="vr-mini-btn-ic" src="/assets/icons/podcast-primary.svg" />
+                </view>
+              </view>
+            </view>
+
+            <!-- 题型 2：选择 -->
+            <view wx:elif="{{modes[index] === 'choice'}}" class="vr-front col">
+              <view class="vr-front-label row">
+                <image class="vr-front-label-ic" src="/assets/icons/tags-gray.svg" />
+                <text>选择正确释义</text>
+              </view>
+              <text class="vr-choice-word">{{queue[index].word}}</text>
+              <view wx:if="{{queue[index].phonetic}}" class="row vr-choice-phon">
+                <text class="vr-choice-phon-text">{{queue[index].phonetic}}</text>
+                <view wx:if="{{queue[index].playUrl}}" class="vr-hint-play center tap-dim" bindtap="onHintPlay">
+                  <image class="vr-hint-play-ic" src="/assets/icons/volume-2-primary.svg" />
+                </view>
+              </view>
+              <view class="vr-choices col" wx:if="{{choiceOptions[index]}}">
+                <view
+                  wx:for="{{choiceOptions[index].choices}}"
+                  wx:for-item="choice"
+                  wx:for-index="cidx"
+                  wx:key="index"
+                  class="vr-choice row {{selectedChoice === cidx ? (cidx === choiceOptions[index].correctIndex ? 'vr-choice--ok' : 'vr-choice--bad') : ''}}"
+                  data-idx="{{cidx}}"
+                  bindtap="onChoiceTap"
+                >
+                  <text class="vr-choice-key">{{cidx === 0 ? 'A' : cidx === 1 ? 'B' : cidx === 2 ? 'C' : 'D'}}</text>
+                  <text class="vr-choice-text">{{choice}}</text>
+                </view>
+              </view>
+            </view>
+
+            <!-- 题型 3：中译英 -->
+            <view wx:elif="{{modes[index] === 'cn_to_en'}}" class="vr-front col">
+              <view class="vr-front-label row">
+                <image class="vr-front-label-ic" src="/assets/icons/refresh-ccw-gray.svg" />
+                <text>中译英</text>
+              </view>
+              <view class="col vr-cn-defs">
+                <block wx:if="{{queue[index].dictData.definitions.length > 0}}">
+                  <view wx:for="{{queue[index].dictData.definitions}}" wx:for-item="def" wx:key="index" class="row vr-cn-def">
+                    <text class="vr-cn-pos">{{def.pos}}</text>
+                    <text class="vr-cn-text">{{def.meaning_cn}}</text>
+                  </view>
+                </block>
+                <text wx:else class="vr-cn-text vr-cn-text--single">{{queue[index].definition || '请输入对应的英文单词'}}</text>
+              </view>
+              <input
+                class="vr-input {{inputWrong ? 'vr-input--wrong vr-shake' : ''}}"
+                style="width: {{inputSlotWidth}}rpx"
+                value="{{inputValue}}"
+                placeholder="输入英文单词..."
+                placeholder-class="vr-input-ph"
+                bindinput="onAnswerInput"
+                bindconfirm="onAnswerConfirm"
+                confirm-type="done"
+              />
+              <view class="row vr-hint-row">
+                <block wx:if="{{!showHint}}">
+                  <view class="vr-hint-btn row tap-dim" bindtap="onHintTap">
+                    <image class="vr-hint-ic" src="/assets/icons/volume-2-primary.svg" />
+                    <text>读音提示</text>
+                  </view>
+                </block>
+                <block wx:else>
+                  <text wx:if="{{queue[index].phonetic}}" class="vr-hint-phon">{{queue[index].phonetic}}</text>
+                  <text wx:else class="vr-hint-none">暂无音标</text>
+                  <view wx:if="{{queue[index].playUrl}}" class="vr-hint-play center tap-dim" bindtap="onHintPlay">
+                    <image class="vr-hint-play-ic" src="/assets/icons/volume-2-primary.svg" />
+                  </view>
+                </block>
+              </view>
+            </view>
+
+            <!-- 题型 4：猜词 -->
+            <view wx:elif="{{modes[index] === 'def_guess'}}" class="vr-front col">
+              <view class="vr-front-label row">
+                <image class="vr-front-label-ic" src="/assets/icons/sparkles-warning.svg" />
+                <text>看释义猜词</text>
+              </view>
+              <text class="vr-guess-pos">{{queue[index].guessDef.pos}}</text>
+              <text class="vr-guess-def font-serif">"{{queue[index].guessDef.meaning_en}}"</text>
+              <input
+                class="vr-input {{inputWrong ? 'vr-input--wrong vr-shake' : ''}}"
+                style="width: {{inputSlotWidth}}rpx"
+                value="{{inputValue}}"
+                placeholder="输入英文单词..."
+                placeholder-class="vr-input-ph"
+                bindinput="onAnswerInput"
+                bindconfirm="onAnswerConfirm"
+                confirm-type="done"
+              />
+              <view class="row vr-hint-row">
+                <block wx:if="{{!showHint}}">
+                  <view class="vr-hint-btn row tap-dim" bindtap="onHintTap">
+                    <image class="vr-hint-ic" src="/assets/icons/volume-2-primary.svg" />
+                    <text>读音提示</text>
+                  </view>
+                </block>
+                <block wx:else>
+                  <text wx:if="{{queue[index].phonetic}}" class="vr-hint-phon">{{queue[index].phonetic}}</text>
+                  <text wx:else class="vr-hint-none">暂无音标</text>
+                  <view wx:if="{{queue[index].playUrl}}" class="vr-hint-play center tap-dim" bindtap="onHintPlay">
+                    <image class="vr-hint-play-ic" src="/assets/icons/volume-2-primary.svg" />
+                  </view>
+                </block>
+              </view>
+            </view>
+          </view>
+
+          <!-- ── 背面 ── -->
+          <view class="vr-face vr-face--back">
+            <scroll-view class="vr-back-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+              <view class="vr-back col">
+                <!-- 词 + 音标 + 发音 -->
+                <text class="vr-back-word">{{queue[index].word}}</text>
+                <view class="row vr-back-phons">
+                  <block wx:if="{{queue[index].dictData.phonetics.us}}">
+                    <view class="row vr-back-phon">
+                      <text class="vr-back-phon-tag">US</text>
+                      <text class="vr-back-phon-text">{{queue[index].dictData.phonetics.us}}</text>
+                      <view wx:if="{{queue[index].dictData.audio_urls.us}}" class="vr-hint-play center tap-dim"
+                            data-url="{{queue[index].dictData.audio_urls.us}}" data-word="{{queue[index].word}}" bindtap="onPlayPhon">
+                        <image class="vr-hint-play-ic" src="/assets/icons/volume-2-primary.svg" />
+                      </view>
+                    </view>
+                  </block>
+                  <block wx:if="{{queue[index].dictData.phonetics.uk}}">
+                    <view class="row vr-back-phon">
+                      <text class="vr-back-phon-tag vr-back-phon-tag--uk">UK</text>
+                      <text class="vr-back-phon-text">{{queue[index].dictData.phonetics.uk}}</text>
+                      <view wx:if="{{queue[index].dictData.audio_urls.uk}}" class="vr-hint-play center tap-dim"
+                            data-url="{{queue[index].dictData.audio_urls.uk}}" data-word="{{queue[index].word}}" bindtap="onPlayPhon">
+                        <image class="vr-hint-play-ic" src="/assets/icons/volume-2-secondary.svg" />
+                      </view>
+                    </view>
+                  </block>
+                </view>
+                <view wx:if="{{queue[index].webUrl}}" class="row vr-back-dict tap-dim" data-url="{{queue[index].webUrl}}" bindtap="onCopyDict">
+                  <image class="vr-back-dict-ic" src="/assets/icons/external-link-primary.svg" />
+                  <text>查看词典</text>
+                </view>
+
+                <!-- 释义 -->
+                <view wx:if="{{queue[index].dictData.definitions.length > 0}}" class="vr-back-defs col">
+                  <view class="row vr-back-defs-head">
+                    <image class="vr-back-sec-ic" src="/assets/icons/book-open-primary.svg" />
+                    <text class="vr-back-sec-title">释义</text>
+                  </view>
+                  <view wx:for="{{queue[index].dictData.definitions}}" wx:for-item="def" wx:key="index" class="row vr-back-def">
+                    <text class="vr-back-def-pos">{{def.pos}}</text>
+                    <view class="col vr-back-def-main">
+                      <text class="vr-back-def-cn">{{def.meaning_cn}}</text>
+                      <text wx:if="{{def.meaning_en}}" class="vr-back-def-en">{{def.meaning_en}}</text>
+                    </view>
+                    <text wx:if="{{def.cefr_level}}" class="vr-back-def-cefr">{{def.cefr_level}}</text>
+                  </view>
+                </view>
+
+                <!-- 原声出处 -->
+                <view wx:if="{{queue[index].contextSentence}}" class="vr-back-ctx col">
+                  <view class="row between">
+                    <view class="row vr-back-defs-head">
+                      <image class="vr-back-sec-ic" src="/assets/icons/sparkles-warning.svg" />
+                      <text class="vr-back-sec-title">原声出处</text>
+                    </view>
+                    <view class="row">
+                      <view class="vr-mini-btn center tap-dim {{playingText === queue[index].contextSentence ? 'vr-mini-btn--on' : ''}}"
+                            data-text="{{queue[index].contextSentence}}" bindtap="onPlaySentence">
+                        <image class="vr-mini-btn-ic" src="/assets/icons/volume-2-primary.svg" />
+                      </view>
+                      <view wx:if="{{queue[index].episodeid}}"
+                            class="vr-mini-btn center tap-dim {{origKey === queue[index].origKey || origLoading === queue[index].origKey ? 'vr-mini-btn--on' : ''}}"
+                            data-episodeid="{{queue[index].episodeid}}" data-word="{{queue[index].word}}"
+                            data-timestamp="{{queue[index].timestamp}}" data-context="{{queue[index].contextSentence}}"
+                            bindtap="onPlayOriginal">
+                        <view wx:if="{{origLoading === queue[index].origKey}}" class="vr-mini-spin"></view>
+                        <image wx:else class="vr-mini-btn-ic" src="/assets/icons/podcast-primary.svg" />
+                      </view>
+                    </view>
+                  </view>
+                  <view class="vr-back-ctx-sentence font-serif">
+                    <text wx:for="{{queue[index].contextParts}}" wx:for-item="seg" wx:key="index"
+                          class="{{seg.hit ? 'vr-back-hl' : ''}}">{{seg.text}}</text>
+                  </view>
+                  <text wx:if="{{queue[index].translation}}" class="vr-back-ctx-trans">{{queue[index].translation}}</text>
+                </view>
+
+                <!-- 词源记忆 -->
+                <view wx:if="{{queue[index].dictData.etymology.breakdown || queue[index].dictData.etymology.mnemonic}}" class="vr-back-ety col">
+                  <view class="row vr-back-defs-head">
+                    <image class="vr-back-sec-ic" src="/assets/icons/lightbulb-warning.svg" />
+                    <text class="vr-back-sec-title">词源记忆</text>
+                  </view>
+                  <view wx:if="{{queue[index].dictData.etymology.prefix || queue[index].dictData.etymology.root || queue[index].dictData.etymology.suffix}}" class="col vr-back-ety-parts">
+                    <text wx:if="{{queue[index].dictData.etymology.prefix}}" class="vr-back-ety-line">前缀: {{queue[index].dictData.etymology.prefix}}</text>
+                    <text wx:if="{{queue[index].dictData.etymology.root}}" class="vr-back-ety-line">词根: {{queue[index].dictData.etymology.root}}</text>
+                    <text wx:if="{{queue[index].dictData.etymology.suffix}}" class="vr-back-ety-line">后缀: {{queue[index].dictData.etymology.suffix}}</text>
+                  </view>
+                  <text wx:if="{{queue[index].dictData.etymology.mnemonic}}" class="vr-back-ety-memo">💡 {{queue[index].dictData.etymology.mnemonic}}</text>
+                </view>
+
+                <!-- 搭配短语 -->
+                <view wx:if="{{queue[index].dictData.phrases_and_collocations.length > 0}}" class="vr-back-phrases col">
+                  <view class="row vr-back-defs-head">
+                    <image class="vr-back-sec-ic" src="/assets/icons/tags-gray.svg" />
+                    <text class="vr-back-sec-title">搭配短语</text>
+                  </view>
+                  <view class="row vr-back-phrase-wrap">
+                    <view wx:for="{{queue[index].dictData.phrases_and_collocations}}" wx:for-item="ph" wx:key="phrase" class="vr-back-phrase">
+                      <text class="vr-back-phrase-en">{{ph.phrase}}</text>
+                      <text class="vr-back-phrase-cn"> {{ph.meaning_cn}}</text>
+                    </view>
+                  </view>
+                </view>
+
+                <!-- 同反义 -->
+                <view wx:if="{{queue[index].dictData.synonyms.length > 0 || queue[index].dictData.antonyms.length > 0}}" class="row vr-back-ext-wrap">
+                  <block wx:if="{{queue[index].dictData.synonyms.length > 0}}">
+                    <view class="row vr-back-ext">
+                      <text class="vr-back-ext-tag vr-back-ext-tag--syn">同义</text>
+                      <view class="row vr-back-ext-words">
+                        <text wx:for="{{queue[index].dictData.synonyms}}" wx:for-item="s" wx:key="*this" class="vr-back-ext-word">{{s}}</text>
+                      </view>
+                    </view>
+                  </block>
+                  <block wx:if="{{queue[index].dictData.antonyms.length > 0}}">
+                    <view class="row vr-back-ext">
+                      <text class="vr-back-ext-tag vr-back-ext-tag--ant">反义</text>
+                      <view class="row vr-back-ext-words">
+                        <text wx:for="{{queue[index].dictData.antonyms}}" wx:for-item="a" wx:key="*this" class="vr-back-ext-word vr-back-ext-word--ant">{{a}}</text>
+                      </view>
+                    </view>
+                  </block>
+                </view>
+              </view>
+            </scroll-view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- ══ SRS 底栏 ══ -->
+    <view class="vr-footer">
+      <view wx:if="{{!flipped}}" class="vr-show-answer center tap-scale" bindtap="onShowAnswer">显示答案</view>
+      <view wx:else class="vr-srs row">
+        <view class="vr-srs-btn col center {{submitting ? 'vr-srs-btn--disabled' : ''}}" data-quality="0" bindtap="onQualityTap">
+          <image class="vr-srs-ic" src="/assets/icons/rotate-ccw-gray.svg" />
+          <text class="vr-srs-label">忘记</text>
+          <text class="vr-srs-interval">{{queue[index].intervalPreviews.forgot}}</text>
+        </view>
+        <view class="vr-srs-btn col center {{submitting ? 'vr-srs-btn--disabled' : ''}}" data-quality="1" bindtap="onQualityTap">
+          <image class="vr-srs-ic" src="/assets/icons/clock-gray.svg" />
+          <text class="vr-srs-label">模糊</text>
+          <text class="vr-srs-interval">{{queue[index].intervalPreviews.hard}}</text>
+        </view>
+        <view class="vr-srs-btn col center {{submitting ? 'vr-srs-btn--disabled' : ''}}" data-quality="2" bindtap="onQualityTap">
+          <image class="vr-srs-ic" src="/assets/icons/check-circle-gray.svg" />
+          <text class="vr-srs-label">认识</text>
+          <text class="vr-srs-interval">{{queue[index].intervalPreviews.good}}</text>
+        </view>
+        <view class="vr-srs-btn col center {{submitting ? 'vr-srs-btn--disabled' : ''}}" data-quality="3" bindtap="onQualityTap">
+          <image class="vr-srs-ic" src="/assets/icons/award-gray.svg" />
+          <text class="vr-srs-label">简单</text>
+          <text class="vr-srs-interval">{{queue[index].intervalPreviews.easy}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
 </view>
+
+<!-- TTS 配额触墙会员弹窗 -->
+<premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onModalClose" />

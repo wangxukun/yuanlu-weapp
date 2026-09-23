@@ -1,4 +1,7 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "quota-card": "/components/common/quota-card/index",
+    "premium-modal": "/components/premium-modal/index"
+  }
 }
