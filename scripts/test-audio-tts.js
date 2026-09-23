@@ -20,6 +20,10 @@
 const toasts = [];
 const modals = [];
 const audioContexts = [];
+// downloadFile 中转 mock：默认 200 成功；'FAIL' = fail 两次；fn(url) = 定制 statusCode
+const dlCalls = [];
+let dlBehavior = null;
+let dlSeq = 0;
 let episodeFixtures = {}; // episodeid → { audioUrl, subtitles } | 'FAIL_ONCE' 等
 let youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/hello.mp3' } };
 let subtitlesRequestCount = {};
@@ -43,6 +47,18 @@ global.wx = {
   },
   showModal(opts) {
     modals.push((opts && opts.title) || '');
+  },
+  downloadFile(opts) {
+    dlCalls.push(opts.url);
+    if (dlBehavior === 'FAIL') {
+      opts.fail && opts.fail({ errMsg: 'downloadFile:fail timeout' });
+      return;
+    }
+    const sc = typeof dlBehavior === 'function' ? dlBehavior(opts.url) : 200;
+    setTimeout(
+      () => opts.success && opts.success({ statusCode: sc, tempFilePath: 'tmp-' + (++dlSeq) }),
+      0,
+    );
   },
   request(opts) {
     setTimeout(() => {
@@ -116,6 +132,8 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 const settle2 = async () => { await settle(); await settle(); };
 const lastToast = () => toasts[toasts.length - 1] || '';
 const lastCtx = () => audioContexts[audioContexts.length - 1];
+// 等待 downloadFile 中转链完成（mock 的 success 走 setTimeout 0）
+const dlWait = () => new Promise((r) => setTimeout(r, 30));
 
 // ---- 字幕夹具 ----
 episodeFixtures = {
@@ -223,14 +241,25 @@ episodeFixtures = {
   ctxE._h.error && ctxE._h.error();
   assert(lastToast() === '原声加载失败' && clip.getState().playingKey === null, 'H 音频加载错误 → 原声加载失败并停止');
 
-  // —— G：TTS 基础 ——
+  // —— G：TTS 基础（下载中转：downloadFile → 本地临时文件播放） ——
+  tts.clearAudioCache(); dlCalls.length = 0;
   youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/hello.mp3' } };
   let ok = await tts.speak('Hello, World!');
+  await dlWait();
   assert(ok === true && tts.getState().playingText === 'Hello, World!', 'G TTS 播放开始且 playingText 置位');
   const ttsCtx = lastCtx();
-  assert(ttsCtx.src === 'https://tts/hello.mp3' && ttsCtx.played, 'G TTS 播放 speakUrl');
+  assert(dlCalls[0] === 'https://tts/hello.mp3', 'G 音源先经 downloadFile 中转（真机直拉流 504 修复）');
+  assert(ttsCtx.src === 'tmp-1' && ttsCtx.played, 'G 播放的是下载后的本地临时文件');
   ttsCtx._h.ended && ttsCtx._h.ended();
   assert(tts.getState().playingText === null, 'G TTS 播完 onEnded 清状态');
+
+  // 缓存命中：同 URL 重播零网络
+  dlCalls.length = 0;
+  ok = await tts.speak('Hello, World!');
+  await dlWait();
+  assert(dlCalls.length === 0 && lastCtx().src === 'tmp-1' && lastCtx().played,
+    'G 音频缓存命中：同 URL 重播不再下载');
+  lastCtx()._h.ended && lastCtx()._h.ended();
 
   ok = await tts.speak('same text');
   assert(ok === true, 'G TTS 新文本可播');
@@ -239,39 +268,87 @@ episodeFixtures = {
 
   youdaoResponse = { statusCode: 200, data: {} }; // 无 speakUrl
   toasts.length = 0;
+  tts.clearAudioCache(); dlCalls.length = 0;
   ok = await tts.speak('no resource');
+  await dlWait();
   const dictCtx = lastCtx();
-  assert(ok === true && dictCtx.src === 'https://dict.youdao.com/dictvoice?audio=no%20resource&type=2' && dictCtx.played,
-    'G 无 speakUrl → 降级 dictvoice 直链开播（真机修复②）');
+  assert(ok === true && dlCalls[0] === 'https://dict.youdao.com/dictvoice?audio=no%20resource&type=2' && dictCtx.played,
+    'G 无 speakUrl → dictvoice 直链（经下载中转）开播');
   dictCtx._h.ended && dictCtx._h.ended();
   assert(tts.getState().playingText === null, 'G 降级音源播完清状态');
 
   // —— G：真机修复① http 音源强制升 https ——
+  tts.clearAudioCache(); dlCalls.length = 0;
   youdaoResponse = { statusCode: 200, data: { speakUrl: 'http://tts/plain.mp3' } };
   ok = await tts.speak('plain http');
-  assert(lastCtx().src === 'https://tts/plain.mp3', 'G http speakUrl → https 规范化（iOS ATS）');
+  await dlWait();
+  assert(dlCalls[0] === 'https://tts/plain.mp3', 'G http speakUrl → https 规范化后下载（iOS ATS）');
   lastCtx()._h.ended && lastCtx()._h.ended();
 
-  // —— G：真机修复② speakUrl onError → dictvoice 降级重试 ——
+  // —— G：真机修复②② 下载 fail 自动重试一次 → 仍失败流播兜底 ——
+  tts.clearAudioCache(); dlCalls.length = 0; dlBehavior = 'FAIL';
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/netfail.mp3' } };
+  await tts.speak('net fail');
+  await dlWait();
+  assert(dlCalls.filter((u) => u === 'https://tts/netfail.mp3').length === 2,
+    'G downloadFile fail 自动重试一次');
+  const streamCtx = lastCtx();
+  assert(streamCtx.src === 'https://tts/netfail.mp3' && streamCtx.played,
+    'G 两次下载均失败 → 流播兜底（直接播远程 URL）');
+  dlBehavior = null;
+  streamCtx._h.ended && streamCtx._h.ended();
+
+  // —— G：下载返回非 200（网关 504 等）→ 流播兜底 ——
+  tts.clearAudioCache();
+  dlBehavior = () => 504;
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/gw504.mp3' } };
+  await tts.speak('gw 504');
+  await dlWait();
+  assert(lastCtx().src === 'https://tts/gw504.mp3' && lastCtx().played,
+    'G 下载返回 504 → 流播兜底');
+  dlBehavior = null;
+  lastCtx()._h.ended && lastCtx()._h.ended();
+
+  // —— G：真机修复③ 播放 onError → 短文本降级 dictvoice（下载中转） ——
+  tts.clearAudioCache(); dlCalls.length = 0;
   youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/broken.mp3' } };
-  ok = await tts.speak('fallback me');
+  ok = await tts.speak('fallback me'); // 11 字符 ≤ 60
+  await dlWait();
   const brokenCtx = lastCtx();
-  assert(brokenCtx.src === 'https://tts/broken.mp3', 'G 主音源先播 speakUrl');
+  assert(brokenCtx.src.indexOf('tmp-') === 0, 'G 主音源本地播放');
   brokenCtx._h.error && brokenCtx._h.error({ errCode: 10003, errMsg: 'MediaError' });
+  await dlWait();
   const fbCtx = lastCtx();
-  assert(fbCtx !== brokenCtx && fbCtx.src === 'https://dict.youdao.com/dictvoice?audio=fallback%20me&type=2',
-    'G onError → 换 ctx 降级 dictvoice 重试');
+  assert(fbCtx !== brokenCtx &&
+    dlCalls.indexOf('https://dict.youdao.com/dictvoice?audio=fallback%20me&type=2') !== -1,
+    'G onError → dictvoice 降级（下载中转）换 ctx 重试');
   assert(tts.getState().playingText === 'fallback me', 'G 降级期间 playingText 高亮不闪断');
   toasts.length = 0;
   fbCtx._h.error && fbCtx._h.error({ errCode: 10004 });
   assert(lastToast() === '播放失败' && tts.getState().playingText === null,
     'G 降级音源也失败 → 播放失败 toast + 状态复位');
 
-  // —— G：真机修复③ 域名校验失败 → 精确配置指引 Modal（免开 vConsole） ——
+  // —— G：长文本（>60 字符）onError 不降级 dictvoice（长句必 500，实测） ——
+  tts.clearAudioCache(); dlCalls.length = 0;
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/long504.mp3' } };
+  await tts.speak('one two three four five six seven eight nine ten eleven twelve thirteen');
+  await dlWait();
+  const longCtx = lastCtx();
+  toasts.length = 0;
+  longCtx._h.error && longCtx._h.error({ errCode: 504, errMsg: 'error player to stop' });
+  assert(dlCalls.every((u) => u.indexOf('dictvoice') === -1),
+    'G 长文本 onError 不再请求 dictvoice（dictvoice 长句 500 returned null audio）');
+  assert(lastToast() === '播放失败' && tts.getState().playingText === null,
+    'G 长文本最终失败 → 播放失败 toast + 状态复位');
+
+  // —— G：真机修复④ 域名校验失败 → 精确配置指引 Modal（免开 vConsole） ——
+  tts.clearAudioCache();
   youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/blocked.mp3' } };
   await tts.speak('blocked by domain');
+  await dlWait();
   const blockedCtx = lastCtx();
   blockedCtx._h.error && blockedCtx._h.error({ errMsg: 'downloadFile:fail url not in domain list' });
+  await dlWait();
   const dlCtx = lastCtx(); // 降级 dictvoice 同样被域名校验拦截
   toasts.length = 0; modals.length = 0;
   dlCtx._h.error && dlCtx._h.error({ errMsg: 'downloadFile:fail url not in domain list' });

@@ -50,6 +50,7 @@ function resolveRequest(opts) {
 
 // InnerAudioContext mock：事件可手动触发
 const audioInstances = [];
+const dlLog = []; // downloadFile 中转调用记录
 function makeAudioCtx() {
   const handlers = {};
   const ctx = {
@@ -94,6 +95,13 @@ global.wx = {
   navigateTo: (o) => navCalls.push(o.url),
   navigateBack: () => { navBackCalls += 1; },
   switchTab: (o) => switchTabCalls.push(o.url),
+  downloadFile(opts) {
+    dlLog.push(opts.url);
+    setTimeout(() => opts.success && opts.success({
+      statusCode: 200,
+      tempFilePath: 'tmp-' + dlLog.length,
+    }), 0);
+  },
   request: resolveRequest,
   createInnerAudioContext: makeAudioCtx,
   getBackgroundAudioManager: () => ({
@@ -448,8 +456,10 @@ const WXML_REVIEW = fs.readFileSync(
   {
     // 1. 直链成功
     let ok = await tts.playUrl('https://dict/us-a.mp3', 'apple');
+    await sleep(30); // 等待 downloadFile 中转完成
     const ctx1 = audioInstances[audioInstances.length - 1];
-    assert(ok === true && ctx1.src === 'https://dict/us-a.mp3' && ctx1.played === 1, 'playUrl：直链开播');
+    assert(ok === true && dlLog[0] === 'https://dict/us-a.mp3' && ctx1.played === 1,
+      'playUrl：直链经 downloadFile 中转后本地开播（真机 504 修复）');
     assert(tts.getState().playingUrl === 'https://dict/us-a.mp3', 'playUrl：playingUrl 状态');
     ctx1.__fire('ended');
     assert(tts.getState().playingUrl === null, '播放结束：playingUrl 清空');
@@ -462,16 +472,17 @@ const WXML_REVIEW = fs.readFileSync(
     // 3. onError → fallback TTS 合成
     apiResponses['/api/dictionary/youdao'] = { success: true, speakUrl: 'https://tts/apple.mp3' };
     await tts.playUrl('https://dict/broken.mp3', 'apple');
+    await sleep(30);
     const ctx3 = audioInstances[audioInstances.length - 1];
-    assert(ctx3.src === 'https://dict/broken.mp3', '直链尝试开播');
+    assert(ctx3.played === 1, '直链（本地中转）尝试开播');
     ctx3.__fire('error');
-    await tick();
+    await sleep(30); // fallback speak → youdao 请求 → downloadAudio → 本地播放
     const youdaoCall = requestLog.find(
       (r) => r.path === '/api/dictionary/youdao' && r.data && r.data.word === 'apple',
     );
     assert(!!youdaoCall, 'onError → TTS 兜底请求 /api/dictionary/youdao');
     const ctx4 = audioInstances[audioInstances.length - 1];
-    assert(ctx4.src === 'https://tts/apple.mp3' && ctx4.played === 1, 'TTS 兜底开播 speakUrl');
+    assert(ctx4.played === 1 && dlLog.includes('https://tts/apple.mp3'), 'TTS 兜底（下载中转）开播 speakUrl');
 
     // 4. 无 url 有 fallback → 直接 TTS
     await tts.stop();
