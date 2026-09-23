@@ -712,6 +712,16 @@ const WXML_REVIEW = fs.readFileSync(
 
     assert(WXML_REVIEW.includes('显示答案'), 'SRS 底栏：显示答案');
     assert(WXML_REVIEW.includes('再来一轮'), '总结页：再来一轮');
+    assert(WXML_REVIEW.includes('复习完成！') && WXML_REVIEW.includes('本轮共复习了 {{summary.total}} 个生词'), '总结页主副标题（绑真实数据）');
+    assert(WXML_REVIEW.includes('vr-footer--summary') && WXML_REVIEW.includes('>完成</view>'), '总结页：底部固定操作栏含完成按钮');
+    assert(WXML_REVIEW.indexOf('vr-result-list') < WXML_REVIEW.indexOf('vr-footer--summary'), '总结页结构：列表在滚动区、按钮在固定 footer（分离）');
+    const reviewCss2 = fs.readFileSync(
+      path.join(__dirname, '../pages/review/vocab-review/index.wxss'), 'utf8');
+    assert(/\.vr-sum-label \{[^}]*color: rgba\(27, 24, 18, 0\.55\)/.test(reviewCss2), '四宫格底部小字统一灰色（截图口径）');
+    assert(/\.vr-btn \{[^}]*border-radius: var\(--r-full\)/.test(reviewCss2), '底部按钮胶囊状圆角（r-full）');
+    assert(/\.vr-btn--ghost \{[^}]*background: var\(--ink-100\)/.test(reviewCss2), '完成按钮浅灰米色底深色字');
+    assert(/\.vr-footer--summary \{[^}]*background: var\(--page-bg\)/.test(reviewCss2), '总结态 footer 背景与页面同色（固定悬浮观感）');
+    assert(WXML_REVIEW.includes('{{item.qualityCls}}'), '逐词列表状态色类动态绑定（与四宫格主题色对应）');
     assert(WXML_REVIEW.includes('vr-flip'), '3D 翻卡结构');
     assert(WXML_REVIEW.includes('回忆词义，点击卡片查看答案'), '闪卡正面提示文案（截图复刻）');
     assert(WXML_REVIEW.includes('来自《{{current.episodeTitle}}》'), '正面/原声卡「来自《剧集名》」');

@@ -390,16 +390,16 @@
   color: rgba(27, 24, 18, 0.6);
 }
 
-/* ── 总结页 ── */
+/* ── 总结页（复刻 Android ReviewSummary + 单词复习完成页面.jpg） ── */
 .vr-summary {
-  padding: 48rpx 48rpx 60rpx;
+  padding: 48rpx 48rpx 48rpx;
   align-items: stretch;
 }
 .vr-sum-trophy {
   width: 176rpx; /* 88dp */
   height: 176rpx;
   border-radius: 50%;
-  background: rgba(46, 143, 111, 0.1);
+  background: rgba(46, 143, 111, 0.1); /* 浅绿圆底 */
   align-self: center;
   margin-top: 24rpx;
 }
@@ -418,29 +418,27 @@
   margin-top: 12rpx; /* 6dp */
   align-self: center;
   font-size: 28rpx;
-  color: var(--ink-500);
+  color: var(--ink-500); /* 浅灰 */
 }
 .vr-sum-grid {
   margin-top: 48rpx; /* 24dp */
-  gap: 16rpx;
+  gap: 24rpx; /* gap-3 */
 }
 .vr-sum-row {
-  gap: 16rpx;
+  gap: 24rpx;
 }
 .vr-sum-cell {
   flex: 1;
-  border-radius: var(--r-lg);
+  border-radius: var(--r-lg); /* 圆角卡片 */
   padding: 24rpx 0; /* 12dp */
   gap: 4rpx;
 }
+/* 四宫格底色（浅色 10% 主题底）+ 主数字主题色（截图口径） */
 .vr-sum-cell--0 {
   background: rgba(210, 80, 63, 0.1);
 }
 .vr-sum-cell--0 .vr-sum-num {
   color: #d2503f;
-}
-.vr-sum-cell--0 .vr-sum-label {
-  color: rgba(210, 80, 63, 0.7);
 }
 .vr-sum-cell--1 {
   background: rgba(217, 138, 23, 0.1);
@@ -448,17 +446,11 @@
 .vr-sum-cell--1 .vr-sum-num {
   color: var(--accent-500);
 }
-.vr-sum-cell--1 .vr-sum-label {
-  color: rgba(217, 138, 23, 0.7);
-}
 .vr-sum-cell--2 {
   background: rgba(46, 143, 111, 0.1);
 }
 .vr-sum-cell--2 .vr-sum-num {
   color: var(--primary-500);
-}
-.vr-sum-cell--2 .vr-sum-label {
-  color: rgba(46, 143, 111, 0.7);
 }
 .vr-sum-cell--3 {
   background: rgba(74, 127, 165, 0.1);
@@ -466,31 +458,30 @@
 .vr-sum-cell--3 .vr-sum-num {
   color: var(--info-500);
 }
-.vr-sum-cell--3 .vr-sum-label {
-  color: rgba(74, 127, 165, 0.7);
-}
 .vr-sum-num {
   font-size: 40rpx; /* titleLarge */
   font-weight: 700;
 }
+/* 底部小字统一灰色（截图口径，非主题色） */
 .vr-sum-label {
   font-size: 20rpx;
   font-weight: 700;
+  color: rgba(27, 24, 18, 0.55);
 }
 .vr-result-list {
   margin-top: 40rpx; /* 20dp */
   gap: 12rpx; /* 6dp */
 }
 .vr-result {
-  background: rgba(241, 237, 228, 0.5);
+  background: rgba(241, 237, 228, 0.6); /* 极浅底色行 */
   border-radius: 20rpx; /* 10dp */
-  padding: 16rpx 24rpx;
+  padding: 18rpx 24rpx;
 }
 .vr-result-word {
   flex: 1;
   min-width: 0;
   font-size: 28rpx;
-  font-weight: 500;
+  font-weight: 400; /* 常规字重（截图口径） */
   color: var(--text-primary);
 }
 .vr-result-q {
@@ -498,6 +489,7 @@
   font-size: 20rpx;
   font-weight: 700;
 }
+/* 状态文本色与四宫格主题色严格对应 */
 .vr-q--0 {
   color: #d2503f;
 }
@@ -510,24 +502,27 @@
 .vr-q--3 {
   color: var(--info-500);
 }
+
+/* 底部固定操作栏（总结态）：完成胶囊按钮 */
+.vr-footer--summary {
+  background: var(--page-bg);
+  padding-top: 20rpx;
+}
 .vr-btn {
   height: 96rpx;
-  border-radius: var(--r-lg);
+  border-radius: var(--r-full); /* 胶囊状（截图口径） */
   font-size: 30rpx;
   font-weight: 700;
 }
-.vr-summary .vr-btn {
+.vr-footer--summary .vr-btn + .vr-btn {
   margin-top: 20rpx; /* 10dp */
-}
-.vr-summary .vr-btn:first-of-type {
-  margin-top: 48rpx; /* 24dp */
 }
 .vr-btn--primary {
   background: var(--primary-600);
   color: #ffffff;
 }
+/* 完成：浅灰/米色背景 + 深色文字（对齐 Android Ink100） */
 .vr-btn--ghost {
   background: var(--ink-100);
   color: var(--text-primary);
-  margin-top: 20rpx; /* 10dp */
 }

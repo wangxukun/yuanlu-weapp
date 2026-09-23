@@ -21,7 +21,29 @@ const { get, post } = require('../../../utils/request');
 const tts = require('../../../utils/tts');
 const audioClip = require('../../../utils/audio-clip');
 
-const QUALITY_LABELS = ['忘记', '模糊', '认识', '简单'];
+/**
+ * 复习状态码 → UI 元数据映射（总结页四宫格主题色 + 逐词列表右侧文本色共用，
+ * 颜色口径对齐 Android qualityColor：忘记 error / 模糊 warning(accent) /
+ * 认识 success(primary) / 简单 info）。qualityCls 与 WXSS 的 vr-q--N 一一对应。
+ */
+const QUALITY_META = [
+  { quality: 0, label: '忘记', qualityCls: 'vr-q--0' },
+  { quality: 1, label: '模糊', qualityCls: 'vr-q--1' },
+  { quality: 2, label: '认识', qualityCls: 'vr-q--2' },
+  { quality: 3, label: '简单', qualityCls: 'vr-q--3' },
+];
+
+/** 把一次评分包装成总结页结果行（word + 状态文案 + 颜色类） */
+function decorateResult(vocabularyid, word, quality) {
+  const meta = QUALITY_META[quality] || QUALITY_META[2];
+  return {
+    vocabularyid,
+    word,
+    quality,
+    qualityLabel: meta.label,
+    qualityCls: meta.qualityCls,
+  };
+}
 
 /** 滑动切卡阈值（dp → px 运行时换算；Android detectHorizontalDragGestures 80dp） */
 const SWIPE_THRESHOLD_DP = 80;
@@ -240,15 +262,7 @@ Page({
     // 同词重评覆盖旧结果（回滑重测场景，对齐 Android results.filterNot）
     const results = this.data.results
       .filter((r) => r.vocabularyid !== item.vocabularyid)
-      .concat([
-        {
-          vocabularyid: item.vocabularyid,
-          word: item.word,
-          quality,
-          qualityLabel: QUALITY_LABELS[quality] || '',
-          qualityCls: 'vr-q--' + quality,
-        },
-      ]);
+      .concat([decorateResult(item.vocabularyid, item.word, quality)]);
     this.setData({ results, submitting: true });
 
     try {

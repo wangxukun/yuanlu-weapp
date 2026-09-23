@@ -24,52 +24,61 @@
     <text class="t-caption text-tertiary">正在准备复习…</text>
   </view>
 
-  <!-- ══ 总结页（复习完成） ══ -->
-  <scroll-view wx:elif="{{showSummary}}" class="vr-body" scroll-y enhanced show-scrollbar="{{false}}">
-    <view class="vr-summary col">
+  <!-- ══ 总结页（复习完成，复刻 Android ReviewSummary + 单词复习完成页面.jpg）：
+       滚动内容区 + 底部固定操作栏（完成胶囊按钮） ══ -->
+  <block wx:elif="{{showSummary}}">
+    <scroll-view class="vr-body" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="vr-summary col">
 
-      <view class="vr-sum-trophy center">
-        <image class="vr-sum-trophy-ic" src="/assets/icons/emoji-events-success.svg" />
-      </view>
-      <text class="vr-sum-title">复习完成！</text>
-      <text class="vr-sum-sub">本轮共复习了 {{summary.total}} 个生词</text>
+        <!-- 成就区：浅绿圆底奖杯 + 主副标题 -->
+        <view class="vr-sum-trophy center">
+          <image class="vr-sum-trophy-ic" src="/assets/icons/emoji-events-success.svg" />
+        </view>
+        <text class="vr-sum-title">复习完成！</text>
+        <text class="vr-sum-sub">本轮共复习了 {{summary.total}} 个生词</text>
 
-      <!-- 2×2 四档统计（error/warning/success/info 10% 底色块） -->
-      <view class="vr-sum-grid col">
-        <view class="row vr-sum-row">
-          <view class="vr-sum-cell col vr-sum-cell--0">
-            <text class="vr-sum-num">{{summary.forgot}}</text>
-            <text class="vr-sum-label">忘记</text>
+        <!-- 2×2 四宫格（浅色底 + 主题色数字 + 灰色底部小字，对齐截图） -->
+        <view class="vr-sum-grid col">
+          <view class="row vr-sum-row">
+            <view class="vr-sum-cell col vr-sum-cell--0">
+              <text class="vr-sum-num">{{summary.forgot}}</text>
+              <text class="vr-sum-label">忘记</text>
+            </view>
+            <view class="vr-sum-cell col vr-sum-cell--1">
+              <text class="vr-sum-num">{{summary.hard}}</text>
+              <text class="vr-sum-label">模糊</text>
+            </view>
           </view>
-          <view class="vr-sum-cell col vr-sum-cell--1">
-            <text class="vr-sum-num">{{summary.hard}}</text>
-            <text class="vr-sum-label">模糊</text>
+          <view class="row vr-sum-row">
+            <view class="vr-sum-cell col vr-sum-cell--2">
+              <text class="vr-sum-num">{{summary.good}}</text>
+              <text class="vr-sum-label">认识</text>
+            </view>
+            <view class="vr-sum-cell col vr-sum-cell--3">
+              <text class="vr-sum-num">{{summary.easy}}</text>
+              <text class="vr-sum-label">简单</text>
+            </view>
           </view>
         </view>
-        <view class="row vr-sum-row">
-          <view class="vr-sum-cell col vr-sum-cell--2">
-            <text class="vr-sum-num">{{summary.good}}</text>
-            <text class="vr-sum-label">认识</text>
-          </view>
-          <view class="vr-sum-cell col vr-sum-cell--3">
-            <text class="vr-sum-num">{{summary.easy}}</text>
-            <text class="vr-sum-label">简单</text>
+
+        <!-- 逐词结果列表（极浅底色行 + 右侧状态色文本） -->
+        <view class="vr-result-list col">
+          <view wx:for="{{results}}" wx:key="vocabularyid" class="vr-result row between">
+            <text class="vr-result-word ellipsis">{{item.word}}</text>
+            <text class="vr-result-q {{item.qualityCls}}">{{item.qualityLabel}}</text>
           </view>
         </view>
-      </view>
 
-      <!-- 逐词结果 -->
-      <view class="vr-result-list col">
-        <view wx:for="{{results}}" wx:key="vocabularyid" class="vr-result row between">
-          <text class="vr-result-word ellipsis">{{item.word}}</text>
-          <text class="vr-result-q {{item.qualityCls}}">{{item.qualityLabel}}</text>
-        </view>
       </view>
+    </scroll-view>
 
+    <!-- 底部固定操作栏：再来一轮（忘记>0，Android 逻辑闭环）+ 完成胶囊按钮 -->
+    <view class="vr-divider"></view>
+    <view class="vr-footer vr-footer--summary">
       <view wx:if="{{summary.forgot > 0}}" class="vr-btn vr-btn--primary center tap-scale" bindtap="onRetry">再来一轮（{{summary.forgot}}个）</view>
       <view class="vr-btn vr-btn--ghost center tap-scale" bindtap="onFinish">完成</view>
     </view>
-  </scroll-view>
+  </block>
 
   <!-- ══ 闪卡卡区（3D 翻转 + 横滑切卡） ══ -->
   <block wx:else>
