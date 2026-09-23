@@ -236,7 +236,32 @@ episodeFixtures = {
   youdaoResponse = { statusCode: 200, data: {} }; // 无 speakUrl
   toasts.length = 0;
   ok = await tts.speak('no resource');
-  assert(ok === false && lastToast() === '暂无朗读资源', 'G 无 speakUrl → 暂无朗读资源');
+  const dictCtx = lastCtx();
+  assert(ok === true && dictCtx.src === 'https://dict.youdao.com/dictvoice?audio=no%20resource&type=2' && dictCtx.played,
+    'G 无 speakUrl → 降级 dictvoice 直链开播（真机修复②）');
+  dictCtx._h.ended && dictCtx._h.ended();
+  assert(tts.getState().playingText === null, 'G 降级音源播完清状态');
+
+  // —— G：真机修复① http 音源强制升 https ——
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'http://tts/plain.mp3' } };
+  ok = await tts.speak('plain http');
+  assert(lastCtx().src === 'https://tts/plain.mp3', 'G http speakUrl → https 规范化（iOS ATS）');
+  lastCtx()._h.ended && lastCtx()._h.ended();
+
+  // —— G：真机修复② speakUrl onError → dictvoice 降级重试 ——
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/broken.mp3' } };
+  ok = await tts.speak('fallback me');
+  const brokenCtx = lastCtx();
+  assert(brokenCtx.src === 'https://tts/broken.mp3', 'G 主音源先播 speakUrl');
+  brokenCtx._h.error && brokenCtx._h.error({ errCode: 10003, errMsg: 'MediaError' });
+  const fbCtx = lastCtx();
+  assert(fbCtx !== brokenCtx && fbCtx.src === 'https://dict.youdao.com/dictvoice?audio=fallback%20me&type=2',
+    'G onError → 换 ctx 降级 dictvoice 重试');
+  assert(tts.getState().playingText === 'fallback me', 'G 降级期间 playingText 高亮不闪断');
+  toasts.length = 0;
+  fbCtx._h.error && fbCtx._h.error({ errCode: 10004 });
+  assert(lastToast() === '播放失败' && tts.getState().playingText === null,
+    'G 降级音源也失败 → 播放失败 toast + 状态复位');
 
   // —— G：配额触墙 ——
   youdaoResponse = { statusCode: 403, data: { code: 'DICTIONARY_QUOTA_EXCEEDED', message: '今日 30 次免费词典查询已用完' } };

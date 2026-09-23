@@ -6,6 +6,15 @@
  * - 同文本播放中再调 = 停止（toggle）；playingText 供按钮高亮
  * - playUrl(url, fallbackText)：词典发音直链播放，音源失败降级 TTS 合成
  *   （dictvoice 对部分复合词/生僻词返回 5xx，Web 同款兜底）
+ * - 真机播放失败修复（2026-09-23，模拟器正常/真机 onError 的三重防线）：
+ *   ① 音源 http:// 一律升 https（iOS ATS 拒绝明文音源，工具不校验）；
+ *   ② speakUrl 播放 onError 自动降级 dictvoice 直链重试一次
+ *      （https://dict.youdao.com/dictvoice，Web 音素对比同源）；
+ *   ③ onError 落 console.error（含 errCode/errMsg），真机 vConsole 可定位
+ *      「域名不在 downloadFile 合法域名」类配置问题。
+ *   ※ 配置层前提：小程序后台 downloadFile 合法域名须含
+ *      openapi.youdao.com 与 dict.youdao.com（开发者工具 urlCheck:false
+ *      不暴露该问题，见 WE-TASK 4.2）。
  * - 配额触墙（403 DICTIONARY_QUOTA_EXCEEDED，免费 30 次/日）：
  *   request.js 已统一 toast message，这里只触发 quotaHandler('dictionary_quota')
  *   打开会员弹窗（对齐 Web「先 toast 再 openPremiumModal」的顺序，不重复 toast）
@@ -50,6 +59,65 @@ function setQuotaHandler(fn) {
 /** 读取当前处理器（子页面入栈/退栈时保存-恢复用，避免误清宿主页面的注册） */
 function getQuotaHandler() {
   return quotaHandler;
+}
+
+/**
+ * 真机音源 URL 规范化：http:// 强制升 https://。
+ * 微信开发者工具不校验协议，真机（尤其 iOS）对 http 音源直接 onError——
+ * 有道 OpenAPI 回传的 speakUrl 偶为 http，是「模拟器正常、真机播放失败」
+ * 的成因之一。
+ */
+function normalizeUrl(url) {
+  if (typeof url !== 'string') return url;
+  return url.indexOf('http://') === 0 ? 'https://' + url.slice(7) : url;
+}
+
+/**
+ * 有道词典网页版 TTS 直链（dictvoice）——OpenAPI speakUrl 真机不可用时的
+ * 降级音源。与 Web 端语音评测音素对比播放同源（dict.youdao.com/dictvoice）。
+ */
+function buildDictvoiceUrl(text) {
+  return (
+    'https://dict.youdao.com/dictvoice?audio=' +
+    encodeURIComponent(text) +
+    '&type=2'
+  );
+}
+
+/**
+ * 创建 InnerAudioContext 播放一段音源；onError 时若有 fallbackUrl 自动降级
+ * 重试一次（换 ctx，保持 playingText 高亮不闪断）。
+ * 真机失败主因（供排查参考）：域名不在 downloadFile 合法域名 /
+ * http 音源 / speakUrl 签名过期，errMsg 会带具体 errCode。
+ */
+function startPlay(url, fallbackUrl) {
+  const ctx = wx.createInnerAudioContext();
+  audioCtx = ctx;
+  ctx.src = url;
+  ctx.onEnded(() => {
+    if (audioCtx === ctx) {
+      clearCtx();
+      playingText = null;
+      playingUrl = null;
+      notify();
+    }
+  });
+  ctx.onError((err) => {
+    if (audioCtx !== ctx) return;
+    console.error(
+      '[tts] audio error:',
+      url,
+      err && (err.errMsg || ('code ' + err.errCode)),
+    );
+    if (fallbackUrl) {
+      clearCtx(); // 保留 playingText，降级音源无缝接管
+      startPlay(fallbackUrl, null);
+      return;
+    }
+    stop();
+    wx.showToast({ title: '播放失败', icon: 'none' });
+  });
+  ctx.play();
 }
 
 function clearCtx() {
@@ -97,18 +165,19 @@ async function playUrl(url, fallbackText) {
     wx.showToast({ title: '暂无发音', icon: 'none' });
     return false;
   }
-  if (playingUrl === url) {
+  const normalized = normalizeUrl(url); // 真机 http 音源直接 onError，统一升 https
+  if (playingUrl === normalized) {
     stop(); // 同直链再点 = 停止（toggle，与 speak 行为一致）
     return false;
   }
   stop();
   audioBus.stopAll(TTS_STOP); // 停原声片段与全局播放器（互斥）
 
-  playingUrl = url;
+  playingUrl = normalized;
   notify();
   const ctx = wx.createInnerAudioContext();
   audioCtx = ctx;
-  ctx.src = url;
+  ctx.src = normalized;
   const fallback = async () => {
     if (audioCtx !== ctx) return;
     clearCtx();
@@ -128,7 +197,14 @@ async function playUrl(url, fallbackText) {
       notify();
     }
   });
-  ctx.onError(() => fallback());
+  ctx.onError((err) => {
+    console.error(
+      '[tts] audio error:',
+      normalized,
+      err && (err.errMsg || ('code ' + err.errCode)),
+    );
+    fallback();
+  });
   ctx.play();
   return true;
 }
@@ -150,31 +226,15 @@ async function speak(text) {
   notify();
   try {
     const res = await post('/api/dictionary/youdao', { word: text });
-    const speakUrl = res && res.speakUrl;
+    const speakUrl = normalizeUrl(res && res.speakUrl);
     if (!speakUrl) {
-      wx.showToast({ title: '暂无朗读资源', icon: 'none' });
-      playingText = null;
-      notify();
-      return false;
+      // OpenAPI 未回传 speakUrl：直接用 dictvoice 降级音源（不再裸 toast）
+      startPlay(buildDictvoiceUrl(text), null);
+      return true;
     }
-
-    const ctx = wx.createInnerAudioContext();
-    audioCtx = ctx;
-    ctx.src = speakUrl;
-    ctx.onEnded(() => {
-      if (audioCtx === ctx) {
-        clearCtx();
-        playingText = null;
-        notify();
-      }
-    });
-    ctx.onError(() => {
-      if (audioCtx === ctx) {
-        wx.showToast({ title: '播放失败', icon: 'none' });
-        stop();
-      }
-    });
-    ctx.play();
+    // 主音源 = OpenAPI speakUrl（签名短时效，真机域名/协议受限时 onError）；
+    // 降级 = dictvoice 直链（https，Web 端音素对比同源）
+    startPlay(speakUrl, buildDictvoiceUrl(text));
     return true;
   } catch (err) {
     if (err && err.code === 'DICTIONARY_QUOTA_EXCEEDED') {
