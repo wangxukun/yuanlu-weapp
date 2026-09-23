@@ -718,6 +718,7 @@ const WXML_REVIEW = fs.readFileSync(
     const reviewCss2 = fs.readFileSync(
       path.join(__dirname, '../pages/review/vocab-review/index.wxss'), 'utf8');
     assert(/\.vr-sum-label \{[^}]*color: rgba\(27, 24, 18, 0\.55\)/.test(reviewCss2), '四宫格底部小字统一灰色（截图口径）');
+    assert(/\.vr-sum-cell \{[^}]*align-items: center/.test(reviewCss2), '四宫格数字/小字水平居中（.col 默认 stretch 左对齐修复）');
     assert(/\.vr-btn \{[^}]*border-radius: var\(--r-full\)/.test(reviewCss2), '底部按钮胶囊状圆角（r-full）');
     assert(/\.vr-btn--ghost \{[^}]*background: var\(--ink-100\)/.test(reviewCss2), '完成按钮浅灰米色底深色字');
     assert(/\.vr-footer--summary \{[^}]*background: var\(--page-bg\)/.test(reviewCss2), '总结态 footer 背景与页面同色（固定悬浮观感）');

@@ -429,6 +429,8 @@
 }
 .vr-sum-cell {
   flex: 1;
+  align-items: center; /* 数字与底部小字水平居中（.col 默认 stretch 会左对齐） */
+  text-align: center;
   border-radius: var(--r-lg); /* 圆角卡片 */
   padding: 24rpx 0; /* 12dp */
   gap: 4rpx;
