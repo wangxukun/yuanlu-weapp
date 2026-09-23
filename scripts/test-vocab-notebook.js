@@ -719,6 +719,12 @@ const WXML_REVIEW = fs.readFileSync(
       path.join(__dirname, '../pages/review/vocab-review/index.wxss'), 'utf8');
     assert(/\.vr-sum-label \{[^}]*color: rgba\(27, 24, 18, 0\.55\)/.test(reviewCss2), '四宫格底部小字统一灰色（截图口径）');
     assert(/\.vr-sum-cell \{[^}]*align-items: center/.test(reviewCss2), '四宫格数字/小字水平居中（.col 默认 stretch 左对齐修复）');
+    // 字号复刻断言（Android Material3 实际值映射，2026-09-23 用户反馈过小后上浮）
+    assert(/\.vr-front-word \{[^}]*font-size: 90rpx/.test(reviewCss2), '正面主词 90rpx（displaySmall 36sp）');
+    assert(/\.vr-back-word \{[^}]*font-size: 70rpx/.test(reviewCss2), '背面主词 70rpx（headlineMedium 28sp）');
+    assert(/\.vr-def-cn \{[^}]*font-size: 32rpx/.test(reviewCss2), '释义中文 32rpx（bodyMedium 14sp）');
+    assert(/\.vr-ctx-sentence \{[^}]*font-size: 28rpx/.test(reviewCss2), '原声例句 28rpx（bodySmall 12sp）');
+    assert(!/font-size: 20rpx/.test(reviewCss2), '复习页无 20rpx 残留（labelSmall 11sp 统一 24rpx）');
     assert(/\.vr-btn \{[^}]*border-radius: var\(--r-full\)/.test(reviewCss2), '底部按钮胶囊状圆角（r-full）');
     assert(/\.vr-btn--ghost \{[^}]*background: var\(--ink-100\)/.test(reviewCss2), '完成按钮浅灰米色底深色字');
     assert(/\.vr-footer--summary \{[^}]*background: var\(--page-bg\)/.test(reviewCss2), '总结态 footer 背景与页面同色（固定悬浮观感）');
