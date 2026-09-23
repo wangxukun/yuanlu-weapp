@@ -87,7 +87,7 @@
 
 ### 阶段四：测试与多端适配（未开始）
 - [ ] 4.1 真机调试与鉴权全链路走查（登录/登出/token 过期/游客引导态）。
-- [ ] 4.2 合法域名配置（**真机阻断级，2026-09-23 实测踩坑**）：downloadFile 合法域名须含 **OSS 签名直链域名**（已配，剧集原声真机可播）+ **`dict.youdao.com`**（dictvoice 词典发音/降级 TTS）+ **`openapi.youdao.com`**（有道智云 speakUrl——`/api/dictionary/youdao` 原样透传的 TTS 主音源）；request 合法域名须含后端 API 域名（`www.wxkzd.com`）。开发者工具 `urlCheck:false` 不暴露此问题——症状即本次生词本 bug：AI 朗读句子/词典发音模拟器正常、真机 toast「播放失败」（InnerAudioContext onError）。代码侧已加三重防线（`utils/tts.js`：http 音源强制升 https / speakUrl onError 自动降级 dictvoice 直链重试 / onError 落 console.error 供真机 vConsole 定位），但**域名未配置时防线兜不住，必须后台配置**。
+- [ ] 4.2 合法域名配置（**真机阻断级，2026-09-23 实测踩坑**）：downloadFile 合法域名须含 **OSS 签名直链域名**（已配，剧集原声真机可播）+ **`dict.youdao.com`**（dictvoice 词典发音/降级 TTS）+ **`openapi.youdao.com`**（有道智云 speakUrl——`/api/dictionary/youdao` 原样透传的 TTS 主音源）；request 合法域名须含后端 API 域名（`www.wxkzd.com`）。开发者工具 `urlCheck:false` 不暴露此问题——症状即本次生词本 bug：AI 朗读句子/词典发音模拟器正常、真机 toast「播放失败」（InnerAudioContext onError）。代码侧已加三重防线（`utils/tts.js`：http 音源强制升 https / speakUrl onError 自动降级 dictvoice 直链重试 / onError 落 console.error 供真机 vConsole 定位）+ **域名校验失败自动精确诊断**（errMsg 含 domain → 弹「音源域名未配置」指引 Modal，免开 vConsole；音源健康度已实测：dictvoice https 直链返回 200/audio/mpeg，且服务端不把 http 重定向为 https——http speakUrl 会原样到达真机，iOS 拒绝明文音源），但**域名未配置时防线兜不住，必须后台配置**。
 - [ ] 4.3 性能优化：长列表滚动优化、录音文件分片/压缩。
 - [ ] 4.4 平台特有 Bug：iOS/Android 微信运行时差异（InnerAudioContext seek 精度、录音/播放互斥、CSS 3D `backface-visibility` 前缀等）。
 - [ ] 4.5 录音评测真机闭环：wav/16k/mono 产物被有道 ISE 正常评测（REVIEW-TASK 阶段 3 最先打通项）。

@@ -85,6 +85,26 @@ function buildDictvoiceUrl(text) {
 }
 
 /**
+ * 最终播放失败提示：微信域名校验失败（errMsg 含 domain）时给出精确配置指引，
+ * 其余情况通用 toast。区分依据是真实 errMsg 特征（url not in domain list），
+ * 域名配置正确后该分支不会再触发，线上用户只见通用提示。
+ */
+function notifyPlayError(err) {
+  const msg = (err && err.errMsg) || '';
+  if (/domain/i.test(msg)) {
+    wx.showModal({
+      title: '音源域名未配置',
+      content:
+        '发音音源被真机域名校验拦截。请在小程序后台「开发管理 → 开发设置 → 服务器域名 → downloadFile 合法域名」中添加 openapi.youdao.com 与 dict.youdao.com，保存后重试。',
+      confirmText: '知道了',
+      showCancel: false,
+    });
+    return;
+  }
+  wx.showToast({ title: '播放失败', icon: 'none' });
+}
+
+/**
  * 创建 InnerAudioContext 播放一段音源；onError 时若有 fallbackUrl 自动降级
  * 重试一次（换 ctx，保持 playingText 高亮不闪断）。
  * 真机失败主因（供排查参考）：域名不在 downloadFile 合法域名 /
@@ -115,7 +135,7 @@ function startPlay(url, fallbackUrl) {
       return;
     }
     stop();
-    wx.showToast({ title: '播放失败', icon: 'none' });
+    notifyPlayError(err);
   });
   ctx.play();
 }
@@ -178,7 +198,7 @@ async function playUrl(url, fallbackText) {
   const ctx = wx.createInnerAudioContext();
   audioCtx = ctx;
   ctx.src = normalized;
-  const fallback = async () => {
+  const fallback = async (err) => {
     if (audioCtx !== ctx) return;
     clearCtx();
     playingUrl = null;
@@ -187,7 +207,7 @@ async function playUrl(url, fallbackText) {
       const ok = await speak(fallbackText);
       if (!ok) wx.showToast({ title: '播放失败', icon: 'none' });
     } else {
-      wx.showToast({ title: '播放失败', icon: 'none' });
+      notifyPlayError(err);
     }
   };
   ctx.onEnded(() => {
@@ -203,7 +223,7 @@ async function playUrl(url, fallbackText) {
       normalized,
       err && (err.errMsg || ('code ' + err.errCode)),
     );
-    fallback();
+    fallback(err);
   });
   ctx.play();
   return true;

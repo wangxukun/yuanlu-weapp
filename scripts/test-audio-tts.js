@@ -18,6 +18,7 @@
 
 // ---- mock 全局 wx（request.js 走真实链路，仅 mock 底层 wx.request） ----
 const toasts = [];
+const modals = [];
 const audioContexts = [];
 let episodeFixtures = {}; // episodeid → { audioUrl, subtitles } | 'FAIL_ONCE' 等
 let youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/hello.mp3' } };
@@ -39,6 +40,9 @@ global.wx = {
   },
   showToast(opts) {
     toasts.push((opts && opts.title) || '');
+  },
+  showModal(opts) {
+    modals.push((opts && opts.title) || '');
   },
   request(opts) {
     setTimeout(() => {
@@ -262,6 +266,18 @@ episodeFixtures = {
   fbCtx._h.error && fbCtx._h.error({ errCode: 10004 });
   assert(lastToast() === '播放失败' && tts.getState().playingText === null,
     'G 降级音源也失败 → 播放失败 toast + 状态复位');
+
+  // —— G：真机修复③ 域名校验失败 → 精确配置指引 Modal（免开 vConsole） ——
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/blocked.mp3' } };
+  await tts.speak('blocked by domain');
+  const blockedCtx = lastCtx();
+  blockedCtx._h.error && blockedCtx._h.error({ errMsg: 'downloadFile:fail url not in domain list' });
+  const dlCtx = lastCtx(); // 降级 dictvoice 同样被域名校验拦截
+  toasts.length = 0; modals.length = 0;
+  dlCtx._h.error && dlCtx._h.error({ errMsg: 'downloadFile:fail url not in domain list' });
+  assert(modals[0] === '音源域名未配置' && lastToast() === '',
+    'G 域名校验失败（errMsg 含 domain）→ 精确指引 Modal（含配置路径），不再裸 toast');
+  assert(tts.getState().playingText === null, 'G 域名拦截后状态复位');
 
   // —— G：配额触墙 ——
   youdaoResponse = { statusCode: 403, data: { code: 'DICTIONARY_QUOTA_EXCEEDED', message: '今日 30 次免费词典查询已用完' } };
