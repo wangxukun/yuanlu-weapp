@@ -426,6 +426,29 @@
   opacity: 0;
 }
 
+/* ============ 游客试听墙（Web InteractiveTranscript 尾部解锁按钮复刻） ============
+ * btn btn-primary rounded-full px-8 shadow-lg font-medium → 96rpx 高胶囊、
+ * 主题绿实底白字（--color-primary #1f7a5c，即截图深绿按钮）、水平居中 */
+.il-unlock {
+  display: flex;
+  justify-content: center; /* flex justify-center */
+  margin-top: 64rpx;      /* mt-8 */
+  padding: 0 32rpx 32rpx; /* pb-4 */
+}
+.il-unlock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96rpx;                /* btn 默认高 h-12 = 48px */
+  padding: 0 64rpx;             /* px-8 */
+  border-radius: var(--r-full); /* rounded-full 胶囊 */
+  background: var(--color-primary);      /* bg-primary */
+  color: var(--color-primary-content);   /* text-white */
+  font-size: 28rpx;   /* daisyUI btn 字号 0.875rem */
+  font-weight: 500;   /* font-medium */
+  box-shadow: var(--e2); /* shadow-lg */
+}
+
 .il-bottom-space {
   height: calc(200rpx + env(safe-area-inset-bottom));
 }

@@ -52,19 +52,21 @@ Object.defineProperties(bgm, {
 });
 
 const navCalls = [];
+const backCalls = []; // navigateBack delta 记录（单例路由回退断言用）
+const toastCalls = []; // showToast 标题记录（no-op 反馈断言用）
 const modalCalls = [];
 const requestUrls = [];
-let currentPages = []; // 页面栈 mock（封面/精听按钮跳转守卫用）
+let currentPages = []; // 页面栈 mock（单例路由查重/跳转守卫用）
 global.wx = {
   getStorageSync: () => '',
   setStorageSync: () => {},
   removeStorageSync: () => {},
-  showToast: () => {},
+  showToast: (opts) => { toastCalls.push(opts && opts.title); },
   showModal: (opts) => { modalCalls.push(opts); },
   navigateTo: (opts) => { navCalls.push(opts.url); },
   getCurrentPages: () => currentPages,
   switchTab: () => {},
-  navigateBack: () => {},
+  navigateBack: (opts) => { backCalls.push(opts && opts.delta); },
   stopPullDownRefresh: () => {},
   request: (opts) => {
     const p = opts.url.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
@@ -93,6 +95,7 @@ const audioManager = require(path.join(__dirname, '../utils/audioManager'));
 audioManager.init(); // 生产链路由 app.js onLaunch 调用
 const playerStore = require(path.join(__dirname, '../store/playerStore'));
 const audioBus = require(path.join(__dirname, '../utils/audio-bus'));
+const route = require(path.join(__dirname, '../utils/route'));
 
 // audioBus.stopAll 互斥调用计数（不打断原行为）
 let stopAllCalls = 0;
@@ -334,6 +337,15 @@ const subRequestCount = () => requestUrls.filter((u) => u === '/api/episode/subt
     fireTime(120, 300);
     assert(panel.data.timeLabel === '02:00' && panel.data.remainLabel === '-03:00', '时间标签同步（当前/剩余）');
 
+    // —— 顶部安全区：沉浸宿主页让出状态栏/胶囊，默认导航宿主页不加留白 ——
+    global.wx.getWindowInfo = () => ({ statusBarHeight: 47, screenHeight: 812, windowHeight: 812 });
+    global.wx.getMenuButtonBoundingClientRect = () => ({ top: 51, height: 32, bottom: 83, width: 87, left: 278, right: 365 });
+    panel._measureHeaderTop();
+    assert(panel.data.headerPadTop === 87, '沉浸宿主页（精听页 custom 导航）：headerPadTop = 胶囊底 83 + 间隙 4');
+    global.wx.getWindowInfo = () => ({ statusBarHeight: 47, screenHeight: 812, windowHeight: 721 });
+    panel._measureHeaderTop();
+    assert(panel.data.headerPadTop === 0, '默认导航宿主页：原生导航栏即安全区 → headerPadTop 钳 0');
+
     // —— 定时按钮：激活时显示倒计时（分钟模式 mm:ss）——
     audioManager.applySleepConfig({ mode: 'minutes', minutes: 15 });
     assert(panel.data.sleepActive === true && panel.data.sleepText === '15:00', '分钟定时 → 按钮转主题色并显示倒计时 15:00');
@@ -428,6 +440,89 @@ const subRequestCount = () => requestUrls.filter((u) => u === '/api/episode/subt
     // 面板：旧模块已删（精读 pill / 字幕 / 悬浮迷你条）
     assert(!panelWxml.includes('精读') && !panelWxml.includes('pp-transcript') && !panelWxml.includes('showTranslation'), '面板：精读按钮与字幕模块已彻底移除');
     assert(!panelWxml.includes('pp-floating'), '面板：底部悬浮迷你控制条已移除（由精听模式按钮承接）');
+
+    // 面板：顶部安全区内联留白（状态栏/胶囊避让）
+    assert(panelWxml.includes('headerPadTop'), '面板：header 内联 padding-top={{headerPadTop}}px（动态安全区）');
+  }
+
+  section('六、单例路由 singletonNavigateTo（剧集↔精听乒乓压栈根治）');
+  {
+    const panel2 = makeInstance(panelDef);
+    panel2._attached();
+    const reloadSpy = [];
+
+    // —— 工具直测：不存在 → 压栈；已存在 → 回退；栈顶 → no-op ——
+    currentPages = [];
+    navCalls.length = 0;
+    backCalls.length = 0;
+    let r = route.singletonNavigateTo('/pages/intensive-listening/index?id=ep4');
+    assert(r.action === 'push' && navCalls[0] === '/pages/intensive-listening/index?id=ep4' && backCalls.length === 0,
+      '栈内无目标页 → 正常 navigateTo 压栈');
+
+    currentPages = [
+      { route: 'pages/home/index' },
+      { route: 'pages/episode/episode', options: { id: 'ep4' } },
+      { route: 'pages/intensive-listening/index', options: { id: 'ep4' } },
+    ];
+    navCalls.length = 0;
+    r = route.singletonNavigateTo('/pages/episode/episode?id=ep4');
+    assert(r.action === 'back' && r.delta === 1 && navCalls.length === 0 && backCalls[backCalls.length - 1] === 1,
+      '栈深处已有剧集页 → navigateBack({delta:1}) 回退，不压新页');
+
+    // 重复层收拢：回退到最深处实例，其上重复层（含另一条剧集页）一并弹出
+    currentPages = [
+      { route: 'pages/home/index' },
+      { route: 'pages/episode/episode', options: { id: 'ep4' } },
+      { route: 'pages/intensive-listening/index', options: { id: 'ep4' } },
+      { route: 'pages/episode/episode', options: { id: 'ep4' } },
+    ];
+    navCalls.length = 0;
+    backCalls.length = 0;
+    r = route.singletonNavigateTo('pages/episode/episode?id=ep4');
+    assert(r.action === 'back' && r.delta === 2 && navCalls.length === 0 && backCalls[0] === 2,
+      '栈内多条重复 → 回退最深处实例（delta=2 顺带收拢重复层）');
+
+    currentPages = [{ route: 'pages/intensive-listening/index', options: { id: 'ep4' }, singletonReload(q) { reloadSpy.push(q); } }];
+    navCalls.length = 0;
+    backCalls.length = 0;
+    r = route.singletonNavigateTo('/pages/intensive-listening/index?id=ep5');
+    assert(r.action === 'noop' && navCalls.length === 0 && backCalls.length === 0,
+      '栈顶已是目标页 → no-op（不压栈不回退）');
+    assert(reloadSpy.length === 1 && reloadSpy[0].id === 'ep5',
+      '换参 → 命中实例 singletonReload({id:"ep5"}) 就地重指（播放列表切集场景）');
+
+    // —— 面板集成：乒乓链路不再产生重复层 ——
+    await audioManager.playEpisode(EP('ep4'), { playlist: [EP('ep4'), EP('ep5')], intensive: true });
+    await tick();
+
+    // 精听页面板点封面 → 回退到栈内剧集页（原实现会压入重复剧集页）
+    currentPages = [
+      { route: 'pages/episode/episode', options: { id: 'ep4' } },
+      { route: 'pages/intensive-listening/index', options: { id: 'ep4' } },
+    ];
+    navCalls.length = 0;
+    backCalls.length = 0;
+    panel2.onCoverTap();
+    assert(panel2.events.includes('close') && navCalls.length === 0 && backCalls[backCalls.length - 1] === 1,
+      '精听页面板点封面 → 收起面板 + navigateBack 回退到栈内剧集页（不压重复层）');
+
+    // 播放列表切到 ep5 后，在精听页(ep4)再点「精听模式」→ no-op + 就地换集
+    await audioManager.playEpisode(EP('ep5'), { playlist: [EP('ep5')], intensive: true });
+    await tick();
+    currentPages = [{ route: 'pages/intensive-listening/index', options: { id: 'ep4' }, singletonReload(q) { reloadSpy.push(q); } }];
+    reloadSpy.length = 0;
+    navCalls.length = 0;
+    backCalls.length = 0;
+    panel2.onOpenIntensive();
+    assert(navCalls.length === 0 && backCalls.length === 0 && audioManager.getState().isIntensiveMode === true,
+      '栈顶精听页(ep4) 再点「精听模式」(现播 ep5) → 补标记后 no-op，不压栈');
+    assert(toastCalls.includes('已在精听页'),
+      '栈顶 no-op → toast「已在精听页」点明单例语义');
+    assert(reloadSpy.length === 1 && reloadSpy[0].id === 'ep5',
+      '精听页实例 singletonReload 重指 ep5（不新开精听页实例）');
+
+    audioManager.close();
+    currentPages = [];
   }
 
   /* ==================== 汇总 ==================== */

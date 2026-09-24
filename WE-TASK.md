@@ -1,6 +1,6 @@
 # 远路播客微信小程序复刻任务清单 (WE-TASK)
 
-> 更新日期：2026-09-23（**REVIEW-TASK 阶段 1 生词本复刻全部落地（T1.1–T1.5：vocab-notebook 组件 + 四题型复习页 vocab-review + tts.playUrl 扩展 + vocab-core 模型层）**；此前：全量代码走查 + 模块 A/B 完结（3.A.1–3.A.10 / 3.B.1–3.B.4，3.B.4 独立精听工作流页收口）：17 个注册页面 / 11 个组件 / 4 个 store / 11 个 utils / 16 套单测 849 断言）
+> 更新日期：2026-09-23（**生词复习页重构为闪卡模式（复刻 Android `VocabularyReviewScreen` + 三张截图，四题型退役）→ 总结页复刻 `ReviewSummary`（滚动区+固定底栏）→ 四宫格居中修复 → 字号完整对齐 Material3，四轮落地；同日 TTS 真机 504 根治（音频改经 downloadFile 中转本地播放，缓存+重试）**；此前：REVIEW-TASK 阶段 1 生词本复刻全部落地（T1.1–T1.5：vocab-notebook 组件 + 闪卡复习页 vocab-review + tts.playUrl 扩展 + vocab-core 模型层）+ TTS 真机播放失败修复系列（http 升 https / dictvoice 降级 / 域名拦截指引 Modal）；再前：全量代码走查 + 模块 A/B 完结（3.A.1–3.A.10 / 3.B.1–3.B.4，3.B.4 独立精听工作流页收口）。现状：17 个注册页面 / 10 个组件 / 4 个 store / 11 个 utils / 16 套单测 877 断言）
 
 ## 1. 项目概览
 - **复刻目标**：将现有的 `yuanlu` (Web/H5) 核心业务流平滑迁移至微信小程序端，部分特定交互参考 `yuanlu-android` 客户端。
@@ -9,14 +9,14 @@
   - 状态管理：自研轻量 Store（`store/core.js` 发布-订阅基类），实例有 `authStore` / `playerStore` / `membershipStore`。
   - 网络请求：`utils/request.js` 唯一出口（get/post/put/delete + Bearer token 自动注入 + 401 清 token），`BASE_URL` 由 `utils/config.js` 按 envVersion 自动切换。
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
-  - 测试：`npm test` 16 套件全绿（membership 16 / home-guest 13 / premium-modal 25 / quota-card 14 / srs 20 / audio-tts 32 / login 83 / favorites 33 / search 74 / channels 89 / discover-tags 15 / episode-player 34 / player-store 14 / mini-player 85 / intensive-listening 157 / **vocab-notebook 145**，共 849 断言）。
+  - 测试：`npm test` 16 套件全绿（membership 16 / home-guest 13 / premium-modal 25 / quota-card 14 / srs 20 / audio-tts 46 / login 83 / favorites 33 / search 74 / channels 89 / discover-tags 15 / episode-player 34 / player-store 14 / mini-player 85 / intensive-listening 157 / **vocab-notebook 159**，共 877 断言）。
 - **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），WE-TASK 仅保留汇总行，避免双头跟踪。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略
 - **音频播放器**：
   - Web H5 使用 `HTMLAudioElement`，离开页面或锁屏可能中断。
   - **小程序方案**：全局单例 `wx.getBackgroundAudioManager()`。✅ 底座已建成 `utils/audioManager.js`（锁屏 onPrev/onNext、播放列表、事件总线、close 关会话），`app.js` 已接线、`requiredBackgroundModes:["audio"]` 已声明；剧集页播放（3.B.1）与跨页迷你条/全屏面板（3.B.3）均已接入。
-  - 片段播放（复习/词典场景）：`utils/audio-clip.js`（InnerAudioContext seek + 窗口截停）+ `utils/tts.js`（有道 TTS）+ `utils/audio-bus.js`（TTS ↔ 原声片段 ↔ 全局 BGM 三方互斥总线），均已随复习阶段 0 落地。
+  - 片段播放（复习/词典场景）：`utils/audio-clip.js`（InnerAudioContext seek + 窗口截停）+ `utils/tts.js`（有道 TTS，**downloadFile 中转本地播放**：15s 超时 / 失败重试一次 / LRU 30 内存缓存，根治真机 504，见 4.2）+ `utils/audio-bus.js`（TTS ↔ 原声片段 ↔ 全局 BGM 三方互斥总线），均已随复习阶段 0 落地。
 - **跟读测评（Shadowing）与录音**：
   - Web H5 依赖浏览器的 `MediaRecorder API` 获取音频流。
   - **小程序方案**：替换为 `wx.getRecorderManager()`（wav / 16kHz / mono，与有道 ISE 参数对齐）；需处理 `scope.record` 授权拒绝后的 `openSetting` 引导。底座未建（REVIEW-TASK T3.1）。
@@ -65,7 +65,7 @@
 
 #### 模块 C：跟读测评系统（→ 详细拆解见 REVIEW-TASK.md 阶段 3）
 > 本模块与「复习」Tab 的语音评测共底座（eval-card / recorder / 有道 ISE），统一由 REVIEW-TASK 跟踪，此处仅汇总：
-> **进度（2026-09-23）**：REVIEW-TASK 阶段 0（T0.1–T0.6 复习底座）与阶段 1（T1.1–T1.5 生词本复刻）已完成，下一任务 T2.1 句子本。
+> **进度（2026-09-23）**：REVIEW-TASK 阶段 0（T0.1–T0.6 复习底座）与阶段 1（T1.1–T1.5 生词本复刻）已完成——T1.5 复习页其后重构为闪卡模式（复刻 Android `VocabularyReviewScreen`，四题型退役；总结页复刻 `ReviewSummary` + 字号对齐 Material3，共四轮），下一任务 T2.1 句子本。
 - [ ] 3.C.1 录音底座 `utils/recorder.js`（wav/16k/mono → base64；授权拒绝引导）〔REVIEW-TASK T3.1〕
 - [ ] 3.C.2 语音评测卡 `components/voice/eval-card`（四互斥态录音区、逐词胶囊、音素对比、三维评分）〔REVIEW-TASK T3.2〕
 - [ ] 3.C.3 刷句复习卡组流 `pages/review/deck`（拖拽手势 ±90px/±400px·s⁻¹、翻面、三模式）〔REVIEW-TASK T3.3〕
@@ -87,7 +87,7 @@
 
 ### 阶段四：测试与多端适配（未开始）
 - [ ] 4.1 真机调试与鉴权全链路走查（登录/登出/token 过期/游客引导态）。
-- [ ] 4.2 合法域名配置（**真机阻断级，2026-09-23 实测踩坑**）：downloadFile 合法域名须含 **OSS 签名直链域名**（已配，剧集原声真机可播）+ **`dict.youdao.com`**（dictvoice 词典发音/降级 TTS）+ **`openapi.youdao.com`**（有道智云 speakUrl——`/api/dictionary/youdao` 原样透传的 TTS 主音源）；request 合法域名须含后端 API 域名（`www.wxkzd.com`）。开发者工具 `urlCheck:false` 不暴露此问题——症状即本次生词本 bug：AI 朗读句子/词典发音模拟器正常、真机 toast「播放失败」（InnerAudioContext onError）。代码侧已加三重防线（`utils/tts.js`：http 音源强制升 https / speakUrl onError 自动降级 dictvoice 直链重试 / onError 落 console.error 供真机 vConsole 定位）+ **域名校验失败自动精确诊断**（errMsg 含 domain → 弹「音源域名未配置」指引 Modal，免开 vConsole；音源健康度已实测：dictvoice https 直链返回 200/audio/mpeg，且服务端不把 http 重定向为 https——http speakUrl 会原样到达真机，iOS 拒绝明文音源），但**域名未配置时防线兜不住，必须后台配置**。
+- [ ] 4.2 合法域名配置（**真机阻断级，2026-09-23 实测踩坑**）：downloadFile 合法域名须含 **OSS 签名直链域名**（已配，剧集原声真机可播）+ **`dict.youdao.com`**（dictvoice 词典发音/降级 TTS）+ **`openapi.youdao.com`**（有道智云 speakUrl——`/api/dictionary/youdao` 原样透传的 TTS 主音源）；request 合法域名须含后端 API 域名（`www.wxkzd.com`）。开发者工具 `urlCheck:false` 不暴露此问题——症状即本次生词本 bug：AI 朗读句子/词典发音模拟器正常、真机 toast「播放失败」（InnerAudioContext onError）。代码侧已加三重防线（`utils/tts.js`：http 音源强制升 https / speakUrl onError 自动降级 dictvoice 直链重试 / onError 落 console.error 供真机 vConsole 定位）+ **域名校验失败自动精确诊断**（errMsg 含 domain → 弹「音源域名未配置」指引 Modal，免开 vConsole；音源健康度已实测：dictvoice https 直链返回 200/audio/mpeg，且服务端不把 http 重定向为 https——http speakUrl 会原样到达真机，iOS 拒绝明文音源），但**域名未配置时防线兜不住，必须后台配置**。**同日 504 根治（2026-09-23，`utils/tts.js` 播放编排重构为四级链，上述防线升级）**：真机 errCode 504 'error player to stop'——微信媒体播放器真机移动网络**直拉** `openapi.youdao.com/ttsapi` 偶发网关超时（同一 URL PC 网络 200/audio/mp3 0.37s 正常，故模拟器不复现），域名/协议均已排除；且 dictvoice 长句实测 500 'returned null audio'（100 字符即挂，短语正常），旧降级链对句子朗读必然失败。四级链：① `downloadAudio` 经 `wx.downloadFile` 落本地临时文件再播（超时 15s 可控 + fail 自动重试一次 + 成功即 LRU 30 内存缓存，同文本重播零网络；域名同走已配置的 downloadFile 合法域名）→ ② 下载失败/非 200 同 URL 直接流播兜底 → ③ 播放 onError 且文本 ≤60 字符降级 dictvoice（同样下载中转+流播；长句跳过降级直接终态）→ ④ 终态 `notifyPlayError`（域名拦截弹指引 Modal / 其余通用 toast）。speak/playUrl 双入口统一接入，`clearAudioCache` 供测试隔离。
 - [ ] 4.3 性能优化：长列表滚动优化、录音文件分片/压缩。
 - [ ] 4.4 平台特有 Bug：iOS/Android 微信运行时差异（InnerAudioContext seek 精度、录音/播放互斥、CSS 3D `backface-visibility` 前缀等）。
 - [ ] 4.5 录音评测真机闭环：wav/16k/mono 产物被有道 ISE 正常评测（REVIEW-TASK 阶段 3 最先打通项）。

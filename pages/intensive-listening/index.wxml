@@ -153,6 +153,12 @@
         </block>
       </view>
 
+      <!-- ── 游客试听墙：字幕流尾部解锁按钮（Web InteractiveTranscript 同名按钮复刻：
+                未登录字幕止于 180s + 播放时长满 180s 落锁，点击进登录页，成功自动返回解锁） ── -->
+      <view wx:if="{{!isLoggedIn}}" class="il-unlock">
+        <view class="il-unlock-btn tap-scale" bindtap="onUnlockLogin">登录后解锁全部字幕</view>
+      </view>
+
       <!-- 底部让位（键盘 / 安全区） -->
       <view class="il-bottom-space"></view>
     </block>

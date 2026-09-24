@@ -266,7 +266,17 @@ const SAMPLE_LIST = [RICH, DUE_ITEM, MASTERED_ITEM, NO_DICT];
 
 /** 深拷贝工厂：乐观翻转/删除等用例会 mutate 列表项，后续 section 需要干净副本 */
 function freshSample() {
-  return JSON.parse(JSON.stringify(SAMPLE_LIST));
+  const list = JSON.parse(JSON.stringify(SAMPLE_LIST));
+  // 组件级派生（todayAddedCount）用真实 new Date() 取「今日」，而样本
+  // MASTERED_ITEM.addedDate 固定为编写测试当日（2026-09-23）——隔天运行
+  // 必然归零闪退。这里把「今日新增」样本动态改为当天北京时间 10:00，
+  // 使断言与运行日期无关（纯逻辑 section 仍用固定 NOW，不受影响）。
+  const beijingToday = new Date(Date.now() + 8 * 3600 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayStamp = `${beijingToday.getUTCFullYear()}-${pad(beijingToday.getUTCMonth() + 1)}-${pad(beijingToday.getUTCDate())}T02:00:00.000Z`;
+  const mastered = list.find((i) => i.id === MASTERED_ITEM.id);
+  if (mastered) mastered.addedDate = todayStamp;
+  return list;
 }
 
 /* ==================== 加载被测模块 ==================== */

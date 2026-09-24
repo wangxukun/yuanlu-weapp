@@ -1,8 +1,9 @@
 <!-- 全屏播放详情面板（复刻 Android FullScreenPlayerScreen：无字幕模块，控制排五枚） -->
 <view class="pp-sheet" wx:if="{{visible}}">
 
-  <!-- ── 顶部窄栏：expand_more 收起 / close 关闭播放器 ── -->
-  <view class="pp-header row">
+  <!-- ── 顶部窄栏：expand_more 收起 / close 关闭播放器
+       （沉浸宿主页内联让出状态栏/胶囊；默认导航宿主页 headerPadTop=0） ── -->
+  <view class="pp-header row" style="padding-top: {{headerPadTop}}px">
     <view class="pp-header-btn tap-dim" bindtap="onCollapse">
       <image class="pp-header-icon" src="/assets/icons/chevron-down-gray.svg" />
     </view>

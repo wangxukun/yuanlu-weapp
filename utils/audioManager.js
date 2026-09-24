@@ -474,7 +474,11 @@ function _settleSleepOnEpisodeEnded() {
  * 跨页迷你播放条随镜像 store 整条收起（区别于 pause——会话保留、条体仍在）。
  */
 function close() {
-  if (bgm) {
+  // 仅在确有会话时才下发 bgm.stop()：空会话/重复 close（迷你条 × 与面板 ×
+  // 双击竞态）再调 stop 会戳空闲的原生音频会话，真机上触发 wxapplib 内部
+  // getTingAudioState:fail 噪音日志（框架层异步回调，JS 侧无法捕获抑制，
+  // 避免无谓触发即最优）
+  if (bgm && state.currentEpisode) {
     try {
       bgm.stop();
     } catch (e) {

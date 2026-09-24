@@ -18,7 +18,10 @@
  *   - 生词收藏：点词 → /api/dict/[word]（LLM 词典）→ VocabularyModal 全屏弹窗
  *     → /api/vocabulary/add 落库；
  *   - 配额墙统一走 premium-modal（sentence_quota / vocabulary_total /
- *     vocabulary_daily / dictionary_quota 场景文案已在组件内置）。
+ *     vocabulary_daily / dictionary_quota 场景文案已在组件内置）；
+ *   - 游客试听墙：未登录字幕裁至前 180s（后端 /api/episode/subtitles 裁 +
+ *     前端同口径兜底），播放时长满 180s 落锁暂停，字幕流尾部常驻
+ *     「登录后解锁全部字幕」按钮（InteractiveTranscript 同名按钮复刻）。
  *
  * 性能口径：字幕渐进渲染（首屏 40 句，活动句逼近窗口底缘按 30 句扩窗，
  * setData 用 viewList[i] 路径补丁追加，不整表重发）。
@@ -30,11 +33,13 @@ const audioBus = require('../../utils/audio-bus');
 const playerStore = require('../../store/playerStore');
 const authStore = require('../../store/authStore');
 const core = require('../../utils/intensive-core');
+const { trackEvent } = require('../../utils/track');
 
 const RENDER_CHUNK = 40;   // 首屏渲染句数
 const RENDER_EXTEND = 30;  // 扩窗步长
 const RENDER_AHEAD = 12;   // 活动句距窗口底缘的提前扩窗阈值
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
+const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
 
 Page({
   data: {
@@ -57,6 +62,7 @@ Page({
     scrollIntoView: '',
 
     isLoggedIn: false,
+    guestLimitOn: false, // 游客试听墙已落锁（播放时长满 180s 拦截暂停）
     savedMap: {}, // subtitleId -> SavedSentenceItem | true（书签态 + 最新收藏记录）
 
     // 收藏成功 toast：{ type:'saved'|'removed', quote, sentence }
@@ -115,6 +121,15 @@ Page({
     this._bootstrap();
   },
 
+  /** 单例回退换集刷新（utils/route.singletonNavigateTo 回退/命中本页实例时
+   *  调用；同集 no-op——_bootstrap 重拉不打断播放会话，见 _syncAuth 同款用法） */
+  singletonReload(query) {
+    const id = query && query.id;
+    if (!id || String(id) === String(this.data.episodeid)) return;
+    this.setData({ episodeid: id });
+    this._bootstrap();
+  },
+
   onUnload() {
     if (this._unsubAuth) this._unsubAuth();
     if (this._unsubPlayer) this._unsubPlayer();
@@ -143,7 +158,7 @@ Page({
       this.setData({ error: '缺少剧集参数', isLoading: false });
       return;
     }
-    this.setData({ isLoading: true, error: null });
+    this.setData({ isLoading: true, error: null, guestLimitOn: false });
     try {
       const [episode, subBody] = await Promise.all([
         get(`/api/episode/detail?id=${episodeid}`),
@@ -168,6 +183,17 @@ Page({
         words: Array.isArray(s.words) ? s.words : [],
         tsLabel: core.formatStartTime(s.start),
       }));
+      // 游客试听墙（对齐 Web 端口径）：后端未登录时已把字幕裁至前 180s
+      // （start < 180），前端同口径再裁一次防后端放开后泄漏；音频不受此裁剪
+      // 影响（detail 接口对游客仍签发直链、整集连播），越界续播由 _onTick
+      // 的时长拦截兜底
+      if (!authStore.getState().isLoggedIn) {
+        const cutLen = this._views.findIndex(
+          (v) => v.start >= GUEST_PREVIEW_SECONDS
+        );
+        if (cutLen > 0) this._views = this._views.slice(0, cutLen);
+      }
+
       this._renderEnd = Math.min(this._views.length, RENDER_CHUNK);
       this.setData({
         episode,
@@ -221,6 +247,13 @@ Page({
     const changed = s.isLoggedIn !== this.data.isLoggedIn;
     this.setData({ isLoggedIn: s.isLoggedIn });
     if (!changed) return; // profile 刷新等非登录态翻转不重复拉书签/生词表
+    if (!this.data.isLoading && this._views.length) {
+      // 登录态翻转 → 180s 试听墙口径切换（全量 ↔ 裁剪），重拉字幕与书签态；
+      // 播放会话不打断（_ensurePlaying 同集只补精听标记/续播，拦截点续播）
+      if (!s.isLoggedIn) this.setData({ savedMap: {} });
+      this._bootstrap();
+      return;
+    }
     if (s.isLoggedIn) {
       this._fetchSaveState();
     } else {
@@ -300,6 +333,14 @@ Page({
     const views = this._views;
     if (!views.length) return;
 
+    // 游客时长拦截：未登录试听满 180s → 落锁暂停；已落锁后经迷你条/全屏面板
+    // 再点播放或拖进度越界 → 就地再拦（180s 内跳句/循环/听写不受影响）
+    if (!this.data.isLoggedIn && t >= GUEST_PREVIEW_SECONDS) {
+      if (!this.data.guestLimitOn) this._engageGuestLimit();
+      else if (playing) audioManager.pause();
+      return;
+    }
+
     // 单句循环：听写模式锁活动句，精读模式锁 loopIndex（useTranscriptScroll loopTarget）
     const loopIdx =
       this.data.mode === 'dictate' ? this.data.activeIndex : this.data.loopIndex;
@@ -329,6 +370,21 @@ Page({
         this.setData({ activeWordIndex: sw.idx, wordSweepOn: sw.on });
       }
     }
+  },
+
+  /**
+   * 游客试听墙落锁：回退到最后一句句首（登录前仍可反复试听前 180s）并暂停。
+   * 解锁按钮由 WXML 按 !isLoggedIn 常驻字幕流尾部（对齐 Web
+   * InteractiveTranscript「登录后解锁全部字幕」的渲染条件）。
+   */
+  _engageGuestLimit() {
+    const last = this._views[this._views.length - 1];
+    if (last) {
+      this._lastSeekAt = Date.now();
+      audioManager.seek(last.start);
+    }
+    audioManager.pause();
+    this.setData({ guestLimitOn: true });
   },
 
   _setActive(idx, t) {
@@ -674,6 +730,14 @@ Page({
 
   onPremiumClose() {
     this.setData({ showPremiumModal: false });
+  },
+
+  /** 游客试听墙「登录后解锁全部字幕」→ 登录页（项目登录跳转惯例 navigateTo auth；
+   *  登录成功 authStore 翻转 → 本页 _syncAuth 自动重拉全量字幕并从拦截点续播，
+   *  auth 页 finishLogin 检测到上级页自动 navigateBack 回本页） */
+  onUnlockLogin() {
+    trackEvent('GUEST_SUBTITLE_UNLOCK_CLICK', 'intensive_listening');
+    wx.navigateTo({ url: '/pages/auth/index' });
   },
 
   _promptLogin(content) {

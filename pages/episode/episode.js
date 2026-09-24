@@ -95,6 +95,15 @@ Page({
     this.fetchData().then(() => wx.stopPullDownRefresh());
   },
 
+  /** 单例回退换集刷新（utils/route.singletonNavigateTo 回退/命中本页实例时
+   *  调用；同集 no-op，避免无谓重载闪烁） */
+  singletonReload(query) {
+    const id = query && query.id;
+    if (!id || String(id) === String(this.data.episodeid)) return;
+    this.setData({ episodeid: id });
+    this.fetchData();
+  },
+
   async fetchData() {
     const { episodeid } = this.data;
     this.setData({ isLoading: true, error: null });

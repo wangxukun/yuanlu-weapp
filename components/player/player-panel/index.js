@@ -3,6 +3,9 @@
  *
  * 复刻 yuanlu-android feature/player/FullScreenPlayerScreen.kt（截图口径）：
  *   - 顶部窄栏：expand_more 收起 / close 关闭播放器（+1px 分割线）；
+ *     沉浸宿主页（精听页 navigationStyle:custom）动态让出状态栏/胶囊（见
+ *     _measureHeaderTop：2026-09-23 从精听页迷你条再展开面板时图标顶进
+ *     状态栏与胶囊的重叠 bug）；
  *   - 下沉模块：拖把 → 16:9 封面（点击跳剧集详情；精听会话右上角「精听中」角标）→
  *     标题/播客名 → 「播放列表 | 定时关闭」行（进度条正上方）→ 进度条 + 双端时间 →
  *     控制排（倍速 / 上一首 / 播放大钮 / 下一首 / 循环）；
@@ -20,6 +23,7 @@
 const audioManager = require('../../../utils/audioManager');
 const audioBus = require('../../../utils/audio-bus');
 const playerStore = require('../../../store/playerStore');
+const route = require('../../../utils/route');
 
 // 倍速循环顺序对齐 Web MobilePlayerSheet.cyclePlaybackRate：1 → 1.25 → 1.5 → 2 → 0.75
 const PLAYBACK_RATES = [1, 1.25, 1.5, 2, 0.75];
@@ -51,6 +55,8 @@ Component({
           // 每次展开都从事实源重同步（面板关闭期间可能已换集/换态）
           this._snapshot = null;
           this._lastTickAt = 0;
+          // 宿主页可能已切换（如从默认导航页进入精听页），安全区每次展开重测
+          this._measureHeaderTop();
           this._sync(playerStore.getState());
         }
       },
@@ -73,6 +79,9 @@ Component({
     dragTime: 0,
     timeLabel: '00:00',
     remainLabel: '-00:00',
+
+    // 顶部控制栏安全区留白（px，_measureHeaderTop 动态计算，内联 padding-top 应用）
+    headerPadTop: 0,
 
     rateLabel: '1x',
     loopMode: 'none',
@@ -100,6 +109,7 @@ Component({
     attached() {
       this._snapshot = null;
       this._lastTickAt = 0;
+      this._measureHeaderTop();
       this._sync(playerStore.getState());
       this._unsubscribe = playerStore.subscribe((s) => this._sync(s));
     },
@@ -109,6 +119,53 @@ Component({
   },
 
   methods: {
+    // ==================== 顶部安全区（状态栏/胶囊避让，2026-09-23） ====================
+
+    /**
+     * 计算顶部控制栏的留白（px），WXML 内联 padding-top 强制应用。
+     *
+     * 根因：面板 fixed top:0——默认导航宿主页的视口本就从原生导航栏下缘
+     * 开始，无需留白；但精听页（navigationStyle:custom）视口顶到屏幕物理
+     * 顶端，收起/关闭图标会顶进系统状态栏与胶囊按钮。故留白必须按宿主页
+     * 导航模式区分，且每次面板展开都重测（从任意路由返回即自愈）。
+     *
+     * 口径：胶囊底缘（wx.getMenuButtonBoundingClientRect，屏幕坐标）+ 与
+     * 胶囊自身顶缘等宽的呼吸间隙，减去视口顶缘的屏幕 Y（≈ screenHeight -
+     * windowHeight，非 tab 宿主页成立）。默认导航页算出负值钳 0，保持
+     * 「原生导航栏即安全区」的原有布局；API 不可得时按沉浸页口径兜底，
+     * 宁多留不重叠。
+     */
+    _measureHeaderTop() {
+      let statusBarHeight = 20;
+      let screenHeight = 0;
+      let windowHeight = 0;
+      try {
+        const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+        statusBarHeight = info.statusBarHeight || 20;
+        screenHeight = info.screenHeight || 0;
+        windowHeight = info.windowHeight || 0;
+      } catch (e) {
+        // 系统信息不可得：statusBar 兜底 20，按沉浸页口径留白
+      }
+
+      let capsuleBottom = statusBarHeight + 32; // 胶囊标准高度 32px 近似
+      let gap = 8;
+      try {
+        const rect = wx.getMenuButtonBoundingClientRect
+          ? wx.getMenuButtonBoundingClientRect()
+          : null;
+        if (rect && rect.top > 0 && rect.height > 0) {
+          capsuleBottom = rect.bottom != null ? rect.bottom : rect.top + rect.height;
+          gap = Math.max(4, rect.top - statusBarHeight); // 胶囊与状态栏的间隙作呼吸位
+        }
+      } catch (e) {
+        // 胶囊不可得：沿用 statusBar + 32 近似
+      }
+
+      const viewportTop = screenHeight > 0 ? Math.max(0, screenHeight - windowHeight) : 0;
+      this.setData({ headerPadTop: Math.max(0, capsuleBottom + gap - viewportTop) });
+    },
+
     /** playerStore 快照 → 面板 data；面板未展开时只挂订阅不渲染 */
     _sync(s) {
       if (!s || !this.data.visible) return;
@@ -317,47 +374,34 @@ Component({
 
     // ==================== 精听模式 / 面板导航 ====================
 
-    /** 封面点击：收起面板并进剧集详情页（对齐 Web onClose + router.push）；
-     *  栈顶已是目标剧集页时不再入栈（页面栈防重复） */
+    /** 封面点击：收起面板并进剧集详情页（对齐 Web onClose + router.push）。
+     *  单例跳转（utils/route）：栈内已有剧集页实例（剧集 ↔ 精听页经面板
+     *  乒乓切换的重复层）→ navigateBack 回退到最深处实例并按需换集刷新，
+     *  杜绝重复压栈触顶 10 层页面栈 */
     onCoverTap() {
       const ep = playerStore.getState().currentEpisode;
       this.triggerEvent('close');
       if (!ep || !ep.episodeid) return;
-      try {
-        const pages = wx.getCurrentPages();
-        const top = pages[pages.length - 1];
-        if (top && top.route === 'pages/episode/episode' &&
-          top.options && String(top.options.id) === String(ep.episodeid)) {
-          return;
-        }
-      } catch (e) {
-        // 页面栈不可用时按常规跳转
-      }
-      wx.navigateTo({ url: '/pages/episode/episode?id=' + ep.episodeid });
+      route.singletonNavigateTo('/pages/episode/episode?id=' + ep.episodeid);
     },
 
     /**
      * 「精听模式」橙色胶囊（对齐 Android onOpenIntensive → IntensiveListeningNav）：
      * 补精听标记 + 收起面板，跳转本集独立精听工作流页（3.B.4，对齐 Android
-     * IntensiveListeningScreen；此前由 episode 页 practice 深链承接）；
-     * 栈顶已是本集精听页时 no-op，防重复入栈。
+     * IntensiveListeningScreen；此前由 episode 页 practice 深链承接）。
+     * 单例跳转（utils/route）：栈内已有精听页实例 → navigateBack 回退
+     * （换集时经 singletonReload 就地重指）；栈顶已是本集精听页 → no-op。
      */
     onOpenIntensive() {
       const ep = playerStore.getState().currentEpisode;
       if (!ep || !ep.episodeid) return;
       audioManager.setIntensiveMode(true); // 对齐 Android：进入精听流时补标记
       this.triggerEvent('close');
-      try {
-        const pages = wx.getCurrentPages();
-        const top = pages[pages.length - 1];
-        if (top && top.route === 'pages/intensive-listening/index' &&
-          top.options && String(top.options.id) === String(ep.episodeid)) {
-          return;
-        }
-      } catch (e) {
-        // 页面栈不可用时按常规跳转
+      const r = route.singletonNavigateTo('/pages/intensive-listening/index?id=' + ep.episodeid);
+      // 栈顶已是精听页：单例 no-op（面板收起即止），toast 点明当前已在精听页
+      if (r.action === 'noop') {
+        wx.showToast({ title: '已在精听页', icon: 'none' });
       }
-      wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + ep.episodeid });
     },
 
     /** header chevron-down：仅收起面板（会话保留） */

@@ -94,8 +94,16 @@ Component({
       audioManager.togglePlay();
     },
 
-    /** 点条身：展开全屏播放详情面板 */
+    /** 点条身：展开全屏播放详情面板（就地 overlay，非路由跳转——
+     *  小程序无 app 级 UI 挂载点，面板随宿主页各持一份，永不入页面栈） */
     onOpenPanel() {
+      try {
+        const routes = (wx.getCurrentPages() || []).map((p) => p.route);
+        console.info('[迷你条] 面板就地展开（overlay，无路由跳转）｜栈深 ' +
+          routes.length + '：[' + routes.join(' › ') + ']');
+      } catch (e) {
+        // 日志失败不影响交互
+      }
       this.setData({ panelVisible: true });
     },
 
