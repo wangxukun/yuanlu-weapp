@@ -1,10 +1,12 @@
 /**
- * scripts/test-ai-deep-dive.js — AI 精讲本集字号规范测试
+ * scripts/test-ai-deep-dive.js — AI 精讲本集静态规范测试
  * （2026-09-23 字号体系对齐闪卡 Material3 口径：1sp=2rpx、正文可读下限
  *  28rpx、labelSmall 下限 24rpx，参考 pages/review/vocab-review）
+ * （2026-09-25 增首点分流：缓存命中不闪"首次生成约需 30-60 秒"提示，
+ *  probe 两段式加载——先探测后分流，isGenerating 驱动文案）
  *
- * 纯静态断言：锁定 dd-* 内容字号不回退（b21cd29 同款教训——小屏真机
- * rpx 整体偏小，字号决策必须显式锁定）。
+ * 纯静态断言：锁定 dd-* 内容字号与加载分流行为不回退（b21cd29 同款教训
+ * ——小屏真机 rpx 整体偏小，字号决策必须显式锁定）。
  *
  * 运行：node scripts/test-ai-deep-dive.js
  */
@@ -14,6 +16,7 @@ const path = require('path');
 
 const wxss = fs.readFileSync(path.join(__dirname, '../components/ai-deep-dive/index.wxss'), 'utf8');
 const wxml = fs.readFileSync(path.join(__dirname, '../components/ai-deep-dive/index.wxml'), 'utf8');
+const js = fs.readFileSync(path.join(__dirname, '../components/ai-deep-dive/index.js'), 'utf8');
 
 let passed = 0;
 let failed = 0;
@@ -46,7 +49,7 @@ assert(fontSize('dd-quiz-question') === 32, '测验题干 32rpx（bodyLarge 16sp
 
 /* 音标与层级次文案：闪卡音标 28rpx 正文可读级 */
 assert(fontSize('dd-vocab-phonetic') === 28, '音标 28rpx（对齐闪卡背面音标 labelMedium 可读级）');
-assert(/\.dd-vocab-phonetic\s*\{[^}]*#9ca3af/.test(wxss), '音标保持浅色（灰 #9ca3af，不与主词抢层级）');
+assert(/\.dd-vocab-phonetic\s*\{[^}]*var\(--text-tertiary\)/.test(wxss), '音标走 tertiary 令牌（浅灰层级，深色提亮可读）');
 
 /* 中文释义与解析正文：bodyMedium 14sp / labelMedium 12sp */
 assert(fontSize('dd-vocab-meaning') === 32, '中文释义 32rpx（对齐闪卡背面释义 bodyMedium 14sp）');
@@ -71,6 +74,16 @@ assert(!sizes.includes(22) && !sizes.includes(20), '无 22/20rpx 小屏不可读
 ['难点词汇预扫', '长难句拆解', '跟读句推荐', '理解测验']
   .forEach((t) => assert(wxml.includes(t), `WXML 含分类标题「${t}」`));
 ['dd-vocab-word', 'dd-vocab-phonetic', 'dd-sentence-text', 'dd-quiz-question'].forEach((cls) => assert(wxml.includes(cls), `WXML 含主干类名 ${cls}`));
+
+/* 首点分流：缓存命中不得闪现"首次生成"提示（probe 两段式加载） */
+console.log('━━━ 首点分流：缓存命中不闪"首次生成约需 30-60 秒"提示 ━━━');
+assert(js.includes('probe=1'), 'JS 先发 probe=1 缓存探测（后端只查库不触发生成）');
+assert(/isGenerating:\s*!cached/.test(js), 'JS 按探测结果置 isGenerating（未命中才提示生成中文案）');
+assert(/showError:\s*false/.test(js), 'JS 探测请求静默失败（showError:false，不弹全局 toast）');
+assert(/probeErr[\s\S]*?PREMIUM_REQUIRED/.test(js), 'JS 探测 403 直接转化窗承接（不再发主请求）');
+assert(/wx:if="\{\{!isGenerating\}\}"/.test(wxml), 'WXML 标签网格按 isGenerating 隐藏（缓存命中加载时保持可见）');
+assert(wxml.includes('首次生成约需 30-60 秒'), 'WXML 保留首次生成提示文案（仅真生成态渲染）');
+assert(!/wx:if="\{\{!isLoading\}\}"[^>]*dd-chip-grid/.test(wxml) && !/dd-chip-grid[^>]*wx:if="\{\{!isLoading\}\}"/.test(wxml), 'WXML 标签网格不再挂 isLoading 条件（防提示闪现回归）');
 
 console.log('----------------------------------------');
 if (failed === 0) {

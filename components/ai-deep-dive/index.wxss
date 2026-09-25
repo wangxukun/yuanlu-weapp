@@ -1,18 +1,54 @@
-/* components/ai-deep-dive — AI 精讲本集（三态卡 + 四类内容） */
+/* components/ai-deep-dive — AI 精讲本集（扁平化：无卡片容器，与“节目介绍”同风格）
+   行1 = 标题 + PRO/锁/箭头；行2 = 星星图标（垂直居中）+ 2x2 标签网格（兼过滤器）；
+   展开内容直接落于页面底色（--ink-50 暖纸），条目间以发丝线分隔，无任何包裹背景。 */
 
-.dd-card {
-  background-color: #ffffff;
-  border-radius: 32rpx;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.03);
-  padding: 32rpx;
+.dd-section {
+  background-color: transparent;
 }
 
-/* ── 头部（三态共用） ── */
+/* ── 行1：标题 + 权限状态 ── */
 .dd-head {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.dd-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--ink-900, #221f18);
+}
+
+.dd-pro-badge {
+  background-color: #feebc8;
+  color: #c05621;
+  font-size: 18rpx;
+  font-weight: 800;
+  padding: 2rpx 12rpx;
+  border-radius: 50rpx;
+  margin-left: 12rpx;
+  border: 1px solid #fbd38d;
+  letter-spacing: 2rpx;
+}
+
+.dd-lock {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.dd-chevron {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+/* ── 行2：星星图标 + 标签网格（图标与两行标签整体垂直居中） ── */
+.dd-sub {
+  margin-top: 24rpx;
+  align-items: center;
 }
 
 .dd-icon-circle {
@@ -45,81 +81,67 @@
   }
 }
 
-.dd-head-main {
+/* 2x2 网格：两个行容器，行内两个标签 flex:1 平分宽度（真机对 calc(50%)/
+   flex gap 支持不稳会退化为单列，故宽度平分交给 flex 而非百分比计算） */
+.dd-chip-grid {
   flex: 1;
   min-width: 0;
 }
 
-.dd-title {
-  font-size: 34rpx;
-  font-weight: 800;
-  color: #1f2937;
-}
-
-.dd-pro-badge {
-  background-color: #feebc8;
-  color: #c05621;
-  font-size: 18rpx;
-  font-weight: 800;
-  padding: 2rpx 12rpx;
-  border-radius: 50rpx;
-  margin-left: 12rpx;
-  border: 1px solid #fbd38d;
-  letter-spacing: 2rpx;
-}
-
-/* 头部描述：labelMedium 12sp（对齐闪卡可读下限之上） */
-.dd-desc {
-  font-size: 26rpx;
-  color: #6b7280;
-  line-height: 1.6;
-  margin-top: 8rpx;
-}
-
-.dd-lock {
-  width: 36rpx;
-  height: 36rpx;
-  flex-shrink: 0;
-  margin-left: 16rpx;
-  margin-top: 4rpx;
-}
-
-.dd-chevron {
-  width: 40rpx;
-  height: 40rpx;
-  flex-shrink: 0;
-  margin-left: 16rpx;
-  margin-top: 2rpx;
-}
-
-/* ── 四分类胶囊（锁定/未展开态） ── */
-.dd-chips {
-  margin-top: 28rpx;
+.dd-chip-row + .dd-chip-row {
+  margin-top: 14rpx;
 }
 
 .dd-chip {
-  background-color: #f8f9fa;
-  border: 1px solid rgba(0, 0, 0, 0.03);
-  padding: 10rpx 22rpx;
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  background-color: var(--card-bg); /* 联系我们 ct-input 同款底 */
+  border: 1px solid var(--border-color);
+  padding: 12rpx 18rpx;
   border-radius: 50rpx;
-  margin-right: 16rpx;
-  margin-bottom: 16rpx;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.dd-chip + .dd-chip {
+  margin-left: 14rpx;
+}
+
+.dd-chip:active {
+  opacity: 0.75;
+}
+
+/* 过滤选中态：远青浅底 + 深青文字 */
+.dd-chip.dd-chip-active {
+  background-color: var(--primary-100); /* 阶梯已随深色翻转 → 暗绿底 */
+  border-color: var(--color-primary);
+}
+
+.dd-chip.dd-chip-active .dd-chip-text {
+  color: var(--color-primary); /* 浅=Primary600 深=Primary400 亮绿字 */
 }
 
 .dd-chip-icon {
   width: 26rpx;
   height: 26rpx;
   margin-right: 10rpx;
+  flex-shrink: 0;
 }
 
 .dd-chip-text {
   font-size: 24rpx;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--text-secondary); /* 浅 gray-500 / 深 #B8B2A6 */
 }
 
-/* ── 展开态内容区（2026-09-23 字号对齐闪卡 Material3 口径：1sp=2rpx，
-      正文可读下限 28rpx，参考 pages/review/vocab-review） ── */
+.dd-loading-text {
+  font-size: 26rpx;
+  color: var(--text-secondary); /* 浅 gray-500 / 深 #B8B2A6 */
+  line-height: 1.6;
+}
+
+/* ── 展开态内容区（字号保持 Material3 口径：1sp=2rpx，正文可读下限 28rpx，
+      对齐 pages/review/vocab-review；条目扁平无卡片背景） ── */
 .dd-body {
   margin-top: 8rpx;
 }
@@ -129,33 +151,41 @@
   display: block;
   font-size: 26rpx;
   font-weight: 800;
-  color: #9ca3af;
+  color: var(--ink-400, #a79e8a);
   letter-spacing: 4rpx;
-  margin: 28rpx 0 20rpx;
+  margin: 28rpx 0 8rpx;
+}
+
+/* 发丝分隔线（条目间的扁平分组手段，替代原卡片背景） */
+.dd-vocab-item,
+.dd-shadow-item,
+.dd-quiz-item {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--card-fade-line);
+}
+
+.dd-vocab-item:last-child,
+.dd-shadow-item:last-child,
+.dd-quiz-item:last-child {
+  border-bottom: none;
 }
 
 /* 难点词汇预扫 */
 .dd-vocab-list {
-  gap: 16rpx;
-}
-
-.dd-vocab-card {
-  background-color: #f6f5f1;
-  border-radius: 20rpx;
-  padding: 24rpx;
+  gap: 0;
 }
 
 /* 主干词汇：titleLarge 20sp（闪卡同体系醒目英文令牌，text-xl 级） */
 .dd-vocab-word {
   font-size: 40rpx;
   font-weight: 800;
-  color: #1f7a5c;
+  color: var(--color-primary);
 }
 
 /* 音标：labelMedium 12sp 正文可读级（对齐闪卡背面音标 28rpx，浅色层级） */
 .dd-vocab-phonetic {
   font-size: 28rpx;
-  color: #9ca3af;
+  color: var(--text-tertiary); /* 浅 gray-400 / 深 #8C8579 */
   font-style: italic;
   margin-left: 16rpx;
 }
@@ -163,7 +193,7 @@
 /* 中文释义：bodyMedium 14sp（对齐闪卡背面释义中文 32rpx） */
 .dd-vocab-meaning {
   font-size: 32rpx;
-  color: #374151;
+  color: var(--text-secondary); /* 浅 gray-700 / 深 #B8B2A6 */
   margin-top: 12rpx;
   line-height: 1.7;
 }
@@ -171,48 +201,44 @@
 /* 解析正文：labelMedium 12sp 正文可读级 + relaxed 行高防密集 */
 .dd-vocab-reason {
   font-size: 28rpx;
-  color: #6b7280;
+  color: var(--text-secondary); /* 浅 gray-500 / 深 #B8B2A6 */
   margin-top: 8rpx;
   line-height: 1.7;
 }
 
-/* 长难句拆解 */
+/* 长难句拆解：扁平引用条（左侧主色竖线，无底色） */
 .dd-sentence-list {
-  gap: 16rpx;
+  gap: 20rpx;
 }
 
-.dd-sentence-card {
-  background-color: #f6f5f1;
-  border-left: 6rpx solid #1f7a5c;
-  border-radius: 20rpx;
-  padding: 24rpx;
+.dd-sentence-item {
+  border-left: 6rpx solid var(--color-primary);
+  border-radius: 0;
+  padding: 8rpx 0 8rpx 20rpx;
 }
 
 /* 长难句英文：bodyLarge 16sp（text-lg 级，加粗提级） */
 .dd-sentence-text {
   font-size: 32rpx;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary); /* 浅 gray-800 / 深 #ECE7DC 提亮可读 */
   line-height: 1.7;
 }
 
 /* 拆解解析：labelMedium 12sp 正文可读级（对齐闪卡例句 28rpx） */
 .dd-sentence-analysis {
   font-size: 28rpx;
-  color: #6b7280;
+  color: var(--text-secondary); /* 浅 gray-500 / 深 #B8B2A6 */
   margin-top: 16rpx;
   line-height: 1.7;
 }
 
 /* 跟读句推荐 */
 .dd-shadow-list {
-  gap: 16rpx;
+  gap: 0;
 }
 
-.dd-shadow-card {
-  background-color: #f6f5f1;
-  border-radius: 20rpx;
-  padding: 24rpx;
+.dd-shadow-item {
   align-items: flex-start;
 }
 
@@ -221,41 +247,35 @@
   height: 32rpx;
   flex-shrink: 0;
   margin-right: 16rpx;
-  margin-top: 4rpx;
+  margin-top: 6rpx;
 }
 
 /* 跟读句英文：bodyLarge 16sp（与长难句同主干级） */
 .dd-shadow-text {
   font-size: 32rpx;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary); /* 浅 gray-800 / 深 #ECE7DC 提亮可读 */
   line-height: 1.7;
 }
 
 /* 推荐理由：labelSmall 11sp（闪卡中文翻译同级次文案） */
 .dd-shadow-reason {
   font-size: 24rpx;
-  color: #9ca3af;
+  color: var(--text-tertiary); /* 浅 gray-400 / 深 #8C8579 */
   margin-top: 8rpx;
   line-height: 1.6;
 }
 
 /* 理解测验 */
 .dd-quiz-list {
-  gap: 20rpx;
-}
-
-.dd-quiz-card {
-  background-color: #f6f5f1;
-  border-radius: 20rpx;
-  padding: 24rpx;
+  gap: 0;
 }
 
 /* 测验题干：bodyLarge 16sp（主干阅读内容） */
 .dd-quiz-question {
   font-size: 32rpx;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary); /* 浅 gray-800 / 深 #ECE7DC 提亮可读 */
   line-height: 1.6;
   margin-bottom: 20rpx;
 }
@@ -264,9 +284,10 @@
   gap: 14rpx;
 }
 
+/* 选项为可点控件（非内容卡片）：仅描边，透明底融入页面 */
 .dd-opt {
-  background-color: #ffffff;
-  border: 1px solid #e5e7eb;
+  background-color: transparent;
+  border: 1px solid var(--border-color); /* 浅 #E3DDCF / 深 #38332A：深色下降亮度不刺眼 */
   border-radius: 16rpx;
   padding: 18rpx 20rpx;
   align-items: flex-start;
@@ -286,7 +307,7 @@
   width: 36rpx;
   font-size: 24rpx;
   font-weight: 800;
-  color: #9ca3af;
+  color: var(--text-tertiary); /* 浅 gray-400 / 深 #8C8579 */
   text-align: center;
   flex-shrink: 0;
   margin-right: 8rpx;
@@ -303,22 +324,33 @@
 .dd-opt-text {
   flex: 1;
   font-size: 28rpx;
-  color: #374151;
+  color: var(--text-secondary); /* 浅 gray-700 / 深 #B8B2A6 */
   line-height: 1.6;
 }
 
 .dd-quiz-explain {
-  background-color: #ffffff;
-  border-radius: 12rpx;
-  padding: 20rpx;
+  background-color: transparent;
+  border-radius: 0;
+  padding: 20rpx 0 0;
   margin-top: 16rpx;
+  border-top: 1rpx dashed var(--border-color);
 }
 
 /* 解析正文：labelMedium 12sp 正文可读级 + relaxed 行高 */
 .dd-quiz-explain-text {
   font-size: 28rpx;
-  color: #6b7280;
+  color: var(--text-secondary); /* 浅 gray-500 / 深 #B8B2A6 */
   line-height: 1.7;
+}
+
+/* 过滤空态 */
+.dd-empty {
+  padding: 56rpx 0 24rpx;
+}
+
+.dd-empty-text {
+  font-size: 26rpx;
+  color: var(--text-tertiary); /* 浅 gray-400 / 深 #8C8579 */
 }
 
 /* 底部收起控制栏 */
@@ -326,7 +358,7 @@
   justify-content: flex-end;
   margin-top: 32rpx;
   padding-top: 24rpx;
-  border-top: 1px solid #f0ede6;
+  border-top: 1px solid var(--card-fade-line);
 }
 
 .dd-collapse-btn {
@@ -336,7 +368,7 @@
 
 .dd-collapse-text {
   font-size: 24rpx;
-  color: #6b7280;
+  color: var(--text-secondary); /* 浅 gray-500 / 深 #B8B2A6 */
   margin-right: 6rpx;
 }
 

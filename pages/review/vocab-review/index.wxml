@@ -1,5 +1,5 @@
 <!-- pages/review/vocab-review — 生词复习·闪卡模式（复刻 Android VocabularyReviewScreen.kt + 三张截图） -->
-<view class="vr-page col">
+<view class="vr-page col {{themeClass}}">
 
   <!-- ══ 顶部：极细渐变进度条 + 大脑图标/计数/闪卡标签/关闭 ══ -->
   <view class="vr-header">
@@ -7,12 +7,12 @@
       <view class="vr-progress-bar" style="width: {{showSummary ? 100 : progress}}%"></view>
     </view>
     <view class="vr-header-row row">
-      <image class="vr-header-brain" src="/assets/icons/psychology-primary.svg" />
+      <image class="vr-header-brain" src="{{dark ? '/assets/icons/psychology-dark.svg' : '/assets/icons/psychology-primary.svg'}}" />
       <text class="vr-header-count">{{showSummary ? '复习总结' : (index + 1) + ' / ' + queue.length}}</text>
       <text wx:if="{{!showSummary}}" class="vr-header-tag">闪卡</text>
       <view class="vr-header-spacer"></view>
       <view class="vr-close center tap-dim" bindtap="onClose">
-        <image class="vr-close-ic" src="/assets/icons/close.svg" />
+        <image class="vr-close-ic" src="{{dark ? '/assets/icons/close-light.svg' : '/assets/icons/close.svg'}}" />
       </view>
     </view>
   </view>
@@ -96,7 +96,7 @@
         <view class="vr-face vr-front col">
           <text class="vr-front-word">{{current.word}}</text>
           <view class="vr-front-play center tap-scale" catchtap="onPlayWord">
-            <image class="vr-front-play-ic" src="/assets/icons/volume-up-primary.svg" />
+            <image class="vr-front-play-ic" src="{{dark ? '/assets/icons/volume-up-dark.svg' : '/assets/icons/volume-up-primary.svg'}}" />
           </view>
           <text class="vr-front-hint">回忆词义，点击卡片查看答案</text>
           <text wx:if="{{current.episodeTitle}}" class="vr-front-from ellipsis">来自《{{current.episodeTitle}}》</text>
@@ -114,7 +114,7 @@
                   <text class="vr-phon-tag">US</text>
                   <text class="vr-phon-text">{{current.dictData.phonetics.us || '—'}}</text>
                   <view class="vr-phon-play center tap-dim" catchtap="onPlayWord">
-                    <image class="vr-phon-play-ic" src="/assets/icons/volume-up-primary.svg" />
+                    <image class="vr-phon-play-ic" src="{{dark ? '/assets/icons/volume-up-dark.svg' : '/assets/icons/volume-up-primary.svg'}}" />
                   </view>
                 </view>
                 <view class="row vr-phon">

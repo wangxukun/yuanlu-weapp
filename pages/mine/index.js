@@ -1,9 +1,11 @@
 const authStore = require('../../store/authStore');
+const theme = require('../../utils/theme');
 
 Page({
   data: {
     isLoggedIn: false,
     userInfo: null,
+    themeClass: '',
     // 数据轨迹宫格（对齐 Web GRID_ENTRIES）
     gridEntries: [
       { name: '学习路径', url: '/pages/library/paths/index', icon: '/assets/icons/route.png' },
@@ -22,6 +24,9 @@ Page({
 
   onShow() {
     this.syncStoreData();
+    // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
+    this.setData({ themeClass: theme.rootClass() });
+    theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
   },
 
   onUnload() {
@@ -53,9 +58,25 @@ Page({
   },
 
   /** 外观设置 */
+  /**
+   * 外观设置（对齐 Web next-themes 三模式）：ActionSheet 三选一，
+   * 「（当前）」标记现行模式；选择后持久化并即时生效（本页 setData 根类 +
+   * chrome 同步，其余页面下次 onShow 刷新）。
+   */
   onAppearance() {
-    // 小程序暂不实现原生地图级别的多主题切换，这里可以留作跳转
-    wx.showToast({ title: '小程序暂不支持主题切换', icon: 'none' });
+    const current = theme.getMode();
+    const modes = theme.MODES;
+    wx.showActionSheet({
+      itemList: modes.map((m) => theme.MODE_LABELS[m] + (m === current ? '（当前）' : '')),
+      success: (res) => {
+        const next = modes[res.tapIndex];
+        if (!next || next === current) return;
+        theme.setMode(next);
+        this.setData({ themeClass: theme.rootClass() });
+        wx.showToast({ title: '已切换为' + theme.MODE_LABELS[next], icon: 'none' });
+      },
+      fail: () => { /* 取消选择 */ },
+    });
   },
 
   /** 退出登录 */

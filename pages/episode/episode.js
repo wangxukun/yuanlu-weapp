@@ -1,3 +1,4 @@
+const theme = require('../../utils/theme');
 const { get, post, delete: requestDelete } = require('../../utils/request');
 const authStore = require('../../store/authStore');
 const audioManager = require('../../utils/audioManager');
@@ -5,6 +6,8 @@ const audioBus = require('../../utils/audio-bus');
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     episodeid: '',
     episode: null,
     relatedEpisodes: [],
@@ -49,6 +52,13 @@ Page({
 
     // 词典/翻译配额超限时的会员转化弹窗（对齐 Web openPremiumModal("dictionary_quota")）
     showPremiumModal: false,
+  },
+
+  onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
   },
 
   onLoad(query) {
@@ -280,10 +290,8 @@ Page({
     if (!this.data.isLoggedIn) {
       return wx.navigateTo({ url: '/pages/auth/index' });
     }
-    if (this.data.episode && this.data.episode.isExclusive) {
-      // 检查权限等逻辑
-    }
-    wx.showToast({ title: '语音评测即将上线', icon: 'none' });
+    // 语音评测页（复刻 Android SpeechEvalScreen：单句录音 → 有道 ISE 评测 → 逐词/音素诊断）
+    wx.navigateTo({ url: '/pages/speech-eval/index?id=' + this.data.episodeid });
   },
 
   onDownloadAudio() {

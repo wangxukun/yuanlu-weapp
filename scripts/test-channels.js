@@ -196,7 +196,7 @@ const PODCASTS = [
     assert(wxss.includes('opacity: 0.7'), '档节目 onPrimaryContainer 70% 透明度');
     assert(wxss.includes('justify-content: center'), '卡片内容垂直居中（verticalArrangement=Center）');
     assert(wxss.includes('text-overflow: ellipsis'), '频道名单行截断（maxLines=1 + Ellipsis）');
-    assert(wxss.includes('background-color: #ffffff') && wxss.includes('var(--r-full)'), '胶囊白底 rounded-full');
+    assert(wxss.includes('background-color: var(--card-bg)') && wxss.includes('var(--r-full)'), '胶囊底色随主题（card-bg）rounded-full');
     assert(wxss.includes('font-size: 44rpx'), '页标题 titleLarge=22sp');
 
     // 图标：经典 Material Icons filled Computer（Icons.Filled.Computer，viewBox 0 0 24 24）+ 品牌色烘焙

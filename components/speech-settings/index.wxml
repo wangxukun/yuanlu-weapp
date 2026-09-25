@@ -1,0 +1,194 @@
+<!-- components/speech-settings — 语音评测设置全屏弹窗（复刻 Android SpeechSettingsSheet + 设置全屏弹窗.jpg）：
+     标题行（primary/12 圆底齿轮 + 标题 + ✕）→ 界面与显示 / 评测与弱项 / 声音与跟读 三组
+     → 底部即时生效说明。控件：分段选择（选中 primary 底白字）、- 值 + 步进器、M3 开关。 -->
+<view wx:if="{{rendered}}" class="ss-root {{dark ? 'ss-root--dark' : ''}}">
+
+  <!-- 遮罩 -->
+  <view class="ss-scrim {{anim ? 'ss-scrim--on' : ''}}" bindtap="requestClose"></view>
+
+  <!-- 面板 -->
+  <view class="ss-sheet {{anim ? 'ss-sheet--on' : ''}}">
+    <view class="ss-handle"></view>
+    <scroll-view class="ss-scroll" scroll-y enhanced show-scrollbar="{{false}}" catchtouchmove="noop">
+      <view class="ss-inner">
+
+        <!-- ── 标题行 ── -->
+        <view class="ss-title-row row">
+          <view class="ss-title-icon center">
+            <image class="ss-title-icon-ic" src="/assets/icons/settings-primary.svg" />
+          </view>
+          <text class="ss-title flex-1">语音评测设置</text>
+          <view class="ss-close center tap-dim" bindtap="requestClose">
+            <image class="ss-close-ic" src="{{dark ? '/assets/icons/close-light.svg' : '/assets/icons/close.svg'}}" />
+          </view>
+        </view>
+
+        <!-- ========== 组 1：界面与显示 ========== -->
+        <text class="ss-group-title">界面与显示</text>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">深浅色切换</text>
+            <text class="ss-sublabel">跟随应用主题即时切换</text>
+          </view>
+          <view class="ss-seg row">
+            <view class="ss-seg-item {{themeMode === 'system' ? 'ss-seg-item--on' : ''}}" data-key="__theme" data-value="system" bindtap="onSegmentTap"><text class="ss-seg-text {{themeMode === 'system' ? 'ss-seg-text--on' : ''}}">跟随</text></view>
+            <view class="ss-seg-item {{themeMode === 'light' ? 'ss-seg-item--on' : ''}}" data-key="__theme" data-value="light" bindtap="onSegmentTap"><text class="ss-seg-text {{themeMode === 'light' ? 'ss-seg-text--on' : ''}}">浅色</text></view>
+            <view class="ss-seg-item {{themeMode === 'dark' ? 'ss-seg-item--on' : ''}}" data-key="__theme" data-value="dark" bindtap="onSegmentTap"><text class="ss-seg-text {{themeMode === 'dark' ? 'ss-seg-text--on' : ''}}">深色</text></view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">字幕字号</text>
+            <text class="ss-sublabel">英文原句显示大小</text>
+          </view>
+          <view class="ss-stepper row">
+            <view class="ss-step-btn center tap-dim" data-key="fontSizeLevel" data-delta="-1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+            </view>
+            <view class="ss-step-value center"><text class="ss-step-value-text">{{fontLabel}}</text></view>
+            <view class="ss-step-btn center tap-dim" data-key="fontSizeLevel" data-delta="1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+            </view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">显示中文翻译</text>
+          </view>
+          <view class="ss-sw {{settings.showTranslation ? 'ss-sw--on' : ''}}" data-key="showTranslation" bindtap="onSwitchTap">
+            <view class="ss-sw-thumb"></view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">显示音标 IPA</text>
+            <text class="ss-sublabel">结果区的音素标注</text>
+          </view>
+          <view class="ss-sw {{settings.showIpa ? 'ss-sw--on' : ''}}" data-key="showIpa" bindtap="onSwitchTap">
+            <view class="ss-sw-thumb"></view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">文本模式</text>
+          </view>
+          <view class="ss-seg row">
+            <view class="ss-seg-item {{settings.textMode === 'normal' ? 'ss-seg-item--on' : ''}}" data-key="textMode" data-value="normal" bindtap="onSegmentTap"><text class="ss-seg-text {{settings.textMode === 'normal' ? 'ss-seg-text--on' : ''}}">原文</text></view>
+            <view class="ss-seg-item {{settings.textMode === 'ipa' ? 'ss-seg-item--on' : ''}}" data-key="textMode" data-value="ipa" bindtap="onSegmentTap"><text class="ss-seg-text {{settings.textMode === 'ipa' ? 'ss-seg-text--on' : ''}}">音标</text></view>
+            <view class="ss-seg-item {{settings.textMode === 'blind' ? 'ss-seg-item--on' : ''}}" data-key="textMode" data-value="blind" bindtap="onSegmentTap"><text class="ss-seg-text {{settings.textMode === 'blind' ? 'ss-seg-text--on' : ''}}">盲读</text></view>
+          </view>
+        </view>
+
+        <view class="ss-divider"></view>
+
+        <!-- ========== 组 2：评测与弱项 ========== -->
+        <text class="ss-group-title">评测与弱项</text>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">过关分数线</text>
+            <text class="ss-sublabel">生效线 {{effThreshold}} 分（含严格度偏移）</text>
+          </view>
+          <view class="ss-stepper row">
+            <view class="ss-step-btn center tap-dim" data-key="passThreshold" data-delta="-1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+            </view>
+            <view class="ss-step-value center"><text class="ss-step-value-text">{{settings.passThreshold}}</text></view>
+            <view class="ss-step-btn center tap-dim" data-key="passThreshold" data-delta="1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+            </view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">评测严格度</text>
+          </view>
+          <view class="ss-seg row">
+            <view class="ss-seg-item {{settings.strictness === 'lenient' ? 'ss-seg-item--on' : ''}}" data-key="strictness" data-value="lenient" bindtap="onSegmentTap"><text class="ss-seg-text {{settings.strictness === 'lenient' ? 'ss-seg-text--on' : ''}}">宽松</text></view>
+            <view class="ss-seg-item {{settings.strictness === 'standard' ? 'ss-seg-item--on' : ''}}" data-key="strictness" data-value="standard" bindtap="onSegmentTap"><text class="ss-seg-text {{settings.strictness === 'standard' ? 'ss-seg-text--on' : ''}}">标准</text></view>
+            <view class="ss-seg-item {{settings.strictness === 'strict' ? 'ss-seg-item--on' : ''}}" data-key="strictness" data-value="strict" bindtap="onSegmentTap"><text class="ss-seg-text {{settings.strictness === 'strict' ? 'ss-seg-text--on' : ''}}">严格</text></view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">弱项本分数线</text>
+            <text class="ss-sublabel">低于该线的句子进入弱项本</text>
+          </view>
+          <view class="ss-stepper row">
+            <view class="ss-step-btn center tap-dim" data-key="weakThreshold" data-delta="-1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+            </view>
+            <view class="ss-step-value center"><text class="ss-step-value-text">{{settings.weakThreshold}}</text></view>
+            <view class="ss-step-btn center tap-dim" data-key="weakThreshold" data-delta="1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+            </view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">句子最小词数</text>
+          </view>
+          <view class="ss-stepper row">
+            <view class="ss-step-btn center tap-dim" data-key="minWords" data-delta="-1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+            </view>
+            <view class="ss-step-value center"><text class="ss-step-value-text">{{minLabel}}</text></view>
+            <view class="ss-step-btn center tap-dim" data-key="minWords" data-delta="1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+            </view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">句子最大词数</text>
+          </view>
+          <view class="ss-stepper row">
+            <view class="ss-step-btn center tap-dim" data-key="maxWords" data-delta="-1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+            </view>
+            <view class="ss-step-value center"><text class="ss-step-value-text">{{maxLabel}}</text></view>
+            <view class="ss-step-btn center tap-dim" data-key="maxWords" data-delta="1" bindtap="onStep">
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+            </view>
+          </view>
+        </view>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">只练未掌握</text>
+            <text class="ss-sublabel">过滤掉最新得分已达生效线的句子</text>
+          </view>
+          <view class="ss-sw {{settings.onlyUnmastered ? 'ss-sw--on' : ''}}" data-key="onlyUnmastered" bindtap="onSwitchTap">
+            <view class="ss-sw-thumb"></view>
+          </view>
+        </view>
+
+        <view class="ss-divider"></view>
+
+        <!-- ========== 组 3：声音与跟读 ========== -->
+        <text class="ss-group-title">声音与跟读</text>
+
+        <view class="ss-row row">
+          <view class="col flex-1">
+            <text class="ss-label">自动跳下一句</text>
+            <text class="ss-sublabel">得分达到生效线后 1.5 秒自动切换</text>
+          </view>
+          <view class="ss-sw {{settings.autoAdvance ? 'ss-sw--on' : ''}}" data-key="autoAdvance" bindtap="onSwitchTap">
+            <view class="ss-sw-thumb"></view>
+          </view>
+        </view>
+
+        <text class="ss-note">设置即时保存，影响本集句子过滤与过关判定</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

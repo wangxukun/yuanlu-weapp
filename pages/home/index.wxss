@@ -91,7 +91,7 @@
   width: 48rpx;
   height: 48rpx;
   border-radius: 50%;
-  background-color: #ffffff;
+  background-color: var(--card-bg);
   padding: 4rpx;
 }
 
@@ -226,7 +226,7 @@
 }
 
 .node-circle.unstudied {
-  background-color: #ffffff;
+  background-color: var(--card-bg);
   border: 3.5rpx solid #CBD5E1;
 }
 
@@ -334,8 +334,8 @@
   position: absolute;
   top: 8rpx;
   right: 8rpx;
-  background-color: #ffffff;
-  color: #111827;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
   font-size: 20rpx;
   font-weight: bold;
   padding: 2rpx 8rpx;

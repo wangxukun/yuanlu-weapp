@@ -527,20 +527,8 @@ const WXML_REVIEW = fs.readFileSync(
     nb.onPlayPhon({ currentTarget: { dataset: { url: 'https://dict/uk-resilient.mp3', word: 'resilient' } } });
     assert(ttsCalls[1] && ttsCalls[1].url === 'https://dict/uk-resilient.mp3', '音标胶囊发音：指定音源');
 
-    nb.onPlayContext({ currentTarget: { dataset: { text: RICH.contextSentence } } });
-    assert(speakCalls.length === 1 && speakCalls[0] === RICH.contextSentence, 'AI 朗读例句：tts.speak');
-
-    nb.onPlayOriginal({
-      currentTarget: {
-        dataset: { episodeid: 'ep1', word: 'resilient', timestamp: 125, context: RICH.contextSentence },
-      },
-    });
-    assert(clipPlayCalls.length === 1 && clipPlayCalls[0].key === 'ep1:resilient'
-      && clipPlayCalls[0].contextSentence === RICH.contextSentence, '原声播放：audio-clip 参数（key/定位句）');
-
-    clipboardCalls.length = 0;
-    nb.onCopyDict({ currentTarget: { dataset: { url: RICH.webUrl } } });
-    assert(clipboardCalls[0] === RICH.webUrl && toastCalls.includes('词典链接已复制'), '查看网络词典：复制链接 + toast');
+    // 例句朗读 / 剧集原声片段 / 网络词典链接已随卡片重构（对齐 Android
+    // ExpandedWordDetail 最新设计）移除：展开面板仅保留音标胶囊发音
 
     tts.playUrl = origTtsPlayUrl;
     tts.speak = origSpeak;
@@ -573,7 +561,9 @@ const WXML_REVIEW = fs.readFileSync(
     const delTarget = MASTERED_ITEM.vocabularyid;
     await nb.onDeleteTap({ currentTarget: { dataset: { id: delTarget } } });
     await tick();
-    assert(modalCalls.some((m) => m.title === '确认彻底删除'), '删除前两段式确认弹窗');
+    assert(modalCalls.some((m) => m.title === '确定要彻底删除该生词吗？'
+      && m.content.includes('「budget」将被永久移出生词本') && m.confirmColor === '#D2503F'),
+      '删除前二次确认弹窗（Android 文案 + error 色）');
     assert(!nb._list.some((v) => v.vocabularyid === delTarget), '确认后本地移除');
     assert(nb.data.stats.total === 3, '删除后 stats.total 联动（配额卡容量随删除实时联动）');
     assert(toastCalls.includes('已从生词本中彻底删除'), '删除成功 toast');
@@ -717,6 +707,29 @@ const WXML_REVIEW = fs.readFileSync(
     assert(WXML_NOTEBOOK.includes('空空如也，暂无已掌握的单词'), '筛选空态文案（两态区分）');
     assert(WXML_NOTEBOOK.includes('原声出处'), '原声出处卡');
     assert(WXML_NOTEBOOK.includes('标记为已掌握') && WXML_NOTEBOOK.includes('彻底删除'), '卡片操作按钮');
+    // 卡片重构（对齐 Android 最新设计）红线：删除钮常显（不再限定 MASTERED）
+    assert(!WXML_NOTEBOOK.includes('wx:if="{{item.mastered}}" class="vn-action vn-action--del'),
+      '彻底删除按钮常显（非 MASTERED 限定）');
+    // 四个已移除模块不得回流（按结构类名/绑定扫描，注释提及不算回流）
+    ['vn-example', 'vn-infl', 'vn-phrase', 'vn-ext', 'onCopyDict', 'dictExamples', 'inflChips'].forEach((gone) => {
+      assert(!WXML_NOTEBOOK.includes(gone), '已移除模块不回流：' + gone);
+    });
+    assert(WXML_NOTEBOOK.includes('vn-phon-preview'), '紧凑面音标胶囊预览');
+    // 横幅 + 分段 Tab 重构红线（对齐 Android ReviewBanner / VocabularyControls）
+    assert(WXML_NOTEBOOK.includes('vn-tabs') && WXML_NOTEBOOK.includes('vn-tab--learn-on')
+      && WXML_NOTEBOOK.includes('vn-tab--done-on'), '分段 Tab 结构（Segmented Control）');
+    assert(!WXML_NOTEBOOK.includes('vn-pill'), '旧 pills 结构不回流');
+    const nbCss2 = fs.readFileSync('components/review/vocab-notebook/index.wxss', 'utf8');
+    assert(/--vnb-bg: #1f7a5c/.test(nbCss2) && /--vnb-bg: rgba\(15, 54, 40, 0\.45\)/.test(nbCss2),
+      '横幅双色（Primary600 → Primary900/45 深墨绿）');
+    assert(/background: var\(--vnb-bg\)/.test(nbCss2), '横幅底走令牌');
+    assert(/--vnt-container: #f1ede4/.test(nbCss2) && /--vnt-container: #26221c/.test(nbCss2),
+      '分段容器双色（Ink100 → Ink800）');
+    assert(/--vnt-learn-bg: #edf7f2/.test(nbCss2) && /--vnt-learn-bg: #0f3628/.test(nbCss2),
+      '学习中激活底双色（Primary50 → Primary900）');
+    assert(/rgba\(46, 143, 111, 0\.12\)/.test(nbCss2), '已掌握激活底 Primary500/12%');
+    assert(WXML_NOTEBOOK.includes('vn-quote'), '紧凑面原声引文');
+    assert(WXML_NOTEBOOK.includes('来自《'), '原声出处卡来源行');
     assert(WXML_NOTEBOOK.includes('catchtap="noop"'), '展开面板 catchtap 阻断冒泡');
     assert(WXML_NOTEBOOK.includes('vn-bottom-space'), '底部让位（迷你播放条）');
 
@@ -727,7 +740,7 @@ const WXML_REVIEW = fs.readFileSync(
     assert(WXML_REVIEW.indexOf('vr-result-list') < WXML_REVIEW.indexOf('vr-footer--summary'), '总结页结构：列表在滚动区、按钮在固定 footer（分离）');
     const reviewCss2 = fs.readFileSync(
       path.join(__dirname, '../pages/review/vocab-review/index.wxss'), 'utf8');
-    assert(/\.vr-sum-label \{[^}]*color: rgba\(27, 24, 18, 0\.55\)/.test(reviewCss2), '四宫格底部小字统一灰色（截图口径）');
+    assert(/\.vr-sum-label \{[^}]*color: var\(--vr-mid\)/.test(reviewCss2), '四宫格底部小字统一灰色（令牌口径）');
     assert(/\.vr-sum-cell \{[^}]*align-items: center/.test(reviewCss2), '四宫格数字/小字水平居中（.col 默认 stretch 左对齐修复）');
     // 字号复刻断言（Android Material3 实际值映射，2026-09-23 用户反馈过小后上浮）
     assert(/\.vr-front-word \{[^}]*font-size: 90rpx/.test(reviewCss2), '正面主词 90rpx（displaySmall 36sp）');
@@ -736,8 +749,15 @@ const WXML_REVIEW = fs.readFileSync(
     assert(/\.vr-ctx-sentence \{[^}]*font-size: 28rpx/.test(reviewCss2), '原声例句 28rpx（bodySmall 12sp）');
     assert(!/font-size: 20rpx/.test(reviewCss2), '复习页无 20rpx 残留（labelSmall 11sp 统一 24rpx）');
     assert(/\.vr-btn \{[^}]*border-radius: var\(--r-full\)/.test(reviewCss2), '底部按钮胶囊状圆角（r-full）');
-    assert(/\.vr-btn--ghost \{[^}]*background: var\(--ink-100\)/.test(reviewCss2), '完成按钮浅灰米色底深色字');
-    assert(/\.vr-footer--summary \{[^}]*background: var\(--page-bg\)/.test(reviewCss2), '总结态 footer 背景与页面同色（固定悬浮观感）');
+    assert(/\.vr-btn--ghost \{[^}]*background: var\(--vr-surface\)/.test(reviewCss2), '完成按钮浅灰底（令牌口径）');
+    // 深色适配把门：本地 --vr-* 令牌三态齐备（媒体查询 + 手动根类）
+    assert(/@media \(prefers-color-scheme: dark\) \{[\s\S]{0,900}--vr-strong: rgba\(232, 227, 217, 0\.8\)/.test(reviewCss2), '闪卡页跟随系统深色令牌块（onSurface 80% 精确 alpha）');
+    assert(/\.theme-dark \{[\s\S]{0,400}--vr-ink: #e8e3d9/.test(reviewCss2), '闪卡页手动深色根类令牌');
+    assert(/\.vr-srs-btn \{[^}]*border: 2rpx solid var\(--vr-srs-line\)/.test(reviewCss2), 'FSRS 四钮描边令牌化（深色白 8%）');
+    assert(/--vr-footer: rgba\(250, 248, 243, 0\.6\)/.test(reviewCss2) && /--vr-footer: rgba\(38, 34, 28, 0\.35\)/.test(reviewCss2), '底部操作区双色（Ink50/60 → Ink800/35）');
+    assert(/--vr-cta: #2e8f6f/.test(reviewCss2), '显示答案/再来一轮深色 Primary500');
+    assert(/background: var\(--card-bg\); \/\* 整屏 surface/.test(reviewCss2), '整屏 surface = card-bg（白→#1E1B16）');
+    assert(/\.vr-footer--summary \{[^}]*background: var\(--card-bg\)/.test(reviewCss2), '总结态 footer 与屏同 surface');
     assert(WXML_REVIEW.includes('{{item.qualityCls}}'), '逐词列表状态色类动态绑定（与四宫格主题色对应）');
     assert(WXML_REVIEW.includes('vr-flip'), '3D 翻卡结构');
     assert(WXML_REVIEW.includes('回忆词义，点击卡片查看答案'), '闪卡正面提示文案（截图复刻）');

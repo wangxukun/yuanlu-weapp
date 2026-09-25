@@ -1,7 +1,7 @@
 <!-- pages/channel/all/index — 全部频道页
   复刻 ChannelListScreen.kt：titleLarge 大标题 + LazyVerticalGrid(Fixed(2), 12dp 间距) +
   ChannelCard（1:1 方卡、primaryContainer 底、内容垂直居中、白底胶囊按钮）。 -->
-<view class="channel-all-container">
+<view class="channel-all-container {{themeClass}}">
 
   <!-- 页头：左对齐大号加粗标题（titleLarge bold，padding h16dp/v8dp） -->
   <view class="page-header">

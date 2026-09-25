@@ -1,0 +1,782 @@
+/**
+ * pages/speech-eval/index.wxss — 语音评测页样式
+ *
+ * 逐项映射 Android feature/voice 的 Compose 规格（对齐七张截图）：
+ * - 顶部导航：KeyboardArrowDown 收起 / titleMedium 标题 / Settings 齿轮（胶囊避让）
+ * - 单句评测卡：surface 圆角 20dp + outline/40 描边 + padding 16dp
+ * - 顶部操作栏：44dp 圆钮（primary/8 底 + primary/35 描边，active 实心白图标）
+ * - 字幕区：17/20/24sp 三档粗体；词级扫光 accent-100 底/accent-700 已读；句末「文/A」
+ * - 录音区：88dp 大圆钮（primary/error）+ 104dp error/18 呼吸光圈 + 音量条（error/75）
+ * - 结果区：104dp 环形得分（conic-gradient，85/60 双分界变色）+ 三维条
+ *   （primary/tertiary 黛蓝/secondary 曙光橙）+ 逐词胶囊（Web WordScoreBadge 复刻：
+ *   Flex Wrap 流式 + 档位底色/描边 + 右侧内联小号得分 + 低分波浪下划线）+ 音素诊断
+ *   （美音/英音/原声/我 四胶囊 + 红/绿音素分）+ 通栏再试一次
+ * - 底部导航：上一句/下一句 TextButton + 4dp 圆帽进度条 + 已练 N 句
+ * - 深浅色：--se-* 局部变量在 .se-page--dark 下按 Android theme/Color.kt 深色值覆写
+ */
+
+.se-page {
+  /* ===== 局部主题变量（浅色，Android Color.kt Light*） ===== */
+  --se-bg: #faf8f3;
+  --se-surface: #ffffff;
+  --se-on-surface: #1c1917;
+  --se-on-surface-var: #57534e;
+  --se-surface-var: #f2efe8;
+  --se-outline: #e5e0d5;
+  --se-primary: #1f7a5c;
+  --se-on-primary: #ffffff;
+  --se-secondary: #d98a17;
+  --se-tertiary: #4a7fa5;
+  --se-error: #d2503f;
+  --se-sweep-bg: #fae5c6;
+  --se-read: #96580d;
+  --se-primary-08: rgba(31, 122, 92, 0.08);
+  --se-primary-10: rgba(31, 122, 92, 0.1);
+  --se-primary-35: rgba(31, 122, 92, 0.35);
+  --se-primary-40: rgba(31, 122, 92, 0.4);
+  --se-secondary-10: rgba(217, 138, 23, 0.1);
+  --se-secondary-30: rgba(217, 138, 23, 0.3);
+  --se-secondary-50: rgba(217, 138, 23, 0.5);
+  --se-error-08: rgba(210, 80, 63, 0.08);
+  --se-error-10: rgba(210, 80, 63, 0.1);
+  --se-error-18: rgba(210, 80, 63, 0.18);
+  --se-error-40: rgba(210, 80, 63, 0.4);
+  --se-error-50: rgba(210, 80, 63, 0.5);
+  --se-error-75: rgba(210, 80, 63, 0.75);
+  --se-outline-40: rgba(229, 224, 213, 0.4);
+  --se-outline-50: rgba(229, 224, 213, 0.5);
+  --se-phoneme-bg: #f9f8f4;
+  --se-pill-bg: #f8f6f1;
+
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--se-bg);
+}
+
+/* ===== 深色（Android Color.kt Dark*，页内即时生效） ===== */
+.se-page--dark {
+  --se-bg: #151310;
+  --se-surface: #1e1b16;
+  --se-on-surface: #e8e3d9;
+  --se-on-surface-var: #a8a29e;
+  --se-surface-var: #26221c;
+  --se-outline: #3a342c;
+  --se-primary: #4da989;
+  --se-on-primary: #0a241b;
+  --se-secondary: #d98a17;
+  --se-tertiary: #7fa8c8;
+  --se-error: #d2503f;
+  --se-sweep-bg: rgba(78, 46, 11, 0.4);
+  --se-read: #ecb35e;
+  --se-primary-08: rgba(77, 169, 137, 0.1);
+  --se-primary-10: rgba(77, 169, 137, 0.12);
+  --se-primary-35: rgba(77, 169, 137, 0.35);
+  --se-primary-40: rgba(77, 169, 137, 0.4);
+  --se-secondary-10: rgba(217, 138, 23, 0.12);
+  --se-secondary-30: rgba(217, 138, 23, 0.3);
+  --se-secondary-50: rgba(217, 138, 23, 0.5);
+  --se-error-08: rgba(210, 80, 63, 0.1);
+  --se-error-10: rgba(210, 80, 63, 0.12);
+  --se-error-18: rgba(210, 80, 63, 0.18);
+  --se-error-40: rgba(210, 80, 63, 0.4);
+  --se-error-50: rgba(210, 80, 63, 0.5);
+  --se-error-75: rgba(210, 80, 63, 0.75);
+  --se-outline-40: rgba(58, 52, 44, 0.4);
+  --se-outline-50: rgba(58, 52, 44, 0.5);
+  --se-phoneme-bg: #201d18;
+  --se-pill-bg: #232019;
+}
+
+/* ============ 顶部导航 ============ */
+.se-header {
+  flex-shrink: 0;
+}
+.se-header-row {
+  height: 88rpx;
+  padding: 0 16rpx;
+}
+.se-header-title {
+  font-size: 32rpx; /* titleMedium 16sp */
+  font-weight: 700;
+  color: var(--se-on-surface);
+  text-align: center;
+}
+.se-nav-btn {
+  width: 88rpx;
+  height: 88rpx;
+}
+.se-nav-ic--back {
+  width: 56rpx; /* 28dp */
+  height: 56rpx;
+}
+.se-nav-ic--gear {
+  width: 48rpx; /* 24dp */
+  height: 48rpx;
+}
+
+/* ============ 卡片区通用（加载/错误/空） ============ */
+.se-body {
+  flex: 1;
+  min-height: 0;
+}
+.se-center-block {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+  gap: 24rpx;
+}
+.se-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid var(--se-primary-10);
+  border-top-color: var(--se-primary);
+  border-radius: 50%;
+  animation: se-rotate 0.8s linear infinite;
+}
+@keyframes se-rotate {
+  to { transform: rotate(360deg); }
+}
+.se-error-text {
+  font-size: 28rpx;
+  color: var(--se-on-surface-var);
+  text-align: center;
+}
+.se-error-btn {
+  margin-top: 16rpx;
+  padding: 12rpx 48rpx;
+  border-radius: var(--r-full);
+  background: var(--se-primary);
+  color: var(--se-on-primary);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.se-empty-text {
+  font-size: 28rpx;
+  color: var(--se-on-surface-var);
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ============ 单句评测卡 ============ */
+.se-scroll {
+  height: 100%;
+}
+.se-card {
+  background: var(--se-surface);
+  border-radius: 40rpx; /* 20dp */
+  border: 2rpx solid var(--se-outline-40);
+  box-shadow: var(--e1);
+  padding: 32rpx; /* 16dp */
+  margin: 16rpx 32rpx 0;
+}
+.se-bottom-space {
+  height: 40rpx;
+}
+
+/* ---- 顶部操作栏（三圆钮 + 最近得分） ---- */
+.se-actions {
+  gap: 24rpx; /* 12dp */
+}
+.se-flex-gap {
+  flex: 1;
+}
+.se-act {
+  align-items: center;
+}
+.se-act-btn {
+  width: 88rpx;  /* 44dp */
+  height: 88rpx;
+  border-radius: 50%;
+  background: var(--se-primary-08);
+  border: 2rpx solid var(--se-primary-35);
+}
+.se-act-btn--on {
+  background: var(--se-primary);
+  border-color: var(--se-primary);
+}
+.se-act-ic {
+  width: 40rpx; /* 20dp */
+  height: 40rpx;
+}
+.se-act-label {
+  margin-top: 8rpx; /* 4dp */
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--se-on-surface-var);
+}
+
+/* ---- 字幕区 ---- */
+.se-subtitle {
+  margin-top: 32rpx; /* 16dp */
+}
+.se-sentence {
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--se-on-surface);
+}
+.se-fs-0 { font-size: 34rpx; } /* 17sp */
+.se-fs-1 { font-size: 40rpx; } /* 20sp */
+.se-fs-2 { font-size: 48rpx; } /* 24sp */
+.se-w {
+  color: var(--se-on-surface);
+}
+.se-w--saved {
+  color: var(--se-primary);
+}
+.se-w--cur {
+  background: var(--se-sweep-bg);
+  border-radius: 6rpx;
+}
+.se-w--cur.se-w--saved {
+  color: var(--se-primary);
+}
+.se-w--past {
+  color: var(--se-read);
+}
+/* 句末「文/A」翻译切换图标（随文本换行流动） */
+.se-translate-ic {
+  width: 40rpx; /* 20dp */
+  height: 40rpx;
+  margin-left: 8rpx;
+  vertical-align: -6rpx;
+}
+.se-cn {
+  margin-top: 12rpx; /* 6dp */
+  font-size: 28rpx; /* bodyMedium 14sp */
+  color: var(--se-on-surface-var);
+  line-height: 1.6;
+}
+.se-cn--empty {
+  font-size: 24rpx;
+  opacity: 0.6;
+}
+/* 盲读遮挡条（Flex Wrap 流式，对齐 Android FlowRow spacedBy） */
+.se-sentence-blind {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16rpx 12rpx; /* 6dp 行距 / 8dp 列距 */
+}
+.se-blind-bar {
+  background: rgba(87, 83, 78, 0.18);
+  border-radius: 8rpx; /* 4dp */
+}
+.se-page--dark .se-blind-bar {
+  background: rgba(168, 162, 158, 0.18);
+}
+/* 盲读「显示原文/重新遮挡」胶囊 */
+.se-blind-pill {
+  align-self: flex-start;
+  margin-top: 20rpx; /* 10dp */
+  padding: 12rpx 24rpx;
+  border-radius: var(--r-full);
+  background: var(--se-primary-08);
+  gap: 8rpx;
+}
+.se-blind-pill-ic {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+.se-blind-pill-text {
+  font-size: 26rpx; /* labelMedium 12sp */
+  font-weight: 700;
+  color: var(--se-primary);
+}
+
+/* ============ 录音区 ⇄ 结果区（条件渲染 + 入场翻动动画） ============
+   双面绝对定位 + 容器实测高度的方案在快速切句时会测到动画中段的塌陷高度，
+   引发两面互相穿透（布局混乱 bug）；条件渲染独占文档流，天然免疫 */
+.se-face-holder {
+  margin-top: 32rpx; /* 16dp */
+  perspective: 1200px;
+}
+.se-face-anim {
+  align-items: center;
+  transform-origin: center top;
+  animation: se-face-in 0.36s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.se-face-anim--front {
+  animation-name: se-in-from-front;
+}
+.se-face-anim--back {
+  animation-name: se-in-from-back;
+}
+@keyframes se-in-from-front {
+  from { transform: rotateX(-80deg); opacity: 0; }
+  to { transform: rotateX(0deg); opacity: 1; }
+}
+@keyframes se-in-from-back {
+  from { transform: rotateX(80deg); opacity: 0; }
+  to { transform: rotateX(0deg); opacity: 1; }
+}
+
+/* ---- 评测中（绿色 3/4 弧线旋转） ---- */
+.se-eval-gap {
+  height: 48rpx; /* 24dp */
+}
+.se-arc-spin {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: conic-gradient(var(--se-primary) 0deg 270deg, transparent 270deg 360deg);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 12rpx), #000 calc(100% - 11rpx));
+  mask: radial-gradient(closest-side, transparent calc(100% - 12rpx), #000 calc(100% - 11rpx));
+  animation: se-rotate 0.9s linear infinite;
+}
+.se-phase-text {
+  margin-top: 24rpx; /* 12dp */
+  font-size: 28rpx; /* bodyMedium 14sp */
+  color: var(--se-on-surface-var);
+}
+
+/* ---- 录音中（音量波形 + 呼吸停止钮） ---- */
+.se-rec-gap {
+  height: 40rpx; /* 20dp */
+}
+.se-amps {
+  height: 88rpx; /* 44dp */
+  gap: 8rpx; /* 4dp */
+  align-items: center;
+}
+.se-amp-bar {
+  width: 10rpx; /* 5dp */
+  border-radius: 6rpx; /* 3dp */
+  background: var(--se-error-75);
+}
+.se-rec-wrap {
+  position: relative;
+  width: 208rpx; /* 104dp 光圈外沿 */
+  height: 208rpx;
+}
+.se-rec-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 208rpx;
+  height: 208rpx;
+  margin: -104rpx 0 0 -104rpx;
+  border-radius: 50%;
+  background: var(--se-error-18);
+  animation: se-pulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes se-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+.se-rec-btn {
+  position: relative;
+  width: 176rpx; /* 88dp */
+  height: 176rpx;
+  border-radius: 50%;
+  background: var(--se-primary);
+}
+.se-rec-btn--on {
+  background: var(--se-error);
+}
+.se-rec-mic-ic {
+  width: 68rpx; /* 34dp */
+  height: 68rpx;
+}
+.se-rec-stop-ic {
+  width: 72rpx; /* 36dp */
+  height: 72rpx;
+}
+.se-rec-hint {
+  margin-top: 16rpx; /* 8dp */
+  font-size: 26rpx; /* labelMedium 12sp */
+}
+.se-rec-hint--stop {
+  color: var(--se-error);
+}
+.se-rec-hint--idle {
+  color: var(--se-primary);
+  font-weight: 600;
+}
+.se-rec-sub {
+  margin-top: 4rpx;
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--se-on-surface-var);
+}
+.se-idle-gap {
+  height: 24rpx; /* 12dp */
+}
+
+/* ============ 结果区 ============ */
+.se-result {
+  width: 100%;
+}
+
+/* 综合得分环（104dp / 描边 10dp，conic-gradient 实现） */
+.se-score-row {
+  align-self: stretch;
+}
+.se-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 208rpx; /* 104dp */
+  height: 208rpx;
+  border-radius: 50%;
+  background: conic-gradient(var(--se-ring-c, var(--se-primary)) 0, var(--se-ring-c, var(--se-primary)) var(--se-pct, 0%), var(--se-surface-var) var(--se-pct, 0%));
+}
+.se-ring.good { --se-ring-c: var(--se-primary); }
+.se-ring.mid { --se-ring-c: var(--se-secondary); }
+.se-ring.bad { --se-ring-c: var(--se-error); }
+.se-ring-hole {
+  position: absolute;
+  left: 20rpx; /* 描边 10dp */
+  top: 20rpx;
+  right: 20rpx;
+  bottom: 20rpx;
+  border-radius: 50%;
+  background: var(--se-surface);
+  align-items: center;
+  justify-content: center;
+}
+.se-ring-num {
+  font-size: 60rpx; /* 30sp */
+  font-weight: 700;
+  line-height: 1.1;
+}
+.se-ring-num.good { color: var(--se-primary); }
+.se-ring-num.mid { color: var(--se-secondary); }
+.se-ring-num.bad { color: var(--se-error); }
+.se-ring-label {
+  margin-top: 4rpx;
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--se-on-surface-var);
+}
+.se-score-side {
+  margin-left: 36rpx; /* 18dp */
+}
+.se-rating {
+  font-size: 44rpx; /* titleLarge 22sp */
+  font-weight: 700;
+  line-height: 1.2;
+}
+.se-rating.good { color: var(--se-primary); }
+.se-rating.mid { color: var(--se-secondary); }
+.se-rating.bad { color: var(--se-error); }
+.se-rating-sub {
+  margin-top: 8rpx; /* 4dp */
+  font-size: 24rpx; /* bodySmall 12sp */
+  color: var(--se-on-surface-var);
+}
+.se-metric {
+  margin-top: 16rpx; /* 三条间距（首条前 10dp 口径） */
+  gap: 12rpx;
+}
+.se-metric-label {
+  width: 76rpx; /* 38dp */
+  font-size: 22rpx;
+  color: var(--se-on-surface-var);
+  flex-shrink: 0;
+}
+.se-metric-track {
+  height: 10rpx; /* 5dp */
+  border-radius: var(--r-full);
+  background: var(--se-surface-var);
+  overflow: hidden;
+}
+.se-metric-bar {
+  height: 100%;
+  border-radius: var(--r-full);
+}
+.se-metric-bar--p { background: var(--se-primary); }
+.se-metric-bar--t { background: var(--se-tertiary); }
+.se-metric-bar--s { background: var(--se-secondary); }
+.se-metric-value {
+  width: 52rpx; /* 26dp */
+  font-size: 22rpx;
+  font-weight: 700;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* 逐词纠错 */
+.se-words-header {
+  margin-top: 28rpx; /* 14dp */
+}
+.se-words-title {
+  font-size: 26rpx; /* labelMedium 12sp */
+  font-weight: 700;
+  color: var(--se-on-surface);
+}
+.se-play-self {
+  gap: 8rpx; /* 4dp */
+  padding: 8rpx 24rpx; /* v4 / h12 dp */
+  border-radius: var(--r-full);
+  border: 2rpx solid var(--se-outline-50);
+  background: transparent;
+}
+.se-play-self-ic {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+.se-play-self-text {
+  font-size: 26rpx;
+  color: var(--se-on-surface);
+}
+.se-words-empty {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: var(--se-on-surface-var);
+}
+.se-chips {
+  display: flex;          /* 流式标签网格（Flex Wrap，对齐 Android FlowRow） */
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 16rpx; /* 8dp */
+  gap: 16rpx; /* 8dp */
+}
+/* 单词胶囊：复刻 Web WordScoreBadge——胶囊形 + 档位底色/描边 + 右侧内联小号得分
+   （85/60 双分界：高分远青浅底 / 中档琥珀 / 低分红 + 波浪下划线） */
+.se-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8rpx; /* gap-1 */
+  padding: 12rpx 24rpx; /* py-1.5 px-3 */
+  border-radius: var(--r-full);
+  border: 2rpx solid var(--se-chip-bd);
+  background: var(--se-chip-bg);
+}
+.se-chip.good { --se-chip-bg: #edf7f2; --se-chip-fg: #1a6349; --se-chip-bd: #aedcc8; }
+.se-chip.mid { --se-chip-bg: #fdf4e7; --se-chip-fg: #96580d; --se-chip-bd: #ecb35e; }
+.se-chip.bad { --se-chip-bg: #fbefed; --se-chip-fg: #b8402f; --se-chip-bd: #de8577; }
+.se-page--dark .se-chip.good { --se-chip-bg: rgba(10, 36, 27, 0.55); --se-chip-fg: #7dc5a8; --se-chip-bd: #164e3b; }
+.se-page--dark .se-chip.mid { --se-chip-bg: rgba(46, 29, 7, 0.55); --se-chip-fg: #ecb35e; --se-chip-bd: #74440f; }
+.se-page--dark .se-chip.bad { --se-chip-bg: rgba(42, 14, 9, 0.55); --se-chip-fg: #db6b5c; --se-chip-bd: #73271c; }
+.se-chip--sel {
+  border-width: 4rpx; /* 2dp 选中描边 */
+  border-color: var(--se-primary);
+}
+.se-chip-word {
+  font-size: 28rpx; /* bodyMedium 14sp */
+  color: var(--se-chip-fg);
+  line-height: 1.3;
+}
+.se-chip.good .se-chip-word { font-weight: 500; }
+.se-chip.mid .se-chip-word,
+.se-chip.bad .se-chip-word { font-weight: 600; }
+/* 低分红波浪下划线（decoration-error-500 wavy） */
+.se-chip.bad .se-chip-word {
+  text-decoration: underline;
+  text-decoration-color: var(--se-error);
+  text-decoration-style: wavy;
+  text-underline-offset: 6rpx;
+}
+/* 右侧内联小号得分（text-[10px] bold mono opacity-75，继承档位前景色） */
+.se-chip-score {
+  font-size: 20rpx; /* 10px */
+  font-weight: 700;
+  font-family: Menlo, Consolas, monospace;
+  color: var(--se-chip-fg);
+  opacity: 0.75;
+}
+.se-chip--click {
+  transition: transform 0.15s ease;
+}
+.se-chip--click:active {
+  transform: scale(0.95);
+}
+.se-chip--masked {
+  width: 240rpx;
+  height: 64rpx; /* 32dp */
+  border: 2rpx solid var(--se-outline-40);
+  border-radius: 16rpx;
+  background: var(--se-surface);
+  overflow: hidden;
+}
+/* 遮挡 chip 内的灰色模糊条（对齐 Android MaskedWordChip） */
+.se-chip--masked::after {
+  content: '';
+  display: block;
+  height: 32rpx; /* 16dp */
+  margin: 14rpx 16rpx;
+  border-radius: 8rpx;
+  background: rgba(87, 83, 78, 0.18);
+}
+.se-page--dark .se-chip--masked::after {
+  background: rgba(168, 162, 158, 0.18);
+}
+.se-chips-hint {
+  margin-top: 12rpx; /* 6dp */
+  font-size: 22rpx;
+  color: var(--se-on-surface-var);
+  opacity: 0.7;
+  align-self: flex-start;
+}
+
+/* 音素诊断面板 */
+.se-phoneme {
+  margin-top: 24rpx; /* 12dp */
+  width: 100%;
+  padding: 28rpx; /* 14dp */
+  border-radius: 28rpx; /* 14dp */
+  background: var(--se-phoneme-bg);
+}
+.se-phoneme-header {
+  align-self: stretch;
+}
+.se-phoneme-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--se-on-surface);
+}
+.se-phoneme-word {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--se-primary);
+}
+.se-phoneme-pills {
+  margin-top: 20rpx; /* 10dp */
+  gap: 16rpx; /* 8dp */
+}
+.se-pill {
+  padding: 12rpx 28rpx; /* v6 / h14 dp */
+  border-radius: var(--r-full);
+  background: var(--se-pill-bg);
+}
+.se-pill--on {
+  background: var(--se-primary);
+}
+.se-pill-text {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--se-on-surface-var);
+}
+.se-pill-text--on {
+  color: var(--se-on-primary);
+  font-weight: 700;
+}
+.se-phoneme-chips {
+  display: flex;          /* Flex Wrap 流式 */
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 24rpx; /* 12dp */
+  gap: 16rpx; /* 8dp */
+}
+.se-ph-chip {
+  padding: 10rpx 20rpx; /* v5 / h10 dp */
+  border-radius: 16rpx;
+  border: 2rpx solid var(--se-primary-40);
+  background: var(--se-primary-10);
+}
+.se-ph-chip.bad {
+  border-color: var(--se-error-40);
+  background: var(--se-error-10);
+}
+.se-ph-ipa {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--se-primary);
+}
+.se-ph-ipa.bad { color: var(--se-error); }
+.se-ph-score {
+  margin-top: 2rpx;
+  font-size: 22rpx;
+  color: var(--se-primary);
+}
+.se-ph-score.bad {
+  color: var(--se-error);
+  font-weight: 700;
+}
+
+/* 再试一次（通栏） */
+.se-retry {
+  margin-top: 28rpx; /* 14dp */
+  align-self: stretch;
+  height: 80rpx;
+  border-radius: 24rpx; /* 12dp */
+  border: 2rpx solid var(--se-outline-50);
+  gap: 12rpx; /* 6dp */
+}
+.se-retry-ic {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+.se-retry-text {
+  font-size: 28rpx;
+  color: var(--se-on-surface);
+}
+
+/* ============ 非会员试用解锁卡 ============ */
+.se-trial {
+  margin: 24rpx 32rpx 0;
+  padding: 40rpx; /* 20dp */
+  border-radius: 40rpx; /* 20dp */
+  background: var(--se-secondary-10);
+  border: 2rpx solid var(--se-secondary-30);
+  align-items: center;
+}
+.se-trial-title {
+  font-size: 30rpx; /* titleSmall 14sp */
+  font-weight: 700;
+  color: var(--se-secondary);
+}
+.se-trial-sub {
+  margin-top: 8rpx; /* 4dp */
+  font-size: 24rpx;
+  color: var(--se-on-surface-var);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ============ 底部导航 ============ */
+.se-footer {
+  flex-shrink: 0;
+  background: var(--se-surface);
+  border-top: 1rpx solid var(--se-outline-40);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.se-footer-row {
+  padding: 20rpx 32rpx; /* v10 / h16 dp */
+  gap: 24rpx;
+}
+.se-nav-text {
+  gap: 4rpx; /* 2dp */
+}
+.se-nav-text--off {
+  opacity: 0.38; /* M3 disabled */
+}
+.se-nav-arrow {
+  width: 44rpx;
+  height: 44rpx;
+}
+.se-nav-label {
+  font-size: 28rpx; /* labelLarge 14sp */
+  font-weight: 500;
+  color: var(--se-primary);
+}
+.se-progress {
+  align-items: center;
+  padding: 0 24rpx; /* 12dp */
+}
+.se-progress-label {
+  font-size: 26rpx; /* labelMedium 12sp */
+  font-weight: 600;
+  color: var(--se-on-surface);
+}
+.se-progress-track {
+  margin-top: 8rpx; /* 4dp */
+  width: 100%;
+  height: 8rpx; /* 4dp */
+  border-radius: var(--r-full);
+  background: var(--se-surface-var);
+  overflow: hidden;
+}
+.se-progress-bar {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--se-primary);
+  transition: width 0.3s ease-out;
+}
+.se-progress-sub {
+  margin-top: 4rpx; /* 2dp */
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--se-on-surface-var);
+}

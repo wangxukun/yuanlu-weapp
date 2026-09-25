@@ -1,7 +1,5 @@
 {
   "usingComponents": {
     "mini-player": "/components/player/mini-player/index"
-  },
-  "navigationBarBackgroundColor": "#faf8f3",
-  "backgroundColor": "#faf8f3"
+  }
 }

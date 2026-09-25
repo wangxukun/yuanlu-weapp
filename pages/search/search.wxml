@@ -4,7 +4,7 @@
   搜索输入复刻 components/header/SearchBar.tsx（placeholder 与图标）。
   注：Web 空态 material 图标 podcast_search 在字体中不存在（ligature 未命中），
   以官方最接近的 manage_search 替代；无结果态 search_off 原样复刻。 -->
-<view class="search-container">
+<view class="search-container {{themeClass}}">
 
   <!-- 搜索输入栏（SearchBar：h-12 胶囊 bg-ink-100 + 左 search 图标 + 400ms 防抖/回车即搜） -->
   <view class="search-bar row">

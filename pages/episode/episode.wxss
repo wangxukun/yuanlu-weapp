@@ -125,7 +125,7 @@
 }
 
 .btn-accent {
-  background-color: #D2503F; /* 评测橘红 */
+  background-color: #D98A17; /* 评测琥珀橙，对齐 Android PlayerPalette.Accent500 */
   height: 96rpx;
   border-radius: 24rpx;
 }
@@ -170,12 +170,12 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: 50%;
-  background-color: #94A3B8; /* Slate 400 */
+  background-color: var(--color-primary);
 }
 
 .input-wrapper {
-  background-color: #FFFFFF;
-  border-radius: 24rpx;
+  background-color: var(--card-bg); /* 联系我们 ct-card 同款底 */
+  border-radius: 32rpx; /* ct-input 16dp 圆角口径 */
   padding: 24rpx;
   border: 1px solid var(--border-color);
 }
@@ -188,10 +188,10 @@
 }
 
 .btn-send {
-  background-color: #E2E8F0;
+  background-color: var(--color-base-300);
   padding: 12rpx 32rpx;
   border-radius: 50rpx;
-  color: #94A3B8;
+  color: var(--text-tertiary);
 }
 
 .btn-send.active {

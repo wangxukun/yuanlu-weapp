@@ -310,7 +310,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ffffff;
+  background-color: var(--card-bg);
   border-radius: 32rpx 32rpx 0 0;
   padding: 24rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
   animation: pp-slide-up 0.25s ease-out;
@@ -391,7 +391,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--r-full);
-  background-color: #ffffff;
+  background-color: var(--card-bg);
   border: 2rpx solid var(--ink-200);
 }
 

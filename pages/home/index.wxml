@@ -10,7 +10,7 @@ module.exports = {
   }
 }
 </wxs>
-<view class="home-container pb-page-bottom-with-player">
+<view class="home-container pb-page-bottom-with-player {{themeClass}}">
   <!-- 未登录：整页登录引导态（tabBar 页等价 Web redirect("/")），
        图标与排布对齐 Web 端 PodcastAuthPrompt（标题上、大图标裸露、描述与按钮在下） -->
   <view wx:if="{{!isLoggedIn}}" class="guest-guide">

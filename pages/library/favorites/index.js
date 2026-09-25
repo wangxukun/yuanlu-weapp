@@ -13,6 +13,7 @@
  *   DELETE /api/episode/favorite/delete     urlencoded 体 { episodeid, userid }
  */
 
+const theme = require('../../../utils/theme');
 const { get, delete: requestDelete } = require('../../../utils/request');
 const authStore = require('../../../store/authStore');
 
@@ -62,6 +63,8 @@ function mapEpisode(raw) {
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     // ---- FavoritesUiState ----
     isLoading: true,
     error: '',
@@ -81,6 +84,10 @@ Page({
   },
 
   onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
     // 每次进入/回到本页都重取（对齐 Android revision 机制：详情页收藏变更后列表自动刷新，
     // 登录页返回后登录态也随之生效）
     this.fetchFavorites({ showLoading: !this._hasLoaded });

@@ -1,5 +1,11 @@
 const request = require('../../utils/request').request;
 const authStore = require('../../store/authStore');
+const audioManager = require('../../utils/audioManager');
+const theme = require('../../utils/theme');
+
+// 触发「切回主页需刷新最近收听」的播放事件（含 timeupdate——后台连播期间
+// 无其他事件但进度在走，处理器仅置一次布尔标记，高频无开销）
+const PLAYBACK_DIRTY_EVENTS = ['episodeChange', 'ended', 'pause', 'stop', 'seek', 'timeupdate'];
 
 // 一周 7 天节点坐标（对齐 Android HomeScreen 及 Web JourneyStrip 的波浪起伏路径）
 const JOURNEY_COORDS = [
@@ -14,6 +20,7 @@ const JOURNEY_COORDS = [
 
 Page({
   data: {
+    themeClass: '',
     // 登录态：未登录渲染整页引导（tabBar 页等价 Web redirect("/")），双通道同步见 syncAuthState
     isLoggedIn: false,
     isLoading: true,
@@ -56,11 +63,16 @@ Page({
 
   onLoad() {
     this._lastToken = undefined;
+    this._playbackDirty = false; // 播放过后切回主页 → 静默补拉最近收听
 
     // 监听 authStore：登录/登出/换号自动切换引导态与内容态
     this.unsubscribeAuth = authStore.subscribe(() => {
       this.syncAuthState();
     });
+
+    // 监听全局播放事件：任一触发置脏，onShow 时补拉「继续收听」卡片/列表
+    this._onPlaybackEvent = () => { this._playbackDirty = true; };
+    PLAYBACK_DIRTY_EVENTS.forEach((evt) => audioManager.on(evt, this._onPlaybackEvent));
 
     // 首次同步：已登录直接拉数据；未登录进引导态（不发任何请求）
     this.syncAuthState();
@@ -69,10 +81,21 @@ Page({
   onShow() {
     // 双通道之二：从登录页 navigateBack 返回时由此恢复内容态
     this.syncAuthState();
+    // 播放会话影响过「继续收听」（换了剧集/进度/播完）→ 静默补拉最近收听
+    //（仅 history 一路，不重拉 7 路主页聚合；失败保留旧数据）
+    this.setData({ themeClass: theme.rootClass() });
+    theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏（@navBg 只随系统）
+    if (this.data.isLoggedIn && this._playbackDirty) {
+      this._playbackDirty = false;
+      this._refreshHistory();
+    }
   },
 
   onUnload() {
     if (this.unsubscribeAuth) this.unsubscribeAuth();
+    if (this._onPlaybackEvent) {
+      PLAYBACK_DIRTY_EVENTS.forEach((evt) => audioManager.off(evt, this._onPlaybackEvent));
+    }
   },
 
   /**
@@ -97,7 +120,58 @@ Page({
     }
     if (tokenChanged) {
       this.setData({ isLoading: true, error: null });
+      this._playbackDirty = false; // 全量拉取已含 history，避免随后的补拉双请求
       this.fetchHomeData(true);
+    }
+  },
+
+  /**
+   * 静默补拉最近收听 + 今日打卡（onShow 脏标记触发 / 下拉刷新之外的低成本刷新）：
+   * 并行请求 /api/user/history（顶卡 + 横向列表）与 weekly-activity（打卡时间/
+   * 学习小径今日分钟/里程），任一失败保留旧数据不打扰用户。
+   */
+  async _refreshHistory() {
+    if (this._historyFetching) return;
+    this._historyFetching = true;
+    try {
+      const { get } = require('../../utils/request');
+      const [historyRes, weekRes] = await Promise.all([
+        get('/api/user/history?page=1&pageSize=5&status=all').catch(() => null),
+        get('/api/user/stats/weekly-activity?weekOffset=0').catch(() => null),
+      ]);
+      if (historyRes) {
+        const historyList = historyRes?.data?.items || historyRes?.items || [];
+        this.setData({
+          latestHistory: historyList[0] || null,
+          continueListening: historyList.slice(1, 5)
+        });
+      }
+      if (weekRes) {
+        // 打卡时间/学习小径今日分钟/里程与收听时长心跳同源（listeningSeconds）
+        const weekNow = weekRes?.weeklyActivity || weekRes || [];
+        if (Array.isArray(weekNow) && weekNow.length === 7) {
+          const todayIndex = (new Date().getDay() + 6) % 7;
+          const todayMinutes = weekNow[todayIndex]?.minutes || 0;
+          const patch = {
+            journeyDays: weekNow.map((d, i) => ({
+              label: d.day || this.data.journeyDays[i]?.label,
+              minutes: d.minutes || 0,
+              isToday: i === todayIndex,
+              x: this.data.journeyDays[i]?.x || 0,
+              y: this.data.journeyDays[i]?.y || 0,
+            })),
+          };
+          if (this.data.checkInStatus && this.data.checkInStatus.indexOf('今日打卡') === 0) {
+            const dailyGoalMins = this._dailyGoalMins || 20;
+            patch.checkInStatus = todayMinutes >= dailyGoalMins
+              ? '今日打卡完成'
+              : `今日打卡还差 ${dailyGoalMins - todayMinutes} 分钟`;
+          }
+          this.setData(patch);
+        }
+      }
+    } finally {
+      this._historyFetching = false;
     }
   },
 
@@ -215,6 +289,7 @@ Page({
       const todayIndex = (new Date().getDay() + 6) % 7;
       const todayMinutes = weekNow[todayIndex]?.minutes || 0;
       const dailyGoalMins = Math.max(profile.dailyStudyGoalMins || 20, 0);
+      this._dailyGoalMins = dailyGoalMins; // _refreshHistory 增量刷新打卡文案用
       const checkInStatus = todayMinutes >= dailyGoalMins ? '今日打卡完成' : `今日打卡还差 ${dailyGoalMins - todayMinutes} 分钟`;
 
       // 推荐剧集筛选 (基于 CEFR)

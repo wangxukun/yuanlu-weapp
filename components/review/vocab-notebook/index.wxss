@@ -11,7 +11,42 @@
   height: 100%;
 }
 .vn-page {
+  /* ===== 双色令牌（值 = Android ReviewBanner / VocabularyControls isDark 分支） ===== */
+  --vnb-bg: #1f7a5c;          /* 横幅底：Primary600 → Primary900 45%（深墨绿） */
+  --vnb-btn-text: #1f7a5c;    /* 白色「开始复习」钮文字/图标：Primary600 → Primary400 */
+  --vnt-container: #f1ede4;   /* 分段容器：Ink100 → Ink800 */
+  --vnt-learn-bg: #edf7f2;    /* 学习中激活底：Primary50 → Primary900 */
+  --vnt-learn-text: #1f7a5c;  /* 学习中激活字：Primary600 → Primary400 */
+  --vnt-off-text: #57534e;    /* 未激活字：onSurfaceVariant → #A8A29E */
+
   padding: 24rpx 32rpx 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .vn-page {
+    --vnb-bg: rgba(15, 54, 40, 0.45);
+    --vnb-btn-text: #4da989;
+    --vnt-container: #26221c;
+    --vnt-learn-bg: #0f3628;
+    --vnt-learn-text: #4da989;
+    --vnt-off-text: #a8a29e;
+  }
+}
+.theme-dark {
+  --vnb-bg: rgba(15, 54, 40, 0.45);
+  --vnb-btn-text: #4da989;
+  --vnt-container: #26221c;
+  --vnt-learn-bg: #0f3628;
+  --vnt-learn-text: #4da989;
+  --vnt-off-text: #a8a29e;
+}
+.theme-light {
+  --vnb-bg: #1f7a5c;
+  --vnb-btn-text: #1f7a5c;
+  --vnt-container: #f1ede4;
+  --vnt-learn-bg: #edf7f2;
+  --vnt-learn-text: #1f7a5c;
+  --vnt-off-text: #57534e;
 }
 .vn-bottom-space {
   /* 底部让位：跨页迷你播放条（elevated 2rpx）+ 安全区 */
@@ -62,7 +97,7 @@
   width: 52rpx;
   height: 52rpx;
   border-radius: var(--r-md);
-  background: var(--ink-50);
+  background: var(--color-base-200);
   margin-bottom: 8rpx;
 }
 .vn-stat-ic--due {
@@ -78,7 +113,7 @@
 .vn-stat-label {
   font-size: 20rpx;
   font-weight: 700;
-  color: rgba(27, 24, 18, 0.4);
+  color: var(--text-tertiary);
   letter-spacing: 0.05em;
 }
 .vn-stat-num {
@@ -90,9 +125,9 @@
 
 /* ── 复习横幅（bg-primary-600 白字） ── */
 .vn-banner {
-  background: var(--primary-600);
-  border-radius: var(--r-md);
-  padding: 44rpx 40rpx;
+  background: var(--vnb-bg); /* Primary600 → Primary900/45（深墨绿，Android 12dp 圆角） */
+  border-radius: 24rpx;
+  padding: 40rpx; /* 20dp */
   margin-bottom: 24rpx;
 }
 .vn-banner-head {
@@ -110,7 +145,7 @@
 }
 .vn-banner-desc {
   font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.85); /* Android white 85% */
   line-height: 1.6;
 }
 .vn-banner-strong {
@@ -118,11 +153,11 @@
   font-weight: 700;
 }
 .vn-banner-btn {
-  margin-top: 32rpx;
+  margin-top: 28rpx; /* 14dp */
   background: #ffffff;
-  color: var(--primary-600);
-  border-radius: var(--r-md);
-  padding: 22rpx 56rpx;
+  color: var(--vnb-btn-text); /* Primary600 → Primary400 */
+  border-radius: 20rpx; /* 10dp */
+  padding: 20rpx 44rpx; /* h22 v10 dp */
   font-size: 28rpx;
   font-weight: 700;
   align-self: flex-start;
@@ -171,7 +206,7 @@
   width: 128rpx;
   height: 128rpx;
   border-radius: 50%;
-  background: var(--ink-100);
+  background: var(--color-base-300);
   margin-bottom: 32rpx;
 }
 .vn-empty-img {
@@ -202,36 +237,40 @@
 
 /* ── 筛选栏 ── */
 .vn-controls {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card-bg);
   border: 1rpx solid var(--color-base-200);
   border-radius: var(--r-xl);
   box-shadow: var(--e1);
   padding: 20rpx 24rpx;
   margin-bottom: 24rpx;
 }
-.vn-pills {
-  gap: 12rpx;
-  border-bottom: 1rpx solid rgba(227, 221, 207, 0.5);
-  padding-bottom: 20rpx;
-  margin-bottom: 20rpx;
+/* ── 状态分段 Tab（Segmented Control，对齐 Android：容器 12dp 圆角 Ink100/Ink800
+   + 4dp 内衬 + 4dp 间距；两钮 flex-1、9dp 内圆角、labelMedium Bold） ── */
+.vn-tabs {
+  gap: 8rpx; /* 4dp */
+  background: var(--vnt-container);
+  border-radius: 24rpx; /* 12dp */
+  padding: 8rpx; /* 4dp */
 }
-.vn-pill {
-  padding: 10rpx 32rpx;
-  font-size: 28rpx;
-  font-weight: 500;
-  border-radius: var(--r-full);
-  color: var(--text-tertiary);
+.vn-tab {
+  flex: 1;
+  padding: 16rpx 0; /* 8dp */
+  font-size: 26rpx; /* labelMedium */
+  font-weight: 700;
+  text-align: center;
+  border-radius: 18rpx; /* 9dp */
+  color: var(--vnt-off-text);
 }
-.vn-pill--learn {
-  background: var(--primary-50);
-  color: var(--primary-600);
+.vn-tab--learn-on {
+  background: var(--vnt-learn-bg); /* Primary50 → Primary900 */
+  color: var(--vnt-learn-text);    /* Primary600 → Primary400 */
 }
-.vn-pill--done {
-  background: rgba(46, 143, 111, 0.1); /* success/10 */
-  color: var(--color-success);
+.vn-tab--done-on {
+  background: rgba(46, 143, 111, 0.12); /* Primary500/12%（双模式同值） */
+  color: #2e8f6f;                         /* Primary500 */
 }
 .vn-search {
-  background: var(--ink-50);
+  background: var(--color-base-200);
   border-radius: var(--r-md);
   padding: 14rpx 20rpx;
   gap: 16rpx;
@@ -309,18 +348,32 @@
   flex: 1;
 }
 .vn-word {
-  font-size: 40rpx;
+  font-size: 44rpx; /* titleLarge 22sp（对齐 Android） */
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.01em;
-  max-width: 480rpx;
+  max-width: 440rpx;
+}
+/* 紧凑面音标胶囊预览（Ink50/Ink800 底 = base-200 令牌，labelSmall 70%） */
+.vn-phon-preview {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: var(--text-secondary);
+  background: var(--color-base-200);
+  border-radius: 12rpx;
+  padding: 4rpx 12rpx;
 }
 .vn-dot {
-  width: 18rpx;
-  height: 18rpx;
+  width: 16rpx; /* 8dp */
+  height: 16rpx;
   border-radius: 50%;
-  background: var(--ink-200);
+  background: var(--color-base-300);
   flex-shrink: 0;
+}
+/* 已掌握：primary 35%（Android mastered 分支） */
+.vn-dot--done {
+  background: var(--color-primary);
+  opacity: 0.35;
 }
 .vn-dot--due {
   background: var(--color-warning);
@@ -351,12 +404,19 @@
   font-size: 26rpx;
   font-weight: 500;
   color: var(--text-tertiary);
-  margin-top: 8rpx;
+  margin-top: 6rpx;
+}
+/* 原声引文（onSurfaceVariant 60%，单行省略，带引号） */
+.vn-quote {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
 }
 .vn-meta {
   margin-top: 24rpx;
   padding-top: 20rpx;
-  border-top: 1rpx solid rgba(227, 221, 207, 0.5);
+  border-top: 1rpx solid var(--card-fade-line);
 }
 /* 熟练度 5 格竖条：level<=proficiency 渐变亮起（高度随档位递增） */
 .vn-profs {
@@ -366,7 +426,7 @@
 .vn-prof {
   width: 10rpx;
   border-radius: var(--r-full);
-  background: var(--ink-100);
+  background: var(--color-base-300);
   transition: all 0.5s;
 }
 .vn-prof--h1 { height: 16rpx; }
@@ -410,8 +470,11 @@
 
 /* ── 展开面板 ── */
 .vn-panel {
-  border-top: 1rpx solid rgba(227, 221, 207, 0.5);
-  background: linear-gradient(to bottom, transparent, rgba(241, 237, 228, 0.3));
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx; /* Android spacedBy(14dp) */
+  border-top: 1rpx solid var(--card-fade-line);
+  background: linear-gradient(to bottom, transparent, var(--card-fade));
   padding: 32rpx;
   animation: vn-panel-in 0.3s ease;
 }
@@ -430,11 +493,10 @@
 .vn-phons {
   gap: 24rpx;
   flex-wrap: wrap;
-  margin-bottom: 32rpx;
 }
 .vn-phon-pill {
   gap: 20rpx;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--card-bg);
   border: 1rpx solid var(--color-base-200);
   border-radius: var(--r-xl);
   box-shadow: var(--e1);
@@ -468,477 +530,165 @@
   height: 32rpx;
 }
 
-/* 区块 */
-.vn-sec {
-  margin-bottom: 40rpx;
-}
-.vn-sec:last-of-type {
-  margin-bottom: 0;
-}
-.vn-sec-head {
-  gap: 14rpx;
-  margin-bottom: 24rpx;
-}
-.vn-sec-ic {
-  width: 30rpx;
-  height: 30rpx;
-}
-.vn-sec-title {
-  font-size: 26rpx;
-  font-weight: 800;
-  color: var(--text-secondary);
-  letter-spacing: 0.02em;
-}
-
-/* 核心释义卡 */
-.vn-defcard {
-  position: relative;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-xl);
-  box-shadow: var(--e1);
-  padding: 24rpx;
-  gap: 20rpx;
-  margin-bottom: 20rpx;
-  overflow: hidden;
-  align-items: flex-start;
-}
-.vn-defcard-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 8rpx;
-  background: linear-gradient(to bottom, rgba(31, 122, 92, 0.5), var(--primary-600));
-}
-.vn-defcard-side {
-  width: 132rpx;
-  flex-shrink: 0;
-  gap: 8rpx;
-}
-.vn-defcard-pos {
-  align-self: flex-start;
-  background: rgba(31, 122, 92, 0.1);
-  color: var(--primary-700);
+/* 区块标签（Android SectionLabel：labelSmall Bold letterSpacing 55%） */
+.vn-sec-label {
   font-size: 22rpx;
   font-weight: 700;
-  border-radius: var(--r-md);
-  border: 1rpx solid rgba(31, 122, 92, 0.2);
-  padding: 6rpx 18rpx;
-}
-.vn-defcard-cefr {
-  align-self: flex-start;
-  background: rgba(74, 127, 165, 0.1);
-  color: var(--info-500);
-  font-size: 18rpx;
-  font-weight: 700;
-  border-radius: var(--r-sm);
-  padding: 4rpx 12rpx;
-  letter-spacing: 0.06em;
-}
-.vn-defcard-main {
-  flex: 1;
-  min-width: 0;
-  gap: 6rpx;
-}
-.vn-defcard-cn {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.vn-defcard-en {
-  font-size: 24rpx;
-  color: var(--text-tertiary);
-  line-height: 1.6;
+  letter-spacing: 0.16em;
+  color: var(--text-secondary);
+  opacity: 0.6;
 }
 
-/* 原声出处卡（primary-50 渐变 + 右上角标签） */
-.vn-ctx {
-  position: relative;
-  background: linear-gradient(135deg, rgba(31, 122, 92, 0.05), rgba(217, 138, 23, 0.05));
-  border: 1rpx solid rgba(31, 122, 92, 0.2);
-  border-radius: var(--r-xl);
-  padding: 36rpx 28rpx 24rpx;
-  margin-bottom: 24rpx;
-  overflow: hidden;
+/* 核心释义卡（Ink50/70 → Ink800/50 = base-200 令牌；圆角 12dp；pos 胶囊 + 加粗中文 + 灰英文） */
+.vn-defgroup {
+  background: var(--color-base-200);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  gap: 20rpx;
 }
-.vn-ctx-tag {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: var(--primary-600);
-  color: #ffffff;
-  font-size: 18rpx;
+.vn-defrow {
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.vn-defrow-pos {
+  flex-shrink: 0;
+  font-size: 20rpx;
   font-weight: 700;
-  padding: 6rpx 20rpx;
-  border-radius: 0 var(--r-xl) 0 var(--r-xl);
+  color: var(--color-primary);
+  background: rgba(31, 122, 92, 0.1);
+  border-radius: 8rpx;
+  padding: 4rpx 10rpx;
+  margin-top: 2rpx;
+}
+.vn-defrow-main {
+  flex: 1;
+  min-width: 0;
+  gap: 4rpx;
+}
+.vn-defrow-cn {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.vn-defrow-en {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* 原声出处卡（primary→accent 5% 渐变 + primary/20 描边 + 目标词高亮） */
+.vn-ctx {
+  background: linear-gradient(135deg, rgba(31, 122, 92, 0.05), rgba(217, 138, 23, 0.05));
+  border: 2rpx solid rgba(31, 122, 92, 0.2);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  gap: 12rpx;
 }
 .vn-ctx-sentence {
   font-size: 28rpx;
   color: var(--text-primary);
   line-height: 1.7;
-  margin-bottom: 16rpx;
-  padding-right: 120rpx;
   word-break: break-word;
   overflow-wrap: break-word;
 }
 .vn-ctx-hl {
   font-weight: 700;
-  color: var(--primary-600);
-  background: rgba(31, 122, 92, 0.2);
-  padding: 0 6rpx;
-  border-radius: 4rpx;
+  color: var(--color-primary);
 }
 .vn-ctx-trans {
-  display: block;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  margin-bottom: 20rpx;
-}
-.vn-ctx-foot {
-  gap: 16rpx;
-}
-.vn-ctx-ep {
-  flex: 1;
-  min-width: 0;
-  gap: 10rpx;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: var(--r-sm);
-  padding: 8rpx 14rpx;
-}
-.vn-ctx-ep-ic {
-  width: 24rpx;
-  height: 24rpx;
-  flex-shrink: 0;
-}
-.vn-ctx-ep-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 20rpx;
-  color: var(--text-tertiary);
-}
-.vn-ctx-btn {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: var(--e1);
-  flex-shrink: 0;
-}
-.vn-ctx-btn--on {
-  background: rgba(31, 122, 92, 0.1);
-}
-.vn-ctx-btn-ic {
-  width: 32rpx;
-  height: 32rpx;
-}
-
-/* 字典例句卡 */
-.vn-example {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-xl);
-  box-shadow: var(--e1);
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-}
-.vn-example-row {
-  gap: 24rpx;
-  align-items: flex-start;
-}
-.vn-example-main {
-  flex: 1;
-  min-width: 0;
-}
-.vn-example-en {
-  font-size: 26rpx;
-  color: var(--text-primary);
-  line-height: 1.7;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-.vn-example-cn {
-  font-size: 24rpx;
-  color: var(--text-tertiary);
-  margin-top: 8rpx;
-}
-.vn-example-ctx {
-  display: inline-block;
-  margin-top: 16rpx;
-  background: var(--ink-100);
-  color: var(--text-secondary);
-  font-size: 18rpx;
-  font-weight: 700;
-  border-radius: var(--r-sm);
-  padding: 6rpx 18rpx;
-  letter-spacing: 0.06em;
-}
-.vn-example-play {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  background: var(--ink-50);
-  flex-shrink: 0;
-}
-.vn-example-play--on {
-  background: rgba(31, 122, 92, 0.1);
-}
-.vn-example-play-ic {
-  width: 30rpx;
-  height: 30rpx;
-}
-
-/* 词形变化 chips */
-.vn-infls {
-  gap: 16rpx;
-  flex-wrap: wrap;
-}
-.vn-infl {
-  background: var(--card-bg);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-md);
-  box-shadow: var(--e1);
-  padding: 12rpx 24rpx;
-  flex-shrink: 0;
-}
-.vn-infl-label {
-  font-size: 18rpx;
-  font-weight: 700;
-  color: var(--text-tertiary);
-  letter-spacing: 0.05em;
-  margin-bottom: 4rpx;
-}
-.vn-infl-value {
-  font-size: 26rpx;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-/* 词源与记忆（前缀 warning / 词根 error / 后缀 success chips） */
-.vn-ety {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-xl);
-  box-shadow: var(--e1);
-  padding: 32rpx;
-  gap: 24rpx;
-}
-.vn-ety-chips {
-  gap: 16rpx;
-  flex-wrap: wrap;
-  padding-bottom: 24rpx;
-  border-bottom: 1rpx solid rgba(227, 221, 207, 0.5);
-}
-.vn-ety-chip {
-  padding: 10rpx 20rpx;
-  border-radius: var(--r-md);
   font-size: 22rpx;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.vn-ety-chip--prefix {
-  background: rgba(217, 138, 23, 0.1);
-  color: #92400e;
-  border: 1rpx solid rgba(217, 138, 23, 0.2);
-}
-.vn-ety-chip--root {
-  background: rgba(210, 80, 63, 0.1);
-  color: var(--error-600);
-  border: 1rpx solid rgba(210, 80, 63, 0.2);
-}
-.vn-ety-chip--suffix {
-  background: rgba(46, 143, 111, 0.1);
-  color: var(--color-success);
-  border: 1rpx solid rgba(46, 143, 111, 0.2);
-}
-.vn-ety-label {
-  font-size: 18rpx;
-  font-weight: 700;
-  color: var(--color-warning);
-  letter-spacing: 0.1em;
-  margin-bottom: 8rpx;
-}
-.vn-ety-label--dim {
-  color: var(--text-tertiary);
-}
-.vn-ety-memo {
-  font-size: 26rpx;
-  font-weight: 500;
-  color: var(--ink-800);
-  line-height: 1.7;
-}
-.vn-ety-break-wrap {
-  padding-top: 16rpx;
-}
-.vn-ety-break {
-  font-size: 22rpx;
-  color: var(--text-tertiary);
-  line-height: 1.6;
-}
-
-/* 短语搭配 */
-.vn-phrases {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-xl);
-  box-shadow: var(--e1);
-  overflow: hidden;
-}
-.vn-phrase {
-  padding: 20rpx 28rpx;
-  border-bottom: 1rpx solid rgba(227, 221, 207, 0.4);
-  gap: 24rpx;
-}
-.vn-phrase:last-child {
-  border-bottom: none;
-}
-.vn-phrase-en {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.vn-phrase-cn {
-  font-size: 24rpx;
-  color: var(--text-tertiary);
-  text-align: right;
-}
-
-/* 扩展词汇（同义/反义） */
-.vn-syn-wrap {
-  gap: 20rpx;
-}
-.vn-ext {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-xl);
-  box-shadow: var(--e1);
-  padding: 24rpx;
-  gap: 20rpx;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-.vn-ext-tag {
-  font-size: 18rpx;
-  font-weight: 700;
-  border-radius: var(--r-md);
-  padding: 8rpx 18rpx;
-  letter-spacing: 0.06em;
-  flex-shrink: 0;
-}
-.vn-ext-tag--syn {
-  background: rgba(46, 143, 111, 0.1);
-  color: var(--color-success);
-}
-.vn-ext-tag--ant {
-  background: rgba(210, 80, 63, 0.1);
-  color: var(--error-500);
-}
-.vn-ext-words {
-  flex: 1;
-  min-width: 0;
-  gap: 12rpx;
-  flex-wrap: wrap;
-}
-.vn-ext-word {
-  font-size: 26rpx;
-  font-weight: 500;
   color: var(--text-secondary);
 }
-
-/* 降级视图（无 dictData） */
-.vn-fallback-label {
-  display: block;
+.vn-ctx-from {
   font-size: 22rpx;
-  font-weight: 700;
   color: var(--text-tertiary);
-  letter-spacing: 0.08em;
-  margin-bottom: 20rpx;
 }
-.vn-fallback-card {
-  background: var(--card-bg);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-xl);
-  box-shadow: var(--e1);
-  padding: 32rpx;
-}
-.vn-fallback-play {
-  justify-content: flex-end;
-  margin-top: 20rpx;
-}
+/* 降级：无词典且无原声时的中文行 */
 .vn-fallback-trans {
   font-size: 28rpx;
   font-weight: 500;
   color: var(--text-secondary);
 }
-.vn-fallback-src {
-  background: var(--card-bg);
-  border: 1rpx solid var(--color-base-200);
-  border-radius: var(--r-md);
-  box-shadow: var(--e1);
-  padding: 20rpx 24rpx;
+
+/* 词源记忆卡（Accent500 6~10% 底 + 灯泡头 + 卡底色词素 chips + 💡 记忆技巧） */
+.vn-ety {
+  background: rgba(217, 138, 23, 0.08);
+  border-radius: 24rpx;
+  padding: 24rpx;
   gap: 16rpx;
-  font-size: 26rpx;
-  color: var(--text-secondary);
 }
-.vn-fallback-time {
-  display: block;
+.vn-ety-head {
+  gap: 10rpx;
+}
+.vn-ety-ic {
+  width: 26rpx;
+  height: 26rpx;
+  flex-shrink: 0;
+}
+.vn-ety-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.vn-ety-chip {
+  background: var(--card-bg);
+  color: var(--text-secondary);
   font-size: 22rpx;
-  color: var(--text-tertiary);
-  margin-top: 12rpx;
+  font-weight: 700;
+  border-radius: 12rpx;
+  padding: 6rpx 16rpx;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+.vn-ety-memo {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
-/* 底部操作区 */
+/* 底部操作栏：掌握主按钮 flex:1（Primary500 / 已掌握态 base-300）+ 彻底删除常显（error/8 底） */
 .vn-actions {
-  gap: 16rpx;
-  flex-wrap: wrap;
-  border-top: 1rpx solid rgba(227, 221, 207, 0.5);
-  margin-top: 40rpx;
-  padding-top: 28rpx;
-}
-.vn-actions-left {
   gap: 20rpx;
-  flex-wrap: wrap;
 }
 .vn-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 12rpx;
-  padding: 18rpx 36rpx;
-  border-radius: var(--r-xl);
+  border-radius: 20rpx;
+  padding: 20rpx 0;
   font-size: 26rpx;
   font-weight: 700;
 }
 .vn-action-ic {
-  width: 30rpx;
-  height: 30rpx;
+  width: 32rpx;
+  height: 32rpx;
 }
-/* 标记已掌握：success→emerald 渐变白字（Web gradient from-success to-emerald-500） */
 .vn-action--master {
-  background: linear-gradient(to right, #2e8f6f, #10b981);
-  color: #ffffff;
-  box-shadow: 0 8rpx 24rpx rgba(46, 143, 111, 0.2);
+  flex: 1;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
 }
-/* 重新学习：ink-100 灰 */
 .vn-action--relearn {
-  background: var(--ink-100);
-  color: var(--text-secondary);
+  flex: 1;
+  background: var(--color-base-300);
+  color: var(--text-primary);
 }
-/* 彻底删除：red-50 底 red-600 字 */
 .vn-action--del {
-  background: #fef2f2;
-  color: #dc2626;
-}
-/* 查看网络词典：白底描边 */
-.vn-action--dict {
-  background: var(--card-bg);
-  border: 1rpx solid var(--color-base-200);
-  box-shadow: var(--e1);
-  color: var(--text-secondary);
-  font-weight: 700;
+  flex-shrink: 0;
+  padding: 20rpx 28rpx;
+  background: rgba(210, 80, 63, 0.08);
+  color: var(--color-error);
 }
 
 /* 筛选/搜索无结果 */
 .vn-nomatch {
   align-items: center;
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--card-bg);
   border: 2rpx dashed var(--color-base-200);
   border-radius: var(--r-xl);
   padding: 120rpx 48rpx;
@@ -947,7 +697,7 @@
   width: 112rpx;
   height: 112rpx;
   border-radius: 50%;
-  background: var(--ink-100);
+  background: var(--color-base-300);
   margin-bottom: 28rpx;
 }
 .vn-nomatch-img {

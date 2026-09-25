@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "node scripts/test-membership.js && node scripts/test-home-guest.js && node scripts/test-premium-modal.js && node scripts/test-quota-card.js && node scripts/test-srs.js && node scripts/test-audio-tts.js && node scripts/test-login.js && node scripts/test-favorites.js && node scripts/test-search.js && node scripts/test-channels.js && node scripts/test-discover-tags.js && node scripts/test-episode-player.js && node scripts/test-player-store.js && node scripts/test-mini-player.js && node scripts/test-intensive-listening.js && node scripts/test-vocab-notebook.js && node scripts/test-ai-deep-dive.js",
+    "test": "node scripts/test-membership.js && node scripts/test-home-guest.js && node scripts/test-premium-modal.js && node scripts/test-quota-card.js && node scripts/test-srs.js && node scripts/test-audio-tts.js && node scripts/test-login.js && node scripts/test-favorites.js && node scripts/test-search.js && node scripts/test-channels.js && node scripts/test-discover-tags.js && node scripts/test-episode-player.js && node scripts/test-player-store.js && node scripts/test-mini-player.js && node scripts/test-intensive-listening.js && node scripts/test-vocab-notebook.js && node scripts/test-ai-deep-dive.js && node scripts/test-speech-eval.js && node scripts/test-progress-reporter.js && node scripts/test-contact.js && node scripts/test-theme.js && node scripts/test-listening-reporter.js",
     "test:membership": "node scripts/test-membership.js",
     "test:home": "node scripts/test-home-guest.js",
     "test:premium-modal": "node scripts/test-premium-modal.js",

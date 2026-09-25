@@ -4,7 +4,7 @@
   下半部：热门单集——逐字复刻 pages/podcast/podcast.wxml 的 episode-row
   （16:9 封面/等级徽章/时长遮罩/耳机+收听数/日历+日期），wxs 复用 podcast.wxs。 -->
 <wxs src="../podcast/podcast.wxs" module="fmt" />
-<view class="channel-container">
+<view class="channel-container {{themeClass}}">
 
   <!-- 页头（titleLarge 加粗频道名 + bodySmall onSurfaceVariant「X 档播客」） -->
   <view class="page-header">

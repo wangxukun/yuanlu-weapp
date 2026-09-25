@@ -27,6 +27,7 @@
  * setData 用 viewList[i] 路径补丁追加，不整表重发）。
  */
 
+const theme = require('../../utils/theme');
 const { get, post } = require('../../utils/request');
 const audioManager = require('../../utils/audioManager');
 const audioBus = require('../../utils/audio-bus');
@@ -43,6 +44,8 @@ const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     episodeid: '',
     episode: null,
     isLoading: true,
@@ -91,6 +94,13 @@ Page({
     dictInput: '',
     dictSlots: [],
     dictHint: false,
+  },
+
+  onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
   },
 
   onLoad(query) {

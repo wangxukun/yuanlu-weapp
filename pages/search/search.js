@@ -3,6 +3,7 @@
 // 标题区/空态/骨架屏/结果网格/无结果态文案逐字对齐；搜索输入复刻
 // components/header/SearchBar.tsx（placeholder 与图标）。
 // 深链 ?q= 对齐 Web /search?q=；结果卡点击进播客详情。
+const theme = require('../../utils/theme');
 const { get } = require('../../utils/request');
 
 // 对齐 Web searchPodcasts({ query, limit: 40 })；REST 路由上限 50
@@ -12,12 +13,21 @@ const DEBOUNCE_MS = 400;
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     query: '',      // 输入框当前值
     searched: null, // 最近一次提交的搜索词（null = 尚未搜索，对应 Web 无 q 参数）
     results: [],
     resultRows: [], // 双列网格（与发现页同款分块渲染）
     total: 0,
     isSearching: false,
+  },
+
+  onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
   },
 
   onLoad(options) {

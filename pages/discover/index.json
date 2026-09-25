@@ -2,7 +2,5 @@
   "usingComponents": {
     "mini-player": "/components/player/mini-player/index"
   },
-  "enablePullDownRefresh": true,
-  "backgroundColor": "#faf8f3",
-  "backgroundTextStyle": "light"
+  "enablePullDownRefresh": true
 }

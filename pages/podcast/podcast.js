@@ -1,8 +1,11 @@
+const theme = require('../../utils/theme');
 const { get, post, delete: requestDelete } = require('../../utils/request');
 const authStore = require('../../store/authStore');
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     podcastid: '',
     podcast: null,
     episodes: [],
@@ -16,6 +19,13 @@ Page({
     introExpanded: false,
     isFavorited: false,
     isFavoriteBusy: false
+  },
+
+  onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
   },
 
   onLoad(query) {

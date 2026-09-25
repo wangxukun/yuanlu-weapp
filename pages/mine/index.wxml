@@ -1,4 +1,4 @@
-<view class="mine-container pb-page-bottom-with-player">
+<view class="mine-container pb-page-bottom-with-player {{themeClass}}">
   <!-- 头部身份卡片 -->
   <view class="card profile-card row tap-scale" bindtap="{{isLoggedIn ? 'onProfile' : 'onLogin'}}">
     <view class="avatar-wrap center">
@@ -50,28 +50,28 @@
 
   <!-- 系统管理列表 -->
   <view class="card list-card mt-4">
-    <!-- 管理员控制台入口 -->
+    <!-- 管理员控制台入口（LayoutDashboard · error-500，对齐 Web mine 页） -->
     <navigator wx:if="{{isLoggedIn && userInfo.role === 'ADMIN'}}" url="/pages/admin/index" class="list-item row between tap-scale border-bottom">
       <view class="row center-v">
-        <text class="list-icon text-error mr-3">⚙️</text>
+        <image class="list-icon-img mr-3" src="/assets/icons/layout-dashboard-error.svg" mode="aspectFit" />
         <text class="t-body text-bold text-error">控制台</text>
       </view>
       <view class="chevron-right">〉</view>
     </navigator>
 
-    <!-- 外观设置 -->
+    <!-- 外观设置（Palette · base-content/60） -->
     <view class="list-item row between tap-scale border-bottom" bindtap="onAppearance">
       <view class="row center-v">
-        <text class="list-icon text-secondary mr-3">🎨</text>
+        <image class="list-icon-img mr-3" src="/assets/icons/palette-ink.svg" mode="aspectFit" />
         <text class="t-body text-bold">外观设置</text>
       </view>
       <view class="chevron-right">〉</view>
     </view>
 
-    <!-- 帮助与支持 -->
+    <!-- 帮助与支持（CircleHelp · base-content/60） -->
     <navigator url="/pages/contact/index" class="list-item row between tap-scale">
       <view class="row center-v">
-        <text class="list-icon text-secondary mr-3">❓</text>
+        <image class="list-icon-img mr-3" src="/assets/icons/circle-help-ink.svg" mode="aspectFit" />
         <text class="t-body text-bold">帮助与支持</text>
       </view>
       <view class="chevron-right">〉</view>

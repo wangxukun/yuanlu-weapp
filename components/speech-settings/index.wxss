@@ -1,0 +1,241 @@
+/**
+ * components/speech-settings/index.wxss — 语音评测设置弹窗样式
+ * 逐项映射 Android SpeechSettingsSheet.kt（ModalBottomSheet + SettingsControls）：
+ * - 面板：surface 底 + 顶部圆角 20dp + 灰色拖拽把手；上滑入场/下滑退场
+ * - 标题行：32dp primary/12 圆底齿轮 + titleMedium 粗体 + ✕
+ * - 分段选择：surfaceVariant/50 底圆角 10dp + 3dp 内衬，选中 primary 底白字粗体
+ * - 步进器：30dp primary/10 圆钮（−/+）+ 52dp surfaceVariant/50 值盒
+ * - 开关：M3 规格 52×32dp 轨道 + 24dp 白色圆钮（开启 primary 底）
+ * 深色值按 Android theme/Color.kt Dark* 覆写（--ss-* 局部变量）。
+ */
+
+.ss-root {
+  /* ===== 浅色 ===== */
+  --ss-surface: #ffffff;
+  --ss-on-surface: #1c1917;
+  --ss-on-surface-var: #57534e;
+  --ss-surface-var-50: rgba(242, 239, 232, 0.5);
+  --ss-surface-var-60: rgba(242, 239, 232, 0.6);
+  --ss-outline-25: rgba(229, 224, 213, 0.25);
+  --ss-primary: #1f7a5c;
+  --ss-on-primary: #ffffff;
+  --ss-primary-10: rgba(31, 122, 92, 0.1);
+  --ss-primary-12: rgba(31, 122, 92, 0.12);
+
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60; /* --z-sheet */
+}
+.ss-root--dark {
+  --ss-surface: #1e1b16;
+  --ss-on-surface: #e8e3d9;
+  --ss-on-surface-var: #a8a29e;
+  --ss-surface-var-50: rgba(38, 34, 28, 0.5);
+  --ss-surface-var-60: rgba(38, 34, 28, 0.6);
+  --ss-outline-25: rgba(58, 52, 44, 0.25);
+  --ss-primary: #4da989;
+  --ss-on-primary: #0a241b;
+  --ss-primary-10: rgba(77, 169, 137, 0.12);
+  --ss-primary-12: rgba(77, 169, 137, 0.14);
+}
+
+/* 遮罩 */
+.ss-scrim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.ss-scrim--on {
+  opacity: 1;
+}
+
+/* 面板（底部上滑入场） */
+.ss-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ss-surface);
+  border-radius: 40rpx 40rpx 0 0; /* 20dp */
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.ss-sheet--on {
+  transform: translateY(0);
+}
+
+/* 拖拽把手 */
+.ss-handle {
+  align-self: center;
+  margin-top: 16rpx;
+  width: 96rpx; /* 48dp */
+  height: 8rpx; /* 4dp */
+  border-radius: var(--r-full);
+  background: rgba(87, 83, 78, 0.4);
+}
+.ss-root--dark .ss-handle {
+  background: rgba(168, 162, 158, 0.4);
+}
+
+.ss-scroll {
+  /* scroll-view 需要确定的高度约束才会滚：父容器 .ss-sheet 只有 max-height
+     （高度随内容增长，WebView 下 flex:1 解析不出确定高度，scroll-view 以
+     内容高度撑开被面板裁剪 → 永不滚动）。直接给显式 max-height：
+     面板上限 88vh − 把手区（16+8rpx）− 安全区；短内容时面板仍自适应高度 */
+  flex: 1;
+  min-height: 0;
+  max-height: calc(88vh - 48rpx - env(safe-area-inset-bottom));
+}
+.ss-inner {
+  padding: 8rpx 40rpx 48rpx; /* h20dp */
+}
+
+/* ── 标题行 ── */
+.ss-title-row {
+  padding: 24rpx 0 8rpx;
+}
+.ss-title-icon {
+  width: 64rpx; /* 32dp */
+  height: 64rpx;
+  border-radius: 50%;
+  background: var(--ss-primary-12);
+}
+.ss-title-icon-ic {
+  width: 34rpx; /* 17dp */
+  height: 34rpx;
+}
+.ss-title {
+  margin-left: 16rpx; /* 8dp */
+  font-size: 32rpx; /* titleMedium 16sp */
+  font-weight: 700;
+  color: var(--ss-on-surface);
+}
+.ss-close {
+  width: 88rpx;
+  height: 88rpx;
+}
+.ss-close-ic {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+/* ── 分组与行 ── */
+.ss-group-title {
+  display: block;
+  margin: 28rpx 0 8rpx; /* top14 bottom4 dp */
+  font-size: 26rpx; /* labelMedium 12sp */
+  font-weight: 700;
+  color: var(--ss-primary);
+}
+.ss-row {
+  padding: 20rpx 0; /* v10dp */
+}
+.ss-label {
+  font-size: 28rpx; /* bodyMedium 14sp */
+  color: var(--ss-on-surface);
+}
+.ss-sublabel {
+  margin-top: 2rpx;
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--ss-on-surface-var);
+}
+.ss-divider {
+  height: 1rpx;
+  margin-top: 28rpx; /* 14dp */
+  background: var(--ss-outline-25);
+}
+.ss-note {
+  display: block;
+  margin-top: 24rpx; /* 12dp */
+  font-size: 22rpx;
+  color: var(--ss-on-surface-var);
+  opacity: 0.7;
+}
+
+/* ── 分段选择（选中 primary 底白字） ── */
+.ss-seg {
+  background: var(--ss-surface-var-50);
+  border-radius: 20rpx; /* 10dp */
+  padding: 6rpx; /* 3dp */
+}
+.ss-seg-item {
+  border-radius: 16rpx; /* 8dp */
+  padding: 10rpx 20rpx; /* v5 h10 dp */
+}
+.ss-seg-item--on {
+  background: var(--ss-primary);
+}
+.ss-seg-text {
+  font-size: 26rpx; /* labelMedium 12sp */
+  color: var(--ss-on-surface-var);
+}
+.ss-seg-text--on {
+  color: var(--ss-on-primary);
+  font-weight: 700;
+}
+
+/* ── 步进器（30dp 圆钮 + 52dp 值盒） ── */
+.ss-stepper {
+  gap: 4rpx;
+}
+.ss-step-btn {
+  width: 60rpx; /* 30dp */
+  height: 60rpx;
+  border-radius: 50%;
+  background: var(--ss-primary-10);
+}
+.ss-step-ic {
+  width: 30rpx; /* 15dp */
+  height: 30rpx;
+}
+.ss-step-value {
+  width: 104rpx; /* 52dp */
+  border-radius: 16rpx; /* 8dp */
+  background: var(--ss-surface-var-50);
+  padding: 12rpx 0; /* v6dp */
+}
+.ss-step-value-text {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--ss-on-surface);
+}
+
+/* ── M3 开关（52×32dp 轨道 + 24dp 白钮） ── */
+.ss-sw {
+  width: 104rpx;
+  height: 64rpx;
+  border-radius: var(--r-full);
+  background: var(--ss-surface-var-60);
+  border: 2rpx solid var(--ss-outline-25);
+  padding: 6rpx;
+  box-sizing: border-box;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.ss-sw--on {
+  background: var(--ss-primary);
+  border-color: var(--ss-primary);
+}
+.ss-sw-thumb {
+  width: 48rpx; /* 24dp */
+  height: 48rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+  transform: translateX(0);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ss-sw--on .ss-sw-thumb {
+  transform: translateX(40rpx);
+}

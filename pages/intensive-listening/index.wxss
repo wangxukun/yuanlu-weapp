@@ -181,7 +181,7 @@
 .sub {
   position: relative;
   padding: 40rpx 28rpx;
-  border-bottom: 1rpx solid rgba(241, 237, 228, 0.8); /* ink-100/80 */
+  border-bottom: 1rpx solid var(--card-fade-line);
   border-left: 8rpx solid transparent;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
@@ -264,7 +264,7 @@
   font-size: 24rpx;
   font-weight: 500;
   color: var(--ink-500);
-  background: rgba(241, 237, 228, 0.7); /* ink-100/70 */
+  background: var(--color-base-200);
   transition: all 0.2s ease;
 }
 .sub-time--on {
@@ -524,7 +524,7 @@
   display: block;
   margin-top: 4rpx;
   font-size: 24rpx;
-  color: rgba(27, 24, 18, 0.62);
+  color: var(--text-secondary);
 }
 /* action 按钮：中性黑底白字（sonner 默认主题） */
 .il-toast-btn {

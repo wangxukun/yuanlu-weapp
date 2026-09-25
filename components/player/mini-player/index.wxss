@@ -7,7 +7,7 @@
   bottom: env(safe-area-inset-bottom);
   bottom: constant(safe-area-inset-bottom);
   z-index: var(--z-miniplayer);
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: var(--card-bg);
   border-top: 1rpx solid var(--ink-100);
   box-shadow: 0 -8rpx 24rpx rgba(27, 24, 18, 0.05);
 }

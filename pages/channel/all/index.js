@@ -4,14 +4,24 @@
 // 双列 1:1 方卡（primaryContainer=#edf7f2 圆角 16dp）、名称单行截断、
 // 「X 档节目」（onPrimaryContainer 70%）、白底胶囊（Computer 图标 + 「频道主页」）。
 // 入口：发现页「推荐频道 · 查看更多」；卡片点击 → 频道详情页（?name= 深链）。
+const theme = require('../../../utils/theme');
 const { get } = require('../../../utils/request');
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     isLoading: true,
     error: null,
     channels: [],     // ChannelEntry[]: { name, podcastCount }
     channelRows: [],  // 双列分块
+  },
+
+  onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
   },
 
   onLoad() {

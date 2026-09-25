@@ -1,49 +1,49 @@
-<!-- 入口卡：未加载（锁定态 / 会员待生成态） -->
-<view wx:if="{{!content}}" class="dd-card tap-scale-light" bindtap="onCardTap">
-  <view class="dd-head row">
+<!-- 扁平容器：无卡片背景/阴影/圆角，直接落于页面底色（与“节目介绍”模块同风格） -->
+<view class="dd-section">
+
+  <!-- 行1：标题 + 权限状态（PRO 徽标 / 锁 / 展开箭头） -->
+  <view class="dd-head row align-center {{!content ? 'tap-scale-light' : ''}}" bindtap="onHeadTap">
+    <text class="dd-title">AI 精讲本集</text>
+    <view class="dd-pro-badge" wx:if="{{isLoggedIn && !isPremium}}">PRO</view>
+    <view class="flex-1"></view>
+    <image class="dd-lock" wx:if="{{isLoggedIn && !isPremium}}" src="/assets/icons/lock.svg"></image>
+    <image class="dd-chevron" wx:elif="{{isPremium && !isLoading}}" src="{{content && isOpen ? '/assets/icons/chevron-up-gray.svg' : '/assets/icons/chevron-down-gray.svg'}}"></image>
+  </view>
+
+  <!-- 行2：星星图标（与右侧两行标签整体垂直居中）+ 2x2 标签网格（展开态兼作过滤器） -->
+  <view class="dd-sub row align-center">
     <view class="dd-icon-circle center">
       <view class="dd-spinner" wx:if="{{isLoading}}"></view>
       <image class="dd-icon" src="/assets/icons/sparkles.svg" wx:else></image>
     </view>
-    <view class="dd-head-main col flex-1">
-      <view class="row align-center">
-        <text class="dd-title">AI 精讲本集</text>
-        <view class="dd-pro-badge" wx:if="{{isLoggedIn && !isPremium}}">PRO</view>
+    <!-- 缓存命中的安静加载（isLoading 且非 isGenerating）：标签网格保持可见，仅图标位转圈；
+         仅探测确认将触发 LLM 首次生成（isGenerating）时才以加载文案替换标签 -->
+    <view class="dd-chip-grid col" wx:if="{{!isGenerating}}">
+      <view class="dd-chip-row row" wx:for="{{chipRows}}" wx:key="id" wx:for-item="chipRow">
+        <view
+          class="dd-chip row align-center {{activeFilter === item.key ? 'dd-chip-active' : ''}}"
+          wx:for="{{chipRow.list}}"
+          wx:key="key"
+          data-key="{{item.key}}"
+          catchtap="onChipTap"
+        >
+          <image class="dd-chip-icon" src="{{item.icon}}"></image>
+          <text class="dd-chip-text">{{item.text}}</text>
+        </view>
       </view>
-      <text class="dd-desc">{{isLoading ? 'AI 正在精读字幕并生成精讲内容，首次生成约需 30-60 秒...' : 'AI 精读本集字幕，生成专属精讲：难点词汇、长难句拆解、跟读句与理解测验。'}}</text>
     </view>
-    <image class="dd-lock" wx:if="{{isLoggedIn && !isPremium}}" src="/assets/icons/lock.svg"></image>
-    <image class="dd-chevron" wx:elif="{{isPremium && !isLoading}}" src="/assets/icons/chevron-down-gray.svg"></image>
-  </view>
-  <view class="dd-chips row wrap" wx:if="{{!isLoading}}">
-    <view class="dd-chip row" wx:for="{{chips}}" wx:key="text">
-      <image class="dd-chip-icon" src="{{item.icon}}"></image>
-      <text class="dd-chip-text">{{item.text}}</text>
-    </view>
-  </view>
-</view>
-
-<!-- 已加载卡：头部常驻可折叠 + 展开态按分类渲染 -->
-<view wx:else class="dd-card">
-  <view class="dd-head row" bindtap="onHeaderTap">
-    <view class="dd-icon-circle center">
-      <image class="dd-icon" src="/assets/icons/sparkles.svg"></image>
-    </view>
-    <view class="dd-head-main col flex-1">
-      <text class="dd-title">AI 精讲本集</text>
-      <text class="dd-desc">AI 精读本集字幕，生成专属精讲：难点词汇、长难句拆解、跟读句与理解测验。</text>
-    </view>
-    <image class="dd-chevron" src="{{isOpen ? '/assets/icons/chevron-up-gray.svg' : '/assets/icons/chevron-down-gray.svg'}}"></image>
+    <text class="dd-loading-text flex-1" wx:else>AI 正在精读字幕并生成精讲内容，首次生成约需 30-60 秒...</text>
   </view>
 
-  <block wx:if="{{isOpen}}">
+  <!-- 展开态：按 activeFilter 条件渲染四类精讲内容（无卡片包裹） -->
+  <block wx:if="{{content && isOpen}}">
     <view class="dd-body col">
 
       <!-- 难点词汇预扫 -->
-      <view wx:if="{{content.vocabulary.length > 0}}">
+      <view wx:if="{{content.vocabulary.length > 0 && (activeFilter === 'all' || activeFilter === 'vocabulary')}}">
         <text class="dd-section-title">难点词汇预扫</text>
         <view class="dd-vocab-list col">
-          <view class="dd-vocab-card col" wx:for="{{content.vocabulary}}" wx:key="word" wx:for-item="v">
+          <view class="dd-vocab-item col" wx:for="{{content.vocabulary}}" wx:key="word" wx:for-item="v">
             <view class="row align-baseline wrap">
               <text class="dd-vocab-word">{{v.word}}</text>
               <text class="dd-vocab-phonetic" wx:if="{{v.phonetic}}">{{v.phonetic}}</text>
@@ -55,10 +55,10 @@
       </view>
 
       <!-- 长难句拆解 -->
-      <view wx:if="{{content.sentences.length > 0}}">
+      <view wx:if="{{content.sentences.length > 0 && (activeFilter === 'all' || activeFilter === 'sentences')}}">
         <text class="dd-section-title">长难句拆解</text>
         <view class="dd-sentence-list col">
-          <view class="dd-sentence-card col" wx:for="{{content.sentences}}" wx:key="text" wx:for-item="s">
+          <view class="dd-sentence-item col" wx:for="{{content.sentences}}" wx:key="text" wx:for-item="s">
             <text class="dd-sentence-text">{{s.text}}</text>
             <text class="dd-sentence-analysis">{{s.analysis}}</text>
           </view>
@@ -66,10 +66,10 @@
       </view>
 
       <!-- 跟读句推荐 -->
-      <view wx:if="{{content.shadowing.length > 0}}">
+      <view wx:if="{{content.shadowing.length > 0 && (activeFilter === 'all' || activeFilter === 'shadowing')}}">
         <text class="dd-section-title">跟读句推荐</text>
         <view class="dd-shadow-list col">
-          <view class="dd-shadow-card row" wx:for="{{content.shadowing}}" wx:key="text" wx:for-item="sd">
+          <view class="dd-shadow-item row" wx:for="{{content.shadowing}}" wx:key="text" wx:for-item="sd">
             <image class="dd-shadow-icon" src="/assets/icons/headphones.svg"></image>
             <view class="col flex-1">
               <text class="dd-shadow-text">{{sd.text}}</text>
@@ -80,10 +80,10 @@
       </view>
 
       <!-- 理解测验 -->
-      <view wx:if="{{content.quiz.length > 0}}">
+      <view wx:if="{{content.quiz.length > 0 && (activeFilter === 'all' || activeFilter === 'quiz')}}">
         <text class="dd-section-title">理解测验</text>
         <view class="dd-quiz-list col">
-          <view class="dd-quiz-card col" wx:for="{{content.quiz}}" wx:key="question" wx:for-item="q" wx:for-index="qi">
+          <view class="dd-quiz-item col" wx:for="{{content.quiz}}" wx:key="question" wx:for-item="q" wx:for-index="qi">
             <text class="dd-quiz-question">{{qi + 1}}. {{q.question}}</text>
             <view class="dd-quiz-options col">
               <view
@@ -94,7 +94,7 @@
                 wx:for-index="oi"
                 data-qi="{{qi}}"
                 data-oi="{{oi}}"
-                bindtap="onPickOption"
+                catchtap="onPickOption"
               >
                 <image class="dd-opt-icon" wx:if="{{quizAnswers[qi] !== undefined && q.answer === oi}}" src="/assets/icons/check-circle.svg"></image>
                 <image class="dd-opt-icon" wx:elif="{{quizAnswers[qi] === oi}}" src="/assets/icons/x-circle.svg"></image>
@@ -107,6 +107,11 @@
             </view>
           </view>
         </view>
+      </view>
+
+      <!-- 过滤空态：选中分类无内容 -->
+      <view class="dd-empty col center" wx:if="{{filterEmpty}}">
+        <text class="dd-empty-text">该分类暂无精讲内容</text>
       </view>
 
       <!-- 底部收起控制栏 -->

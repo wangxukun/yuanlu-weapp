@@ -1,0 +1,303 @@
+<wxs src="./se.wxs" module="fmt" />
+
+<!-- pages/speech-eval — 语音评测页（复刻 Android SpeechEvalScreen + SpeechEvalCard + 三态截图）：
+     顶部导航（收起/标题/设置）+ 单句评测卡（录音 ⇄ 结果翻转）+ 底部上一句/下一句与进度 -->
+<view class="se-page {{dark ? 'se-page--dark' : ''}}">
+
+  <!-- ══ 顶部导航：收起 | 标题 | 设置（齿轮与原生胶囊避让） ══ -->
+  <view class="se-header" style="padding-top: {{statusBarH}}px">
+    <view class="se-header-row row">
+      <view class="se-nav-btn center tap-dim" bindtap="onBack">
+        <image class="se-nav-ic--back" src="{{dark ? '/assets/icons/chevron-down-light.svg' : '/assets/icons/chevron-down-ink.svg'}}" />
+      </view>
+      <text class="se-header-title flex-1">语音评测</text>
+      <view class="se-nav-btn center tap-dim" style="margin-right: {{gearRightPx}}px" bindtap="onOpenSettings">
+        <image class="se-nav-ic--gear" src="{{dark ? '/assets/icons/settings-light.svg' : '/assets/icons/settings-ink.svg'}}" />
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 卡片区 ══ -->
+  <view class="se-body">
+    <!-- 加载态 -->
+    <view wx:if="{{loading}}" class="se-center-block col">
+      <view class="se-spin"></view>
+    </view>
+
+    <!-- 加载失败 -->
+    <view wx:elif="{{loadError}}" class="se-center-block col">
+      <text class="se-error-text">{{loadError}}</text>
+      <view class="se-error-btn center tap-scale" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <!-- 过滤后无句可练 -->
+    <view wx:elif="{{subsEmpty}}" class="se-center-block col">
+      <text class="se-empty-text">{{'当前过滤条件下没有可练习的句子\n可在设置中放宽词数或关闭「只练未掌握」'}}</text>
+    </view>
+
+    <!-- 单句评测卡 -->
+    <scroll-view wx:else class="se-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="se-card col">
+
+        <!-- ── 顶部操作栏：AI 朗读 / 原声播放 / 慢速播放 + 最近得分（居右，仅有历史时显示） ── -->
+        <view class="se-actions row">
+          <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onAiReading">
+            <view class="se-act-btn center {{playing === 'ai' ? 'se-act-btn--on' : ''}}">
+              <image class="se-act-ic" src="{{playing === 'ai' ? '/assets/icons/graphic-eq-white.svg' : (dark ? '/assets/icons/graphic-eq-dark.svg' : '/assets/icons/graphic-eq-primary.svg')}}" />
+            </view>
+            <text class="se-act-label">AI朗读</text>
+          </view>
+          <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onPlayOriginal">
+            <view class="se-act-btn center {{playing === 'original' ? 'se-act-btn--on' : ''}}">
+              <image class="se-act-ic" src="{{playing === 'original' ? '/assets/icons/volume-up-white.svg' : (dark ? '/assets/icons/volume-up-dark.svg' : '/assets/icons/volume-up-primary.svg')}}" />
+            </view>
+            <text class="se-act-label">原声播放</text>
+          </view>
+          <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onPlaySlow">
+            <view class="se-act-btn center {{playing === 'slow' ? 'se-act-btn--on' : ''}}">
+              <image class="se-act-ic" src="{{playing === 'slow' ? '/assets/icons/volume-1-white.svg' : (dark ? '/assets/icons/volume-1-dark.svg' : '/assets/icons/volume-1-primary.svg')}}" />
+            </view>
+            <text class="se-act-label">慢速播放</text>
+          </view>
+          <view class="se-flex-gap"></view>
+          <view wx:if="{{hasLatestRecord}}" class="se-act col {{(phase === 'evaluating' || phase === 'recording') ? 'se-act--off' : ''}}" bindtap="onShowLatestScore">
+            <view class="se-act-btn center">
+              <image class="se-act-ic" src="{{dark ? '/assets/icons/chart-column-dark.svg' : '/assets/icons/chart-column-primary.svg'}}" />
+            </view>
+            <text class="se-act-label">最近得分</text>
+          </view>
+        </view>
+
+        <!-- ── 字幕区（原文/音标/盲读 + 点词查词 + 词级扫光 + 句末翻译切换） ── -->
+        <view class="se-subtitle col">
+
+          <!-- 盲读遮挡：按词长模糊条 + 句末翻译图标 -->
+          <view wx:if="{{blindMasked}}" class="se-sentence-blind">
+            <view wx:for="{{blindBars}}" wx:key="index"
+                  class="se-blind-bar" style="width: {{item.w}}rpx; height: {{item.h}}rpx"></view>
+            <image class="se-translate-ic" src="{{showCn ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}"
+                   bindtap="onToggleCn" />
+          </view>
+
+          <!-- 原文/音标：逐词 token（点词查词 + 原声扫光 + 已保存生词 primary） -->
+          <view wx:else class="se-sentence {{fontSizeCls}}">
+            <block wx:for="{{tokens}}" wx:for-item="tok" wx:for-index="wi" wx:key="wi">
+              <text class="{{fmt.wordCls(wi, sweepIdx, sweepOn, tok.sv)}}"
+                    bindtap="onWordTap" data-word="{{tok.w}}">{{tok.d}} </text>
+            </block>
+            <image class="se-translate-ic" src="{{showCn ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}"
+                   bindtap="onToggleCn" />
+          </view>
+
+          <!-- 中文翻译（盲读模式同样展示，对齐 Android） -->
+          <text wx:if="{{showCn && hasCn}}" class="se-cn">{{textCn}}</text>
+          <text wx:elif="{{showCn}}" class="se-cn se-cn--empty">（本句暂无中文翻译）</text>
+
+          <!-- 盲读「显示原文 / 重新遮挡」胶囊 -->
+          <view wx:if="{{settings.textMode === 'blind'}}" class="se-blind-pill row tap-dim" bindtap="onToggleBlindReveal">
+            <image class="se-blind-pill-ic" src="{{blindMasked ? (dark ? '/assets/icons/eye-dark.svg' : '/assets/icons/eye-primary.svg') : (dark ? '/assets/icons/eye-off-dark.svg' : '/assets/icons/eye-off-primary.svg')}}" />
+            <text class="se-blind-pill-text">{{blindMasked ? '显示原文' : '重新遮挡'}}</text>
+          </view>
+        </view>
+
+        <!-- ── 录音区 ⇄ 结果区：条件渲染切换（录音态三相位 / 结果态），入场水平轴翻动动画 ──
+             不用 3D 双面 + 容器实测高度：快速切句时实测落在动画中段会得到塌陷高度，
+             绝对定位双面互相穿透（布局混乱 bug 根因）；条件渲染天然独占、随文档流重排 -->
+        <view class="se-face-holder">
+
+          <!-- 录音面 -->
+          <view wx:if="{{phase !== 'result'}}" class="se-face-anim col se-face-anim--front">
+            <!-- 评测中：绿色弧线旋转 + 文案 -->
+            <block wx:if="{{phase === 'evaluating'}}">
+              <view class="se-eval-gap"></view>
+              <view class="se-arc-spin"></view>
+              <text class="se-phase-text">评测中…</text>
+              <view class="se-eval-gap"></view>
+            </block>
+
+            <!-- 录音中：音量波形 + 红色停止钮（呼吸光圈） -->
+            <block wx:elif="{{phase === 'recording'}}">
+              <view class="se-rec-gap"></view>
+              <view class="se-amps row">
+                <block wx:if="{{amplitudes.length}}">
+                  <view wx:for="{{amplitudes}}" wx:key="index" class="se-amp-bar"
+                        style="height: {{fmt.ampH(item)}}rpx"></view>
+                </block>
+                <block wx:else>
+                  <view wx:for="{{[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}" wx:key="index"
+                        class="se-amp-bar" style="height: 12rpx"></view>
+                </block>
+              </view>
+              <view class="se-rec-gap"></view>
+              <view class="se-rec-wrap center">
+                <view class="se-rec-halo"></view>
+                <view class="se-rec-btn se-rec-btn--on center" bindtap="onToggleRecording">
+                  <image class="se-rec-stop-ic" src="/assets/icons/stop-white.svg" />
+                </view>
+              </view>
+              <text class="se-rec-hint se-rec-hint--stop">点击停止并评测</text>
+            </block>
+
+            <!-- 待录：绿色大麦克风钮 -->
+            <block wx:else>
+              <view class="se-idle-gap"></view>
+              <view class="se-rec-btn center" bindtap="onToggleRecording">
+                <image class="se-rec-mic-ic" src="/assets/icons/mic-filled.svg" />
+              </view>
+              <text class="se-rec-hint se-rec-hint--idle">点击录音</text>
+              <text class="se-rec-sub">朗读上方句子，跟读练习发音</text>
+              <view class="se-idle-gap"></view>
+            </block>
+          </view>
+
+          <!-- 结果面 -->
+          <view wx:else class="se-face-anim col se-face-anim--back">
+            <view class="se-result col" wx:if="{{result}}">
+
+                <!-- 综合得分：环形 + 评级 + 三维条 -->
+                <view class="se-score-row row">
+                  <view class="se-ring {{fmt.tierCls(result.overallScore)}}" style="--se-pct: {{result.overallScore}}%">
+                    <view class="se-ring-hole col">
+                      <text class="se-ring-num {{fmt.tierCls(result.overallScore)}}">{{result.overallScore}}</text>
+                      <text class="se-ring-label">综合得分</text>
+                    </view>
+                  </view>
+                  <view class="se-score-side col flex-1">
+                    <text class="se-rating {{fmt.tierCls(result.overallScore)}}">{{result.overallScore >= effectiveThreshold ? 'Excellent!' : (result.overallScore >= 60 ? 'Good Job!' : 'Keep Trying!')}}</text>
+                    <text class="se-rating-sub">{{result.overallScore >= effectiveThreshold ? '已过关（≥' + effectiveThreshold + '），发音很棒！' : '继续练习，达到 ' + effectiveThreshold + ' 分即可过关'}}</text>
+                    <view class="se-metric row">
+                      <text class="se-metric-label">准确度</text>
+                      <view class="se-metric-track flex-1"><view class="se-metric-bar se-metric-bar--p" style="width: {{result.pronunciation}}%"></view></view>
+                      <text class="se-metric-value">{{result.pronunciation}}</text>
+                    </view>
+                    <view class="se-metric row">
+                      <text class="se-metric-label">流利度</text>
+                      <view class="se-metric-track flex-1"><view class="se-metric-bar se-metric-bar--t" style="width: {{result.fluency}}%"></view></view>
+                      <text class="se-metric-value">{{result.fluency}}</text>
+                    </view>
+                    <view class="se-metric row">
+                      <text class="se-metric-label">完整度</text>
+                      <view class="se-metric-track flex-1"><view class="se-metric-bar se-metric-bar--s" style="width: {{result.integrity}}%"></view></view>
+                      <text class="se-metric-value">{{result.integrity}}</text>
+                    </view>
+                  </view>
+                </view>
+
+                <!-- 逐词纠错：回放我的发音 + 单词流式 -->
+                <view class="se-words-header row">
+                  <text class="se-words-title flex-1">逐词纠错</text>
+                  <view class="se-play-self row center tap-dim" bindtap="onPlayUserAudio">
+                    <image class="se-play-self-ic" src="{{(playing === 'user' || playing === 'word_me') ? (dark ? '/assets/icons/play-filled-primarydark.svg' : '/assets/icons/play-filled-primary.svg') : (dark ? '/assets/icons/play-filled-graydark.svg' : '/assets/icons/play-filled-gray.svg')}}" />
+                    <text class="se-play-self-text">回放我的发音</text>
+                  </view>
+                </view>
+
+                <text wx:if="{{!result.words.length}}" class="se-words-empty">本句未返回逐词明细</text>
+                <block wx:else>
+                  <!-- 盲读未揭示：逐词 chip 同样遮挡 -->
+                  <view wx:if="{{blindMasked}}" class="se-chips">
+                    <view wx:for="{{result.words}}" wx:key="index" class="se-chip--masked"
+                          style="width: {{fmt.maskedW(item.word.length)}}rpx"></view>
+                  </view>
+                  <!-- 流式单词胶囊（Flex Wrap + 档位底色 + 右侧内联小号得分，复刻 Web WordScoreBadge） -->
+                  <view wx:else class="se-chips">
+                    <view wx:for="{{result.words}}" wx:for-index="wi" wx:key="wi"
+                          class="se-chip {{fmt.tierCls(item.score)}} {{selectedWordIndex === wi ? 'se-chip--sel' : ''}} {{item.score < 85 && item.phonemes.length ? 'se-chip--click' : ''}}"
+                          data-index="{{wi}}" bindtap="onSelectWord">
+                      <text class="se-chip-word {{fmt.tierCls(item.score)}}">{{item.word}}</text>
+                      <text class="se-chip-score {{fmt.tierCls(item.score)}}">{{item.score}}</text>
+                    </view>
+                  </view>
+                  <text class="se-chips-hint">点击橙色/红色单词查看音素诊断</text>
+                </block>
+
+                <!-- 音素诊断面板（点橙色/红色单词展开） -->
+                <view wx:if="{{selectedWordIndex !== null && result.words[selectedWordIndex].phonemes.length}}" class="se-phoneme col">
+                  <view class="se-phoneme-header row">
+                    <text class="se-phoneme-title flex-1">音素诊断</text>
+                    <text class="se-phoneme-word">{{result.words[selectedWordIndex].word}}</text>
+                  </view>
+                  <view class="se-phoneme-pills row">
+                    <view class="se-pill center {{playing === 'word_us' ? 'se-pill--on' : ''}}"
+                          data-word="{{result.words[selectedWordIndex].word}}" data-us="1" bindtap="onPlayDictVoice">
+                      <text class="se-pill-text {{playing === 'word_us' ? 'se-pill-text--on' : ''}}">美音</text>
+                    </view>
+                    <view class="se-pill center {{playing === 'word_uk' ? 'se-pill--on' : ''}}"
+                          data-word="{{result.words[selectedWordIndex].word}}" data-us="0" bindtap="onPlayDictVoice">
+                      <text class="se-pill-text {{playing === 'word_uk' ? 'se-pill-text--on' : ''}}">英音</text>
+                    </view>
+                    <view class="se-pill center {{playing === 'word_original' ? 'se-pill--on' : ''}}"
+                          data-word="{{result.words[selectedWordIndex].word}}" bindtap="onPlayWordOriginal">
+                      <text class="se-pill-text {{playing === 'word_original' ? 'se-pill-text--on' : ''}}">原声</text>
+                    </view>
+                    <view class="se-pill center {{playing === 'word_me' ? 'se-pill--on' : ''}}"
+                          data-index="{{selectedWordIndex}}" bindtap="onPlayWordMe">
+                      <text class="se-pill-text {{playing === 'word_me' ? 'se-pill-text--on' : ''}}">我</text>
+                    </view>
+                  </view>
+
+                  <!-- 音素得分流（红/绿底色 + 分数） -->
+                  <view wx:if="{{settings.showIpa}}" class="se-phoneme-chips">
+                    <view wx:for="{{result.words[selectedWordIndex].phonemes}}" wx:for-item="ph" wx:key="index"
+                          class="se-ph-chip col center {{ph.score >= 80 ? 'good' : 'bad'}}">
+                      <text class="se-ph-ipa {{ph.score >= 80 ? 'good' : 'bad'}}">/{{ph.phoneme}}/</text>
+                      <text class="se-ph-score {{ph.score >= 80 ? 'good' : 'bad'}}">{{ph.score}}</text>
+                    </view>
+                  </view>
+                </view>
+
+                <!-- 再试一次 -->
+                <view class="se-retry center tap-scale" bindtap="onRetryRecording">
+                  <image class="se-retry-ic" src="{{dark ? '/assets/icons/refresh-ccw-light.svg' : '/assets/icons/refresh-ccw-gray.svg'}}" />
+                  <text class="se-retry-text">再试一次</text>
+                </view>
+              </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 非会员试用：末句后的解锁提示卡 -->
+      <view wx:if="{{isTrialMode && isLastIndex}}" class="se-trial col">
+        <text class="se-trial-title">解锁全部练习句子</text>
+        <text class="se-trial-sub">{{'免费用户每集可练习前 5 句\n升级会员解锁无限句子与评测次数'}}</text>
+      </view>
+
+      <view class="se-bottom-space"></view>
+    </scroll-view>
+  </view>
+
+  <!-- ══ 底部导航：上一句 | 进度 | 下一句 ══ -->
+  <view class="se-footer">
+    <view class="se-footer-row row">
+      <view class="se-nav-text row {{index <= 0 || phase === 'evaluating' ? 'se-nav-text--off' : ''}}" bindtap="onPrev">
+        <image class="se-nav-arrow" src="{{dark ? '/assets/icons/chevron-left-dark.svg' : '/assets/icons/chevron-left-primary.svg'}}" />
+        <text class="se-nav-label">上一句</text>
+      </view>
+      <view class="se-progress col flex-1">
+        <text class="se-progress-label">{{indexLabel}}</text>
+        <view class="se-progress-track">
+          <view class="se-progress-bar" style="width: {{progressPercent}}%"></view>
+        </view>
+        <text class="se-progress-sub">已练 {{practicedCount}} 句</text>
+      </view>
+      <view class="se-nav-text row {{isLastIndex || phase === 'evaluating' ? 'se-nav-text--off' : ''}}" bindtap="onNext">
+        <text class="se-nav-label">下一句</text>
+        <image class="se-nav-arrow" src="{{dark ? '/assets/icons/chevron-right-dark.svg' : '/assets/icons/chevron-right-primary.svg'}}" />
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 语音评测设置全屏弹窗 ══ -->
+  <speech-settings show="{{showSettings}}" settings="{{settings}}" theme-mode="{{themeMode}}" dark="{{dark}}"
+                   bind:change="onSettingChange" bind:theme="onSetThemeMode" bind:close="onCloseSettings" />
+
+  <!-- ══ 点词查词弹层（与精听页共用） ══ -->
+  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    episode-title="{{episodeTitle}}"
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+
+  <!-- ══ 会员转化弹窗（评测/词典配额墙） ══ -->
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
+</view>

@@ -1,0 +1,163 @@
+/**
+ * pages/contact/index.wxss — 联系我们样式
+ * 逐项映射 Web ContactClient.tsx 的 Tailwind 类（远路设计系统）：
+ *   页面 bg-ink-50；卡白底 + border ink-100 + rounded-3xl(24dp)；
+ *   头部居中 py-8 + border-b ink-50（title text-2xl bold / 副标题 text-sm ink-500）；
+ *   label text-xs bold ink-500 大写 + error-500 星号；输入框 px-4 py-3 rounded-xl
+ *   border ink-200（错误态 border error-300 + bg error-50/30 + 右侧 AlertCircle 18px）；
+ *   留言计数器 text-[10px]（>1000 转 error-500）；提交区 pt-6 border-t ink-50，
+ *   按钮全宽 py-3 rounded-xl primary-600 白字加粗（Send 图标 w-5；loading 旋转器），
+ *   禁用 opacity-70；提示文案 text-xs ink-400。
+ */
+
+.ct-page {
+  min-height: 100vh;
+  background: var(--ink-50);
+  padding: 48rpx 32rpx 96rpx; /* py-12 px-4 + pb-24 */
+}
+
+/* ── 卡片 ── */
+.ct-card {
+  background: var(--card-bg);
+  border: 2rpx solid var(--ink-100);
+  border-radius: 48rpx; /* rounded-3xl 24dp */
+  overflow: hidden;
+}
+
+/* ── 头部 ── */
+.ct-head {
+  padding: 64rpx 64rpx; /* px-8 py-8 */
+  border-bottom: 2rpx solid var(--ink-50);
+}
+.ct-title {
+  font-size: 48rpx; /* text-2xl */
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ct-subtitle {
+  margin-top: 16rpx; /* mb-2 */
+  font-size: 28rpx; /* text-sm */
+  color: var(--ink-500);
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* ── 表单 ── */
+.ct-form {
+  padding: 64rpx; /* p-8 */
+  gap: 48rpx; /* space-y-6 */
+}
+.ct-field {
+  gap: 12rpx; /* space-y-1.5 */
+}
+.ct-label {
+  font-size: 24rpx; /* text-xs */
+  font-weight: 700;
+  color: var(--ink-500);
+  letter-spacing: 0.06em; /* 大写观感（中文实际不高亮，保留字距） */
+}
+.ct-required {
+  color: var(--error-500);
+}
+.ct-label-row {
+  align-items: baseline;
+  margin-bottom: 4rpx;
+}
+/* 计数器 text-[10px] */
+.ct-counter {
+  font-size: 20rpx;
+  font-weight: 500;
+  color: var(--ink-400);
+}
+.ct-counter--err {
+  color: var(--error-500);
+}
+
+/* ── 输入框 ── */
+.ct-input-wrap {
+  position: relative;
+}
+.ct-input {
+  width: 100%;
+  height: 88rpx; /* 原生 input 不随 padding 自动撑高（会塌陷），显式定高：
+                    py-3(24rpx)×2 + 行高 40rpx，对齐 Web 输入框视觉高度 */
+  line-height: 88rpx; /* 单行文本垂直居中（textarea 由 .ct-textarea 覆盖） */
+  padding: 0 32rpx; /* px-4；纵向由 height 承担 */
+  border-radius: 32rpx; /* rounded-xl 16dp */
+  border: 2rpx solid var(--ink-200);
+  background: var(--card-bg);
+  font-size: 28rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+.ct-placeholder {
+  color: var(--ink-300);
+}
+.ct-input--err {
+  border-color: #de8577; /* error-300 */
+  background: rgba(251, 239, 237, 0.3); /* error-50/30 */
+}
+.ct-alert {
+  position: absolute;
+  right: 32rpx; /* right-4 */
+  top: 50%;
+  margin-top: -18rpx; /* 垂直居中（18px=36rpx） */
+  width: 36rpx;
+  height: 36rpx;
+  pointer-events: none;
+}
+.ct-textarea {
+  height: 256rpx; /* h-32 = 128dp（覆盖单行框的 88rpx 定高） */
+  line-height: 1.6; /* 覆盖单行框的行高居中 */
+  padding: 24rpx 32rpx; /* 多行框恢复纵向内边距 */
+}
+.ct-error {
+  font-size: 24rpx; /* text-xs */
+  font-weight: 500;
+  color: var(--error-500);
+}
+
+/* ── 提交区 ── */
+.ct-submit-area {
+  margin-top: 48rpx; /* pt-6 */
+  padding-top: 48rpx;
+  border-top: 2rpx solid var(--ink-50);
+  gap: 16rpx;
+  align-items: center;
+}
+.ct-submit {
+  width: 100%;
+  height: 88rpx; /* py-3 等高观感 */
+  border-radius: 32rpx;
+  background: var(--primary-600);
+  gap: 16rpx; /* mr-2 */
+}
+.ct-submit--off {
+  opacity: 0.7; /* disabled:opacity-70 */
+}
+.ct-submit-text {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+.ct-send-ic {
+  width: 40rpx; /* w-5 */
+  height: 40rpx;
+}
+.ct-spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: ct-spin 0.8s linear infinite;
+}
+@keyframes ct-spin {
+  to { transform: rotate(360deg); }
+}
+.ct-hint {
+  font-size: 24rpx; /* text-xs */
+  font-weight: 500;
+  color: var(--ink-400);
+  text-align: center;
+}

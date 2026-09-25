@@ -1,5 +1,5 @@
 <!-- pages/review/index.wxml — 复习中心：三 Tab + swiper（对齐 Web app/(main)/review） -->
-<view class="review-page">
+<view class="review-page {{themeClass}}">
 
   <!-- 未登录：整页登录引导态（图标与排布对齐 Web 端 PodcastAuthPrompt） -->
   <view wx:if="{{!isLoggedIn}}" class="guest-guide">

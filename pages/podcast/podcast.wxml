@@ -1,5 +1,5 @@
 <wxs src="./podcast.wxs" module="fmt" />
-<view class="page-container">
+<view class="page-container {{themeClass}}">
   <!-- Top Card -->
   <view class="podcast-header">
     <view class="header-content row align-start">

@@ -2,6 +2,8 @@
  * app.js — 远路播客小程序入口
  */
 const audioManager = require("./utils/audioManager");
+const theme = require("./utils/theme");
+const listeningReporter = require("./utils/listening-reporter");
 const authStore = require("./store/authStore");
 const membershipStore = require("./store/membershipStore");
 // 播放状态镜像 store：require 即激活订阅（audioManager 事件 → 跨页面可订阅，见 3.B.2）
@@ -28,10 +30,18 @@ App({
     // 3. 会员判定服务：本地 role 乐观 + subscription/status 权威校正
     //    （复习模块 PRO 门禁的事实来源，见 REVIEW-TASK.md T0.2）
     membershipStore.init();
+
+    // 4. 外观主题：系统主题监听（跟随系统模式下联动 chrome 与根类令牌）
+    theme.init();
+
+    // 5. 收听时长心跳（打卡数据源）：音频播放状态经 audioManager 联动上报
+    listeningReporter.start();
   },
 
   onShow() {
     audioManager.onAppShow();
+    // 外观：回前台重申 chrome（手动模式覆盖系统态的 tabBar/导航栏色）
+    theme.applyChrome();
   },
 
   onHide() {

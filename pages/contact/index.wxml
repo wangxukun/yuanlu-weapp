@@ -1,0 +1,65 @@
+<!-- pages/contact — 联系我们（复刻 Web app/(main)/contact/ContactClient.tsx）：
+     白卡圆角 24dp + 居中头部（联系我们/副标题）+ 三字段表单（label 大写小号 +
+     错误红框/右侧警示图标/错误文案）+ 留言计数器 + 全宽 primary 发送按钮（loading 态） -->
+<view class="ct-page {{themeClass}}">
+
+  <view class="ct-card col">
+    <!-- ── 卡片头部 ── -->
+    <view class="ct-head col center">
+      <text class="ct-title">联系我们</text>
+      <text class="ct-subtitle">如果您有任何建议、问题或合作意向，欢迎发送邮件与我联系。</text>
+    </view>
+
+    <!-- ── 表单 ── -->
+    <view class="ct-form col">
+
+      <!-- 邮箱 -->
+      <view class="ct-field col">
+        <text class="ct-label">您的邮箱 <text class="ct-required">*</text></text>
+        <view class="ct-input-wrap">
+          <input class="ct-input {{errors.email ? 'ct-input--err' : ''}}" type="text"
+                 placeholder="name@example.com" placeholder-class="ct-placeholder"
+                 value="{{email}}" data-name="email" bindinput="onInput" bindblur="onBlur" />
+          <image wx:if="{{errors.email}}" class="ct-alert" src="/assets/icons/circle-alert-error.svg" />
+        </view>
+        <text wx:if="{{errors.email}}" class="ct-error">{{errors.email}}</text>
+      </view>
+
+      <!-- 主题 -->
+      <view class="ct-field col">
+        <text class="ct-label">主题 <text class="ct-required">*</text></text>
+        <view class="ct-input-wrap">
+          <input class="ct-input {{errors.subject ? 'ct-input--err' : ''}}" type="text"
+                 placeholder="关于..." placeholder-class="ct-placeholder" maxlength="50"
+                 value="{{subject}}" data-name="subject" bindinput="onInput" bindblur="onBlur" />
+          <image wx:if="{{errors.subject}}" class="ct-alert" src="/assets/icons/circle-alert-error.svg" />
+        </view>
+        <text wx:if="{{errors.subject}}" class="ct-error">{{errors.subject}}</text>
+      </view>
+
+      <!-- 留言内容（计数器） -->
+      <view class="ct-field col">
+        <view class="ct-label-row between">
+          <text class="ct-label">留言内容 <text class="ct-required">*</text></text>
+          <text class="ct-counter {{messageLen > 1000 ? 'ct-counter--err' : ''}}">{{messageLen}}/1000</text>
+        </view>
+        <textarea class="ct-input ct-textarea {{errors.message ? 'ct-input--err' : ''}}"
+                  placeholder="请输入您想说的内容（至少10个字符）..." placeholder-class="ct-placeholder"
+                  maxlength="1000" value="{{message}}" data-name="message"
+                  bindinput="onInput" bindblur="onBlur" />
+        <text wx:if="{{errors.message}}" class="ct-error">{{errors.message}}</text>
+      </view>
+
+      <!-- 提交区 -->
+      <view class="ct-submit-area col">
+        <view class="ct-submit center {{isLoading || !isFormValid ? 'ct-submit--off' : ''}} tap-scale" bindtap="onSubmit">
+          <view wx:if="{{isLoading}}" class="ct-spinner"></view>
+          <image wx:else class="ct-send-ic" src="/assets/icons/send-white.svg" />
+          <text class="ct-submit-text">{{isLoading ? '发送中...' : '发送留言'}}</text>
+        </view>
+        <text wx:if="{{!isFormValid && (touched.email || touched.subject || touched.message)}}"
+              class="ct-hint">请完整填写所有必填字段后提交</text>
+      </view>
+    </view>
+  </view>
+</view>

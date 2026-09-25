@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "disableScroll": true,
+  "usingComponents": {
+    "speech-settings": "/components/speech-settings/index",
+    "vocabulary-modal": "/components/vocabulary-modal/index",
+    "premium-modal": "/components/premium-modal/index"
+  }
+}

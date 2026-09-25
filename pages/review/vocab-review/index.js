@@ -19,6 +19,7 @@ const vocabCore = require('../../../utils/vocab-core');
 const srs = require('../../../utils/srs');
 const { get, post } = require('../../../utils/request');
 const tts = require('../../../utils/tts');
+const theme = require('../../../utils/theme');
 const audioClip = require('../../../utils/audio-clip');
 
 /**
@@ -50,6 +51,8 @@ const SWIPE_THRESHOLD_DP = 80;
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空）
+    dark: false,    // 生效深色（发音图标亮绿变体切换）
     loading: true,
     queue: [],
     index: 0,
@@ -61,6 +64,12 @@ Page({
     progress: 0,
     current: null, // queue[index] 的 decorate 快照（WXML 就绪字段）
     dragOffset: 0, // 跟手横移反馈（px）
+  },
+
+  onShow() {
+    // 外观：根类（手动覆盖）+ 生效深色（图标变体）+ chrome（导航栏随主题）
+    this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark' });
+    theme.applyChrome();
   },
 
   onLoad() {

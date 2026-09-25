@@ -1,8 +1,5 @@
 {
   "navigationBarTitleText": "生词复习",
-  "navigationBarBackgroundColor": "#faf8f3",
-  "navigationBarTextStyle": "black",
-  "backgroundColor": "#faf8f3",
   "usingComponents": {
     "premium-modal": "/components/premium-modal/index"
   }

@@ -16,21 +16,25 @@
     "pages/search/search",
     "pages/channel/all/index",
     "pages/channel/index",
-    "pages/intensive-listening/index"
+    "pages/intensive-listening/index",
+    "pages/speech-eval/index",
+    "pages/contact/index"
   ],
-  "requiredBackgroundModes": ["audio"],
+  "requiredBackgroundModes": [
+    "audio"
+  ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#faf8f3",
+    "navigationBarBackgroundColor": "@navBgColor",
     "navigationBarTitleText": "远路播客",
-    "navigationBarTextStyle": "black",
-    "backgroundColor": "#faf8f3"
+    "navigationBarTextStyle": "@navTxtStyle",
+    "backgroundColor": "@bgColor"
   },
   "tabBar": {
-    "color": "#a79e8a",
-    "selectedColor": "#1f7a5c",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "color": "@tabColor",
+    "selectedColor": "@tabSelected",
+    "backgroundColor": "@tabBg",
+    "borderStyle": "@tabBorder",
     "list": [
       {
         "pagePath": "pages/home/index",
@@ -59,5 +63,7 @@
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "darkmode": true,
+  "themeLocation": "theme.json"
 }

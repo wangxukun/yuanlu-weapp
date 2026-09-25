@@ -4,7 +4,7 @@
   / 单集卡片（16:9 封面 + 时长遮罩 / 来源行 / 两行标题 / 统计行）。
   顶部返回 + 标题由原生导航栏提供（navigationBarTitleText: 我的收藏）。 -->
 
-<view class="fav-page">
+<view class="fav-page {{themeClass}}">
 
   <!-- ===== 加载态 ===== -->
   <view wx:if="{{isLoading}}" class="state-box col center">

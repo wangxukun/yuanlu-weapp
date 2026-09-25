@@ -7,7 +7,7 @@
   弹窗层      vocabulary-modal 全屏生词弹窗 / sentence-tag-drawer 完善抽屉 /
               premium-modal 配额墙 / il-toast 收藏成功提示（带 action 按钮）
 -->
-<view class="il-page">
+<view class="il-page {{themeClass}}">
 
   <!-- ═══ 顶部固定区 ═══ -->
   <view class="il-header" style="padding-top: {{statusBarH}}px">

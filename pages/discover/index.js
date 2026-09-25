@@ -1,7 +1,9 @@
 const { get } = require('../../utils/request');
+const theme = require('../../utils/theme');
 
 Page({
   data: {
+    themeClass: '',
     isLoading: true,
     error: null,
 
@@ -31,6 +33,12 @@ Page({
 
   onLoad() {
     this.loadData();
+  },
+
+  onShow() {
+    // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
+    this.setData({ themeClass: theme.rootClass() });
+    theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
   },
 
   onPullDownRefresh() {

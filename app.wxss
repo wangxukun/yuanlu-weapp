@@ -56,7 +56,7 @@ page {
   --error-500: #d2503f;
   --error-600: #b8402f;
 
-  /* ===== 语义令牌（浅色模式；深色模式待后续阶段开启 darkmode 后按 Web 端值覆写） ===== */
+  /* ===== 语义令牌（浅色模式；深色经 prefers-color-scheme / 根类覆盖，见下方深色块） ===== */
   --color-primary: var(--primary-600);
   --color-primary-content: #ffffff;
   --color-accent: var(--accent-500);
@@ -99,6 +99,8 @@ page {
   --mini-player-height: 120rpx;
   --page-padding: 32rpx;
   --safe-bottom: env(safe-area-inset-bottom);
+  --card-fade: rgba(241, 237, 228, 0.3);
+  --card-fade-line: rgba(227, 221, 207, 0.5);
 
   background: var(--page-bg);
   color: var(--text-primary);
@@ -107,6 +109,139 @@ page {
     "Helvetica Neue", "Microsoft YaHei", sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+ * 深色令牌 · 双轨（外观设置：跟随系统 / 浅色 / 深色）
+ * ① 跟随系统：darkmode:true 下系统深色命中媒体查询，page 级令牌整体翻转
+ * ② 手动浅色/深色：页面根视图挂 .theme-light / .theme-dark（utils/theme.js
+ *    rootClass 下发），类选择器特异性高于 page，可覆盖当时的系统态
+ * 深色值对齐 Web/Android 深色板（ink-950 页底、surface #1E1B16、primary-400）
+ * ========================================================== */
+@media (prefers-color-scheme: dark) {
+  page {
+    --color-primary: #4da989;
+    --color-primary-content: #0a241b;
+    --color-accent: #d98a17;
+    --color-success: #4da989;
+    --color-warning: #d98a17;
+    --color-error: #d2503f;
+    --color-base-100: #1e1b16;
+    --color-base-200: #151310;
+    --color-base-300: #26221c;
+    --color-base-content: #e8e3d9;
+    --page-bg: #151310;
+    --card-bg: #1e1b16;
+    --text-primary: #e8e3d9;
+    --text-secondary: #a8a29e;
+    --text-tertiary: #736c5f;
+    --border-color: #3a342c;
+    --card-fade: rgba(30, 27, 22, 0.3);
+    --card-fade-line: rgba(58, 52, 44, 0.5);
+
+    /* ===== 色阶深色翻转（ink 阶梯 + primary/accent 浅色档；本块内变量在深色下
+       令全项目 var(--ink-*) 文本/底色与品牌淡底自动双态） ===== */
+    --ink-50: #171512;
+    --ink-100: #23201a;
+    --ink-200: #38332a;
+    --ink-300: #5a544b;
+    --ink-400: #8c8579;
+    --ink-500: #a8a29e;
+    --ink-600: #b8b2a6;
+    --ink-700: #d9d3c7;
+    --ink-800: #e6e1d5;
+    --ink-900: #ece7dc;
+    --ink-950: #f4efe6;
+    --primary-50: #12261f;
+    --primary-100: #1a3329;
+    --accent-50: #2b1f0c;
+    --accent-100: #362710;
+  }
+}
+
+/* 手动覆盖类：重声明全部语义令牌 + 兜底铺满视口（防 page 底色外露） */
+.theme-dark {
+  --color-primary: #4da989;
+  --color-primary-content: #0a241b;
+  --color-accent: #d98a17;
+  --color-success: #4da989;
+  --color-warning: #d98a17;
+  --color-error: #d2503f;
+  --color-base-100: #1e1b16;
+  --color-base-200: #151310;
+  --color-base-300: #26221c;
+  --color-base-content: #e8e3d9;
+  --page-bg: #151310;
+  --card-bg: #1e1b16;
+  --text-primary: #e8e3d9;
+  --text-secondary: #a8a29e;
+  --text-tertiary: #736c5f;
+  --border-color: #3a342c;
+  --card-fade: rgba(30, 27, 22, 0.3);
+  --card-fade-line: rgba(58, 52, 44, 0.5);
+  /* ===== 色阶深色翻转（ink 阶梯 + primary/accent 浅色档；本块内变量在深色下
+     令全项目 var(--ink-*) 文本/底色与品牌淡底自动双态） ===== */
+  --ink-50: #171512;
+  --ink-100: #23201a;
+  --ink-200: #38332a;
+  --ink-300: #5a544b;
+  --ink-400: #8c8579;
+  --ink-500: #a8a29e;
+  --ink-600: #b8b2a6;
+  --ink-700: #d9d3c7;
+  --ink-800: #e6e1d5;
+  --ink-900: #ece7dc;
+  --ink-950: #f4efe6;
+  --primary-50: #12261f;
+  --primary-100: #1a3329;
+  --accent-50: #2b1f0c;
+  --accent-100: #362710;
+  min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--text-primary); /* 无显式色类的文本靠继承：根类重声明，避免继承 page 级系统态计算值 */
+  box-sizing: border-box;
+}
+
+.theme-light {
+  --color-primary: var(--primary-600);
+  --color-primary-content: #ffffff;
+  --color-accent: var(--accent-500);
+  --color-success: var(--primary-500);
+  --color-warning: var(--accent-500);
+  --color-error: var(--error-500);
+  --color-base-100: #ffffff;
+  --color-base-200: var(--ink-50);
+  --color-base-300: var(--ink-100);
+  --color-base-content: #1b1812;
+  --page-bg: var(--ink-50);
+  --card-bg: #ffffff;
+  --text-primary: var(--ink-900);
+  --text-secondary: var(--ink-600);
+  --text-tertiary: var(--ink-400);
+  --border-color: var(--ink-200);
+  --card-fade: rgba(241, 237, 228, 0.3);
+  --card-fade-line: rgba(227, 221, 207, 0.5);
+  /* 手动浅色：显式还原色阶（系统深色的媒体查询会翻转 page 级阶梯，
+     子树必须全量恢复原值，否则手动浅色下文本/淡底串深色） */
+  --ink-50: #faf8f3;
+  --ink-100: #f1ede4;
+  --ink-200: #e3ddcf;
+  --ink-300: #cfc7b4;
+  --ink-400: #a79e8a;
+  --ink-500: #857c68;
+  --ink-600: #655d4c;
+  --ink-700: #4a4436;
+  --ink-800: #322d23;
+  --ink-900: #221f18;
+  --ink-950: #151310;
+  --primary-50: #edf7f2;
+  --primary-100: #d5ede1;
+  --accent-50: #fdf4e7;
+  --accent-100: #fae5c6;
+  min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--text-primary); /* 同上：手动浅色在系统深色下显式回归浅色前景 */
+  box-sizing: border-box;
 }
 
 /* ============================================================

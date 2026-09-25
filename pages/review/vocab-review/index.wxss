@@ -15,9 +15,111 @@
  */
 
 .vr-page {
+  /* ===== 双色令牌（值逐项 = Android VocabularyReviewScreen.kt isDark 分支） =====
+     onSurface #1C1917/#E8E3D9、onSurfaceVariant #57534E/#A8A29E 按精确 alpha 阶梯 */
+  --vr-strong: rgba(28, 25, 23, 0.8);       /* 计数/SRS 主文案（onSurface 80%） */
+  --vr-sub70: rgba(87, 83, 78, 0.7);        /* 释义英文/出处中文（variant 70%） */
+  --vr-mid: rgba(87, 83, 78, 0.6);          /* 闪卡胶囊字/SRS 区间（variant 60%） */
+  --vr-sub55: rgba(87, 83, 78, 0.55);       /* 区块 label/出处来自（variant 55%） */
+  --vr-sub45: rgba(87, 83, 78, 0.45);       /* 正面提示（variant 45%） */
+  --vr-sub35: rgba(87, 83, 78, 0.35);       /* 正面来自（variant 35%） */
+  --vr-ink: #322d23;                        /* 释义中文/原句正文（contentColor） */
+  --vr-ink-soft: #57534e;                   /* 音标文本（variant solid） */
+  --vr-surface: #f1ede4;                    /* 进度轨道/胶囊底/分割线（Ink100→Ink800） */
+  --vr-primary: #1f7a5c;                    /* 词/音标标签/高亮（Primary600→400） */
+  --vr-primary-soft: rgba(31, 122, 92, 0.1);/* 发音圆底/词性胶囊（primary 10%） */
+  --vr-panel: rgba(241, 237, 228, 0.5);     /* 释义卡/逐词行（Ink100/50→Ink800/50） */
+  --vr-panel-60: rgba(241, 237, 228, 0.5);  /* 逐词结果行（Android 同 50%） */
+  --vr-ctx-hi: rgba(31, 122, 92, 0.06);     /* 出处渐变主色端（primary/6） */
+  --vr-ctx-line: rgba(31, 122, 92, 0.2);    /* 出处描边（primary/20） */
+  --vr-ety-bg: rgba(217, 138, 23, 0.07);    /* 词源卡（accent 7%→12%） */
+  --vr-ety-chip: #ffffff;                   /* 词素 chips 底（白→Ink800） */
+  --vr-ety-text: #655d4c;                   /* 词素 chips 字（Ink600→Ink400） */
+  --vr-footer: rgba(250, 248, 243, 0.6);    /* 底部操作区（Ink50/60→Ink800/35） */
+  --vr-srs-line: #f1ede4;                   /* SRS 描边（Ink100→白 8%） */
+  --vr-cta: #1f7a5c;                        /* 显示答案/再来一轮（Primary600→500） */
+
   height: 100vh;
-  background: var(--page-bg);
+  background: var(--card-bg); /* 整屏 surface（白→#1E1B16，Android colorScheme.surface） */
 }
+
+/* ===== 深色·跟随系统（媒体查询） ===== */
+@media (prefers-color-scheme: dark) {
+  .vr-page {
+    --vr-strong: rgba(232, 227, 217, 0.8);
+    --vr-sub70: rgba(168, 162, 158, 0.7);
+    --vr-mid: rgba(168, 162, 158, 0.6);
+    --vr-sub55: rgba(168, 162, 158, 0.55);
+    --vr-sub45: rgba(168, 162, 158, 0.45);
+    --vr-sub35: rgba(168, 162, 158, 0.35);
+    --vr-ink: #e8e3d9;
+    --vr-ink-soft: #a8a29e;
+    --vr-surface: #26221c;
+    --vr-primary: #4da989;
+    --vr-primary-soft: rgba(77, 169, 137, 0.1);
+    --vr-panel: rgba(38, 34, 28, 0.5);
+    --vr-panel-60: rgba(38, 34, 28, 0.5);
+    --vr-ctx-hi: rgba(77, 169, 137, 0.06);
+    --vr-ctx-line: rgba(77, 169, 137, 0.2);
+    --vr-ety-bg: rgba(217, 138, 23, 0.12);
+    --vr-ety-chip: #26221c;
+    --vr-ety-text: #a79e8a;
+    --vr-footer: rgba(38, 34, 28, 0.35);
+    --vr-srs-line: rgba(255, 255, 255, 0.08);
+    --vr-cta: #2e8f6f;
+  }
+}
+
+/* ===== 深色·手动（utils/theme 根类，同媒体查询值） ===== */
+.theme-dark {
+  --vr-strong: rgba(232, 227, 217, 0.8);
+  --vr-sub70: rgba(168, 162, 158, 0.7);
+  --vr-mid: rgba(168, 162, 158, 0.6);
+  --vr-sub55: rgba(168, 162, 158, 0.55);
+  --vr-sub45: rgba(168, 162, 158, 0.45);
+  --vr-sub35: rgba(168, 162, 158, 0.35);
+  --vr-ink: #e8e3d9;
+  --vr-ink-soft: #a8a29e;
+  --vr-surface: #26221c;
+  --vr-primary: #4da989;
+  --vr-primary-soft: rgba(77, 169, 137, 0.1);
+  --vr-panel: rgba(38, 34, 28, 0.5);
+  --vr-panel-60: rgba(38, 34, 28, 0.5);
+  --vr-ctx-hi: rgba(77, 169, 137, 0.06);
+  --vr-ctx-line: rgba(77, 169, 137, 0.2);
+  --vr-ety-bg: rgba(217, 138, 23, 0.12);
+  --vr-ety-chip: #26221c;
+  --vr-ety-text: #a79e8a;
+  --vr-footer: rgba(38, 34, 28, 0.35);
+  --vr-srs-line: rgba(255, 255, 255, 0.08);
+  --vr-cta: #2e8f6f;
+}
+
+/* ===== 手动浅色：系统深色下强制回归（Android 浅色值） ===== */
+.theme-light {
+  --vr-strong: rgba(28, 25, 23, 0.8);
+  --vr-sub70: rgba(87, 83, 78, 0.7);
+  --vr-mid: rgba(87, 83, 78, 0.6);
+  --vr-sub55: rgba(87, 83, 78, 0.55);
+  --vr-sub45: rgba(87, 83, 78, 0.45);
+  --vr-sub35: rgba(87, 83, 78, 0.35);
+  --vr-ink: #322d23;
+  --vr-ink-soft: #57534e;
+  --vr-surface: #f1ede4;
+  --vr-primary: #1f7a5c;
+  --vr-primary-soft: rgba(31, 122, 92, 0.1);
+  --vr-panel: rgba(241, 237, 228, 0.5);
+  --vr-panel-60: rgba(241, 237, 228, 0.5);
+  --vr-ctx-hi: rgba(31, 122, 92, 0.06);
+  --vr-ctx-line: rgba(31, 122, 92, 0.2);
+  --vr-ety-bg: rgba(217, 138, 23, 0.07);
+  --vr-ety-chip: #ffffff;
+  --vr-ety-text: #655d4c;
+  --vr-footer: rgba(250, 248, 243, 0.6);
+  --vr-srs-line: #f1ede4;
+  --vr-cta: #1f7a5c;
+}
+
 
 /* ── 顶部进度头 ── */
 .vr-header {
@@ -26,7 +128,7 @@
 }
 .vr-progress-track {
   height: 6rpx; /* 4dp */
-  background: var(--ink-100);
+  background: var(--vr-surface);
 }
 .vr-progress-bar {
   height: 100%;
@@ -44,12 +146,12 @@
 .vr-header-count {
   font-size: 26rpx; /* labelMedium 12sp */
   font-weight: 700;
-  color: rgba(27, 24, 18, 0.8);
+  color: var(--vr-strong);
 }
 .vr-header-tag {
   margin-left: 8rpx;
-  background: var(--ink-100);
-  color: rgba(27, 24, 18, 0.6);
+  background: var(--vr-surface);
+  color: var(--vr-mid);
   font-size: 24rpx; /* labelSmall 11sp */
   border-radius: var(--r-full);
   padding: 4rpx 16rpx;
@@ -68,7 +170,7 @@
 }
 .vr-divider {
   height: 1rpx;
-  background: var(--ink-100);
+  background: var(--vr-surface);
   flex-shrink: 0;
 }
 
@@ -82,8 +184,8 @@
 .vr-spin {
   width: 48rpx;
   height: 48rpx;
-  border: 4rpx solid rgba(31, 122, 92, 0.2);
-  border-top-color: var(--primary-600);
+  border: 4rpx solid var(--vr-primary-soft);
+  border-top-color: var(--vr-primary);
   border-radius: 50%;
   animation: vr-rotate 0.8s linear infinite;
 }
@@ -120,7 +222,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--page-bg);
+  background: transparent;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   overflow: hidden;
@@ -139,7 +241,7 @@
 .vr-front-word {
   font-size: 90rpx; /* displaySmall 36sp（正面主词） */
   font-weight: 800; /* ExtraBold */
-  color: var(--primary-600);
+  color: var(--vr-primary);
   text-align: center;
   line-height: 1.15;
   word-break: break-word;
@@ -154,7 +256,7 @@
   height: 88rpx;
   margin-top: 40rpx; /* 20dp */
   border-radius: 50%;
-  background: rgba(31, 122, 92, 0.1); /* primary/10 */
+  background: var(--vr-primary-soft);
 }
 .vr-front-play-ic {
   width: 44rpx; /* 22dp */
@@ -163,13 +265,13 @@
 .vr-front-hint {
   margin-top: 56rpx; /* 28dp */
   font-size: 28rpx; /* labelMedium 12sp（正文可读级） */
-  color: rgba(27, 24, 18, 0.45);
+  color: var(--vr-sub45);
 }
 .vr-front-from {
   margin-top: 12rpx; /* 6dp */
   max-width: 560rpx;
   font-size: 24rpx; /* labelSmall 11sp */
-  color: rgba(27, 24, 18, 0.35);
+  color: var(--vr-sub35);
 }
 
 /* ── 背面 ── */
@@ -185,7 +287,7 @@
   font-size: 70rpx; /* headlineMedium 28sp（背面主词） */
   line-height: 1.2;
   font-weight: 700;
-  color: var(--primary-600);
+  color: var(--vr-primary);
   text-align: center;
   word-break: break-word;
 }
@@ -201,14 +303,14 @@
 .vr-phon-tag {
   font-size: 24rpx; /* labelSmall 11sp（US/UK 标签） */
   font-weight: 900; /* Black */
-  color: var(--primary-600);
+  color: var(--vr-primary);
 }
 .vr-phon-tag--uk {
   color: var(--accent-500);
 }
 .vr-phon-text {
   font-size: 28rpx; /* labelMedium 12sp（音标，正文可读级） */
-  color: var(--ink-500);
+  color: var(--vr-ink-soft);
 }
 .vr-phon-play {
   width: 40rpx;
@@ -226,7 +328,7 @@
   font-size: 24rpx; /* labelSmall 11sp（区块标签） */
   font-weight: 700;
   letter-spacing: 0.18em;
-  color: rgba(27, 24, 18, 0.55);
+  color: var(--vr-sub55);
   margin-bottom: 12rpx;
 }
 
@@ -234,7 +336,7 @@
 .vr-defs {
   width: 100%;
   margin-top: 32rpx; /* 16dp */
-  background: rgba(241, 237, 228, 0.5);
+  background: var(--vr-panel);
   border-radius: var(--r-lg);
   padding: 28rpx;
   gap: 20rpx; /* 10dp */
@@ -246,7 +348,7 @@
 .vr-def-pos {
   flex-shrink: 0;
   background: rgba(31, 122, 92, 0.1);
-  color: var(--primary-600);
+  color: var(--vr-primary);
   font-size: 24rpx; /* labelSmall 11sp（词性胶囊） */
   font-weight: 700;
   border-radius: 8rpx; /* 4dp */
@@ -260,19 +362,19 @@
 }
 .vr-def-cn {
   font-size: 32rpx; /* bodyMedium 14sp（释义中文） */
-  color: var(--ink-800);
+  color: var(--vr-ink);
   line-height: 1.5;
 }
 .vr-def-en {
   font-size: 24rpx; /* labelSmall 11sp（释义英文） */
-  color: rgba(27, 24, 18, 0.55);
+  color: var(--vr-sub70);
   font-style: italic;
   line-height: 1.5;
 }
 .vr-def-fallback {
   margin-top: 24rpx;
   font-size: 32rpx; /* bodyMedium 14sp */
-  color: var(--ink-800);
+  color: var(--vr-ink);
   text-align: center;
 }
 
@@ -280,42 +382,38 @@
 .vr-ctx {
   width: 100%;
   margin-top: 24rpx; /* 12dp */
-  background: linear-gradient(
-    135deg,
-    rgba(31, 122, 92, 0.06),
-    rgba(217, 138, 23, 0.06)
-  );
-  border: 2rpx solid rgba(31, 122, 92, 0.2);
+  background: linear-gradient(135deg, var(--vr-ctx-hi), rgba(217, 138, 23, 0.06));
+  border: 2rpx solid var(--vr-ctx-line);
   border-radius: var(--r-lg);
   padding: 28rpx;
 }
 .vr-ctx-sentence {
   font-size: 28rpx; /* bodySmall 12sp（原声例句） */
-  color: var(--ink-800);
+  color: var(--vr-ink);
   line-height: 1.7;
   word-break: break-word;
   overflow-wrap: break-word;
 }
 .vr-ctx-hl {
-  color: var(--primary-600);
+  color: var(--vr-primary);
   font-weight: 700;
 }
 .vr-ctx-trans {
   margin-top: 8rpx; /* 4dp */
   font-size: 24rpx; /* labelSmall 11sp（中文翻译） */
-  color: rgba(27, 24, 18, 0.55);
+  color: var(--vr-sub70);
 }
 .vr-ctx-from {
   margin-top: 12rpx; /* 6dp */
   font-size: 24rpx; /* labelSmall 11sp（来自剧集） */
-  color: rgba(27, 24, 18, 0.45);
+  color: var(--vr-sub55);
 }
 
 /* 词源记忆卡（Accent500/7% 底，词素白底 chips） */
 .vr-ety {
   width: 100%;
   margin-top: 24rpx;
-  background: rgba(217, 138, 23, 0.07);
+  background: var(--vr-ety-bg);
   border-radius: var(--r-lg);
   padding: 28rpx;
   align-items: center;
@@ -329,17 +427,24 @@
   gap: 12rpx; /* 6dp */
 }
 .vr-ety-chip {
-  background: var(--card-bg);
-  color: var(--ink-600); /* #655D4C */
+  background: var(--vr-ety-chip);
+  color: var(--vr-ety-text);
   font-size: 24rpx; /* labelSmall 11sp（词素 chips） */
   font-weight: 700;
   border-radius: 12rpx; /* 6dp */
   padding: 8rpx 20rpx;
+  line-height: 1.5;
+  /* 超长词素在 chip 内自动换行（flex 子项 min-width:auto 默认会横向溢出） */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .vr-ety-memo {
   margin-top: 12rpx;
   font-size: 24rpx; /* labelSmall 11sp（记忆法） */
-  color: var(--ink-500);
+  color: var(--vr-ink-soft);
   text-align: center;
   line-height: 1.6;
 }
@@ -347,14 +452,14 @@
 /* ── 底部（Ink50/60 底） ── */
 .vr-footer {
   flex-shrink: 0;
-  background: rgba(250, 248, 243, 0.6);
+  background: var(--vr-footer);
   padding: 24rpx 32rpx;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 }
 .vr-show-answer {
   height: 96rpx;
   border-radius: var(--r-lg); /* 12dp */
-  background: var(--primary-600);
+  background: var(--vr-cta);
   color: #ffffff;
   font-size: 30rpx; /* titleSmall */
   font-weight: 700;
@@ -368,7 +473,7 @@
 .vr-srs-btn {
   flex: 1;
   background: var(--card-bg);
-  border: 2rpx solid var(--ink-100);
+  border: 2rpx solid var(--vr-srs-line);
   border-radius: var(--r-lg);
   padding: 20rpx 0; /* 10dp */
   gap: 6rpx; /* 3dp */
@@ -384,11 +489,11 @@
 .vr-srs-label {
   font-size: 26rpx; /* labelMedium 12sp（四档主文案） */
   font-weight: 700;
-  color: rgba(27, 24, 18, 0.8);
+  color: var(--vr-strong);
 }
 .vr-srs-interval {
   font-size: 24rpx; /* labelSmall 11sp（间隔预演） */
-  color: rgba(27, 24, 18, 0.6);
+  color: var(--vr-mid);
 }
 
 /* ── 总结页（复刻 Android ReviewSummary + 单词复习完成页面.jpg） ── */
@@ -419,7 +524,7 @@
   margin-top: 12rpx; /* 6dp */
   align-self: center;
   font-size: 28rpx;
-  color: var(--ink-500); /* 浅灰 */
+  color: var(--vr-ink-soft); /* 浅灰 */
 }
 .vr-sum-grid {
   margin-top: 48rpx; /* 24dp */
@@ -467,16 +572,21 @@
 }
 /* 底部小字统一灰色（截图口径，非主题色） */
 .vr-sum-label {
-  font-size: 24rpx; /* labelSmall 11sp（对齐复习页字号口径） */
+  font-size: 24rpx; /* labelSmall 11sp */
   font-weight: 700;
-  color: rgba(27, 24, 18, 0.55);
+  color: var(--vr-mid); /* 兜底；四宫格内由下方状态色 70% 覆盖 */
 }
+/* StatCell label = 状态色 70%（Android 口径，红/黄/绿/蓝） */
+.vr-sum-cell--0 .vr-sum-label { color: rgba(210, 80, 63, 0.7); }
+.vr-sum-cell--1 .vr-sum-label { color: rgba(217, 138, 23, 0.7); }
+.vr-sum-cell--2 .vr-sum-label { color: rgba(46, 143, 111, 0.7); }
+.vr-sum-cell--3 .vr-sum-label { color: rgba(74, 127, 165, 0.7); }
 .vr-result-list {
   margin-top: 40rpx; /* 20dp */
   gap: 12rpx; /* 6dp */
 }
 .vr-result {
-  background: rgba(241, 237, 228, 0.6); /* 极浅底色行 */
+  background: var(--vr-panel-60); /* 逐词结果行 */
   border-radius: 20rpx; /* 10dp */
   padding: 18rpx 24rpx;
 }
@@ -508,7 +618,7 @@
 
 /* 底部固定操作栏（总结态）：完成胶囊按钮 */
 .vr-footer--summary {
-  background: var(--page-bg);
+  background: var(--card-bg);
   padding-top: 20rpx;
 }
 .vr-btn {
@@ -521,11 +631,11 @@
   margin-top: 20rpx; /* 10dp */
 }
 .vr-btn--primary {
-  background: var(--primary-600);
+  background: var(--vr-cta);
   color: #ffffff;
 }
 /* 完成：浅灰/米色背景 + 深色文字（对齐 Android Ink100） */
 .vr-btn--ghost {
-  background: var(--ink-100);
+  background: var(--vr-surface);
   color: var(--text-primary);
 }

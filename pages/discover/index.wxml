@@ -1,5 +1,5 @@
 <wxs src="./format.wxs" module="fmt" />
-<view class="discover-container pb-page-bottom-with-player">
+<view class="discover-container pb-page-bottom-with-player {{themeClass}}">
   <!-- 加载态：骨架屏 -->
   <block wx:if="{{isLoading}}">
     <view class="skeleton-wrap">

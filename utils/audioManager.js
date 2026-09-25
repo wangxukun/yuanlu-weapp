@@ -9,7 +9,10 @@
  *   1. 持有唯一的后台音频实例，跨页面共享播放状态（替代 zustand 全局 store）；
  *   2. 对外提供 play/pause/seek/播放列表管理等命令式 API；
  *   3. 内部维护轻量事件总线，页面通过 on/off 订阅 timeupdate 等事件刷新 UI；
- *   4. 预留进度恢复、进度上报、收听时长心跳等业务钩子（阶段二填充）。
+ *   4. 断点续播与进度双端同步（utils/progress-reporter）：
+ *      本地 3s 节流缓存 + 远端 15s 周期/暂停即报（PATCH 的 POST 别名）、
+ *      onPlay 首帧安全 seek 续播（≤30s / 距尾 15s 从头）、完播清进度；
+ *   5. 预留播放量计数、收听时长心跳等业务钩子（阶段二填充）。
  *
  * 使用注意：
  *   - 后台音频实例必须设置 title（iOS 后台播放的硬性要求），由 playEpisode 内部保证；
@@ -18,6 +21,8 @@
  */
 
 const { get, post } = require("./request");
+const progress = require("./progress-reporter");
+const listeningReporter = require("./listening-reporter");
 
 // 播放模式：不循环 → 列表循环 → 单曲循环 → 随机（对应 Web 端 cyclePlayMode）
 const PLAY_MODES = ["none", "all", "one"];
@@ -91,10 +96,8 @@ function describeSleepConfig(config) {
   return "";
 }
 
-// TODO(阶段二)：进度恢复 / 进度上报 相关的中间变量（对齐 GlobalAudio.tsx）
-// let resumeTime = null;          // 待恢复的历史进度（/api/episode/[id] → userState.progressSeconds）
-// let loggedEpisodeId = null;     // 已计数播放量的剧集（incrementPlayCount）
-// let unsentSeconds = 0;          // 未上报的收听秒数（30s 一次 /api/auth/update-activity）
+// TODO(阶段二)：播放量计数（incrementPlayCount）
+// （进度恢复/上报 → utils/progress-reporter.js；收听时长心跳 → utils/listening-reporter.js）
 
 // ==================== 初始化与事件绑定 ====================
 
@@ -108,20 +111,53 @@ function init() {
     state.isPlaying = true;
     state.isLoading = false;
     emit("play", getState());
+    // 收听时长心跳（打卡数据源）：播放中 1s 墙钟计时，满 30s 上报一批
+    listeningReporter.onPlaybackState(true);
+
+    // 断点续播：首帧安全 seek（位置由 playEpisode → prepareResume 备好——本地
+    // 同步快路径 + 登录态异步拉 userState；音频未起播绝不 seek，对齐 Web
+    // tryRestoreProgress 的 readyState 门控）。只应用一次，暂停恢复不重跳。
+    const episodeId = state.currentEpisode && state.currentEpisode.episodeid;
+    const resumePos = progress.applyResume(episodeId, state.duration || bgm.duration || 0);
+    if (resumePos > 0) {
+      seek(resumePos);
+      wx.showToast({ title: "已为您跳转至上次播放位置", icon: "none", duration: 2000 });
+    }
   });
 
   bgm.onPause(() => {
     state.isPlaying = false;
+    listeningReporter.onPlaybackState(false);
+    // 暂停即报：位置有效立即上报远端（距尾 ≤5s 记为听完），本地一并落盘
+    progress.handlePause(
+      state.currentEpisode && state.currentEpisode.episodeid,
+      state.currentTime,
+      state.duration
+    );
     emit("pause", getState());
   });
 
   bgm.onStop(() => {
     state.isPlaying = false;
+    listeningReporter.onPlaybackState(false);
+    // 停止即报（与暂停同口径；flush 幂等，已报过不会重复）
+    progress.handlePause(
+      state.currentEpisode && state.currentEpisode.episodeid,
+      state.currentTime,
+      state.duration
+    );
     emit("stop", getState());
   });
 
   bgm.onEnded(() => {
     state.isPlaying = false;
+    listeningReporter.onPlaybackState(false);
+    // 自然完播：上报 isFinished=true（只报一次）+ 清本地进度，
+    // 防止下次播放跳到末尾；须在连播/循环切集冲刷之前结算
+    progress.handleEnded(
+      state.currentEpisode && state.currentEpisode.episodeid,
+      state.currentTime
+    );
     // 单曲循环：微信后台音频没有 loop 属性，ended 后重设 src 实现
     if (state.loopMode === "one" && state.currentEpisode) {
       playEpisode(state.currentEpisode);
@@ -138,13 +174,18 @@ function init() {
     state.duration = bgm.duration || 0;
     emit("timeupdate", getState());
 
-    // TODO(阶段二)：进度节流上报（对齐 useSaveProgress：每 30s save 一次）
+    // 进度双端保存：本地 3s 节流缓存 + 远端 15s 位置差周期上报
+    //（对齐 Android ProgressReporter / Web useSaveProgress，内部静默失败）
+    progress.handleTime(
+      state.currentEpisode && state.currentEpisode.episodeid,
+      state.currentTime,
+      state.duration
+    );
   });
 
   bgm.onCanplay(() => {
     state.isLoading = false;
     state.duration = bgm.duration || 0;
-    // TODO(阶段二)：loadedmetadata 后执行 tryRestoreProgress()
   });
 
   bgm.onWaiting(() => {
@@ -154,6 +195,7 @@ function init() {
 
   bgm.onError((err) => {
     state.isPlaying = false;
+    listeningReporter.onPlaybackState(false);
     state.isLoading = false;
     console.error("[audioManager] 播放错误:", err);
     wx.showToast({ title: "音频播放失败，请稍后重试", icon: "none" });
@@ -186,6 +228,9 @@ async function playEpisode(episode, context) {
     state.playlist = [episode];
     emit("playlistChange", state.playlist);
   }
+
+  // 切集冲刷上一集最终进度 + 为本集准备断点续播位置（远端优先/本地降级）
+  progress.setEpisode(episode.episodeid);
 
   state.currentEpisode = episode;
   state.currentTime = 0;
@@ -221,9 +266,7 @@ async function playEpisode(episode, context) {
   state.isPlaying = true;
   emit("episodeChange", getState());
 
-  // TODO(阶段二)：
-  //   1. 拉取 /api/episode/[id] 的 userState.progressSeconds 做续播；
-  //   2. incrementPlayCount 播放量计数（每剧集只计一次）。
+  // TODO(阶段二)：incrementPlayCount 播放量计数（每剧集只计一次）。
 }
 
 function pause() {
@@ -486,6 +529,10 @@ function close() {
     }
   }
   _stopSleepInterval();
+  listeningReporter.onPlaybackState(false); // 冲刷未满批次的收听秒数
+  // 关闭会话即冲刷本集最终进度（isFinished=false，不覆盖已完成标记），
+  // 随后复位跟踪器（无在播剧集，timeupdate 不再落进度）
+  progress.setEpisode(null);
   state.currentEpisode = null;
   state.playlist = [];
   state.isPlaying = false;
@@ -519,14 +566,14 @@ function getState() {
   };
 }
 
-/** App onShow：恢复心跳计时（阶段二实现收听时长上报） */
+/** App onShow：登录态复核（收听计时由播放事件驱动，无需重建定时器） */
 function onAppShow() {
-  // TODO(阶段二)：重启 30s 心跳定时器 → POST /api/auth/update-activity { seconds }
+  // 空实现保留钩子：心跳计时随 onPlay/onPause 生命周期启停
 }
 
-/** App onHide：立即冲刷未上报的收听秒数 */
+/** App onHide：冲刷当前进度到云端（后台音频继续播，由 timeupdate 周期上报接管） */
 function onAppHide() {
-  // TODO(阶段二)：unsentSeconds > 0 时立即上报一次
+  progress.flush();
 }
 
 module.exports = {
@@ -556,4 +603,5 @@ module.exports = {
   getState,
   onAppShow,
   onAppHide,
+  _emit: emit, // 测试钩子：scripts 直发事件驱动页面订阅者（不参与运行时逻辑）
 };

@@ -1,5 +1,5 @@
 <wxs src="../podcast/podcast.wxs" module="fmt" />
-<view class="page-container">
+<view class="page-container {{themeClass}}">
   <scroll-view scroll-y="true" class="page-scroll" scroll-into-view="{{scrollIntoView}}" scroll-with-animation="{{true}}">
 
     <!-- Loading & Error -->
@@ -85,7 +85,7 @@
           <text class="t-title text-white text-bold ml-2">{{isCurrentPlaying ? '暂停精听' : '开始精听'}}</text>
         </view>
         <view class="btn-accent flex-1 row center tap-scale" bindtap="onPractice">
-          <image class="icon-sm text-white" src="/assets/icons/mic.svg"></image>
+          <image class="icon-sm text-white" src="/assets/icons/mic-filled.svg"></image>
           <text class="t-title text-white text-bold ml-2">语音评测</text>
         </view>
       </view>

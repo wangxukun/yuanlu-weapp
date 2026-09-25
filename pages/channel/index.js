@@ -5,10 +5,13 @@
 // UI 上半部（页头/热门节目双列网格）复刻 ChannelScreen + 频道页面.jpg，
 // 下半部（热门单集列表）逐字复刻本工程播客详情页 episode-row（16:9 封面 +
 // 等级徽章 + 时长遮罩 + 耳机/日历数据栏，wxs 亦复用 pages/podcast/podcast.wxs）。
+const theme = require('../../utils/theme');
 const { get } = require('../../utils/request');
 
 Page({
   data: {
+    themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
+    dark: false,
     name: '',
     isLoading: true,
     error: null,
@@ -16,6 +19,13 @@ Page({
     topShows: [],
     showRows: [],      // 双列分块（chunked(2) + weight(1f) 占位）
     topEpisodes: [],
+  },
+
+  onShow() {
+      // 外观：根类（手动模式覆盖）+ 生效深色（图标变体）+ chrome 重申
+      const __t = theme.getState();
+      this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+      theme.applyChrome();
   },
 
   onLoad(options) {

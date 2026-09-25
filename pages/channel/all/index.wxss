@@ -85,7 +85,7 @@
   align-items: center;
   justify-content: center;
   gap: 8rpx; /* Spacer(4dp) */
-  background-color: #ffffff; /* colorScheme.surface */
+  background-color: var(--card-bg); /* surface 随主题 */
   border-radius: var(--r-full);
   padding: 12rpx 24rpx; /* Row padding h12dp v6dp */
 }

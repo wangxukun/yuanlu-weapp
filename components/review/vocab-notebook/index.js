@@ -1,27 +1,26 @@
 /**
  * components/review/vocab-notebook — 生词本根视图
- * 复刻 Web 端 app/(main)/library/vocabulary（VocabularyNotebook + Stats +
- * Controls + List 移动端形态），REVIEW-TASK 阶段 1（T1.1–T1.4）：
+ * 复刻 Android feature/vocabulary/VocabularyScreen.kt（WordItemCard +
+ * ExpandedWordDetail 最新设计）：
  *
  * - 数据：active 首次激活拉 GET /api/vocabulary/all；页面 onShow 经 refreshSeq
- *   通知轻刷新（保留旧列表直到新数据到达，对齐 Web「返回时重拉」）
- * - 统计三格（总计/待复习/已掌握）+ SRS 复习横幅/全部完成卡 + quota-card
- *   配额双栏卡（免费 50 容量 + 今日 5 次；PRO 无限态）
- * - 筛选栏：状态 pill（学习中/已掌握）+ 搜索（word/translation）+ 三排序
- * - 卡片：紧凑面（due 脉冲点 + 词 + 释义 + 5 格熟练度竖条 + 日期徽章 +
- *   发音钮）+ 单开手风琴展开（scroll-into-view 滚动补偿）
- * - 展开面板：有 dictData 渲染富视图（US/UK 音标胶囊/核心释义/原声出处卡/
- *   字典例句/词形变化/词源记忆/短语搭配/同反义），否则旧版降级视图；
- *   底部操作：标记已掌握↔重新学习 / 彻底删除（仅 MASTERED）/ 复制词典链接
- * - 发音：词典直链 tts.playUrl(url, word)（失败自动 TTS 合成兜底）；
- *   例句朗读 tts.speak（toggle 高亮）；剧集原声 audio-clip（字幕对齐片段）
+ *   通知轻刷新（保留旧列表直到新数据到达）
+ * - 统计三格（总计/待复习/已掌握）+ SRS 复习横幅/全部完成卡 + quota-card 配额双栏卡
+ * - 筛选栏：状态 pill（学习中/已掌握）+ 搜索 + 三排序
+ * - 卡片紧凑面：单词(titleLarge ExtraBold) + 音标胶囊预览 + FSRS 状态点 +
+ *   释义 + 原声引文 + 5 格熟练度竖条 + 已掌握/需要复习/下次复习徽章 + 箭头
+ * - 展开面板（对齐 Android，例句/词形变化/短语搭配/扩展词汇已移除）：
+ *   US/UK 音标胶囊发音 · 核心释义卡 · 原声出处卡（词高亮）· 词源记忆卡 ·
+ *   操作栏（标记已掌握↔重新学习 flex:1 主钮 + 彻底删除常显二次确认）
+ * - 删除：wx.showModal 确认 → POST /api/vocabulary/delete → 本地列表/统计刷新
+ * - 发音：词典直链 tts.playUrl(url, word)（失败自动 TTS 合成兜底）
  * - TTS 配额触墙（dictionary_quota）统一 premium-modal（本组件自持 visible）
  */
 const vocabCore = require('../../../utils/vocab-core');
 const { get, post } = require('../../../utils/request');
 const membershipStore = require('../../../store/membershipStore');
 const tts = require('../../../utils/tts');
-const audioClip = require('../../../utils/audio-clip');
+const theme = require('../../../utils/theme');
 
 Component({
   options: { styleIsolation: 'apply-shared' },
@@ -49,32 +48,30 @@ Component({
     filteredList: [],
     expandedId: null,
     scrollInto: '',
-    playText: '', // tts 播放中的例句文本（朗读钮高亮）
-    origKey: '', // audio-clip 播放中的 key（原声钮高亮）
-    origLoading: '',
 
     showPremiumModal: false,
     premiumSource: '',
+
+    // 外观（横幅/分段 Tab/图标双态）
+    themeClass: '',
+    dark: false,
   },
 
   lifetimes: {
     attached() {
       this._list = []; // 原始 VocabularyItem[]（filteredList 的数据源）
-      this._unsubTts = tts.subscribe(() => this.syncAudioState());
-      this._unsubClip = audioClip.subscribe(() => this.syncAudioState());
       // TTS 配额触墙 → premium-modal（intensive-listening 页同款模式）；
       // active 变化时重注册，覆盖其他页面注册的 handler（全局单值槽位）
       this._quotaHandler = (source) => {
         this.setData({ showPremiumModal: true, premiumSource: source });
       };
+      this._syncTheme();
       if (this.data.active) {
         this.registerQuotaHandler();
         this.loadData();
       }
     },
     detached() {
-      if (this._unsubTts) this._unsubTts();
-      if (this._unsubClip) this._unsubClip();
       // 释放 TTS 配额槽位（复习页 tabBar 常驻，此清理仅在页面卸载时发生）
       tts.setQuotaHandler(null);
     },
@@ -89,6 +86,7 @@ Component({
       }
     },
     refreshSeq() {
+      this._syncTheme(); // 每次回到生词本同步外观（用户可能在别处切换主题）
       if (this.data.active && this.data.loaded) this.refresh();
     },
   },
@@ -96,6 +94,11 @@ Component({
   methods: {
     registerQuotaHandler() {
       tts.setQuotaHandler(this._quotaHandler);
+    },
+
+    /** 外观根类（手动覆盖）+ 生效深色（横幅/按钮图标变体切换） */
+    _syncTheme() {
+      this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark' });
     },
 
     /* ---------------- 数据加载 ---------------- */
@@ -153,7 +156,12 @@ Component({
           query: this.data.searchQuery,
           sort: this.data.sortMethod,
         })
-        .map(vocabCore.decorateItem);
+        .map(vocabCore.decorateItem)
+        .map((it) => Object.assign({}, it, {
+          // 紧凑面音标胶囊预览：US 优先 UK 兜底（Android phoneticsUs ?: phoneticsUk）
+          phonPreview: (it.dictData && it.dictData.phonetics &&
+            (it.dictData.phonetics.us || it.dictData.phonetics.uk)) || '',
+        }));
     },
 
     reapplyFilter() {
@@ -206,17 +214,7 @@ Component({
       }
     },
 
-    /* ---------------- 发音与原声 ---------------- */
-
-    syncAudioState() {
-      const { playingText } = tts.getState();
-      const { playingKey, loadingKey } = audioClip.getState();
-      const patch = {};
-      if (playingText !== this.data.playText) patch.playText = playingText || '';
-      if ((playingKey || '') !== this.data.origKey) patch.origKey = playingKey || '';
-      if ((loadingKey || '') !== this.data.origLoading) patch.origLoading = loadingKey || '';
-      if (Object.keys(patch).length) this.setData(patch);
-    },
+    /* ---------------- 发音 ---------------- */
 
     findItem(id) {
       return this._list.find((v) => v.vocabularyid === Number(id));
@@ -240,25 +238,6 @@ Component({
     onPlayPhon(e) {
       const { url, word } = e.currentTarget.dataset;
       tts.playUrl(url, word);
-    },
-
-    /** AI 朗读例句/上下文句（toggle 高亮） */
-    onPlayContext(e) {
-      const text = e.currentTarget.dataset.text;
-      if (text) tts.speak(text);
-    },
-
-    /** 剧集原声片段（字幕对齐，audio-clip 定位） */
-    onPlayOriginal(e) {
-      const { episodeid, word, timestamp, context } = e.currentTarget.dataset;
-      if (!episodeid) return;
-      audioClip.play({
-        key: episodeid + ':' + word,
-        episodeid: String(episodeid),
-        timestamp: timestamp ? Number(timestamp) : null,
-        contextSentence: context || null,
-        onBeforePlay: () => tts.stop(),
-      });
     },
 
     /* ---------------- 卡片操作 ---------------- */
@@ -289,17 +268,17 @@ Component({
       }
     },
 
-    /** 彻底删除（仅 MASTERED 态显示；两段式确认，对齐 Web dialog） */
+    /** 彻底删除（常显；二次确认文案对齐 Android AlertDialog） */
     async onDeleteTap(e) {
       const id = Number(e.currentTarget.dataset.id);
       const item = this.findItem(id);
       if (!item) return;
       const confirmed = await new Promise((resolve) => {
         wx.showModal({
-          title: '确认彻底删除',
-          content: '确定要彻底删除该生词吗？此操作不可恢复。',
+          title: '确定要彻底删除该生词吗？',
+          content: '「' + item.word + '」将被永久移出生词本，此操作不可恢复。',
           confirmText: '确定删除',
-          confirmColor: '#DC2626',
+          confirmColor: '#D2503F',
           success: (r) => resolve(!!r.confirm),
           fail: () => resolve(false),
         });
@@ -318,17 +297,6 @@ Component({
       } catch (err) {
         // request.js 已 toast
       }
-    },
-
-    /** webUrl 外链词典 → 小程序无法开网页，复制链接（REVIEW-TASK 1.3 映射） */
-    onCopyDict(e) {
-      const url = e.currentTarget.dataset.url;
-      if (!url) return;
-      wx.setClipboardData({
-        data: url,
-        success: () =>
-          wx.showToast({ title: '词典链接已复制', icon: 'none' }),
-      });
     },
 
     /* ---------------- 复习与导航 ---------------- */

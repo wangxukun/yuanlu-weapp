@@ -124,6 +124,12 @@
   opacity: 0.8;
 }
 
+/* 系统管理列表功能图标（对齐 Web lucide w-5 h-5 = 20dp，strokeWidth 1.75） */
+.list-icon-img {
+  width: 40rpx;
+  height: 40rpx;
+}
+
 /* ============ 退出登录 ============ */
 .logout-card {
   padding: 32rpx;

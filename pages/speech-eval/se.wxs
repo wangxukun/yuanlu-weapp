@@ -1,0 +1,41 @@
+/**
+ * se.wxs — 语音评测页视图层助手
+ *
+ * 单词扫光三态 class（复用精听页 useWordHighlight 离散口径）：
+ *   wi === sweepIdx 且 on → 当前词：accent-100 底光斑（已保存生词叠 primary 字色）
+ *   wi < sweepIdx（或 === 且 !on）→ 已读：accent-700 字色
+ *   其余 → 未读：基础色（已保存生词 primary）
+ */
+function wordCls(wi, sweepIdx, sweepOn, saved) {
+  if (wi === sweepIdx && sweepOn) {
+    return saved ? 'se-w se-w--cur se-w--saved' : 'se-w se-w--cur';
+  }
+  if (wi < sweepIdx || (wi === sweepIdx && !sweepOn)) {
+    return 'se-w se-w--past';
+  }
+  return saved ? 'se-w se-w--saved' : 'se-w';
+}
+
+/** 得分双分界（>=85 good / >=60 mid / else bad）→ 主题 tier class */
+function tierCls(score) {
+  if (score >= 85) return 'good';
+  if (score >= 60) return 'mid';
+  return 'bad';
+}
+
+/** 录音波形条高（10 + amp×0.34 dp → rpx） */
+function ampH(amp) {
+  return 20 + amp * 0.68;
+}
+
+/** 盲读逐词 chip 宽（8×词长 + 20 dp → rpx） */
+function maskedW(len) {
+  return 16 * len + 40;
+}
+
+module.exports = {
+  wordCls: wordCls,
+  tierCls: tierCls,
+  ampH: ampH,
+  maskedW: maskedW,
+};

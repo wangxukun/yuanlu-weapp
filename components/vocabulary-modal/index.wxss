@@ -181,7 +181,7 @@
 /* ── 🧬 词源记忆折叠卡（primary-50 底） ── */
 .vm-ety {
   margin-top: 32rpx;
-  background: rgba(237, 247, 242, 0.8); /* primary-50/80 */
+  background: var(--primary-50); /* primary-50/80 */
   border: 1rpx solid var(--primary-100);
   border-radius: var(--r-xl);
   overflow: hidden;
@@ -227,7 +227,14 @@
   border-radius: var(--r-md);
   font-size: 24rpx;
   font-weight: 700;
-  flex-shrink: 0;
+  line-height: 1.5;
+  /* 超长词素（词根/后缀）在 chip 内自动换行：flex 子项默认 min-width:auto
+     不低于内容宽 + flex-shrink:0 会横向溢出不回行 */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .vm-chip--prefix {
   background: #fef3c7;
@@ -249,7 +256,7 @@
   margin-bottom: 16rpx;
 }
 .vm-ety-memo {
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--card-bg);
   border: 1rpx solid var(--primary-100);
   border-radius: var(--r-md);
   padding: 20rpx;
