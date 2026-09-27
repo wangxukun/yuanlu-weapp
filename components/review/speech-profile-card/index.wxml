@@ -1,0 +1,43 @@
+<!-- 发音能力画像卡：完整复刻 Android PronunciationNotebookScreen.SpeechProfileCard（Material3） -->
+<view class="spc-card {{themeClass}}">
+  <!-- 标题行：Speed 图标底衬 + 标题 + CEFR 纯文字胶囊 -->
+  <view class="spc-head">
+    <view class="spc-icon-badge">
+      <image class="spc-icon-badge-img" src="{{icons.speed}}" mode="aspectFit" />
+    </view>
+    <text class="spc-title">发音能力画像</text>
+    <text wx:if="{{profile.cefrLevel}}" class="spc-cefr">{{profile.cefrLevel}} 级</text>
+  </view>
+
+  <!-- 五维雷达（准确度/流利度/完整度/语速适配/综合表现）或空态 -->
+  <view class="spc-radar-block">
+    <canvas wx:if="{{hasData}}" id="spcRadar" type="2d" class="spc-canvas" />
+    <view wx:else class="spc-empty">
+      <image class="spc-empty-icon" src="{{icons.speedFaint}}" mode="aspectFit" />
+      <text class="spc-empty-title">暂无画像数据</text>
+      <text class="spc-empty-desc">完成语音评测后自动生成你的能力雷达</text>
+    </view>
+  </view>
+
+  <!-- 三统计格：评测次数 / 综合得分 / 平均语速 -->
+  <view class="spc-stats">
+    <view class="spc-stat">
+      <text class="spc-stat-label">评测次数</text>
+      <text class="spc-stat-value">{{profile.evalCount}}</text>
+    </view>
+    <view class="spc-stat">
+      <text class="spc-stat-label">综合得分</text>
+      <text class="spc-stat-value">{{avgOverallText}}</text>
+    </view>
+    <view class="spc-stat">
+      <text class="spc-stat-label">平均语速</text>
+      <text class="spc-stat-value">{{avgSpeedText}}</text>
+    </view>
+  </view>
+
+  <!-- 说明文案（CEFR 版 secondary 淡底 / 无数据版内嵌底） -->
+  <view class="spc-hint {{hintIsCefr ? 'spc-hint--cefr' : ''}}">
+    <image class="spc-hint-icon" src="{{icons.infoHint}}" mode="aspectFit" />
+    <text class="spc-hint-text" user-select>{{hintText}}</text>
+  </view>
+</view>

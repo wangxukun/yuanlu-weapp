@@ -34,12 +34,26 @@ Component({
     loadError: false,
     // 归一后的弱项本聚合（pronCore.parseNotebook；UI 任务逐卡消费）
     notebook: null,
+    // 五维雷达点（toRadarData 派生，喂 speech-profile-card）
+    radar: [],
 
+    // 加载中占位（T4.3–T4.5 模块未上线期间的三态文案）
     placeholder: {
       icon: '/assets/icons/mic-ink-active.svg',
       title: '发音弱项本',
       desc: 'AI 诊断发音弱项，五维画像 + 音素报告，逐句闯关攻克弱音。',
       phase: '阶段四落地'
+    },
+    coming: {
+      icon: '/assets/icons/mic-ink-active.svg',
+      title: '更多模块开发中',
+      desc: 'AI 发音诊断报告、弱项句列表、闯关复习与发音达人榜即将上线。',
+      phase: 'T4.3–T4.5'
+    },
+    failed: {
+      icon: '/assets/icons/book-a-warning.svg',
+      title: '加载失败',
+      desc: '网络异常，弱项本数据未能加载，请稍后重试。'
     },
 
     // 外观（根类；T4.2 起图标深色变体消费）
@@ -96,6 +110,7 @@ Component({
         pronCore.maybeTrackTrialReach(notebook);
         this.setData({
           notebook,
+          radar: pronCore.toRadarData(notebook.profile),
           loading: false,
           loaded: true,
           loadError: false,

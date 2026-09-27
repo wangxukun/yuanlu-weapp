@@ -9,7 +9,7 @@
   - 状态管理：自研轻量 Store（`store/core.js` 发布-订阅基类），实例有 `authStore` / `playerStore` / `membershipStore`。
   - 网络请求：`utils/request.js` 唯一出口（get/post/put/delete + Bearer token 自动注入 + 401 清 token），`BASE_URL` 由 `utils/config.js` 按 envVersion 自动切换。
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
-  - 测试：`npm test` 28 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook 208 / recorder 34 / eval-card 71 / deck 57 / shadowing 35 / **pron-core 79** / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter，共 1507 断言）。
+  - 测试：`npm test` 29 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook 208 / recorder 34 / eval-card 71 / deck 57 / shadowing 35 / **pron-core 79 + speech-profile-card 85** / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter，共 1592 断言）。
 - **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），WE-TASK 仅保留汇总行，避免双头跟踪。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略
@@ -65,7 +65,7 @@
 
 #### 模块 C：跟读测评系统（→ 详细拆解见 REVIEW-TASK.md 阶段 3）
 > 本模块与「复习」Tab 的语音评测共底座（eval-card / recorder / 有道 ISE），统一由 REVIEW-TASK 跟踪，此处仅汇总：
-> **进度（2026-09-27）**：REVIEW-TASK 阶段 0（T0.1–T0.6 复习底座）与阶段 1（T1.1–T1.5 生词本复刻）已完成——T1.5 复习页其后重构为闪卡模式（复刻 Android `VocabularyReviewScreen`，四题型退役；总结页复刻 `ReviewSummary` + 字号对齐 Material3，共四轮）；阶段 2 已收口（T2.1–T2.3 数据接入/根视图/卡片+微播放器+标签抽屉 + 六轮截图走查与 setData 守卫，208 断言单测；**T2.4 导出已裁剪——小程序端不做 CSV/Anki 导出**）；阶段 3 已收口（T3.1 录音底座 + T3.2 语音评测卡 `eval-card`/`clip-player` + T3.3 刷句复习 `deck` + T3.4 影子跟读 `shadowing`，34+61+57+35 断言，含六轮深色走查）；阶段 4 已启动（T4.1 发音弱项本数据接入：`utils/pron-core.js` 聚合归一/雷达移植/TRIAL_REACHED 埋点 + pron-notebook 接线，79 断言），下一任务 T4.2 语音画像卡；语音评测独立页 `pages/speech-eval` 已先行落地（录音/WAV 封装/有道 ISE 全链路）。
+> **进度（2026-09-27）**：REVIEW-TASK 阶段 0（T0.1–T0.6 复习底座）与阶段 1（T1.1–T1.5 生词本复刻）已完成——T1.5 复习页其后重构为闪卡模式（复刻 Android `VocabularyReviewScreen`，四题型退役；总结页复刻 `ReviewSummary` + 字号对齐 Material3，共四轮）；阶段 2 已收口（T2.1–T2.3 数据接入/根视图/卡片+微播放器+标签抽屉 + 六轮截图走查与 setData 守卫，208 断言单测；**T2.4 导出已裁剪——小程序端不做 CSV/Anki 导出**）；阶段 3 已收口（T3.1 录音底座 + T3.2 语音评测卡 `eval-card`/`clip-player` + T3.3 刷句复习 `deck` + T3.4 影子跟读 `shadowing`，34+61+57+35 断言，含六轮深色走查）；阶段 4 进行中（T4.1 数据接入 `pron-core` 79 断言 + T4.2 语音画像卡 `speech-profile-card`：canvas 五维雷达/三指标格/CEFR 徽章，62 断言），下一任务 T4.3 诊断报告卡；语音评测独立页 `pages/speech-eval` 已先行落地（录音/WAV 封装/有道 ISE 全链路）。
 - [x] 3.C.1 录音底座 `utils/recorder.js`（PCM 直录→端内 WAV→base64；权限三段引导；停止不依赖 onStop）〔REVIEW-TASK T3.1 ✅〕
 - [x] 3.C.2 语音评测卡 `components/voice/eval-card`（四互斥态录音区、逐词胶囊、音素四对比、三维评分 + 播放内核 `utils/clip-player.js`）〔REVIEW-TASK T3.2 ✅〕
 - [x] 3.C.3 刷句复习卡组流 `pages/review/deck`（拖拽手势 ±90px/±400px·s⁻¹、翻面、三模式、翻卡成就）〔REVIEW-TASK T3.3 ✅〕

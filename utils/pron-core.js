@@ -200,6 +200,176 @@ function maybeTrackTrialReach(notebook, tracker) {
   return true;
 }
 
+/* ── 五维雷达几何（recharts RadarChart 等价，canvas 自绘用）──────────
+ * 坐标口径：数学角（y 向上）计算，输出换算 canvas 坐标（y 向下）；
+ * 首维正上方（90°）、顺时针均分——与 recharts PolarAngleAxis 渲染序一致
+ * （准确度顶、流利度右上、完整度右下、语速适配左下、综合表现左上）。 */
+
+/** 维度顶点角度（度）：count 维 → [90, 90-360/n, …] */
+function radarAngles(count) {
+  const n = Math.floor(Number(count) || 0);
+  if (n <= 0) return [];
+  const step = 360 / n;
+  const out = [];
+  for (var i = 0; i < n; i++) out.push(90 - i * step);
+  return out;
+}
+
+/** 角度 → canvas 坐标点（x = cx + r·cosθ，y = cy − r·sinθ） */
+function radarPoint(cx, cy, r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+}
+
+/** 半径 r 的等分环顶点（PolarGrid 五边形网格环；角度口径同上） */
+function radarRingPoints(cx, cy, r, count) {
+  return radarAngles(count).map(function (a) {
+    return radarPoint(cx, cy, r, a);
+  });
+}
+
+/** 得分多边形顶点：半径按 score/100 缩放（收口 0-100；环半径 r 对应满分） */
+function radarScorePoints(scores, cx, cy, r) {
+  const arr = Array.isArray(scores) ? scores : [];
+  return radarAngles(arr.length).map(function (a, i) {
+    var s = Number(arr[i]);
+    if (!isFinite(s)) s = 0;
+    s = Math.min(100, Math.max(0, s));
+    return radarPoint(cx, cy, r * (s / 100), a);
+  });
+}
+
+/* ── 雷达渲染（canvas 2d 自绘，逐行对齐 Android feature/pronunciation/RadarChart.kt）：
+ * 网格环 4 档 + 中心辐条 1px；数据多边形 20% 填充 + 2px 描边（画像紫 #7C3AED，
+ * Android ProfileRadarColor，双态恒值）；维度标签 12sp·SemiBold 锚在顶点外
+ * 6dp/2dp（横/纵）偏移，按象限对齐；外圈半径 = 短半边 − 34dp 标签留白。
+ * 网格/标签色随主题（Android isDark 分支）：浅 #E5E7EB/#6B7280、深 #3A342C/#A8A29E ── */
+const RADAR_GRID_STROKE_LIGHT = '#E5E7EB';
+const RADAR_GRID_STROKE_DARK = '#3A342C';
+const RADAR_TICK_FILL_LIGHT = '#6B7280';
+const RADAR_TICK_FILL_DARK = '#A8A29E';
+const RADAR_LINE_STROKE = '#7C3AED';
+const RADAR_FILL = 'rgba(124, 58, 237, 0.2)';
+const RADAR_GRID_LEVELS = 4;
+const RADAR_LABEL_PAD = 34;
+const RADAR_LABEL_FONT = 12;
+const RADAR_LABEL_GAP_X = 6;
+const RADAR_LABEL_GAP_Y = 2;
+const RADAR_LABEL_LINE_H = 16;
+
+/** 多边形路径（moveTo 首点 + closePath） */
+function polygonPath(ctx, pts) {
+  ctx.beginPath();
+  pts.forEach(function (p, i) {
+    if (i) ctx.lineTo(p.x, p.y);
+    else ctx.moveTo(p.x, p.y);
+  });
+  ctx.closePath();
+}
+
+/**
+ * 五维雷达自绘（weapp canvas 2d node；Node 单测传 mock node/ctx 同样可驱动）。
+ * Android RadarChart.kt 逐行等价：4 环网格 + 辐条 1px、数据多边形 0.2 填充 +
+ * 2px 描边、标签锚在外圈顶点外偏移（dx>1 右移 6dp 左对齐 / dx<-1 左移 6dp
+ * 右对齐 / 中缝居中；dy>1 下方 +2dp / dy<-1 上方 −行高−2dp / 中垂居中）。
+ * @param {object} node canvas 节点（getContext('2d')）
+ * @param {number} cssW/cssH CSS 像素尺寸（rpx 换算后）
+ * @param {Array<{dim, score}>} radar toRadarData 输出
+ * @param {number} dpr 设备像素比（缺省 1）
+ * @param {object} [opts] { gridColor, labelColor, strokeColor, fill, gridRingCount }
+ *        （缺省浅色主题 + 画像紫；深色传 #3A342C/#A8A29E）
+ */
+function drawRadarChart(node, cssW, cssH, radar, dpr, opts) {
+  if (!node || typeof node.getContext !== 'function') return false;
+  const ctx = node.getContext('2d');
+  if (!ctx || !cssW || !cssH) return false;
+  const arr = Array.isArray(radar) ? radar : [];
+  const angles = radarAngles(arr.length);
+  if (!angles.length) return false;
+
+  const o = opts || {};
+  const gridColor = o.gridColor || RADAR_GRID_STROKE_LIGHT;
+  const labelColor = o.labelColor || RADAR_TICK_FILL_LIGHT;
+  const strokeColor = o.strokeColor || RADAR_LINE_STROKE;
+  const fillColor = o.fill || RADAR_FILL;
+  const rings = Math.max(1, Math.floor(Number(o.gridRingCount) || RADAR_GRID_LEVELS));
+
+  const d = Number(dpr) || 1;
+  node.width = Math.round(cssW * d);
+  node.height = Math.round(cssH * d);
+  if (ctx.setTransform) {
+    try { ctx.setTransform(1, 0, 0, 1, 0, 0); } catch (e) { /* 基础库兜底 */ }
+  }
+  if (ctx.scale) ctx.scale(d, d);
+
+  const w = cssW;
+  const h = cssH;
+  const cx = w / 2;
+  const cy = h / 2;
+  // Android：outerRadius = min(min(w,h)/2, w/2) − 34dp（标签留白）≈ 短半边 − 34
+  const R = Math.min(w, h) / 2 - RADAR_LABEL_PAD;
+  if (!(R > 0)) return false;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // 同心网格环（1px）+ 中心辐条（1px）
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  for (var lv = 1; lv <= rings; lv++) {
+    polygonPath(ctx, radarRingPoints(cx, cy, (R * lv) / rings, angles.length));
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  angles.forEach(function (a) {
+    const p = radarPoint(cx, cy, R, a);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(p.x, p.y);
+  });
+  ctx.stroke();
+
+  // 数据多边形（20% 填充 + 2px 描边，对齐 recharts Radar fillOpacity=0.2 / Android Stroke(2.dp)）
+  const scores = arr.map(function (r) { return (r && Number(r.score)) || 0; });
+  polygonPath(ctx, radarScorePoints(scores, cx, cy, R));
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 维度标签（外圈顶点外偏移；textBaseline=top 等价 drawText topLeft 语义）
+  ctx.fillStyle = labelColor;
+  ctx.font = '600 ' + RADAR_LABEL_FONT + 'px sans-serif';
+  ctx.textBaseline = 'top';
+  angles.forEach(function (a, i) {
+    const anchor = radarPoint(cx, cy, R, a);
+    const dx = anchor.x - cx;
+    const dy = anchor.y - cy;
+    const label = String((arr[i] && arr[i].dim) || '');
+    let textW = label.length * RADAR_LABEL_FONT; // CJK 每字≈字号宽（measureText 缺席兜底）
+    if (typeof ctx.measureText === 'function') {
+      try { textW = ctx.measureText(label).width; } catch (e) { /* 兜底估宽 */ }
+    }
+    if (dx > 1) {
+      ctx.textAlign = 'left';
+      ctx.fillText(label, anchor.x + RADAR_LABEL_GAP_X, labelY(dy, anchor.y));
+    } else if (dx < -1) {
+      ctx.textAlign = 'right';
+      ctx.fillText(label, anchor.x - RADAR_LABEL_GAP_X, labelY(dy, anchor.y));
+    } else {
+      ctx.textAlign = 'center';
+      ctx.fillText(label, anchor.x, labelY(dy, anchor.y));
+    }
+  });
+  return true;
+}
+
+/** 标签纵向落点（Android dy 分支：下方 +2dp / 上方 −行高−2dp / 中垂居中） */
+function labelY(dy, anchorY) {
+  if (dy > 1) return anchorY + RADAR_LABEL_GAP_Y;
+  if (dy < -1) return anchorY - RADAR_LABEL_LINE_H - RADAR_LABEL_GAP_Y;
+  return anchorY - RADAR_LABEL_LINE_H / 2;
+}
+
 module.exports = {
   DEFAULT_WEAK_SCORE_THRESHOLD,
   WEAK_THRESHOLD_MIN,
@@ -215,4 +385,13 @@ module.exports = {
   lockedCount,
   resetTrialTrackState,
   maybeTrackTrialReach,
+  radarAngles,
+  radarPoint,
+  radarRingPoints,
+  radarScorePoints,
+  drawRadarChart,
+  RADAR_GRID_STROKE_LIGHT,
+  RADAR_GRID_STROKE_DARK,
+  RADAR_TICK_FILL_LIGHT,
+  RADAR_TICK_FILL_DARK,
 };

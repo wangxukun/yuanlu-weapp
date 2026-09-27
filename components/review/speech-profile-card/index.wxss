@@ -1,0 +1,204 @@
+/**
+ * speech-profile-card — 完整复刻 Android SpeechProfileCard + CardShell/IconBadge/
+ * StatCell（PronunciationNotebookScreen.kt）与 theme/Color.kt 原值。
+ * 尺寸换算（dp/sp → rpx ×2）：CardShell 16dp 圆角/内距、IconBadge 34dp/圆角10dp/
+ * 图标19dp、雷达块 220dp（含上下 8dp padding）、空态 180dp/图标 44dp、统计格
+ * 圆角 12dp/纵向内距 10dp、titleMedium 16sp、labelMedium 12sp、labelSmall 11sp、
+ * bodyMedium 14sp；CEFR 胶囊 RoundedCornerShape(50) 全圆 + h12dp/v5dp。
+ * secondary 双态恒 #D98A17（Android DarkSecondary 同值，与 Web 深色 #ECB35E 有意不同）。
+ */
+.spc-card {
+  --spc-surface: #ffffff;
+  --spc-on-surface: #1c1917;
+  --spc-inset: #faf8f3; /* light: colorScheme.background */
+  --spc-osv: #57534e; /* onSurfaceVariant */
+  --spc-osv-60: rgba(87, 83, 78, 0.6);
+  --spc-outline-40: rgba(229, 224, 213, 0.4);
+  --spc-secondary: #d98a17;
+  --spc-secondary-12: rgba(217, 138, 23, 0.12);
+  --spc-secondary-6: rgba(217, 138, 23, 0.06);
+  --spc-secondary-10: rgba(217, 138, 23, 0.1);
+
+  background: var(--spc-surface);
+  border-radius: 32rpx;
+  border: 2rpx solid var(--spc-outline-40); /* BorderStroke(1.dp, outline@0.4) */
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+/* 深色双轨（vocab/sentence-notebook 同款已验证模式）：
+ * ① 跟随系统：媒体查询平类覆盖；
+ * ② 手动深色：.theme-dark（0,2,0）压过媒体查询；
+ * ③ 手动浅色：.theme-light 全量重声明浅色值 */
+@media (prefers-color-scheme: dark) {
+  .spc-card {
+    --spc-surface: #1e1b16;
+    --spc-on-surface: #e8e3d9;
+    --spc-inset: #26221c; /* dark: colorScheme.surfaceVariant */
+    --spc-osv: #a8a29e;
+    --spc-osv-60: rgba(168, 162, 158, 0.6);
+    --spc-outline-40: rgba(58, 52, 44, 0.4);
+  }
+}
+
+.spc-card.theme-dark {
+  --spc-surface: #1e1b16;
+  --spc-on-surface: #e8e3d9;
+  --spc-inset: #26221c;
+  --spc-osv: #a8a29e;
+  --spc-osv-60: rgba(168, 162, 158, 0.6);
+  --spc-outline-40: rgba(58, 52, 44, 0.4);
+}
+
+.spc-card.theme-light {
+  --spc-surface: #ffffff;
+  --spc-on-surface: #1c1917;
+  --spc-inset: #faf8f3;
+  --spc-osv: #57534e;
+  --spc-osv-60: rgba(87, 83, 78, 0.6);
+  --spc-outline-40: rgba(229, 224, 213, 0.4);
+}
+
+/* ── 标题行：IconBadge 34dp + titleMedium 700 + CEFR 胶囊 ── */
+.spc-head {
+  display: flex;
+  align-items: center;
+}
+
+.spc-icon-badge {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 20rpx;
+  background: var(--spc-secondary-10); /* secondary@0.1（双态恒值） */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.spc-icon-badge-img {
+  width: 38rpx; /* 19dp */
+  height: 38rpx;
+}
+
+.spc-title {
+  flex: 1;
+  font-size: 32rpx; /* titleMedium 16sp */
+  font-weight: 700;
+  line-height: 48rpx;
+  color: var(--spc-on-surface);
+  margin-left: 16rpx; /* Spacer(8.dp) */
+  min-width: 0;
+}
+
+/* CEFR 胶囊（labelMedium 12sp 700 + secondary@0.12 + 全圆 + h12dp/v5dp） */
+.spc-cefr {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--spc-secondary);
+  background: var(--spc-secondary-12);
+  border-radius: 999rpx;
+  padding: 10rpx 24rpx;
+  flex-shrink: 0;
+}
+
+/* ── 雷达块：220dp 总高（上下 8dp padding，画布 204dp 高） ── */
+.spc-radar-block {
+  height: 440rpx;
+  padding: 16rpx 0;
+  box-sizing: border-box;
+}
+
+.spc-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 空态（180dp 内嵌底圆角 16dp + Speed 44dp@0.3） */
+.spc-empty {
+  height: 360rpx;
+  background: var(--spc-inset);
+  border-radius: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.spc-empty-icon {
+  width: 88rpx; /* 44dp */
+  height: 88rpx;
+  margin-bottom: 16rpx; /* Spacer(8.dp) */
+}
+
+.spc-empty-title {
+  font-size: 28rpx; /* bodyMedium 14sp */
+  font-weight: 500;
+  color: var(--spc-osv);
+}
+
+.spc-empty-desc {
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--spc-osv-60);
+  margin-top: 4rpx; /* Spacer(2.dp) */
+}
+
+/* ── 三统计格（Spacer(4dp) + spacedBy(8dp)；圆角 12dp 纵距 10dp） ── */
+.spc-stats {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.spc-stat {
+  flex: 1;
+  background: var(--spc-inset);
+  border-radius: 24rpx;
+  padding: 20rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.spc-stat-label {
+  font-size: 22rpx; /* labelSmall 11sp */
+  font-weight: 700;
+  color: var(--spc-osv-60);
+}
+
+.spc-stat-value {
+  font-size: 32rpx; /* titleMedium 16sp */
+  font-weight: 700;
+  color: var(--spc-on-surface);
+  margin-top: 4rpx; /* Spacer(2.dp) */
+}
+
+/* ── 说明条（Android stats Row 后无 Spacer 直接衔接；圆角 12dp 内距 12dp） ── */
+.spc-hint {
+  display: flex;
+  align-items: flex-start;
+  background: var(--spc-inset);
+  border-radius: 24rpx;
+  padding: 24rpx;
+}
+
+.spc-hint--cefr {
+  background: var(--spc-secondary-6); /* secondary@0.06 */
+}
+
+.spc-hint-icon {
+  width: 28rpx; /* 14dp */
+  height: 28rpx;
+  margin-right: 12rpx; /* Spacer(6.dp) */
+  margin-top: 2rpx;
+  flex-shrink: 0;
+}
+
+.spc-hint-text {
+  flex: 1;
+  font-size: 22rpx; /* labelSmall 11sp */
+  line-height: 32rpx; /* lineHeight 16sp */
+  color: var(--spc-osv);
+}

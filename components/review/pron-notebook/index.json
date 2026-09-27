@@ -1,4 +1,6 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "speech-profile-card": "/components/review/speech-profile-card/index"
+  }
 }

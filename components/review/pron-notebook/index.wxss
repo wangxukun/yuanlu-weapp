@@ -1,4 +1,4 @@
-/* 发音弱项本根视图（占位） */
+/* 发音弱项本根视图：画像卡（T4.2）+ 后续模块占位/错误重试 */
 .notebook-scroll {
   height: 100%;
 }
@@ -37,4 +37,17 @@
   background: var(--ink-100);
   color: var(--text-tertiary);
   font-size: 22rpx;
+}
+/* 错误态重试按钮（失败首败态专属；对齐全局主按钮口径） */
+.np-retry-btn {
+  margin-top: 32rpx;
+  padding: 16rpx 64rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.np-retry-hover {
+  opacity: 0.85;
 }
