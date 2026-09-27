@@ -1,0 +1,278 @@
+/**
+ * pages/library/history/index.wxss — 收听历史
+ *
+ * 视觉规格移植自 Android 端 HistoryScreen.kt + 截图逐像素测量（1dp≈2rpx）：
+ *   - HistoryFilterBar：surfaceVariant 60% 圆角 16dp 容器（4dp 内衬 + 段间 4dp）+
+ *     激活白底胶囊 12dp + primary 加粗（与收藏页 Tab 切换卡同款）；
+ *   - HistoryGroupHeader：14dp 日历图标 + labelMedium 加粗（onSurfaceVariant）+
+ *     同行右侧 1dp outlineVariant 50% 细分隔线（垂直内衬 6dp）；
+ *   - HistoryRowCard：16dp 圆角白卡 + outline 描边 + 12dp 内衬/间距，
+ *     左 140dp×16:9(280rpx×158rpx) 封面圆角 8dp；
+ *   - HistoryStatusBadge：primary 10% 底 4dp 圆角胶囊 + 10dp 图标 +
+ *     labelSmall 加粗（进行中=PlayArrow+百分比 / 已完成=CheckCircle）；
+ *   - 进度条：4dp 高细条（track=surfaceVariant，fill=primary）+ 末端 4dp
+ *     primary 止点圆点（Material3 stop indicator，对齐截图实测）；
+ *   - 底部：加载中 24dp 转圈 / 到底 bodySmall 灰字居中。
+ * 图标为 Material 实色 SVG（颜色实值，深色换 -dark 变体由 wxml 切换）。
+ * 顶部导航（返回 + 标题）由原生导航栏提供。
+ */
+
+.hist-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 32rpx 0;
+  background: var(--page-bg);
+}
+
+/* ==================== 状态盒（加载 / 错误 / 未登录） ==================== */
+
+.state-box {
+  padding: 160rpx 48rpx;
+}
+
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid var(--ink-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: hist-spin 0.8s linear infinite;
+}
+
+.loading-spinner--sm {
+  width: 48rpx; /* 24dp（对齐 footer CircularProgressIndicator） */
+  height: 48rpx;
+  border-width: 5rpx;
+}
+
+@keyframes hist-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-text {
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.state-btn {
+  margin-top: 32rpx;
+  padding: 18rpx 72rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* ==================== 三段状态过滤器（对齐 HistoryFilterBar） ==================== */
+
+.hist-tabs {
+  display: flex;
+  padding: 8rpx; /* 4dp 内衬 */
+  background: rgba(227, 221, 207, 0.6); /* surfaceVariant 60% */
+  border-radius: 32rpx; /* 16dp */
+}
+
+.hist-tab {
+  flex: 1;
+  padding: 16rpx 0; /* 8dp（对齐 vertical padding） */
+  text-align: center;
+  font-size: 26rpx; /* labelMedium */
+  color: var(--text-tertiary);
+  border-radius: 24rpx; /* 12dp 激活胶囊 */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.hist-tab + .hist-tab {
+  margin-left: 8rpx; /* spacedBy(4dp)，flex gap 兼容写法 */
+}
+
+.hist-tab--on {
+  background: var(--card-bg); /* surface 白底胶囊 */
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* ==================== 时间分组标题（对齐 HistoryGroupHeader） ==================== */
+
+.hist-group {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx; /* LazyColumn spacedBy(12dp) */
+  padding: 12rpx 0; /* 6dp 垂直内衬 */
+}
+
+.hist-group-icon {
+  width: 28rpx; /* 14dp 日历图标 */
+  height: 28rpx;
+  flex-shrink: 0;
+  margin-right: 8rpx; /* Spacer(4dp) */
+}
+
+.hist-group-label {
+  font-size: 26rpx; /* labelMedium */
+  font-weight: 700;
+  color: var(--ink-500); /* onSurfaceVariant（截图实测 #55524D ≈ ink-500） */
+}
+
+.hist-group-line {
+  flex: 1;
+  height: 2rpx; /* HorizontalDivider thickness 1dp */
+  margin-left: 24rpx; /* Spacer(12dp) */
+  background: var(--border-color);
+  opacity: 0.5; /* outlineVariant 50% */
+}
+
+/* ==================== 空态（对齐 EmptyBox） ==================== */
+
+.hist-empty {
+  padding: 96rpx 48rpx;
+  font-size: 32rpx; /* bodyLarge */
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ==================== 历史卡片（对齐 HistoryRowCard） ==================== */
+
+.hcard {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx; /* spacedBy(12dp) */
+  padding: 24rpx; /* 12dp */
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color); /* outline 1dp */
+  border-radius: 32rpx; /* 16dp */
+}
+
+/* 16:9 封面：280rpx × 158rpx（140dp × 78.75dp），圆角 8dp */
+.hcard-cover-box {
+  width: 280rpx;
+  height: 158rpx;
+  flex-shrink: 0;
+}
+
+.hcard-cover {
+  width: 280rpx;
+  height: 158rpx;
+  border-radius: 16rpx; /* CoverImage cornerRadius 8dp */
+  background: var(--ink-100); /* 封面缺失时的占位底 */
+}
+
+.hcard-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx; /* spacedBy(12dp) */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 第一行：状态徽章 + 所属播客名 */
+.hcard-top {
+  display: flex;
+  align-items: center;
+}
+
+/* 状态徽章：primary 10% 底胶囊（对齐 HistoryStatusBadge） */
+.hbadge {
+  display: flex;
+  align-items: center;
+  padding: 4rpx 12rpx; /* vertical 2dp / horizontal 6dp */
+  background: rgba(31, 122, 92, 0.1);
+  border-radius: 8rpx; /* 4dp */
+  flex-shrink: 0;
+}
+
+.hbadge-icon {
+  width: 20rpx; /* 10dp（PlayArrow / CheckCircle） */
+  height: 20rpx;
+  margin-right: 4rpx; /* Spacer(2dp) */
+}
+
+.hbadge-text {
+  font-size: 20rpx; /* labelSmall */
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.hcard-cat {
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx; /* spacedBy(6dp) */
+  font-size: 22rpx; /* labelSmall */
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 第二行：剧集标题（最多两行省略，对齐 maxLines=2 SemiBold） */
+.hcard-title {
+  margin-top: 8rpx;
+  font-size: 28rpx; /* bodyMedium */
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 第三行：细进度条 + 末端止点圆点（Material3 stop indicator） */
+.hbar {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.hbar-track {
+  flex: 1;
+  height: 8rpx; /* 4dp 高细条 */
+  background: var(--ink-100); /* trackColor = surfaceVariant */
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.hbar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--r-full);
+}
+
+.hbar-dot {
+  width: 8rpx; /* 4dp 止点圆点 */
+  height: 8rpx;
+  margin-left: 4rpx;
+  flex-shrink: 0;
+  background: var(--color-primary);
+  border-radius: 50%;
+}
+
+/* 进度文本：已听 M:SS / M:SS（labelSmall 灰） */
+.hcard-progress {
+  margin-top: 8rpx;
+  font-size: 22rpx; /* labelSmall */
+  color: var(--text-tertiary);
+}
+
+/* ==================== 底部（加载更多 / 到底） ==================== */
+
+.hist-footer {
+  display: flex;
+  justify-content: center;
+  padding: 32rpx 0 0; /* vertical 16dp */
+}
+
+.hist-footer-text {
+  font-size: 24rpx; /* bodySmall */
+  color: var(--text-tertiary);
+}
+
+.hist-footer-space {
+  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+}

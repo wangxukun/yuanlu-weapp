@@ -177,7 +177,7 @@ const theme = require('../utils/theme');
   ok(/--primary-50: #12261f/.test(appWxss) && /--primary-100: #1a3329/.test(appWxss),
     'primary 浅色档深色翻转（品牌淡底自动双态）');
   // 第二波页面接线
-  ['pages/contact/index.wxml','pages/library/favorites/index.wxml','pages/podcast/podcast.wxml',
+  ['pages/contact/index.wxml','pages/library/favorites/index.wxml','pages/library/history/index.wxml','pages/podcast/podcast.wxml',
    'pages/episode/episode.wxml','pages/channel/index.wxml','pages/channel/all/index.wxml',
    'pages/search/search.wxml','pages/intensive-listening/index.wxml'].forEach((f) => {
     ok(fs.readFileSync(f, 'utf8').includes('{{themeClass}}'), f + ' 根视图挂 themeClass');

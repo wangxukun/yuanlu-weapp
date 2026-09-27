@@ -1,0 +1,107 @@
+<!-- pages/library/history/index.wxml — 收听历史
+  对齐 Android 端 HistoryScreen.kt（复刻 Web /library/history 移动端）：
+  全部/进行中/已完成三段过滤（全部激活时拼总数）→ 今天/昨天/具体日期分组
+  （日历图标 + 同行右侧细分隔线）→ 左右布局历史卡片（16:9 封面 + 状态徽章 +
+  播客名 / 两行标题 / 细进度条带末端止点圆点 / 已听进度文本）→ 底部到底提示。
+  顶部返回 + 标题由原生导航栏提供（navigationBarTitleText: 收听历史）。 -->
+
+<view class="hist-page {{themeClass}}">
+
+  <!-- ===== 加载态 ===== -->
+  <view wx:if="{{isLoading}}" class="state-box col center">
+    <view class="loading-spinner" />
+    <text class="state-text">正在加载收听历史…</text>
+  </view>
+
+  <!-- ===== 错误 / 未登录态 ===== -->
+  <view wx:elif="{{needLogin || error}}" class="state-box col center">
+    <text class="state-text">{{needLogin ? '登录后即可查看收听历史' : error}}</text>
+    <view
+      class="state-btn center tap-scale"
+      bindtap="{{needLogin ? 'onGoLogin' : 'onRetry'}}"
+    >{{needLogin ? '去登录' : '重试'}}</view>
+  </view>
+
+  <!-- ===== 内容区 ===== -->
+  <block wx:else>
+
+    <!-- 三段状态过滤器（对齐 HistoryFilterBar：surfaceVariant 60% 容器 + 白底激活
+         胶囊 + primary 加粗；仅「全部」激活时拼 "全部 (total)"） -->
+    <view class="hist-tabs">
+      <view
+        wx:for="{{filters}}"
+        wx:key="key"
+        class="hist-tab {{filter === item.key ? 'hist-tab--on' : ''}}"
+        bindtap="onSelectFilter"
+        data-key="{{item.key}}"
+      >{{filter === item.key && item.key === 'all' ? '全部 (' + total + ')' : item.label}}</view>
+    </view>
+
+    <!-- 空列表（对齐 EmptyBox("暂无收听记录")） -->
+    <view wx:if="{{groups.length === 0}}" class="hist-empty">暂无收听记录</view>
+
+    <!-- 时间分组列表：分组标题（今天/昨天/具体日期）+ 历史卡片 -->
+    <block wx:for="{{groups}}" wx:key="label" wx:for-item="group">
+      <view class="hist-group">
+        <image
+          class="hist-group-icon"
+          mode="aspectFit"
+          src="{{dark ? '/assets/icons/date-range-ink-dark.svg' : '/assets/icons/date-range-ink.svg'}}"
+        />
+        <text class="hist-group-label">{{group.label}}</text>
+        <view class="hist-group-line" />
+      </view>
+
+      <view
+        wx:for="{{group.items}}"
+        wx:key="historyid"
+        class="hcard"
+        bindtap="onOpenEpisode"
+        data-id="{{item.episodeId}}"
+      >
+        <!-- 16:9 封面（280rpx × 158rpx 严格锁定比例），圆角 8dp -->
+        <view class="hcard-cover-box">
+          <image class="hcard-cover" src="{{item.thumbnailUrl}}" mode="aspectFill" lazy-load />
+        </view>
+        <view class="hcard-info">
+          <!-- 第一行：状态徽章（进行中=播放三角+百分比 / 已完成=对勾）+ 播客名 -->
+          <view class="hcard-top">
+            <view class="hbadge">
+              <image
+                class="hbadge-icon"
+                mode="aspectFit"
+                src="{{item.isFinished
+                  ? (dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle.svg')
+                  : (dark ? '/assets/icons/play-filled-primarydark.svg' : '/assets/icons/play-filled-primary.svg')}}"
+              />
+              <text class="hbadge-text">{{item.isFinished ? '已完成' : item.percent + '%'}}</text>
+            </view>
+            <text wx:if="{{item.category}}" class="hcard-cat">{{item.category}}</text>
+          </view>
+          <!-- 第二行：剧集标题（最多两行省略） -->
+          <text class="hcard-title">{{item.title}}</text>
+          <!-- 第三行：细进度条（绿色已播 + 灰轨道 + 末端止点圆点）→ 已听文本 -->
+          <view class="hbar">
+            <view class="hbar-track">
+              <view class="hbar-fill" style="width: {{item.ratio * 100}}%;" />
+            </view>
+            <view class="hbar-dot" />
+          </view>
+          <text class="hcard-progress">{{item.progressText}}</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- 底部：加载更多 / 到底（对齐 footer：加载中转圈，到底灰字居中） -->
+    <view class="hist-footer center">
+      <view wx:if="{{isLoadingMore}}" class="loading-spinner loading-spinner--sm" />
+      <text wx:elif="{{endReached && items.length > 0}}" class="hist-footer-text">已经到底了</text>
+    </view>
+
+    <!-- 底部留白以防被播放条遮挡 -->
+    <view class="hist-footer-space" />
+  </block>
+</view>
+
+<!-- 跨页迷你播放条（3.B.3）：无播放会话时整条不渲染 -->
+<mini-player />

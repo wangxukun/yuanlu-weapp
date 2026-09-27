@@ -226,6 +226,8 @@
 | `close-light.svg` | 已是 Material（历史批次） |
 | `close.svg` | 已是 Material（历史批次） |
 | `computer.svg` | 已是 Material（历史批次） |
+| `date-range-ink-dark.svg` | 新增（收听历史页日期分组头，#a8a29e 深色 ink-500） |
+| `date-range-ink.svg` | 新增（收听历史页日期分组头，#857c68 浅色 ink-500） |
 | `delete-error.svg` | 已是 Material（历史批次） |
 | `description-secondary.svg` | 已是 Material（历史批次） |
 | `emoji-events-secondary.svg` | 已是 Material（历史批次） |
