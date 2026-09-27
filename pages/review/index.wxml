@@ -4,7 +4,7 @@
   <!-- 未登录：整页登录引导态（图标与排布对齐 Web 端 PodcastAuthPrompt） -->
   <view wx:if="{{!isLoggedIn}}" class="guest-guide">
     <text class="guest-title t-h2">登录后开启复习</text>
-    <image class="guest-icon" src="/assets/icons/podcast-primary.svg" mode="aspectFit" />
+    <image class="guest-icon" src="/assets/icons/podcasts-primary.svg" mode="aspectFit" />
     <text class="guest-desc t-caption">同步你的生词本、句子本与发音弱项本，按遗忘曲线科学安排复习。</text>
     <view class="btn-primary guest-btn tap-scale" bindtap="onGoLogin">去登录</view>
     <text class="guest-hint t-mini">登录后即可免费使用三大复习本</text>

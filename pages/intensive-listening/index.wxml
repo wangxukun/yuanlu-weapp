@@ -13,7 +13,7 @@
   <view class="il-header" style="padding-top: {{statusBarH}}px">
     <view class="il-header-row">
       <view class="il-icon-btn tap-scale" bindtap="onBack">
-        <image class="il-icon" src="/assets/icons/chevron-down.svg" />
+        <image class="il-icon" src="/assets/icons/keyboard-arrow-down.svg" />
       </view>
 
       <!-- 精读 / 听写 双 Tab（📖 / ✍️ 前缀原样保留，选中白底 + 阴影） -->
@@ -29,13 +29,13 @@
     <!-- 工具行：播放态 pill | 跟随 / 译文 -->
     <view class="il-toolbar">
       <view class="il-live {{isPlayingHere ? 'il-live--on' : ''}}">
-        <image wx:if="{{isPlayingHere}}" class="il-live-icon" src="/assets/icons/speaker-wave-primary.svg" />
+        <image wx:if="{{isPlayingHere}}" class="il-live-icon" src="/assets/icons/volume-up-primary.svg" />
         <text>{{isPlayingHere ? '正在精听' : '点击段落播放'}}</text>
       </view>
       <view class="il-tools row">
         <view class="il-tool {{autoScroll ? 'il-tool--on' : ''}} tap-dim" bindtap="onToggleAutoScroll">
           <image class="il-tool-icon {{autoScroll ? 'il-tool-icon--rot' : ''}}"
-                 src="{{autoScroll ? '/assets/icons/arrows-right-left-primary.svg' : '/assets/icons/arrows-right-left-gray.svg'}}" />
+                 src="{{autoScroll ? '/assets/icons/swap-horiz-primary.svg' : '/assets/icons/swap-horiz-gray.svg'}}" />
           <text>跟随</text>
         </view>
         <view class="il-tool {{showTranslation ? 'il-tool--on' : ''}} tap-dim" bindtap="onToggleTranslation">
@@ -131,7 +131,7 @@
             <view class="sub-time {{item.index === activeIndex && isPlaying ? 'sub-time--on' : ''}} tap-scale"
                   data-index="{{item.index}}" catchtap="onCardTap">
               <image class="sub-time-icon"
-                     src="{{item.index === activeIndex && isPlaying ? '/assets/icons/speaker-wave-primary.svg' : '/assets/icons/play-filled-ink.svg'}}" />
+                     src="{{item.index === activeIndex && isPlaying ? '/assets/icons/volume-up-primary.svg' : '/assets/icons/play-filled-ink.svg'}}" />
               <text>{{item.tsLabel}}</text>
             </view>
 
@@ -139,7 +139,7 @@
               <view class="sub-act {{savedMap[item.id] ? 'sub-act--saved' : ''}} tap-scale"
                     data-index="{{item.index}}" catchtap="onToggleSave">
                 <image class="sub-act-icon"
-                       src="{{savedMap[item.id] ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+                       src="{{savedMap[item.id] ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-border-gray.svg'}}" />
                 <text>{{savedMap[item.id] ? '已收藏' : '收藏'}}</text>
               </view>
               <view class="sub-act {{loopIndex === item.index ? 'sub-act--loop' : ''}} tap-scale"

@@ -77,12 +77,12 @@ Component({
       const d = this.data.dark;
       this.setData({
         icons: {
-          stethoscope: d ? '/assets/icons/stethoscope-primary-dark.svg' : '/assets/icons/stethoscope-primary.svg',
-          stethoscopeFaint: d ? '/assets/icons/stethoscope-faint-dark.svg' : '/assets/icons/stethoscope-faint.svg',
+          stethoscope: d ? '/assets/icons/monitor-heart-primary-dark.svg' : '/assets/icons/monitor-heart-primary.svg',
+          stethoscopeFaint: d ? '/assets/icons/monitor-heart-faint-dark.svg' : '/assets/icons/monitor-heart-faint.svg',
           lockFaint: d ? '/assets/icons/lock-faint-dark.svg' : '/assets/icons/lock-faint.svg',
           trending: d ? '/assets/icons/trending-up-primary-dark.svg' : '/assets/icons/trending-up-primary.svg',
-          chevronDown: d ? '/assets/icons/chevron-down-primary-dark.svg' : '/assets/icons/chevron-down-primary.svg',
-          chevronUp: d ? '/assets/icons/chevron-up-primary-dark.svg' : '/assets/icons/chevron-up-primary.svg',
+          chevronDown: d ? '/assets/icons/keyboard-arrow-down-primary-dark.svg' : '/assets/icons/keyboard-arrow-down-primary.svg',
+          chevronUp: d ? '/assets/icons/keyboard-arrow-up-primary-dark.svg' : '/assets/icons/keyboard-arrow-up-primary.svg',
         },
       });
     },

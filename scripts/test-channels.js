@@ -283,7 +283,7 @@ const PODCASTS = [
       'class="show-eyebrow"', 'class="show-title"', 'class="show-meta"',
       'class="episode-row', 'class="ep-cover-wrap"', 'class="ep-difficulty"', 'class="ep-duration"',
       'fmt.difficultyColor', 'fmt.formatDuration', 'fmt.formatPlayCount', 'fmt.formatDate',
-      '/assets/icons/headphones.svg', '/assets/icons/calendar.svg',
+      '/assets/icons/headset.svg', '/assets/icons/date-range.svg',
       '../podcast/podcast.wxs',
       'bindtap="onOpenPodcast"', 'bindtap="onOpenEpisode"',
       'wx:if="{{item.length === 1}}"', 'wx:if="{{podcast.episodeCount > 0}}"',

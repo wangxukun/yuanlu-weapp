@@ -3,7 +3,7 @@
     <!-- 头部：渐变图标 + 标题 -->
     <view class="pm-header center col">
       <view class="pm-icon-circle center">
-        <image class="pm-icon" src="/assets/icons/sparkles.svg"></image>
+        <image class="pm-icon" src="/assets/icons/auto-awesome.svg"></image>
       </view>
       <text class="pm-title">{{scenario.title}}</text>
       <text class="pm-desc">{{scenario.description}}</text>

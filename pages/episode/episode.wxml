@@ -24,7 +24,7 @@
           <view class="hero-tl row">
             <view class="pro-badge" wx:if="{{episode.isExclusive}}">PRO</view>
             <view class="playcount-badge row center" wx:if="{{episode.playCount > 0}}">
-              <image class="icon-xs" src="/assets/icons/headphones.svg"></image>
+              <image class="icon-xs" src="/assets/icons/headset.svg"></image>
               <text class="t-micro text-white ml-1">{{fmt.formatPlayCount(episode.playCount)}}</text>
             </view>
           </view>
@@ -49,11 +49,11 @@
           <text class="t-mini text-primary text-bold">{{episode.tags[0].name}}</text>
         </view>
         <view class="row center text-secondary mr-3" wx:if="{{episode.publishAt}}">
-          <image class="icon-xs" src="/assets/icons/calendar.svg"></image>
+          <image class="icon-xs" src="/assets/icons/date-range.svg"></image>
           <text class="t-body ml-1">{{fmt.formatDateZh(episode.publishAt)}}</text>
         </view>
         <view class="row center text-secondary" wx:if="{{episode.duration}}">
-          <image class="icon-xs" src="/assets/icons/clock.svg"></image>
+          <image class="icon-xs" src="/assets/icons/schedule.svg"></image>
           <text class="t-body ml-1">{{fmt.formatMinutes(episode.duration)}}</text>
         </view>
       </view>
@@ -96,10 +96,10 @@
           <image class="icon-sm text-secondary" src="/assets/icons/download.svg"></image>
         </view>
         <view class="action-box center col tap-scale" bindtap="onTranscript">
-          <image class="icon-sm text-secondary" src="/assets/icons/file-text.svg"></image>
+          <image class="icon-sm text-secondary" src="/assets/icons/description.svg"></image>
         </view>
         <view class="action-box center col tap-scale" bindtap="onToggleFavorite" style="opacity: {{isFavoriteBusy ? 0.5 : 1}};">
-          <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark-filled.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
+          <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
         </view>
         <view class="action-box center col tap-scale" bindtap="onShare">
           <image class="icon-sm text-secondary" src="/assets/icons/share.svg"></image>
@@ -125,7 +125,7 @@
         <view class="expand-wrapper row center mt-2">
           <view class="expand-pill row center tap-scale" bindtap="onToggleIntro">
             <text class="t-mini text-primary text-bold">{{introExpanded ? '收起内容' : '显示全部'}}</text>
-            <image class="icon-xs ml-1" src="{{introExpanded ? '/assets/icons/chevron-up.svg' : '/assets/icons/chevron-down.svg'}}"></image>
+            <image class="icon-xs ml-1" src="{{introExpanded ? '/assets/icons/keyboard-arrow-up.svg' : '/assets/icons/keyboard-arrow-down.svg'}}"></image>
           </view>
         </view>
       </view>

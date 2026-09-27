@@ -74,7 +74,7 @@
       <!-- ══ 4. 全局空态（账号从未收藏过生词；与筛选无结果严格区分） ══ -->
       <view wx:if="{{stats.total === 0}}" class="vn-empty col">
         <view class="vn-empty-ic center">
-          <image class="vn-empty-img" src="/assets/icons/book-a.svg" />
+          <image class="vn-empty-img" src="/assets/icons/menu-book-gray.svg" />
         </view>
         <text class="vn-empty-title">暂无收藏生词</text>
         <text class="vn-empty-desc">去听听播客积累词汇吧，在剧集的沉浸式逐字稿中点按生词即可一键收藏。</text>
@@ -246,7 +246,7 @@
         <!-- 筛选/搜索无结果 -->
         <view wx:if="{{filteredList.length === 0}}" class="vn-nomatch col">
           <view class="vn-nomatch-ic center">
-            <image class="vn-nomatch-img" src="/assets/icons/filter-gray.svg" />
+            <image class="vn-nomatch-img" src="/assets/icons/filter-list-gray.svg" />
           </view>
           <text class="vn-nomatch-title">{{filterStatus === 'MASTERED' ? '空空如也，暂无已掌握的单词' : '未找到匹配的生词'}}</text>
           <text class="vn-nomatch-desc">{{filterStatus === 'MASTERED' ? '继续学习，将生词转化为你的永久财富吧！' : '调整搜索词或切换状态试试'}}</text>

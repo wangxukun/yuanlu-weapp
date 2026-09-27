@@ -65,7 +65,7 @@
               <view class="result-meta">
                 <text class="meta-tag" wx:for="{{podcast.topTags}}" wx:key="id">{{item.name}}</text>
                 <view class="meta-episodes">
-                  <image class="meta-headphones" src="/assets/icons/headphones.svg" />
+                  <image class="meta-headphones" src="/assets/icons/headset.svg" />
                   <text class="meta-count">{{podcast.episodeCount}} 集</text>
                 </view>
               </view>

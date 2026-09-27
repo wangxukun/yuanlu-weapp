@@ -29,10 +29,10 @@ const authStore = require('../../store/authStore');
 // 四大分类标签（文案一字不差，与 Web 端 FEATURE_CHIPS 对齐）。
 // key 与 DeepDiveContent 字段一一对应，展开后兼作 activeFilter 过滤键。
 const CHIPS = [
-  { key: 'vocabulary', icon: '/assets/icons/book-open.png', text: '难点词汇预扫' },
+  { key: 'vocabulary', icon: '/assets/icons/menu-book.png', text: '难点词汇预扫' },
   { key: 'sentences', icon: '/assets/icons/list.svg', text: '长难句拆解' },
-  { key: 'shadowing', icon: '/assets/icons/headphones.svg', text: '跟读句推荐' },
-  { key: 'quiz', icon: '/assets/icons/sparkles-gray.svg', text: '理解测验' },
+  { key: 'shadowing', icon: '/assets/icons/headset.svg', text: '跟读句推荐' },
+  { key: 'quiz', icon: '/assets/icons/auto-awesome-gray.svg', text: '理解测验' },
 ];
 
 // 2x2 标签网格按行分组：真机 WebView 对 calc(50%)/flex gap 支持不稳

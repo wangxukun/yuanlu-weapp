@@ -47,7 +47,7 @@ Component({
       phase: '加载中'
     },
     failed: {
-      icon: '/assets/icons/book-a-warning.svg',
+      icon: '/assets/icons/warning.svg',
       title: '加载失败',
       desc: '网络异常，弱项本数据未能加载，请稍后重试。'
     },

@@ -8,7 +8,7 @@
   <view class="se-header" style="padding-top: {{statusBarH}}px">
     <view class="se-header-row row">
       <view class="se-nav-btn center tap-dim" bindtap="onBack">
-        <image class="se-nav-ic--back" src="{{dark ? '/assets/icons/chevron-down-light.svg' : '/assets/icons/chevron-down-ink.svg'}}" />
+        <image class="se-nav-ic--back" src="{{dark ? '/assets/icons/keyboard-arrow-down-light.svg' : '/assets/icons/keyboard-arrow-down-ink.svg'}}" />
       </view>
       <text class="se-header-title flex-1">语音评测</text>
       <view class="se-nav-btn center tap-dim" style="margin-right: {{gearRightPx}}px" bindtap="onOpenSettings">
@@ -55,19 +55,19 @@
           </view>
           <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onPlaySlow">
             <view class="se-act-btn center {{playing === 'slow' ? 'se-act-btn--on' : ''}}">
-              <image class="se-act-ic" src="{{playing === 'slow' ? '/assets/icons/volume-1-white.svg' : (dark ? '/assets/icons/volume-1-dark.svg' : '/assets/icons/volume-1-primary.svg')}}" />
+              <image class="se-act-ic" src="{{playing === 'slow' ? '/assets/icons/slow-motion-video-white.svg' : (dark ? '/assets/icons/slow-motion-video-dark.svg' : '/assets/icons/slow-motion-video-primary.svg')}}" />
             </view>
             <text class="se-act-label">慢速播放</text>
           </view>
           <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onToggleBookmark">
             <view class="se-act-btn center">
-              <image class="se-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+              <image class="se-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-border-gray.svg'}}" />
             </view>
             <text class="se-act-label">收藏书签</text>
           </view>
           <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onToggleLoop">
             <view class="se-act-btn center">
-              <image class="se-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')}}" />
+              <image class="se-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-one-primary-dark.svg' : '/assets/icons/repeat-one-primary.svg') : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')}}" />
             </view>
             <text class="se-act-label">单句循环</text>
           </view>
@@ -100,7 +100,7 @@
 
           <!-- 盲读「显示原文 / 重新遮挡」胶囊 -->
           <view wx:if="{{settings.textMode === 'blind'}}" class="se-blind-pill row tap-dim" bindtap="onToggleBlindReveal">
-            <image class="se-blind-pill-ic" src="{{blindMasked ? (dark ? '/assets/icons/eye-dark.svg' : '/assets/icons/eye-primary.svg') : (dark ? '/assets/icons/eye-off-dark.svg' : '/assets/icons/eye-off-primary.svg')}}" />
+            <image class="se-blind-pill-ic" src="{{blindMasked ? (dark ? '/assets/icons/visibility-dark.svg' : '/assets/icons/visibility-primary.svg') : (dark ? '/assets/icons/visibility-off-dark.svg' : '/assets/icons/visibility-off-primary.svg')}}" />
             <text class="se-blind-pill-text">{{blindMasked ? '显示原文' : '重新遮挡'}}</text>
           </view>
         </view>
@@ -253,7 +253,7 @@
 
                 <!-- 再试一次 -->
                 <view class="se-retry center tap-scale" bindtap="onRetryRecording">
-                  <image class="se-retry-ic" src="{{dark ? '/assets/icons/refresh-ccw-light.svg' : '/assets/icons/refresh-ccw-gray.svg'}}" />
+                  <image class="se-retry-ic" src="{{dark ? '/assets/icons/refresh-light.svg' : '/assets/icons/refresh-gray.svg'}}" />
                   <text class="se-retry-text">再试一次</text>
                 </view>
               </view>
@@ -275,7 +275,7 @@
   <view class="se-footer">
     <view class="se-footer-row row">
       <view class="se-nav-text row {{index <= 0 || phase === 'evaluating' ? 'se-nav-text--off' : ''}}" bindtap="onPrev">
-        <image class="se-nav-arrow" src="{{dark ? '/assets/icons/chevron-left-dark.svg' : '/assets/icons/chevron-left-primary.svg'}}" />
+        <image class="se-nav-arrow" src="{{dark ? '/assets/icons/keyboard-arrow-left-dark.svg' : '/assets/icons/keyboard-arrow-left-primary.svg'}}" />
         <text class="se-nav-label">上一句</text>
       </view>
       <view class="se-progress col flex-1">
@@ -287,7 +287,7 @@
       </view>
       <view class="se-nav-text row {{isLastIndex || phase === 'evaluating' ? 'se-nav-text--off' : ''}}" bindtap="onNext">
         <text class="se-nav-label">下一句</text>
-        <image class="se-nav-arrow" src="{{dark ? '/assets/icons/chevron-right-dark.svg' : '/assets/icons/chevron-right-primary.svg'}}" />
+        <image class="se-nav-arrow" src="{{dark ? '/assets/icons/keyboard-arrow-right-dark.svg' : '/assets/icons/keyboard-arrow-right-primary.svg'}}" />
       </view>
     </view>
   </view>

@@ -20,7 +20,7 @@
           <input class="ct-input {{errors.email ? 'ct-input--err' : ''}}" type="text"
                  placeholder="name@example.com" placeholder-class="ct-placeholder"
                  value="{{email}}" data-name="email" bindinput="onInput" bindblur="onBlur" />
-          <image wx:if="{{errors.email}}" class="ct-alert" src="/assets/icons/circle-alert-error.svg" />
+          <image wx:if="{{errors.email}}" class="ct-alert" src="/assets/icons/error.svg" />
         </view>
         <text wx:if="{{errors.email}}" class="ct-error">{{errors.email}}</text>
       </view>
@@ -32,7 +32,7 @@
           <input class="ct-input {{errors.subject ? 'ct-input--err' : ''}}" type="text"
                  placeholder="关于..." placeholder-class="ct-placeholder" maxlength="50"
                  value="{{subject}}" data-name="subject" bindinput="onInput" bindblur="onBlur" />
-          <image wx:if="{{errors.subject}}" class="ct-alert" src="/assets/icons/circle-alert-error.svg" />
+          <image wx:if="{{errors.subject}}" class="ct-alert" src="/assets/icons/error.svg" />
         </view>
         <text wx:if="{{errors.subject}}" class="ct-error">{{errors.subject}}</text>
       </view>

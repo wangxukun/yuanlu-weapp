@@ -482,11 +482,11 @@ async function runRecordEvalSim() {
   const SE_WXML = require('fs').readFileSync(require('path').join(__dirname, '../pages/speech-eval/index.wxml'), 'utf8');
   ok(SE_WXML.includes('>收藏书签</text>') && SE_WXML.includes('>单句循环</text>'),
     '顶部工具行新增两钮标签');
-  ok(SE_WXML.includes("bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'"),
+  ok(SE_WXML.includes("bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-border-gray.svg'"),
     '书签图标只切不变底（无 se-act-btn--on 绑定）');
   ok(!/onToggleBookmark[\s\S]{0,200}se-act-btn--on/.test(SE_WXML),
     '书签钮无背景激活类');
-  ok(SE_WXML.includes("loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')"),
+  ok(SE_WXML.includes("loop ? (dark ? '/assets/icons/repeat-one-primary-dark.svg' : '/assets/icons/repeat-one-primary.svg') : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')"),
     '循环图标 lucide 同族四态（Repeat/Repeat1 × 深浅）');
 
   // 「最近得分」钮退役红线（用户指令：顶部圆钮组仅剩五钮；两个入口共用本页）

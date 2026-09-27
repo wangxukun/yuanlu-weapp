@@ -4,7 +4,7 @@
   <!-- PRO 无限态 -->
   <view class="qc-premium" wx:if="{{isPremium}}">
     <view class="qc-infinity">
-      <image class="qc-infinity-icon" src="/assets/icons/infinity-accent.svg" mode="aspectFit" />
+      <image class="qc-infinity-icon" src="/assets/icons/all-inclusive-accent.svg" mode="aspectFit" />
     </view>
     <view class="qc-premium-texts">
       <text class="qc-premium-title">{{premiumTitle}}</text>

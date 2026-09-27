@@ -7,14 +7,14 @@
     <view class="dd-pro-badge" wx:if="{{isLoggedIn && !isPremium}}">PRO</view>
     <view class="flex-1"></view>
     <image class="dd-lock" wx:if="{{isLoggedIn && !isPremium}}" src="/assets/icons/lock.svg"></image>
-    <image class="dd-chevron" wx:elif="{{isPremium && !isLoading}}" src="{{content && isOpen ? '/assets/icons/chevron-up-gray.svg' : '/assets/icons/chevron-down-gray.svg'}}"></image>
+    <image class="dd-chevron" wx:elif="{{isPremium && !isLoading}}" src="{{content && isOpen ? '/assets/icons/keyboard-arrow-up-gray.svg' : '/assets/icons/keyboard-arrow-down-gray.svg'}}"></image>
   </view>
 
   <!-- 行2：星星图标（与右侧两行标签整体垂直居中）+ 2x2 标签网格（展开态兼作过滤器） -->
   <view class="dd-sub row align-center">
     <view class="dd-icon-circle center">
       <view class="dd-spinner" wx:if="{{isLoading}}"></view>
-      <image class="dd-icon" src="/assets/icons/sparkles.svg" wx:else></image>
+      <image class="dd-icon" src="/assets/icons/auto-awesome.svg" wx:else></image>
     </view>
     <!-- 缓存命中的安静加载（isLoading 且非 isGenerating）：标签网格保持可见，仅图标位转圈；
          仅探测确认将触发 LLM 首次生成（isGenerating）时才以加载文案替换标签 -->
@@ -70,7 +70,7 @@
         <text class="dd-section-title">跟读句推荐</text>
         <view class="dd-shadow-list col">
           <view class="dd-shadow-item row" wx:for="{{content.shadowing}}" wx:key="text" wx:for-item="sd">
-            <image class="dd-shadow-icon" src="/assets/icons/headphones.svg"></image>
+            <image class="dd-shadow-icon" src="/assets/icons/headset.svg"></image>
             <view class="col flex-1">
               <text class="dd-shadow-text">{{sd.text}}</text>
               <text class="dd-shadow-reason" wx:if="{{sd.reason}}">{{sd.reason}}</text>
@@ -97,7 +97,7 @@
                 catchtap="onPickOption"
               >
                 <image class="dd-opt-icon" wx:if="{{quizAnswers[qi] !== undefined && q.answer === oi}}" src="/assets/icons/check-circle.svg"></image>
-                <image class="dd-opt-icon" wx:elif="{{quizAnswers[qi] === oi}}" src="/assets/icons/x-circle.svg"></image>
+                <image class="dd-opt-icon" wx:elif="{{quizAnswers[qi] === oi}}" src="/assets/icons/cancel.svg"></image>
                 <text class="dd-opt-letter" wx:else>{{letters[oi]}}</text>
                 <text class="dd-opt-text">{{opt}}</text>
               </view>
@@ -118,7 +118,7 @@
       <view class="dd-collapse-bar row end">
         <view class="dd-collapse-btn row center tap-scale-light" bindtap="onCollapse">
           <text class="dd-collapse-text">收起内容</text>
-          <image class="dd-collapse-icon" src="/assets/icons/chevron-up-gray.svg"></image>
+          <image class="dd-collapse-icon" src="/assets/icons/keyboard-arrow-up-gray.svg"></image>
         </view>
       </view>
     </view>

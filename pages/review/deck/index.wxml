@@ -9,7 +9,7 @@
   <!-- 空句库 -->
   <view wx:elif="{{isEmpty && !card}}" class="dk-center dk-empty col">
     <view class="dk-empty-badge center">
-      <image class="dk-empty-ic" src="/assets/icons/text-quote-primary.svg" />
+      <image class="dk-empty-ic" src="/assets/icons/format-quote-primary.svg" />
     </view>
     <text class="dk-empty-title">句子本为空</text>
     <text class="dk-empty-desc">请先在播客单集逐字稿中收藏一些句子，再进入卡片复习模式。</text>
@@ -20,14 +20,14 @@
     <!-- ══ 顶栏：返回 | 刷句复习 + N/total | 帮助 ══ -->
     <view class="dk-topbar row">
       <view class="dk-topbtn center tap-dim" bindtap="onBack">
-        <image class="dk-topbtn-ic" src="/assets/icons/chevron-left-primary.svg" />
+        <image class="dk-topbtn-ic" src="/assets/icons/keyboard-arrow-left-primary.svg" />
       </view>
       <view class="dk-toptitle col">
         <text class="dk-toptitle-label">刷句复习</text>
         <text class="dk-toptitle-count">{{indexLabel}}</text>
       </view>
       <view class="dk-topbtn center tap-dim" bindtap="onHelpToggle">
-        <image class="dk-topbtn-ic" src="/assets/icons/help-circle-primary.svg" />
+        <image class="dk-topbtn-ic" src="/assets/icons/help-outline-primary.svg" />
       </view>
     </view>
 
@@ -35,7 +35,7 @@
     <view class="dk-modes row">
       <view class="dk-modes-track row">
         <view class="dk-mode row {{mode === 'sequential' ? 'dk-mode--on' : ''}}" data-mode="sequential" bindtap="onModeTap">
-          <image class="dk-mode-ic" src="{{mode === 'sequential' ? '/assets/icons/list-ordered-primary.svg' : '/assets/icons/list-ordered-gray.svg'}}" />
+          <image class="dk-mode-ic" src="{{mode === 'sequential' ? '/assets/icons/format-list-numbered-primary.svg' : '/assets/icons/format-list-numbered-gray.svg'}}" />
           <text>顺序刷</text>
         </view>
         <view class="dk-mode row {{mode === 'tag' ? 'dk-mode--on' : ''}}" data-mode="tag" bindtap="onModeTap">
@@ -45,14 +45,14 @@
           <text wx:else class="dk-mode-pro">PRO</text>
         </view>
         <view class="dk-mode row {{mode === 'srs' ? 'dk-mode--on' : ''}}" data-mode="srs" bindtap="onModeTap">
-          <image class="dk-mode-ic" src="{{mode === 'srs' ? '/assets/icons/sparkles-primary.svg' : '/assets/icons/sparkles-gray.svg'}}" />
+          <image class="dk-mode-ic" src="{{mode === 'srs' ? '/assets/icons/auto-awesome-primary.svg' : '/assets/icons/auto-awesome-gray.svg'}}" />
           <text>SRS 调度</text>
           <image wx:if="{{!isPremium}}" class="dk-mode-lock" src="/assets/icons/lock.svg" />
           <text wx:else class="dk-mode-pro">PRO</text>
         </view>
       </view>
       <view class="dk-achv row {{isPremium ? 'dk-achv--on' : ''}}" bindtap="onAchievementTap">
-        <image class="dk-achv-ic" src="{{isPremium ? '/assets/icons/flame-orange.svg' : '/assets/icons/lock.svg'}}" />
+        <image class="dk-achv-ic" src="{{isPremium ? '/assets/icons/local-fire-department-orange.svg' : '/assets/icons/lock.svg'}}" />
         <text>{{isPremium ? flipCount : '成就'}}</text>
       </view>
     </view>
@@ -89,13 +89,13 @@
         </view>
         <view class="dk-cue dk-cue--left row" style="opacity: {{cueLeftOp}};">
           <text>下一句</text>
-          <image class="dk-cue-ic" src="/assets/icons/arrow-right-white.svg" />
+          <image class="dk-cue-ic" src="/assets/icons/arrow-forward-white.svg" />
         </view>
 
         <!-- 正面：徽章 + 衬线英文（accent 高亮）+ 翻面提示 -->
         <view wx:if="{{!flipped}}" class="dk-face dk-face--front col">
           <view class="dk-badge row">
-            <image class="dk-badge-ic" src="/assets/icons/sparkles-primary.svg" />
+            <image class="dk-badge-ic" src="/assets/icons/auto-awesome-primary.svg" />
             <text>原句精听与复习</text>
           </view>
           <view class="dk-en font-serif">
@@ -109,7 +109,7 @@
         <view wx:else class="dk-face dk-face--back col">
           <view class="dk-back-head row">
             <view class="dk-back-title row">
-              <image class="dk-back-title-ic" src="/assets/icons/book-open-primary.svg" />
+              <image class="dk-back-title-ic" src="/assets/icons/menu-book-primary.svg" />
               <text>中文翻译参考</text>
             </view>
             <text class="dk-back-flag">已翻转</text>
@@ -135,7 +135,7 @@
     <!-- ══ 底部单手操作坞：重听 | 看译文/看英文 | 跟读 | 下一句 ══ -->
     <view class="dk-dock row">
       <view class="dk-dock-replay center {{playingKey === 'deck:' + card.id ? 'dk-dock-replay--on' : ''}}" bindtap="onReplay">
-        <image class="dk-dock-ic" src="{{playingKey === 'deck:' + card.id ? '/assets/icons/volume-up-white.svg' : '/assets/icons/volume-2-gray.svg'}}" />
+        <image class="dk-dock-ic" src="{{playingKey === 'deck:' + card.id ? '/assets/icons/volume-up-white.svg' : '/assets/icons/volume-up-gray.svg'}}" />
       </view>
       <view class="dk-dock-flip row {{flipped ? 'dk-dock-flip--on' : ''}}" bindtap="onFlipToggle">
         <image class="dk-dock-flip-ic" src="{{flipped ? (dark ? '/assets/icons/repeat-active-dark.svg' : '/assets/icons/repeat-active.svg') : (dark ? '/assets/icons/repeat-white.svg' : '/assets/icons/repeat.svg')}}" />
@@ -146,7 +146,7 @@
         <text>跟读</text>
       </view>
       <view class="dk-dock-next center" bindtap="onNext">
-        <image class="dk-dock-ic--white" src="/assets/icons/arrow-right-white.svg" />
+        <image class="dk-dock-ic--white" src="/assets/icons/arrow-forward-white.svg" />
       </view>
     </view>
   </block>
@@ -156,15 +156,15 @@
     <view class="dk-help col" catchtap="noop">
       <text class="dk-help-title">手势操作指南</text>
       <view class="dk-help-row row">
-        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/help-circle-primary.svg" /></view>
+        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/help-outline-primary.svg" /></view>
         <text class="dk-help-text"><text class="dk-help-strong">点击卡片空白处</text>：翻转卡片查看译文与笔记</text>
       </view>
       <view class="dk-help-row row">
-        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/chevron-left-primary.svg" /></view>
+        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/keyboard-arrow-left-primary.svg" /></view>
         <text class="dk-help-text"><text class="dk-help-strong">左滑卡片</text>：切换到下一句</text>
       </view>
       <view class="dk-help-row row">
-        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/volume-2-gray.svg" /></view>
+        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/volume-up-gray.svg" /></view>
         <text class="dk-help-text"><text class="dk-help-strong">右滑卡片</text>：重听原声音频</text>
       </view>
       <view class="btn-primary dk-help-btn tap-scale" catchtap="onHelpToggle">知道了</view>

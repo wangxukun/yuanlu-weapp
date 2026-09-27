@@ -6,9 +6,10 @@ Page({
     isLoggedIn: false,
     userInfo: null,
     themeClass: '',
+    dark: false,
     // 数据轨迹宫格（对齐 Web GRID_ENTRIES）
     gridEntries: [
-      { name: '学习路径', url: '/pages/library/paths/index', icon: '/assets/icons/route.png' },
+      { name: '学习路径', url: '/pages/library/paths/index', icon: '/assets/icons/school.png' },
       { name: '收听历史', url: '/pages/library/history/index', icon: '/assets/icons/history.png' },
       { name: '我的收藏', url: '/pages/library/favorites/index', icon: '/assets/icons/bookmark.png' },
       { name: '我的订阅', url: '/pages/library/subscribe/index', icon: '/assets/icons/credit-card.png' }
@@ -25,7 +26,7 @@ Page({
   onShow() {
     this.syncStoreData();
     // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
-    this.setData({ themeClass: theme.rootClass() });
+    this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark' });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
   },
 

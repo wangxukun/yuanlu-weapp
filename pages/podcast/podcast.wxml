@@ -21,7 +21,7 @@
         
         <view class="actions row mt-3" style="gap: 60rpx;">
           <view class="action-btn row center tap-scale" bindtap="onToggleFavorite" style="opacity: {{isFavoriteBusy ? 0.5 : 1}};">
-            <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark-filled.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
+            <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
             <text class="t-action ml-1" style="color: {{isFavorited ? 'var(--error)' : 'var(--text-secondary)'}}">{{isFavorited ? '已收藏' : '收藏'}}</text>
           </view>
           <view class="action-btn row center tap-scale" bindtap="onShare">
@@ -60,13 +60,13 @@
               <text class="ep-title ellipsis-2 mt-1">{{item.title}}</text>
               <view class="ep-meta row mt-1 w-full" style="justify-content: space-between; align-items: center;">
                 <view class="row center text-secondary" wx:if="{{item.playCount > 0}}">
-                  <image class="icon-xs" src="/assets/icons/headphones.svg"></image>
+                  <image class="icon-xs" src="/assets/icons/headset.svg"></image>
                   <text class="t-mini ml-1">{{fmt.formatPlayCount(item.playCount)}}</text>
                 </view>
                 <!-- If playCount is 0, we still want publishAt to be on the right. 
                      Using margin-left: auto will ensure it's on the right regardless of left item. -->
                 <view class="row center text-secondary" style="margin-left: auto;" wx:if="{{item.publishAt}}">
-                  <image class="icon-xs" src="/assets/icons/calendar.svg"></image>
+                  <image class="icon-xs" src="/assets/icons/date-range.svg"></image>
                   <text class="t-mini ml-1">{{fmt.formatDate(item.publishAt)}}</text>
                 </view>
               </view>

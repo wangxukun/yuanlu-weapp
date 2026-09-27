@@ -5,7 +5,7 @@
        （沉浸宿主页内联让出状态栏/胶囊；默认导航宿主页 headerPadTop=0） ── -->
   <view class="pp-header row" style="padding-top: {{headerPadTop}}px">
     <view class="pp-header-btn tap-dim" bindtap="onCollapse">
-      <image class="pp-header-icon" src="/assets/icons/chevron-down-gray.svg" />
+      <image class="pp-header-icon" src="/assets/icons/keyboard-arrow-down-gray.svg" />
     </view>
     <view class="flex-1"></view>
     <view class="pp-header-btn tap-dim" bindtap="onClosePlayer">
@@ -168,7 +168,7 @@
         <text class="pp-bs-row-title">设置定时启播</text>
         <text class="pp-bs-sub">到点自动开始播放，不错过更新内容</text>
       </view>
-      <image class="pp-bs-later-arrow" src="/assets/icons/chevron-down-gray.svg" style="transform: rotate(-90deg);" />
+      <image class="pp-bs-later-arrow" src="/assets/icons/keyboard-arrow-down-gray.svg" style="transform: rotate(-90deg);" />
     </view>
   </view>
 </view>

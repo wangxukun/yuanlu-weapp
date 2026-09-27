@@ -136,11 +136,10 @@
 }
 
 /* ============ 通用小部件 ============ */
-.chevron-right {
-  font-size: 32rpx;
-  color: var(--text-tertiary);
-  font-family: monospace; /* 防止中文字体箭头变形 */
-  opacity: 0.5;
+.chevron-right-img {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.5; /* 对齐原文字箭头的视觉重量 */
 }
 
 /* 间距工具 */

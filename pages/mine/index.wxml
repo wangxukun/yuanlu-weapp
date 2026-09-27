@@ -5,7 +5,7 @@
       <image wx:if="{{isLoggedIn && userInfo.avatarUrl}}" class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill" />
       <view wx:else class="avatar-placeholder center">
         <!-- 默认头像图标 -->
-        <image class="avatar-icon" src="/assets/icons/user.png" mode="aspectFit" />
+        <image class="avatar-icon" src="/assets/icons/person.png" mode="aspectFit" />
       </view>
     </view>
 
@@ -30,7 +30,7 @@
         <text class="t-caption text-secondary mt-1">点击登录或注册，开启学习之旅</text>
       </block>
     </view>
-    <view class="chevron-right">〉</view>
+    <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
   </view>
 
   <!-- 数据轨迹宫格（登录可见） -->
@@ -53,28 +53,28 @@
     <!-- 管理员控制台入口（LayoutDashboard · error-500，对齐 Web mine 页） -->
     <navigator wx:if="{{isLoggedIn && userInfo.role === 'ADMIN'}}" url="/pages/admin/index" class="list-item row between tap-scale border-bottom">
       <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/layout-dashboard-error.svg" mode="aspectFit" />
+        <image class="list-icon-img mr-3" src="/assets/icons/computer-error.svg" mode="aspectFit" />
         <text class="t-body text-bold text-error">控制台</text>
       </view>
-      <view class="chevron-right">〉</view>
+      <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </navigator>
 
     <!-- 外观设置（Palette · base-content/60） -->
     <view class="list-item row between tap-scale border-bottom" bindtap="onAppearance">
       <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/palette-ink.svg" mode="aspectFit" />
+        <image class="list-icon-img mr-3" src="/assets/icons/contrast-ink.svg" mode="aspectFit" />
         <text class="t-body text-bold">外观设置</text>
       </view>
-      <view class="chevron-right">〉</view>
+      <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </view>
 
     <!-- 帮助与支持（CircleHelp · base-content/60） -->
     <navigator url="/pages/contact/index" class="list-item row between tap-scale">
       <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/circle-help-ink.svg" mode="aspectFit" />
+        <image class="list-icon-img mr-3" src="/assets/icons/help-outline-ink.svg" mode="aspectFit" />
         <text class="t-body text-bold">帮助与支持</text>
       </view>
-      <view class="chevron-right">〉</view>
+      <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </navigator>
   </view>
 

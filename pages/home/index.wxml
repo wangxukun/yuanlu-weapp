@@ -15,7 +15,7 @@ module.exports = {
        图标与排布对齐 Web 端 PodcastAuthPrompt（标题上、大图标裸露、描述与按钮在下） -->
   <view wx:if="{{!isLoggedIn}}" class="guest-guide">
     <text class="guest-title t-h2">登录后开启你的远路</text>
-    <image class="guest-icon" src="/assets/icons/podcast-primary.svg" mode="aspectFit" />
+    <image class="guest-icon" src="/assets/icons/podcasts-primary.svg" mode="aspectFit" />
     <text class="guest-desc t-caption">同步收听记录、学习里程与个性化推荐，多端进度实时一致。</text>
     <view class="btn-primary guest-btn tap-scale" bindtap="onGoLogin">去登录</view>
     <text class="guest-hint t-mini">支持手机验证码 / 邮箱密码登录</text>
@@ -184,7 +184,7 @@ module.exports = {
               <!-- 角标 -->
               <view class="episode-badge-tr" wx:if="{{item.difficulty}}">{{item.difficulty}}</view>
               <view class="episode-badge-br row center">
-                <image class="badge-icon-clock" src="/assets/icons/clock.svg" />
+                <image class="badge-icon-clock" src="/assets/icons/schedule.svg" />
                 <text>{{item.duration ? math.ceil(item.duration / 60) : 0}} min</text>
               </view>
             </view>
@@ -195,7 +195,7 @@ module.exports = {
               </view>
               <view class="row between align-bottom w-full">
                 <view class="row center text-secondary">
-                  <image class="badge-icon-headphones" src="/assets/icons/headphones.svg" />
+                  <image class="badge-icon-headphones" src="/assets/icons/headset.svg" />
                   <text class="t-mini" style="margin-left: 4rpx;">{{item.playCount || 0}}</text>
                   <image class="badge-icon-lock" src="/assets/icons/lock.svg" wx:if="{{item.isExclusive}}" />
                 </view>
@@ -219,7 +219,7 @@ module.exports = {
               <image class="episode-cover-169" src="{{item.coverUrl}}" mode="aspectFill" />
               <view class="episode-badge-tr" wx:if="{{item.difficulty}}">{{item.difficulty}}</view>
               <view class="episode-badge-br row center">
-                <image class="badge-icon-clock" src="/assets/icons/clock.svg" />
+                <image class="badge-icon-clock" src="/assets/icons/schedule.svg" />
                 <text>{{item.duration ? math.ceil(item.duration / 60) : 0}} min</text>
               </view>
             </view>
@@ -230,7 +230,7 @@ module.exports = {
               </view>
               <view class="row between align-bottom w-full">
                 <view class="row center text-secondary">
-                  <image class="badge-icon-headphones" src="/assets/icons/headphones.svg" />
+                  <image class="badge-icon-headphones" src="/assets/icons/headset.svg" />
                   <text class="t-mini" style="margin-left: 4rpx;">{{item.playCount || 0}}</text>
                   <image class="badge-icon-lock" src="/assets/icons/lock.svg" wx:if="{{item.isExclusive}}" />
                 </view>

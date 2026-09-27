@@ -12,13 +12,13 @@ const TAB_HEADER_RPX = 89;
 const TABS = [
   {
     name: '生词本',
-    icon: '/assets/icons/book-a.svg',
-    activeIcon: '/assets/icons/book-a-active.svg'
+    icon: '/assets/icons/menu-book-gray.svg',
+    activeIcon: '/assets/icons/menu-book-primary.svg'
   },
   {
     name: '句子本',
-    icon: '/assets/icons/text-quote.svg',
-    activeIcon: '/assets/icons/text-quote-active.svg'
+    icon: '/assets/icons/format-quote-gray.svg',
+    activeIcon: '/assets/icons/format-quote-primary.svg'
   },
   {
     name: '发音弱项本',

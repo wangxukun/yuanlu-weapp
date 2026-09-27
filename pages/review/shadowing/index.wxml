@@ -46,7 +46,7 @@
     <!-- ══ 底部导航：上一句 | 下一句 / 完成跟读 ══ -->
     <view class="sh-footer row">
       <view class="sh-nav row {{index <= 0 ? 'sh-nav--off' : ''}}" bindtap="onPrev">
-        <image class="sh-nav-arrow" src="/assets/icons/chevron-left-primary.svg" />
+        <image class="sh-nav-arrow" src="/assets/icons/keyboard-arrow-left-primary.svg" />
         <text class="sh-nav-label">上一句</text>
       </view>
       <view wx:if="{{index >= total - 1}}" class="sh-finish center tap-scale" bindtap="onFinish">
@@ -54,7 +54,7 @@
       </view>
       <view wx:else class="sh-nav row" bindtap="onNext">
         <text class="sh-nav-label">下一句</text>
-        <image class="sh-nav-arrow sh-nav-arrow--right" src="/assets/icons/chevron-left-primary.svg" />
+        <image class="sh-nav-arrow sh-nav-arrow--right" src="/assets/icons/keyboard-arrow-left-primary.svg" />
       </view>
     </view>
   </block>

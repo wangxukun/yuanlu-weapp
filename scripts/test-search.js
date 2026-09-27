@@ -270,7 +270,7 @@ function searchResponse(opts) {
       'bindtap="onGoDiscover"', 'bindtap="onOpenPodcast"', 'wx:for="{{resultRows}}"',
       'class="grid-col" wx:for="{{item}}"', 'wx:if="{{item.length === 1}}"',
       '/assets/icons/search.svg', '/assets/icons/manage-search.svg', '/assets/icons/search-off.svg',
-      '/assets/icons/headphones.svg',
+      '/assets/icons/headset.svg',
     ].forEach((frag) => assert(wxml.includes(frag), `WXML 含 ${frag}`));
 
     const discoverWxml = fs.readFileSync(path.join(__dirname, '../pages/discover/index.wxml'), 'utf8');

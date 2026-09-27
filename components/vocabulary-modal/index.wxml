@@ -12,7 +12,7 @@
             <view class="vm-title-btn center tap-scale {{isSaved ? 'vm-title-btn--saved' : ''}}" bindtap="onSave">
               <view wx:if="{{saving}}" class="vm-spin"></view>
               <image wx:else class="vm-title-icon"
-                     src="{{isSaved ? '/assets/icons/bookmark-filled-primary.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+                     src="{{isSaved ? '/assets/icons/bookmark-filled-primary.svg' : '/assets/icons/bookmark-border-gray.svg'}}" />
             </view>
             <view class="vm-title-btn center tap-scale" bindtap="onClose">
               <image class="vm-title-icon" src="/assets/icons/close.svg" />
@@ -33,7 +33,7 @@
               <text class="vm-phon">{{dictData.phonetics.uk}}</text>
               <view wx:if="{{dictData.audio_urls.uk}}" class="vm-phon-btn center tap-dim"
                     data-url="{{dictData.audio_urls.uk}}" bindtap="onPlayAudio">
-                <image class="vm-phon-icon" src="/assets/icons/speaker-wave-gray.svg" />
+                <image class="vm-phon-icon" src="/assets/icons/volume-up-osv.svg" />
               </view>
             </block>
             <block wx:if="{{dictData.phonetics.us && dictData.phonetics.us !== dictData.phonetics.uk}}">
@@ -41,7 +41,7 @@
               <text class="vm-phon">{{dictData.phonetics.us}}</text>
               <view wx:if="{{dictData.audio_urls.us}}" class="vm-phon-btn center tap-dim"
                     data-url="{{dictData.audio_urls.us}}" bindtap="onPlayAudio">
-                <image class="vm-phon-icon" src="/assets/icons/speaker-wave-gray.svg" />
+                <image class="vm-phon-icon" src="/assets/icons/volume-up-osv.svg" />
               </view>
             </block>
           </view>
@@ -65,7 +65,7 @@
               <view class="row">
                 <text wx:if="{{!etyOpen && (dictData.etymology.root || dictData.etymology.prefix || dictData.etymology.suffix)}}"
                       class="vm-ety-preview ellipsis">{{dictData.etymology.root || dictData.etymology.prefix || dictData.etymology.suffix}}</text>
-                <image class="vm-ety-chev {{etyOpen ? 'vm-ety-chev--open' : ''}}" src="/assets/icons/chevron-down.svg" />
+                <image class="vm-ety-chev {{etyOpen ? 'vm-ety-chev--open' : ''}}" src="/assets/icons/keyboard-arrow-down.svg" />
               </view>
             </view>
 

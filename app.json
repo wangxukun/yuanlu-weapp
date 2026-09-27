@@ -45,20 +45,20 @@
       {
         "pagePath": "pages/discover/index",
         "text": "发现",
-        "iconPath": "assets/icons/compass.png",
-        "selectedIconPath": "assets/icons/compass-active.png"
+        "iconPath": "assets/icons/explore.png",
+        "selectedIconPath": "assets/icons/explore-active.png"
       },
       {
         "pagePath": "pages/review/index",
         "text": "复习",
-        "iconPath": "assets/icons/book-open.png",
-        "selectedIconPath": "assets/icons/book-open-active.png"
+        "iconPath": "assets/icons/menu-book.png",
+        "selectedIconPath": "assets/icons/menu-book-active.png"
       },
       {
         "pagePath": "pages/mine/index",
         "text": "我的",
-        "iconPath": "assets/icons/user.png",
-        "selectedIconPath": "assets/icons/user-active.png"
+        "iconPath": "assets/icons/person.png",
+        "selectedIconPath": "assets/icons/person-active.png"
       }
     ]
   },

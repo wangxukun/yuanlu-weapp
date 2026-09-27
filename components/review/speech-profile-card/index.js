@@ -85,7 +85,7 @@ Component({
           speed: '/assets/icons/speed-secondary.svg',
           speedFaint: d ? '/assets/icons/speed-faint-dark.svg' : '/assets/icons/speed-faint.svg',
           // CEFR 说明弹窗入口（deck 手势指南同款图标）
-          help: '/assets/icons/help-circle-primary.svg',
+          help: '/assets/icons/help-outline-primary.svg',
         },
       });
     },

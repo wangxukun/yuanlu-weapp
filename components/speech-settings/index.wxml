@@ -45,11 +45,11 @@
           </view>
           <view class="ss-stepper row">
             <view class="ss-step-btn center tap-dim" data-key="fontSizeLevel" data-delta="-1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/remove-dark.svg' : '/assets/icons/remove-primary.svg'}}" />
             </view>
             <view class="ss-step-value center"><text class="ss-step-value-text">{{fontLabel}}</text></view>
             <view class="ss-step-btn center tap-dim" data-key="fontSizeLevel" data-delta="1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/add-dark.svg' : '/assets/icons/add-primary.svg'}}" />
             </view>
           </view>
         </view>
@@ -96,11 +96,11 @@
           </view>
           <view class="ss-stepper row">
             <view class="ss-step-btn center tap-dim" data-key="passThreshold" data-delta="-1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/remove-dark.svg' : '/assets/icons/remove-primary.svg'}}" />
             </view>
             <view class="ss-step-value center"><text class="ss-step-value-text">{{settings.passThreshold}}</text></view>
             <view class="ss-step-btn center tap-dim" data-key="passThreshold" data-delta="1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/add-dark.svg' : '/assets/icons/add-primary.svg'}}" />
             </view>
           </view>
         </view>
@@ -123,11 +123,11 @@
           </view>
           <view class="ss-stepper row">
             <view class="ss-step-btn center tap-dim" data-key="weakThreshold" data-delta="-1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/remove-dark.svg' : '/assets/icons/remove-primary.svg'}}" />
             </view>
             <view class="ss-step-value center"><text class="ss-step-value-text">{{settings.weakThreshold}}</text></view>
             <view class="ss-step-btn center tap-dim" data-key="weakThreshold" data-delta="1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/add-dark.svg' : '/assets/icons/add-primary.svg'}}" />
             </view>
           </view>
         </view>
@@ -138,11 +138,11 @@
           </view>
           <view class="ss-stepper row">
             <view class="ss-step-btn center tap-dim" data-key="minWords" data-delta="-1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/remove-dark.svg' : '/assets/icons/remove-primary.svg'}}" />
             </view>
             <view class="ss-step-value center"><text class="ss-step-value-text">{{minLabel}}</text></view>
             <view class="ss-step-btn center tap-dim" data-key="minWords" data-delta="1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/add-dark.svg' : '/assets/icons/add-primary.svg'}}" />
             </view>
           </view>
         </view>
@@ -153,11 +153,11 @@
           </view>
           <view class="ss-stepper row">
             <view class="ss-step-btn center tap-dim" data-key="maxWords" data-delta="-1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/minus-dark.svg' : '/assets/icons/minus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/remove-dark.svg' : '/assets/icons/remove-primary.svg'}}" />
             </view>
             <view class="ss-step-value center"><text class="ss-step-value-text">{{maxLabel}}</text></view>
             <view class="ss-step-btn center tap-dim" data-key="maxWords" data-delta="1" bindtap="onStep">
-              <image class="ss-step-ic" src="{{dark ? '/assets/icons/plus-dark.svg' : '/assets/icons/plus-primary.svg'}}" />
+              <image class="ss-step-ic" src="{{dark ? '/assets/icons/add-dark.svg' : '/assets/icons/add-primary.svg'}}" />
             </view>
           </view>
         </view>

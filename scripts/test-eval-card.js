@@ -467,7 +467,7 @@ section('clip-player（窗口播放内核）');
   assert(WXML.includes('class="ec-card {{themeClass}} col"') &&
     /\/\* ===== 深色[\s\S]*\.theme-dark \{/.test(WXSS) && !WXSS.includes('.theme-dark .ec-card'),
     '组件根自持 themeClass + 独立 .theme-dark 令牌块（深色卡片走查修复：组件样式无法命中页面祖先）');
-  assert(WXML.includes("loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')"),
+  assert(WXML.includes("loop ? (dark ? '/assets/icons/repeat-one-primary-dark.svg' : '/assets/icons/repeat-one-primary.svg') : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')"),
     '循环图标四态全内联且同族 lucide（未激活 Repeat 无"1" / 激活 Repeat1——走查修复风格混搭）');
   assert(!WXML.includes("bookmarked ? 'ec-act-btn--on'") &&
     !WXML.includes("loop ? 'ec-act-btn--on'"),

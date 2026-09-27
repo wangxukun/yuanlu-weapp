@@ -20,19 +20,19 @@
     </view>
     <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="_onPlaySlowTap">
       <view class="ec-act-btn center {{playing === 'slow' ? 'ec-act-btn--on' : ''}}">
-        <image class="ec-act-ic" src="{{playing === 'slow' ? '/assets/icons/volume-1-white.svg' : '/assets/icons/volume-1-primary.svg'}}" />
+        <image class="ec-act-ic" src="{{playing === 'slow' ? '/assets/icons/slow-motion-video-white.svg' : '/assets/icons/slow-motion-video-primary.svg'}}" />
       </view>
       <text class="ec-act-label">慢速播放</text>
     </view>
     <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleBookmark">
       <view class="ec-act-btn center">
-        <image class="ec-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+        <image class="ec-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-border-gray.svg'}}" />
       </view>
       <text class="ec-act-label">收藏书签</text>
     </view>
     <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleLoop">
       <view class="ec-act-btn center">
-        <image class="ec-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')}}" />
+        <image class="ec-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-one-primary-dark.svg' : '/assets/icons/repeat-one-primary.svg') : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')}}" />
       </view>
       <text class="ec-act-label">单句循环</text>
     </view>
@@ -60,7 +60,7 @@
       <text class="ec-lock-title">今日免费跟读评测已用完</text>
       <text class="ec-lock-sub">升级会员解锁无限评测，把每个弱音磨到满分</text>
       <view class="ec-lock-cta row center tap-scale" bindtap="onToggleRecording">
-        <image class="ec-lock-cta-ic" src="/assets/icons/infinity-accent.svg" />
+        <image class="ec-lock-cta-ic" src="/assets/icons/all-inclusive-accent.svg" />
         <text>解锁无限评测</text>
       </view>
     </block>
@@ -191,7 +191,7 @@
 
       <!-- 再试一次 -->
       <view class="ec-retry center tap-scale" bindtap="onRetryRecording">
-        <image class="ec-retry-ic" src="/assets/icons/refresh-ccw-gray.svg" />
+        <image class="ec-retry-ic" src="/assets/icons/refresh-gray.svg" />
         <text class="ec-retry-text">再试一次</text>
       </view>
     </view>

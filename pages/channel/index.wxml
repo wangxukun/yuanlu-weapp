@@ -84,11 +84,11 @@
           <text class="ep-title ellipsis-2 mt-1">{{item.title}}</text>
           <view class="ep-meta row mt-1 w-full" style="justify-content: space-between; align-items: center;">
             <view class="row center text-secondary" wx:if="{{item.playCount > 0}}">
-              <image class="icon-xs" src="/assets/icons/headphones.svg"></image>
+              <image class="icon-xs" src="/assets/icons/headset.svg"></image>
               <text class="t-mini ml-1">{{fmt.formatPlayCount(item.playCount)}}</text>
             </view>
             <view class="row center text-secondary" style="margin-left: auto;" wx:if="{{item.publishAt}}">
-              <image class="icon-xs" src="/assets/icons/calendar.svg"></image>
+              <image class="icon-xs" src="/assets/icons/date-range.svg"></image>
               <text class="t-mini ml-1">{{fmt.formatDate(item.publishAt)}}</text>
             </view>
           </view>

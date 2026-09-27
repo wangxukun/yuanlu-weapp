@@ -11,6 +11,7 @@
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
   - 测试：`npm test` 31 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook 208 / recorder 34 / eval-card 71 / deck 57 / shadowing 35 / **pron-core 79 + speech-profile-card 98 + diagnostic-report-card 83 + pron-list 74** / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter，共 1786 断言）。
 - **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），WE-TASK 仅保留汇总行，避免双头跟踪。
+- **图标政策（2026-09-27 用户指令，长期有效）**：今后所有图标**必须使用 Android Material 图标**（参照 yuanlu-android `Icons.Filled.*`，源 = gstatic materialicons 24px）；lucide 已全量退役（125 SVG 换装 + 11 PNG 重绘 + 129 旧文件删除），全量台账与烘焙规范见根目录 [Android-Meterial.md](./Android-Meterial.md)。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略
 - **音频播放器**：

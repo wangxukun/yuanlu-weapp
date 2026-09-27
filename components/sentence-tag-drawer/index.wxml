@@ -7,7 +7,7 @@
     <view class="std-header between">
       <view class="row">
         <view class="std-header-icon center">
-          <image class="std-header-icon-img" src="/assets/icons/bookmark-check-primary.svg" />
+          <image class="std-header-icon-img" src="/assets/icons/bookmark-added-primary.svg" />
         </view>
         <view class="col">
           <text class="std-title">完善句子本收藏</text>
@@ -31,7 +31,7 @@
         <!-- ── 选择分类标签（预设多选 + 自定义） ── -->
         <view class="std-section">
           <view class="std-label row">
-            <image class="std-label-icon" src="/assets/icons/tag-primary.svg" />
+            <image class="std-label-icon" src="/assets/icons/label-primary.svg" />
             <text>选择分类标签</text>
           </view>
           <view class="std-tags wrap">
@@ -54,7 +54,7 @@
               </view>
             </view>
             <view wx:else class="std-tag std-tag--add row tap-dim" bindtap="onStartAddTag">
-              <image class="std-tag-add-icon" src="/assets/icons/plus-gray.svg" />
+              <image class="std-tag-add-icon" src="/assets/icons/add-gray.svg" />
               <text>自定义</text>
             </view>
           </view>
@@ -63,7 +63,7 @@
         <!-- ── 个人学习笔记 ── -->
         <view class="std-section">
           <view class="std-label row">
-            <image class="std-label-icon" src="/assets/icons/file-text-primary.svg" />
+            <image class="std-label-icon" src="/assets/icons/description-primary.svg" />
             <text>个人学习笔记（语法解析、运用场景、生词搭配等）</text>
           </view>
           <textarea class="std-note" value="{{note}}" maxlength="2000" rows="4"

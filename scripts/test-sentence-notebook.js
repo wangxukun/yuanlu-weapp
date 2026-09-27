@@ -568,12 +568,12 @@ async function driveAttach(opts) {
     '标签筛选后 filteredList 仍为装饰条目');
   idle.onTagTap({ currentTarget: { dataset: { tag: 'ALL' } } });
   assert(idle.data.viewMode === 'cards' &&
-    idle.data.viewCardsSrc.includes('layout-grid-ink') &&
+    idle.data.viewCardsSrc.includes('grid-view-ink') &&
     idle.data.viewCompactSrc.includes('list-gray'), '视图初始 cards：选中墨色/未选灰图标');
   idle.onViewTap({ currentTarget: { dataset: { view: 'compact' } } });
   assert(idle.data.viewMode === 'compact' &&
     idle.data.viewCompactSrc.includes('list-ink') &&
-    idle.data.viewCardsSrc.includes('layout-grid-gray'), '切到 compact：图标变体翻转');
+    idle.data.viewCardsSrc.includes('grid-view-gray'), '切到 compact：图标变体翻转');
   idle.onViewTap({ currentTarget: { dataset: { view: 'compact' } } });
   assert(idle.data.viewMode === 'compact' &&
     idle.data.viewCompactSrc.includes('list-ink'), '重复点击同视图 no-op（状态不变）');
@@ -804,9 +804,9 @@ async function driveAttach(opts) {
     '标签胶囊 indigo-500/10 底 + indigo-600 字（Web 原值）');
   assert(WXSS.includes('font-size: 32rpx') && WXSS.includes('font-weight: 700'),
     '卡片原句 text-base 粗体（32rpx/700）');
-  assert(fs.existsSync(path.join(__dirname, '../assets/icons/radio-gray.svg')) &&
-    fs.readFileSync(path.join(__dirname, '../assets/icons/radio-gray.svg'), 'utf8').includes('M4.925 19.067'),
-    'radio-gray.svg：lucide Radio 原 path 烘焙');
+  assert(fs.existsSync(path.join(__dirname, '../assets/icons/podcasts-gray.svg')) &&
+    fs.readFileSync(path.join(__dirname, '../assets/icons/podcasts-gray.svg'), 'utf8').includes('M14,12c0,0.74'),
+    'podcasts-gray.svg：Material Podcasts 官方 path 烘焙（原 lucide Radio 全局换装 Material）');
 
   // T2.3 结构：微播放器（裸图标形态）/ 操作坞 / 折叠区 / 抽屉挂载
   const MPWXML = fs.readFileSync(
@@ -851,12 +851,12 @@ async function driveAttach(opts) {
   assert(/\.sn-compact-foot \{[^}]*justify-content: flex-end/s.test(WXSS),
     '简洁清单：操作行整行靠右');
   assert(!compactBlock.includes('onEditTap') && !compactBlock.includes('onDeleteTap') &&
-    !compactBlock.includes('edit-2-gray') && !compactBlock.includes('trash-2-gray'),
+    !compactBlock.includes('edit-gray') && !compactBlock.includes('delete-gray'),
     '简洁清单：彻底无编辑/删除图标（Web 移动端 hidden 口径）');
   assert(compactBlock.indexOf('sentence-micro-player') < compactBlock.indexOf('onShadowTap'),
     '简洁清单操作行次序：播放/循环 → 麦克风');
-  assert(WXML.includes('bindtap="onShadowTap"') && WXML.includes('mic-disabled.svg'),
-    '操作坞：影子跟读（禁用态图标）');
+  assert(WXML.includes('bindtap="onShadowTap"') && WXML.includes('mic-off.svg'),
+    '操作坞：影子跟读（禁用态图标 Material MicOff）');
   assert(WXML.includes('bindtap="onEditTap"') && WXML.includes('bindtap="onToggleExpand"'),
     '操作坞：编辑 + 折叠触发行');
   assert(WXML.includes('查看中文翻译 & 笔记') && WXML.includes('收起译文与笔记'),
@@ -876,7 +876,7 @@ async function driveAttach(opts) {
   assert(WXML.includes('class="sn-compact-zh"') && !WXML.includes('sn-compact-zh ellipsis'),
     '简洁清单中文：完整显示多行换行（无 ellipsis）');
   assert(WXML.includes('sn-compact-note'), '简洁清单 meta：笔记摘要保留');
-  ['mic-gray', 'mic-disabled', 'edit-2-gray', 'trash-2-gray', 'file-text-indigo',
+  ['mic-gray', 'mic-off', 'edit-gray', 'delete-gray', 'description-indigo',
    'pause-primary-dark', 'repeat-graydark'].forEach((name) => {
     assert(fs.existsSync(path.join(__dirname, '../assets/icons', name + '.svg')),
       '图标资产：' + name + '.svg 存在');
@@ -894,17 +894,17 @@ async function driveAttach(opts) {
   assert(WXSS.includes('prefers-color-scheme: dark') && WXSS.includes('.theme-dark .sn-hl'),
     '深色双轨：媒体查询 + 手动覆盖根类');
   assert(WXSS.includes('#d98a17') === false ||
-    WXSS.includes('book-a-warning'), '统计格琥珀/信息色走烘焙图标（不在 WXSS 硬编码文字色）');
+    WXML.includes('warning.svg'), '统计格琥珀/信息色走烘焙图标（不在 WXSS 硬编码文字色）');
 
-  // 图标资产齐备（lucide 原 path + Web 语义色）
-  ['text-quote-primary', 'text-quote-primary-dark', 'book-a-warning', 'book-a-warning-dark',
-   'tag-info', 'tag-info-dark'].forEach((name) => {
+  // 图标资产齐备（Android Material 官方 path + 原语义色）
+  ['format-quote-primary', 'format-quote-primary-dark', 'warning', 'warning-dark',
+   'label-info', 'label-info-dark'].forEach((name) => {
     assert(fs.existsSync(path.join(__dirname, '../assets/icons', name + '.svg')),
       '图标资产：' + name + '.svg 存在');
   });
-  const tagSvg = fs.readFileSync(path.join(__dirname, '../assets/icons/tag-info.svg'), 'utf8');
-  assert(tagSvg.includes('M12.586 2.586') && tagSvg.includes('stroke="#4a7fa5"'),
-    'tag-info：lucide Tag 原 path + Web info 色');
+  const tagSvg = fs.readFileSync(path.join(__dirname, '../assets/icons/label-info.svg'), 'utf8');
+  assert(tagSvg.includes('M17.63 5.84') && tagSvg.includes('fill="#4a7fa5"'),
+    'label-info：Material Label 官方 path + Web info 色');
 
   /* ==================== 汇总 ==================== */
 

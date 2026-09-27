@@ -60,7 +60,7 @@
       </view>
       <view wx:if="{{showTrend}}" class="drc-trend-area">
         <view wx:if="{{trendLoading}}" class="drc-trend-center">
-          <image class="drc-loader" src="/assets/icons/loader-primary.svg" mode="aspectFit" />
+          <image class="drc-loader" src="/assets/icons/autorenew-primary.svg" mode="aspectFit" />
         </view>
         <!-- canvas 2d 开发者工具模拟器不走同层渲染（真机正常）：宿主页弹窗期
              （popupOpen）卸载画布防透出，占位空盒保高度，关闭后重绘 -->

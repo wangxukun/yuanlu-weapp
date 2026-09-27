@@ -349,7 +349,7 @@ assert(
   '引导文案逐字（弹窗无数据版）',
 );
 assert(
-  inst.data.icons.speedFaint.indexOf('speed-faint.svg') >= 0 && inst.data.icons.help.indexOf('help-circle-primary.svg') >= 0,
+  inst.data.icons.speedFaint.indexOf('speed-faint.svg') >= 0 && inst.data.icons.help.indexOf('help-outline-primary.svg') >= 0,
   '空态图标：Speed@0.3 淡色 + 「？」入口 deck 同款图标',
 );
 assert(queries === 0, '空态不查询画布节点');

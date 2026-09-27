@@ -74,7 +74,7 @@ Component({
     editSentence: null,
 
     // 视图切换图标（JS 预计算：选中/深色变体随 viewMode 与 dark 变化）
-    viewCardsSrc: '/assets/icons/layout-grid-gray.svg',
+    viewCardsSrc: '/assets/icons/grid-view-gray.svg',
     viewCompactSrc: '/assets/icons/list-gray.svg',
 
     // 外观（图标深色变体）
@@ -121,9 +121,9 @@ Component({
     /** 视图切换图标变体：选中 = 墨色（深色 = 浅墨），未选中 = 灰 */
     _syncViewIcons() {
       const on = this.data.dark
-        ? { cards: '/assets/icons/layout-grid-ink100.svg', compact: '/assets/icons/list-ink100.svg' }
-        : { cards: '/assets/icons/layout-grid-ink.svg', compact: '/assets/icons/list-ink.svg' };
-      const off = { cards: '/assets/icons/layout-grid-gray.svg', compact: '/assets/icons/list-gray.svg' };
+        ? { cards: '/assets/icons/grid-view-ink100.svg', compact: '/assets/icons/list-ink100.svg' }
+        : { cards: '/assets/icons/grid-view-ink.svg', compact: '/assets/icons/list-ink.svg' };
+      const off = { cards: '/assets/icons/grid-view-gray.svg', compact: '/assets/icons/list-gray.svg' };
       this.setData({
         viewCardsSrc: this.data.viewMode === 'cards' ? on.cards : off.cards,
         viewCompactSrc: this.data.viewMode === 'compact' ? on.compact : off.compact,
