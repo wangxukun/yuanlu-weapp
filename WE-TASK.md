@@ -9,7 +9,7 @@
   - 状态管理：自研轻量 Store（`store/core.js` 发布-订阅基类），实例有 `authStore` / `playerStore` / `membershipStore`。
   - 网络请求：`utils/request.js` 唯一出口（get/post/put/delete + Bearer token 自动注入 + 401 清 token），`BASE_URL` 由 `utils/config.js` 按 envVersion 自动切换。
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
-  - 测试：`npm test` 31 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook 208 / recorder 34 / eval-card 71 / deck 57 / shadowing 35 / **pron-core 79 + speech-profile-card 85 + diagnostic-report-card 81 + pron-list 72** / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter，共 1769 断言）。
+  - 测试：`npm test` 31 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook 208 / recorder 34 / eval-card 71 / deck 57 / shadowing 35 / **pron-core 79 + speech-profile-card 98 + diagnostic-report-card 83 + pron-list 74** / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter，共 1786 断言）。
 - **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），WE-TASK 仅保留汇总行，避免双头跟踪。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略

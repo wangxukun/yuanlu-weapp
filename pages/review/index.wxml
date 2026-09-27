@@ -46,9 +46,19 @@
         <sentence-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
       <swiper-item>
-        <pron-notebook active="{{activeTab === 2}}" refresh-seq="{{refreshSeq}}" />
+        <pron-notebook active="{{activeTab === 2}}" refresh-seq="{{refreshSeq}}" popup-open="{{showCefrHint}}" bind:cefrhint="onCefrHint" />
       </swiper-item>
     </swiper>
+
+    <!-- ══ CEFR 等级说明弹窗（发音弱项本画像卡「？」入口；事件冒泡到页面根渲染，
+         deck 手势指南同款——组件深处 scroll-view 内 fixed 会退化）══ -->
+    <view wx:if="{{showCefrHint}}" class="rv-help-mask center" bindtap="onCefrHintClose">
+      <view class="rv-help col" catchtap="noop">
+        <text class="rv-help-title">CEFR 等级说明</text>
+        <text class="rv-help-text" user-select>{{cefrHintText}}</text>
+        <view class="btn-primary rv-help-ok tap-scale" catchtap="onCefrHintClose">知道了</view>
+      </view>
+    </view>
   </block>
 
 </view>

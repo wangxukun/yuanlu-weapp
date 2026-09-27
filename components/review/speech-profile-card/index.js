@@ -25,6 +25,9 @@ Component({
     profile: { type: Object, value: null },
     /** 五维雷达点（pronCore.toRadarData 输出：[{dim, score, fullMark}]） */
     radar: { type: Array, value: [] },
+    /** 宿主页弹窗打开中：开发者工具下 canvas 2d 不走同层渲染、原生层悬浮于
+     * 弹窗之上（真机正常），弹窗期卸载画布、关闭后重挂载重绘 */
+    popupOpen: { type: Boolean, value: false },
   },
 
   data: {
@@ -34,10 +37,9 @@ Component({
     // 三统计格展示口径（Android StatCell：round / null→— / 语速带单位）
     avgOverallText: '—',
     avgSpeedText: '—',
-    // 说明条（Android 单一 Text：CEFR 版「」引号 / 无数据版引导）
-    hintIsCefr: false,
+    // CEFR 说明文案（「？」入口经 hintopen 事件由宿主页在页面根弹窗展示）
     hintText: '',
-    icons: { speed: '', speedFaint: '', infoHint: '' },
+    icons: { speed: '', speedFaint: '', help: '' },
   },
 
   lifetimes: {
@@ -58,6 +60,13 @@ Component({
       this._syncIcons();
       this._draw(); // 雷达网格/标签色随主题，深浅切换需重绘
     },
+    popupOpen(v) {
+      if (!v && this.data.hasData) {
+        // 弹窗关闭 → 画布重新挂载（wx:if），nextTick + 延时双保险重绘
+        if (wx.nextTick) wx.nextTick(() => this._draw());
+        setTimeout(() => this._draw(), 120);
+      }
+    },
   },
 
   methods: {
@@ -75,25 +84,20 @@ Component({
           // IconBadge tint=secondary 双态恒 #D98A17
           speed: '/assets/icons/speed-secondary.svg',
           speedFaint: d ? '/assets/icons/speed-faint-dark.svg' : '/assets/icons/speed-faint.svg',
-          // 说明条：CEFR 版 Info tint=secondary；无数据版 onSurfaceVariant 随主题
-          infoHint: this.data.hintIsCefr
-            ? '/assets/icons/info-secondary.svg'
-            : d
-              ? '/assets/icons/info-onsurface-dark.svg'
-              : '/assets/icons/info-onsurface.svg',
+          // CEFR 说明弹窗入口（deck 手势指南同款图标）
+          help: '/assets/icons/help-circle-primary.svg',
         },
       });
     },
 
-    /** 展示字段与说明文案派生（Android SpeechProfileCard 内联口径） */
+    /** 展示字段与弹窗文案派生（Android SpeechProfileCard 口径；文案移入「？」弹窗） */
     _applyProfile() {
       const p = this.data.profile;
       const hasData = !!(p && Number(p.evalCount) > 0);
       const avgOverall = p ? pronCore.num(p.avgOverall) : null;
       const avgSpeed = p ? pronCore.num(p.avgSpeed) : null;
       const cefr = p ? p.cefrLevel : null;
-      const hintIsCefr = hasData && !!cefr;
-      const hintText = hintIsCefr
+      const hintText = hasData && cefr
         ? '根据你的评测表现，当前发音水平约为 CEFR ' +
           cefr +
           ' 级，首页「为你推荐」已按该等级匹配剧集难度。评测越多，画像越准。'
@@ -101,7 +105,6 @@ Component({
       this.setData(
         {
           hasData,
-          hintIsCefr,
           hintText,
           avgOverallText: avgOverall === null ? '—' : String(Math.round(avgOverall)),
           avgSpeedText: avgSpeed === null ? '—' : Math.round(avgSpeed) + ' 词/分',
@@ -111,6 +114,16 @@ Component({
           this._draw();
         },
       );
+    },
+
+    /**
+     * 「？」入口：本组件深处 pron-notebook 的 scroll-view 内 fixed 弹窗会退化
+     * （遮罩盖不全/卡片被滚动容器裁切叠字），root-portal 真机亦不生效，故组件
+     * 内不挂弹窗，仅派发 hintopen 事件，经 pron-notebook 中继至复习 Tab 页，
+     * 由页面在根节点渲染 deck 手势指南同款弹窗
+     */
+    onHintToggle() {
+      this.triggerEvent('hintopen', { hintText: this.data.hintText });
     },
 
     /** 雷达自绘：setData 回调（渲染完成后）再查 canvas 节点；主题色随 dark */

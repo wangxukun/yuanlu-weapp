@@ -16,7 +16,6 @@
   --spc-outline-40: rgba(229, 224, 213, 0.4);
   --spc-secondary: #d98a17;
   --spc-secondary-12: rgba(217, 138, 23, 0.12);
-  --spc-secondary-6: rgba(217, 138, 23, 0.06);
   --spc-secondary-10: rgba(217, 138, 23, 0.1);
 
   background: var(--spc-surface);
@@ -102,6 +101,19 @@
   flex-shrink: 0;
 }
 
+/* 「？」说明入口（deck dk-topbtn 同款：圆触达区 + help-circle 图标） */
+.spc-help-btn {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+
+.spc-help-ic {
+  width: 40rpx;
+  height: 40rpx;
+}
+
 /* ── 雷达块：220dp 总高（上下 8dp padding，画布 204dp 高） ── */
 .spc-radar-block {
   height: 440rpx;
@@ -175,30 +187,5 @@
   margin-top: 4rpx; /* Spacer(2.dp) */
 }
 
-/* ── 说明条（Android stats Row 后无 Spacer 直接衔接；圆角 12dp 内距 12dp） ── */
-.spc-hint {
-  display: flex;
-  align-items: flex-start;
-  background: var(--spc-inset);
-  border-radius: 24rpx;
-  padding: 24rpx;
-}
-
-.spc-hint--cefr {
-  background: var(--spc-secondary-6); /* secondary@0.06 */
-}
-
-.spc-hint-icon {
-  width: 28rpx; /* 14dp */
-  height: 28rpx;
-  margin-right: 12rpx; /* Spacer(6.dp) */
-  margin-top: 2rpx;
-  flex-shrink: 0;
-}
-
-.spc-hint-text {
-  flex: 1;
-  font-size: 22rpx; /* labelSmall 11sp */
-  line-height: 32rpx; /* lineHeight 16sp */
-  color: var(--spc-osv);
-}
+/* CEFR 等级说明弹窗样式已上移至 pages/review/index.wxss（rv-help-*）：
+ * 弹窗由宿主页面在根节点渲染（组件深处 scroll-view 内 fixed 退化） */

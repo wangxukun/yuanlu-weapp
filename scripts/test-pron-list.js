@@ -223,7 +223,7 @@ section('pron-list 组件（派生 / 导航 / 雷达 / 弹窗 / 空态）');
 require('../components/review/pron-list/index.js');
 const def = componentDefs.__last;
 assert(!!def, 'Component 定义捕获成功');
-assert(def.properties.notebook, 'properties：notebook');
+assert(def.properties.notebook && def.properties.popupOpen, 'properties：notebook + popupOpen（弹窗期卸载画布通道）');
 
 const { node: radarNode, ops: radarOps } = makeCanvasNode();
 let radarQueries = 0;
@@ -262,6 +262,15 @@ assert(
   '雷达 6 维 /音素/ 标签',
 );
 assert(radarOps.fillTexts.length === 6, '恰 6 个维度标签');
+
+// —— 宿主页弹窗联动：打开卸载画布（开发者工具 canvas 原生层悬浮防透出）/ 关闭重绘 ——
+const radarQueriesBefore = radarQueries;
+fireObserver(inst, 'popupOpen', true);
+await settle();
+assert(radarQueries === radarQueriesBefore, '弹窗打开不触发重绘（画布由 wx:if 卸载）');
+fireObserver(inst, 'popupOpen', false);
+await new Promise((r) => setTimeout(r, 150));
+assert(radarQueries > radarQueriesBefore, '弹窗关闭 → 画布重挂载后延时重绘（120ms 兜底）');
 
 // 导航：达人榜 / 闯关 / 弱项句行深链
 navCalls.length = 0;
@@ -329,7 +338,7 @@ section('pron-notebook 集成 + WXML/WXSS 结构');
 const nbJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../components/review/pron-notebook/index.json'), 'utf8'));
 assert(nbJson.usingComponents['pron-list'] === '/components/review/pron-list/index', 'pron-notebook 注册 pron-list');
 const nbWxml = fs.readFileSync(path.join(__dirname, '../components/review/pron-notebook/index.wxml'), 'utf8');
-assert(/<pron-list notebook="\{\{notebook\}\}" \/>/.test(nbWxml), '弱项列表挂载（notebook 整包传递）');
+assert(/<pron-list notebook="\{\{notebook\}\}" popup-open="\{\{popupOpen\}\}" \/>/.test(nbWxml), '弱项列表挂载（notebook 整包 + popupOpen 透传）');
 assert(nbWxml.indexOf('coming') < 0, 'coming 占位退场（已加载态全量真实模块）');
 
 const wxml = fs.readFileSync(path.join(__dirname, '../components/review/pron-list/index.wxml'), 'utf8');
@@ -346,7 +355,10 @@ assert(wxml.indexOf('解锁 PRO 会员查看完整弱项本，开始针对性循
 assert(wxml.indexOf('太棒了！') >= 0 && wxml.indexOf('您目前没有待复习的弱项句子') >= 0, '列表空态逐字');
 assert(wxml.indexOf('未知播客') < 0 && wxml.indexOf('{{item.episodeTitle}}') >= 0, '剧集名经 decorateWeakRow 兜底（wxml 直读字段）');
 assert(/<premium-modal visible="\{\{premiumVisible\}\}" source="pronunciation_locked" vars="\{\{premiumVars\}\}"/.test(wxml), 'premium-modal 挂载 source=pronunciation_locked + vars');
-assert(wxml.indexOf('id="plPhonemeRadar"') >= 0 && wxml.indexOf('type="2d"') >= 0, '雷达 canvas 2d');
+assert(
+  /<canvas wx:if="\{\{!popupOpen\}\}" id="plPhonemeRadar" type="2d" class="pl-canvas" \/>/.test(wxml),
+  '雷达 canvas 2d：弹窗未开才挂载（开发者工具原生层防透出）',
+);
 assert(wxml.indexOf('pl-score--{{item.tone}}') >= 0 && wxml.indexOf('{{item.scoreText}}') >= 0, '得分徽章三档类 + 预计算文案');
 
 const bindings = wxml.match(/\{\{[^}]+\}\}/g) || [];

@@ -35,6 +35,9 @@ Page({
     activeTab: 0,
     swiperHeight: 600,
     refreshSeq: 0,
+    // CEFR 等级说明弹窗（画像卡「？」入口事件冒泡至页面根渲染；deck 同款交互）
+    showCefrHint: false,
+    cefrHintText: '',
   },
 
   onLoad() {
@@ -92,6 +95,18 @@ Page({
   onSwiperChange(e) {
     this.setData({ activeTab: e.detail.current });
   },
+
+  // —— CEFR 等级说明弹窗（pron-notebook 中继画像卡 hintopen；页面根渲染） ——
+  onCefrHint(e) {
+    this.setData({ showCefrHint: true, cefrHintText: (e.detail && e.detail.text) || '' });
+  },
+
+  onCefrHintClose() {
+    this.setData({ showCefrHint: false });
+  },
+
+  /** 弹窗面板阻断冒泡（catchtap 空字符串在部分基础库不拦截） */
+  noop() {},
 
   /** 未登录引导：去登录页，登录成功 navigateBack 后 onShow 自动恢复内容态 */
   onGoLogin() {

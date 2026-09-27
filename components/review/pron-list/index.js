@@ -27,6 +27,9 @@ Component({
   properties: {
     /** 归一弱项本聚合（pronCore.parseNotebook 输出） */
     notebook: { type: Object, value: null },
+    /** 宿主页弹窗打开中：开发者工具下 canvas 2d 不走同层渲染、原生层悬浮于
+     * 弹窗之上（真机正常），弹窗期卸载画布、关闭后重挂载重绘 */
+    popupOpen: { type: Boolean, value: false },
   },
 
   data: {
@@ -68,6 +71,13 @@ Component({
     dark() {
       this._syncIcons();
       this._drawRadar(); // 网格/标签色随主题
+    },
+    popupOpen(v) {
+      if (!v && this.data.radarReady) {
+        // 弹窗关闭 → 画布重新挂载（wx:if），nextTick + 延时双保险重绘
+        if (wx.nextTick) wx.nextTick(() => this._drawRadar());
+        setTimeout(() => this._drawRadar(), 120);
+      }
     },
   },
 

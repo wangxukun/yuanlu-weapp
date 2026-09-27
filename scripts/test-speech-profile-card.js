@@ -322,7 +322,8 @@ section('speech-profile-card 组件（字段派生 / 文案 / 空态 / 画布自
 require('../components/review/speech-profile-card/index.js');
 const def = componentDefs.__last;
 assert(!!def, 'Component 定义捕获成功');
-assert(def.properties.profile && def.properties.radar, 'properties：profile + radar');
+assert(def.properties.profile && def.properties.radar && def.properties.popupOpen,
+  'properties：profile + radar + popupOpen（弹窗期卸载画布通道）');
 
 // —— 空画像：空态字段 + 引导文案，不查画布 ——
 let inst = makeInstance(def);
@@ -343,14 +344,13 @@ fireObserverKey(inst, 'profile, radar', { profile: pronCore.normalizeProfile(PRO
 await settle();
 assert(inst.data.hasData === false, 'evalCount=0 → hasData false');
 assert(inst.data.avgOverallText === '—' && inst.data.avgSpeedText === '—', '无数据均值 → —');
-assert(inst.data.hintIsCefr === false, '无数据 → 说明条为引导版');
 assert(
   inst.data.hintText === '在任意剧集的跟读练习中完成语音评测，即可生成专属画像并获得难度匹配推荐。',
-  '引导文案逐字',
+  '引导文案逐字（弹窗无数据版）',
 );
 assert(
-  inst.data.icons.speedFaint.indexOf('speed-faint.svg') >= 0 && inst.data.icons.infoHint.indexOf('info-onsurface.svg') >= 0,
-  '空态图标：Speed@0.3 淡色 + Info onSurfaceVariant（浅色）',
+  inst.data.icons.speedFaint.indexOf('speed-faint.svg') >= 0 && inst.data.icons.help.indexOf('help-circle-primary.svg') >= 0,
+  '空态图标：Speed@0.3 淡色 + 「？」入口 deck 同款图标',
 );
 assert(queries === 0, '空态不查询画布节点');
 
@@ -375,16 +375,31 @@ await settle();
 assert(inst.data.hasData === true, 'evalCount>0 → hasData true');
 assert(inst.data.avgOverallText === '71', '综合得分 Math.round（71.4→71）');
 assert(inst.data.avgSpeedText === '133 词/分', '平均语速取整带单位（132.5→133 词/分）');
-assert(inst.data.hintIsCefr === true, '有数据且有等级 → 说明条为 CEFR 版');
 assert(
   inst.data.hintText ===
     '根据你的评测表现，当前发音水平约为 CEFR B1 级，首页「为你推荐」已按该等级匹配剧集难度。评测越多，画像越准。',
-  'CEFR 说明文案逐字（Android「」引号版）',
+  'CEFR 说明文案逐字（Android「」引号版，弹窗内容）',
 );
-assert(inst.data.icons.infoHint.indexOf('info-secondary.svg') >= 0, 'CEFR 版说明图标 Info secondary（双态恒值）');
+// —— 「？」入口：hintopen 事件派发（弹窗宿主上移至页面根，组件不再自持开关）——
+assert(inst.data.showHint === undefined, '组件不再自持弹窗开关 showHint（showHint 字段删除）');
+const fired = [];
+inst.triggerEvent = (name, detail) => fired.push({ name, detail });
+inst.onHintToggle();
+assert(
+  fired.length === 1 && fired[0].name === 'hintopen' && fired[0].detail.hintText === inst.data.hintText,
+  '点击「？」→ triggerEvent hintopen 携带 hintText（页面弹窗内容源）',
+);
 assert(queries === 1, 'setData 回调后恰查询一次画布');
 assert(drawNode.width === 640, '画布 DPR 缩放落地（wx.getWindowInfo pixelRatio=2）');
 assert(drawOps.fillTexts.length === 5 && drawOps.strokeStyles.indexOf('#E5E7EB') >= 0, '雷达浅色自绘（网格 #E5E7EB）');
+
+// —— 宿主页弹窗联动：打开卸载画布（开发者工具 canvas 2d 原生层悬浮防透出）/ 关闭重绘 ——
+fireObserver(inst, 'popupOpen', true);
+await settle();
+assert(queries === 1, '弹窗打开不触发重绘（画布由 wx:if 卸载）');
+fireObserver(inst, 'popupOpen', false);
+await new Promise((r) => setTimeout(r, 150));
+assert(queries === 2, '弹窗关闭 → 画布重挂载后延时重绘（120ms 兜底）');
 
 // —— 深色切换：图标变体 + 雷达重绘换主题色 ——
 const darkOps = drawOps; // 同一 mock ctx 继续记录
@@ -421,6 +436,15 @@ fireObserver(nb, 'active', true);
 await settle();
 assert(nb.data.radar.length === 5 && nb.data.radar[0].dim === '准确度', 'notebook → toRadarData 派生 radar');
 
+// —— 事件中继：画像卡 hintopen → pron-notebook cefrhint（text 透传） ——
+const nbFired = [];
+nb.triggerEvent = (name, detail) => nbFired.push({ name, detail });
+nb.onCefrHint({ detail: { hintText: 'CEFR B1 级说明文案' } });
+assert(
+  nbFired.length === 1 && nbFired[0].name === 'cefrhint' && nbFired[0].detail.text === 'CEFR B1 级说明文案',
+  'pron-notebook 中继：hintopen → cefrhint（hintText → text 透传）',
+);
+
 const hostJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../components/review/pron-notebook/index.json'), 'utf8'));
 assert(
   hostJson.usingComponents['speech-profile-card'] === '/components/review/speech-profile-card/index',
@@ -429,8 +453,8 @@ assert(
 
 const nbWxml = fs.readFileSync(path.join(__dirname, '../components/review/pron-notebook/index.wxml'), 'utf8');
 assert(
-  /<speech-profile-card profile="\{\{notebook\.profile\}\}" radar="\{\{radar\}\}" \/>/.test(nbWxml),
-  '画像卡挂载：profile/radar 双向传递',
+  /<speech-profile-card profile="\{\{notebook\.profile\}\}" radar="\{\{radar\}\}" popup-open="\{\{popupOpen\}\}" bind:hintopen="onCefrHint" \/>/.test(nbWxml),
+  '画像卡挂载：profile/radar 传递 + popupOpen 透传 + hintopen 中继接线',
 );
 assert(
   nbWxml.indexOf('notebook-placeholder') >= 0 && nbDef.data.placeholder.title === '发音弱项本',
@@ -450,8 +474,20 @@ assert(
   wxml.indexOf('评测次数') >= 0 && wxml.indexOf('综合得分') >= 0 && wxml.indexOf('平均语速') >= 0,
   '三统计格标签逐字（Android「综合得分」非 Web「综合均分」）',
 );
-assert(/<canvas[^>]*id="spcRadar"[^>]*type="2d"/.test(wxml), 'canvas 2d 声明（wx:if hasData）');
-assert(wxml.indexOf('{{hintText}}') >= 0 && wxml.indexOf('spc-hint--cefr') >= 0, '说明条文案 data 驱动 + CEFR 态类');
+assert(
+  /<canvas wx:if="\{\{hasData && !popupOpen\}\}" id="spcRadar" type="2d" class="spc-canvas" \/>/.test(wxml),
+  'canvas 2d：hasData 且弹窗未开才挂载（开发者工具原生层防透出）',
+);
+assert(
+  wxml.indexOf('spc-help-btn') >= 0 && wxml.indexOf('bindtap="onHintToggle"') >= 0,
+  '头部「？」入口（CEFR 徽章右侧，onHintToggle）',
+);
+assert(!wxml.includes('<root-portal'), '组件内不再挂弹窗（root-portal 真机不生效，方案整体退场）');
+assert(
+  wxml.indexOf('spc-help-mask') < 0 && wxml.indexOf('showHint') < 0,
+  '弹窗标记整体移出组件（遮罩/开关随宿主页面走）',
+);
+assert(!wxml.includes('spc-hint'), '三统计格下方说明条已移除（内容入弹窗）');
 
 const bindings = wxml.match(/\{\{[^}]+\}\}/g) || [];
 assert(bindings.length > 0 && bindings.every((b) => !/\.\w+\(/.test(b)), 'WXML 绑定零方法调用红线');
@@ -473,7 +509,8 @@ assert(wxss.indexOf('#1c1917') >= 0 && wxss.indexOf('#e8e3d9') >= 0, 'onSurface 
 assert(wxss.indexOf('rgba(229, 224, 213, 0.4)') >= 0 && wxss.indexOf('rgba(58, 52, 44, 0.4)') >= 0, 'outline@0.4 双态边框');
 assert(wxss.indexOf('height: 440rpx') >= 0, '雷达块 220dp 总高（含上下 8dp padding）');
 assert(wxss.indexOf('height: 360rpx') >= 0, '空态 180dp 高');
-assert(wxss.indexOf('rgba(217, 138, 23, 0.06)') >= 0, 'CEFR 说明底 secondary@0.06');
+assert(wxss.indexOf('spc-help-mask') < 0 && wxss.indexOf('spc-help-pop') < 0,
+  '组件 wxss 弹窗样式已移除（上移 pages/review）');
 assert(
   /@media \(prefers-color-scheme: dark\)/.test(wxss) && /\.spc-card\.theme-light/.test(wxss),
   '深色双轨：媒体查询轨（跟随系统）+ .theme-light 全量重声明（手动浅色优先）',
@@ -482,6 +519,52 @@ assert(wxss.indexOf('text-overflow') < 0, '统计格不做省略截断（平均�
 
 const nbWxss = fs.readFileSync(path.join(__dirname, '../components/review/pron-notebook/index.wxss'), 'utf8');
 assert(nbWxss.indexOf('.np-retry-btn') >= 0, '重试按钮样式存在');
+
+/* ==================== 4. CEFR 等级说明弹窗（页面根渲染） ==================== */
+
+section('CEFR 等级说明弹窗（事件冒泡至 pages/review 根渲染，deck 手势指南同款）');
+
+const pageWxml = fs.readFileSync(path.join(__dirname, '../pages/review/index.wxml'), 'utf8');
+assert(
+  pageWxml.indexOf('popup-open="{{showCefrHint}}"') >= 0 && pageWxml.indexOf('bind:cefrhint="onCefrHint"') >= 0,
+  '宿主页接线：pron-notebook ← popup-open(showCefrHint) + cefrhint 双通道',
+);
+assert(
+  pageWxml.indexOf('wx:if="{{showCefrHint}}"') >= 0 && pageWxml.indexOf('rv-help-mask center') >= 0,
+  '弹窗 wx:if 挂页面根（swiper 外，fixed 不退化）+ 全屏遮罩',
+);
+assert(
+  pageWxml.indexOf('CEFR 等级说明') >= 0 &&
+    pageWxml.indexOf('{{cefrHintText}}') >= 0 &&
+    pageWxml.indexOf('知道了') >= 0,
+  '弹窗：标题 / 文案（事件透传 cefrHintText）/ 知道了',
+);
+assert(
+  pageWxml.indexOf('catchtap="noop"') >= 0 &&
+    pageWxml.indexOf('bindtap="onCefrHintClose"') >= 0 &&
+    pageWxml.indexOf('catchtap="onCefrHintClose"') >= 0,
+  '遮罩点击关闭 + 面板 catchtap noop 阻断冒泡 + 知道了关闭（deck 同款）',
+);
+const pageWxss = fs.readFileSync(path.join(__dirname, '../pages/review/index.wxss'), 'utf8');
+assert(
+  pageWxss.indexOf('position: fixed') >= 0 &&
+    pageWxss.indexOf('inset: 0') >= 0 &&
+    pageWxss.indexOf('rgba(0, 0, 0, 0.45)') >= 0 &&
+    pageWxss.indexOf('z-index: 999') >= 0,
+  '弹窗遮罩 deck 同款（fixed 全屏 / rgba .45 / z-999）',
+);
+assert(
+  pageWxss.indexOf('.rv-help {') >= 0 &&
+    pageWxss.indexOf('var(--card-bg)') >= 0 &&
+    pageWxss.indexOf('border-radius: 40rpx') >= 0,
+  '弹窗卡片页面级实底 var(--card-bg)（透明叠字根治点：页面根令牌必达）',
+);
+const pageJs = fs.readFileSync(path.join(__dirname, '../pages/review/index.js'), 'utf8');
+assert(
+  pageJs.indexOf('showCefrHint: true') >= 0 && pageJs.indexOf('e.detail && e.detail.text') >= 0,
+  'onCefrHint 开弹窗 + 事件 detail 兜底',
+);
+assert(pageJs.indexOf('showCefrHint: false') >= 0, 'onCefrHintClose 关弹窗');
 
 /* ==================== 汇总 ==================== */
 

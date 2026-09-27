@@ -4,9 +4,9 @@
   <view class="notebook-pad">
 
     <block wx:if="{{notebook}}">
-      <speech-profile-card profile="{{notebook.profile}}" radar="{{radar}}" />
-      <diagnostic-report-card stats="{{notebook.phonemeStats}}" is-premium="{{notebook.isPremium}}" />
-      <pron-list notebook="{{notebook}}" />
+      <speech-profile-card profile="{{notebook.profile}}" radar="{{radar}}" popup-open="{{popupOpen}}" bind:hintopen="onCefrHint" />
+      <diagnostic-report-card stats="{{notebook.phonemeStats}}" is-premium="{{notebook.isPremium}}" popup-open="{{popupOpen}}" />
+      <pron-list notebook="{{notebook}}" popup-open="{{popupOpen}}" />
     </block>
 
     <view wx:elif="{{loadError}}" class="card notebook-placeholder">

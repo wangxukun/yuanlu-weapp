@@ -66,7 +66,7 @@
       <text class="pl-card-title">薄弱音素诊断雷达</text>
     </view>
     <view wx:if="{{radarReady}}" class="pl-radar">
-      <canvas id="plPhonemeRadar" type="2d" class="pl-canvas" />
+      <canvas wx:if="{{!popupOpen}}" id="plPhonemeRadar" type="2d" class="pl-canvas" />
     </view>
     <view wx:else class="pl-radar-empty">
       <image class="pl-radar-empty-icon" src="{{icons.trackChangesFaint}}" mode="aspectFit" />

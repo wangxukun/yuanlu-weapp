@@ -281,7 +281,8 @@ section('diagnostic-report-card 组件（行派生 / 弹窗 / 曲线懒加载与
 require('../components/review/diagnostic-report-card/index.js');
 const def = componentDefs.__last;
 assert(!!def, 'Component 定义捕获成功');
-assert(def.properties.stats && def.properties.isPremium, 'properties：stats + isPremium');
+assert(def.properties.stats && def.properties.isPremium && def.properties.popupOpen,
+  'properties：stats + isPremium + popupOpen（弹窗期卸载画布通道）');
 
 // —— 非会员：行切片 + 解锁弹窗 ——
 let inst = makeInstance(def);
@@ -348,6 +349,17 @@ assert(
 assert(inst.data.trend && inst.data.trend.length === 2, 'trend 落库');
 assert(trendQueries >= 1 && trendNode.width === 640, 'canvas 节点查询 + DPR 自绘落地');
 assert(trendOps.arcs === 2, '折线圆点绘制（2 个月）');
+
+// —— 宿主页弹窗联动：打开卸载曲线画布（开发者工具 canvas 原生层悬浮防透出）/ 关闭重绘 ——
+const trendQueriesBefore = trendQueries;
+inst.data.popupOpen = true;
+if (inst._observers.popupOpen) inst._observers.popupOpen.call(inst, true);
+await settle();
+assert(trendQueries === trendQueriesBefore, '弹窗打开不触发重绘（曲线画布由 wx:elif 卸载）');
+inst.data.popupOpen = false;
+if (inst._observers.popupOpen) inst._observers.popupOpen.call(inst, false);
+await new Promise((r) => setTimeout(r, 150));
+assert(trendQueries > trendQueriesBefore, '弹窗关闭 → 曲线画布重挂载后延时重绘（120ms 兜底）');
 inst.toggleTrend();
 inst.toggleTrend();
 await settle();
@@ -411,8 +423,8 @@ assert(
 );
 const nbWxml = fs.readFileSync(path.join(__dirname, '../components/review/pron-notebook/index.wxml'), 'utf8');
 assert(
-  /<diagnostic-report-card stats="\{\{notebook\.phonemeStats\}\}" is-premium="\{\{notebook\.isPremium\}\}" \/>/.test(nbWxml),
-  '诊断卡挂载：stats/isPremium 传递',
+  /<diagnostic-report-card stats="\{\{notebook\.phonemeStats\}\}" is-premium="\{\{notebook\.isPremium\}\}" popup-open="\{\{popupOpen\}\}" \/>/.test(nbWxml),
+  '诊断卡挂载：stats/isPremium 传递 + popupOpen 透传',
 );
 assert(nbWxml.indexOf('pron-list') >= 0 && nbDef.data.coming === undefined, '弱项列表（T4.4）随诊断卡挂载，coming 占位退场');
 
@@ -425,7 +437,12 @@ assert(wxml.indexOf('近 6 个月进步曲线') >= 0 && wxml.indexOf('近 6 个�
 assert(wxml.indexOf('还有 {{lockedCount}} 个薄弱音素的专项建议已锁定') >= 0, '锁定计数文案');
 assert(wxml.indexOf('对比练习：{{item.tipContrast}}') >= 0, '对比练习前缀');
 assert(/<premium-modal visible="\{\{premiumVisible\}\}" source="diagnostic_report"/.test(wxml), 'premium-modal 挂载 + source=diagnostic_report');
-assert(wxml.indexOf('<canvas') >= 0 && wxml.indexOf('id="drcTrend"') >= 0 && wxml.indexOf('type="2d"') >= 0, '曲线 canvas 2d 声明');
+assert(
+  wxml.indexOf('id="drcTrend"') >= 0 && wxml.indexOf('type="2d"') >= 0 &&
+    wxml.indexOf('trend.length > 0 && !popupOpen') >= 0 &&
+    /<view wx:elif="\{\{trend\.length > 0\}\}" class="drc-canvas"><\/view>/.test(wxml),
+  '曲线 canvas 2d：弹窗期卸载 + 同 class 空盒占位保高度（开发者工具原生层防透出）',
+);
 assert(wxml.indexOf('drc-row--locked') >= 0, '锁定行类分支');
 
 const bindings = wxml.match(/\{\{[^}]+\}\}/g) || [];

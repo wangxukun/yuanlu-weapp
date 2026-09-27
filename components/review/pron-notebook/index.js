@@ -26,6 +26,8 @@ Component({
     active: { type: Boolean, value: false },
     /** 宿主页面 onShow 递增序号：通知组件刷新（从子页返回时同步数据） */
     refreshSeq: { type: Number, value: 0 },
+    /** 宿主页 CEFR 弹窗打开中：透传三卡卸载 canvas（开发者工具原生层防透出） */
+    popupOpen: { type: Boolean, value: false },
   },
 
   data: {
@@ -119,6 +121,14 @@ Component({
     /** 错误态重试（占位卡期间的兜底入口；T4.4 接错误态 UI） */
     retry() {
       this.loadData();
+    },
+
+    /**
+     * 画像卡「？」事件中继：CEFR 等级说明弹窗不能在组件深处 scroll-view 内
+     * fixed 渲染（遮罩盖不全/卡片裁切叠字），转交宿主页面在根节点渲染
+     */
+    onCefrHint(e) {
+      this.triggerEvent('cefrhint', { text: e.detail && e.detail.hintText });
     },
   },
 });

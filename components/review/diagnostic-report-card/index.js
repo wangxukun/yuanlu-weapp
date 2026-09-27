@@ -23,6 +23,9 @@ Component({
     /** 音素统计（notebook.phonemeStats，均分升序 = 最弱在前） */
     stats: { type: Array, value: [] },
     isPremium: { type: Boolean, value: false },
+    /** 宿主页弹窗打开中：开发者工具下 canvas 2d 不走同层渲染、原生层悬浮于
+     * 弹窗之上（真机正常），弹窗期卸载画布、关闭后重挂载重绘 */
+    popupOpen: { type: Boolean, value: false },
   },
 
   data: {
@@ -52,6 +55,13 @@ Component({
     },
     dark() {
       this._syncIcons();
+    },
+    popupOpen(v) {
+      if (!v && this.data.showTrend && Array.isArray(this.data.trend) && this.data.trend.length > 0) {
+        // 弹窗关闭 → 曲线画布重新挂载（wx:if），nextTick + 延时双保险重绘
+        if (wx.nextTick) wx.nextTick(() => this._drawTrend());
+        setTimeout(() => this._drawTrend(), 120);
+      }
     },
   },
 

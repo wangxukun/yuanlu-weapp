@@ -62,7 +62,10 @@
         <view wx:if="{{trendLoading}}" class="drc-trend-center">
           <image class="drc-loader" src="/assets/icons/loader-primary.svg" mode="aspectFit" />
         </view>
-        <canvas wx:elif="{{trend.length > 0}}" id="drcTrend" type="2d" class="drc-canvas" />
+        <!-- canvas 2d 开发者工具模拟器不走同层渲染（真机正常）：宿主页弹窗期
+             （popupOpen）卸载画布防透出，占位空盒保高度，关闭后重绘 -->
+        <canvas wx:elif="{{trend.length > 0 && !popupOpen}}" id="drcTrend" type="2d" class="drc-canvas" />
+        <view wx:elif="{{trend.length > 0}}" class="drc-canvas"></view>
         <view wx:else class="drc-trend-center">
           <text class="drc-trend-empty">近 6 个月暂无带综合分的评测记录</text>
         </view>

@@ -88,3 +88,33 @@
 .review-swiper {
   width: 100%;
 }
+
+/* ===== CEFR 等级说明弹窗（发音弱项本画像卡「？」入口；事件冒泡到页面根渲染。
+       弹窗在 swiper/scroll-view 内 fixed 会退化（遮罩盖不全/卡片裁切叠字），
+       页面根无此怪癖；度量 = deck 手势指南同款） ===== */
+.rv-help-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.45);
+}
+.rv-help {
+  width: 560rpx;
+  background: var(--card-bg);
+  border-radius: 40rpx;
+  padding: 40rpx 36rpx;
+  gap: 28rpx;
+}
+.rv-help-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.rv-help-text {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.rv-help-ok {
+  width: 100%;
+}
