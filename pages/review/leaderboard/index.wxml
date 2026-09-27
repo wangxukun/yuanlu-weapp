@@ -1,5 +1,100 @@
-<!-- 发音达人榜（占位）：阶段四 T4.5 实现 -->
-<view class="page-stub">
-  <text class="t-h2">发音达人榜</text>
-  <text class="t-caption text-tertiary">平均分榜 · 勤奋榜 · 阶段四落地</text>
+<!-- pages/review/leaderboard — 发音达人榜（复刻 Android SpeechLeaderboardScreen） -->
+<view class="lb-page {{themeClass}}">
+
+  <!-- ══ 顶栏：返回 + 奖杯标题 + 榜单规则说明 ══ -->
+  <view class="lb-topbar row" style="padding-top: {{statusBarH}}px">
+    <view class="lb-icon-btn center tap-dim" bindtap="onBack">
+      <image class="lb-icon-btn-ic" src="{{dark ? '/assets/icons/arrow-back-dark.svg' : '/assets/icons/arrow-back-ink.svg'}}" />
+    </view>
+    <view class="col flex-1">
+      <view class="row lb-title-row">
+        <view class="lb-trophy-box center">
+          <image class="lb-trophy-ic" src="/assets/icons/emoji-events-secondary.svg" />
+        </view>
+        <text class="lb-title">发音达人榜</text>
+      </view>
+      <text class="lb-rule">榜单按{{ruleText}}排名</text>
+    </view>
+  </view>
+
+  <!-- ══ 双重 Tab：周期（primary 实底）+ 维度（secondary 实底）══ -->
+  <view class="lb-tabs row">
+    <view class="lb-pill row flex-1">
+      <view wx:for="{{periods}}" wx:key="key"
+            class="lb-pill-opt center {{period === item.key ? 'lb-pill-opt--primary' : ''}}"
+            data-key="{{item.key}}" bindtap="selectPeriod">
+        <text class="lb-pill-text {{period === item.key ? 'lb-pill-text--primary' : ''}}">{{item.label}}</text>
+      </view>
+    </view>
+    <view class="lb-pill row flex-1">
+      <view wx:for="{{metrics}}" wx:key="key"
+            class="lb-pill-opt center {{metric === item.key ? 'lb-pill-opt--secondary' : ''}}"
+            data-key="{{item.key}}" bindtap="selectMetric">
+        <text class="lb-pill-text {{metric === item.key ? 'lb-pill-text--secondary' : ''}}">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ══ 榜单主体 ══ -->
+  <view class="lb-body">
+
+    <!-- 加载中（board 未落地） -->
+    <view wx:if="{{isLoading && !entries.length && !loadError}}" class="lb-center col">
+      <view class="lb-spin"></view>
+    </view>
+
+    <!-- 加载失败 -->
+    <view wx:elif="{{loadError && !entries.length}}" class="lb-center col">
+      <text class="lb-error-text">{{loadError}}</text>
+      <view class="lb-retry center tap-scale" bindtap="onRetry">
+        <text class="lb-retry-text">重试</text>
+      </view>
+    </view>
+
+    <!-- 空榜 -->
+    <view wx:elif="{{!entries.length}}" class="lb-center col">
+      <text class="lb-empty-title">本周期暂无上榜记录</text>
+      <text class="lb-empty-sub">完成语音评测即可上榜</text>
+    </view>
+
+    <!-- 榜单卡（surface 圆角16 outline@0.4 边） -->
+    <scroll-view wx:else class="lb-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="lb-card col">
+        <block wx:for="{{entries}}" wx:key="userid" wx:for-index="ri">
+          <view class="lb-row row">
+            <!-- 排名位：#1 金皇冠 / #2 银 / #3 铜 / 其余数字 -->
+            <view class="lb-rank center">
+              <image wx:if="{{item.medal === 'gold'}}" class="lb-medal" src="/assets/icons/emoji-events-gold.svg" />
+              <image wx:elif="{{item.medal === 'silver'}}" class="lb-medal" src="/assets/icons/military-tech-silver.svg" />
+              <image wx:elif="{{item.medal === 'bronze'}}" class="lb-medal" src="/assets/icons/military-tech-bronze.svg" />
+              <text wx:else class="lb-rank-num">{{item.rankText}}</text>
+            </view>
+            <!-- 头像（40dp 圆；失败回退首字母） -->
+            <view class="lb-avatar center">
+              <image wx:if="{{item.avatar && !item.avatarFailed}}" class="lb-avatar-img"
+                     src="{{item.avatar}}" mode="aspectFill" data-index="{{ri}}" binderror="onAvatarError" />
+              <text wx:else class="lb-avatar-initial">{{item.initial}}</text>
+            </view>
+            <text class="lb-nick flex-1">{{item.nickname}}</text>
+            <!-- 右列：主指标大字 + 副指标小字 -->
+            <view class="lb-metrics col">
+              <text class="lb-main">{{item.mainText}}</text>
+              <text class="lb-sub">{{item.subText}}</text>
+            </view>
+          </view>
+          <view wx:if="{{ri < entries.length - 1}}" class="lb-divider"></view>
+        </block>
+      </view>
+      <view class="lb-list-tail {{me ? 'lb-list-tail--me' : ''}}"></view>
+    </scroll-view>
+
+    <!-- 吸底「我的排名」卡（primary@0.06 底 primary@0.25 边） -->
+    <view wx:if="{{me}}" class="lb-me row">
+      <text class="lb-me-rank">#{{me.rank}}</text>
+      <view class="col">
+        <text class="lb-me-title">我的排名</text>
+        <text class="lb-me-sub">{{me.evalCount}} 次评测 · 平均 {{me.avgScore}} 分</text>
+      </view>
+    </view>
+  </view>
 </view>

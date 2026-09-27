@@ -700,6 +700,9 @@ const WXML_REVIEW = fs.readFileSync(
   section('十五、WXML 结构与红线扫描');
   {
     assert(WXML_NOTEBOOK.includes('<quota-card'), 'notebook：quota-card 配额卡挂载');
+    assert(WXML_NOTEBOOK.replace(/\r\n/g, '\n')
+      .includes('<quota-card\n        wx:if="{{stats.total > 0}}"'),
+      '空态隐藏配额卡（stats.total===0 不渲染「生词本容量/今日收藏生词」，与统计三格同口径）');
     assert(WXML_NOTEBOOK.includes('premiumTitle="PRO 无限收藏 · 已收 {{stats.total}} 词"'), 'PRO 态文案逐字');
     assert(WXML_NOTEBOOK.includes('<premium-modal'), 'notebook：premium-modal 挂载（TTS 配额墙）');
     assert(WXML_NOTEBOOK.includes('根据遗忘曲线'), '复习横幅文案');

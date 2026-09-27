@@ -63,10 +63,16 @@
   text-align: center;
   line-height: 1.7;
 }
+/* 空态 CTA：逐值复刻生词本 .vn-empty-btn（primary-600 底白字 26rpx/500，
+   去发现/去浏览两空态按钮同款；弃全局 btn-primary 88rpx 高座） */
 .sn-empty-btn {
   margin-top: 40rpx;
-  padding: 18rpx 48rpx;
+  background: var(--primary-600);
+  color: #ffffff;
   font-size: 26rpx;
+  font-weight: 500;
+  border-radius: var(--r-md);
+  padding: 16rpx 40rpx;
 }
 
 /* ---------------- 统计三格（对齐 Web SentenceStats 移动端 Grid） ---------------- */

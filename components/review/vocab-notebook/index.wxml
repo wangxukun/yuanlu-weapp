@@ -56,8 +56,9 @@
         </view>
       </block>
 
-      <!-- ══ 3. 配额双栏卡 ══ -->
+      <!-- ══ 3. 配额双栏卡（全局空态隐藏，避免全 0 空仪表盘——与统计三格同口径） ══ -->
       <quota-card
+        wx:if="{{stats.total > 0}}"
         isPremium="{{isPremium}}"
         premiumTitle="PRO 无限收藏 · 已收 {{stats.total}} 词"
         premiumSubtitle="容量不设限，每日新增也不限"

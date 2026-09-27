@@ -1,12 +1,372 @@
-/* 发音弱项闯关（占位） */
-.page-stub {
-  min-height: 100vh;
+/**
+ * pages/review/practice — 发音闯关复习（复刻 Android WeaknessPracticeScreen.kt）。
+ * 尺寸 dp/sp→rpx×2；色值 theme/Color.kt 原值；组件内比例常量（badge 15dp 图标/
+ * lock 28dp/进度 6dp 圆头）照抄。三轨主题：媒体查询平类 + .theme-dark 全量
+ * 重声明 + .theme-light 全量重声明（组件/页面根类自持令牌，勿依赖页面层祖先）。
+ */
+.pr-page {
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Material3 tokens（light） */
+  --pr-bg: #faf8f3;            /* background */
+  --pr-surface: #ffffff;       /* surface */
+  --pr-on-surface: #1c1917;    /* onSurface */
+  --pr-osv: #57534e;           /* onSurfaceVariant */
+  --pr-primary: #1f7a5c;       /* primary */
+  --pr-on-primary: #ffffff;    /* onPrimary */
+  --pr-primary-container: #edf7f2; /* primaryContainer */
+  --pr-track: #f2efe8;         /* surfaceVariant（进度条轨道） */
+  --pr-outline: #e5e0d5;       /* outline（OutlinedButton 描边） */
+  --pr-error: #d2503f;         /* error */
+  --pr-primary-10: rgba(31, 122, 92, 0.1);  /* primary@0.1（徽章底） */
+  --pr-primary-25: rgba(31, 122, 92, 0.25); /* primary@0.25（spin 环） */
+  --pr-quota-bg: rgba(229, 224, 213, 0.7);  /* base-200/70（胶囊普通态） */
+  --pr-quota-text: rgba(28, 25, 23, 0.6);   /* base-content/60 */
+  --pr-amber-bg: #fffbeb;                   /* amber-50（胶囊预警态） */
+  --pr-amber-text: #d97706;                 /* amber-600 */
+  --pr-success-bg: rgba(46, 143, 111, 0.05);   /* success/5（结算横幅） */
+  --pr-success-border: rgba(46, 143, 111, 0.3); /* success/30 */
+  background: var(--pr-bg);
+  color: var(--pr-on-surface);
+}
+@media (prefers-color-scheme: dark) {
+  .pr-page:not(.theme-light) {
+    --pr-bg: #151310;
+    --pr-surface: #1e1b16;
+    --pr-on-surface: #e8e3d9;
+    --pr-osv: #a8a29e;
+    --pr-primary: #4da989;
+    --pr-on-primary: #0a241b;
+    --pr-primary-container: #0f3b2c;
+    --pr-track: #26221c;
+    --pr-outline: #3a342c;
+    --pr-primary-10: rgba(77, 169, 135, 0.1);
+    --pr-primary-25: rgba(77, 169, 135, 0.25);
+    --pr-quota-bg: #26221c;                 /* ink-800 */
+    --pr-quota-text: rgba(232, 227, 217, 0.6);
+    --pr-amber-bg: rgba(245, 158, 11, 0.1); /* amber-500/10 */
+    --pr-amber-text: #fbbf24;               /* amber-400 */
+    --pr-success-bg: rgba(46, 143, 111, 0.1);    /* dark: success/10 */
+    --pr-success-border: rgba(46, 143, 111, 0.3);
+  }
+}
+.pr-page.theme-dark {
+  --pr-bg: #151310;
+  --pr-surface: #1e1b16;
+  --pr-on-surface: #e8e3d9;
+  --pr-osv: #a8a29e;
+  --pr-primary: #4da989;
+  --pr-on-primary: #0a241b;
+  --pr-primary-container: #0f3b2c;
+  --pr-track: #26221c;
+  --pr-outline: #3a342c;
+  --pr-primary-10: rgba(77, 169, 135, 0.1);
+  --pr-primary-25: rgba(77, 169, 135, 0.25);
+  --pr-quota-bg: #26221c;                 /* ink-800 */
+  --pr-quota-text: rgba(232, 227, 217, 0.6);
+  --pr-amber-bg: rgba(245, 158, 11, 0.1); /* amber-500/10 */
+  --pr-amber-text: #fbbf24;               /* amber-400 */
+  --pr-success-bg: rgba(46, 143, 111, 0.1);    /* dark: success/10 */
+  --pr-success-border: rgba(46, 143, 111, 0.3);
+}
+.pr-page.theme-light {
+  --pr-bg: #faf8f3;
+  --pr-surface: #ffffff;
+  --pr-on-surface: #1c1917;
+  --pr-osv: #57534e;
+  --pr-primary: #1f7a5c;
+  --pr-on-primary: #ffffff;
+  --pr-primary-container: #edf7f2;
+  --pr-track: #f2efe8;
+  --pr-outline: #e5e0d5;
+  --pr-primary-10: rgba(31, 122, 92, 0.1);
+  --pr-primary-25: rgba(31, 122, 92, 0.25);
+  --pr-quota-bg: rgba(229, 224, 213, 0.7);  /* base-200/70（胶囊普通态） */
+  --pr-quota-text: rgba(28, 25, 23, 0.6);   /* base-content/60 */
+  --pr-amber-bg: #fffbeb;                   /* amber-50（胶囊预警态） */
+  --pr-amber-text: #d97706;                 /* amber-600 */
+  --pr-success-bg: rgba(46, 143, 111, 0.05);   /* success/5（结算横幅） */
+  --pr-success-border: rgba(46, 143, 111, 0.3); /* success/30 */
+}
+
+/* ---- 加载态（CircularProgressIndicator primary） ---- */
+.pr-center {
+  flex: 1;
   align-items: center;
   justify-content: center;
-  padding-bottom: env(safe-area-inset-bottom);
 }
-.page-stub .t-caption {
-  margin-top: 12rpx;
+.pr-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 5rpx solid var(--pr-primary-25);
+  border-top-color: var(--pr-primary);
+  animation: pr-rotate 0.9s linear infinite;
+}
+@keyframes pr-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- 锁定 / 错误 / 空态（三态同容器：居中纵排 pad 24dp） ---- */
+.pr-pane {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+}
+.pr-lock-circle {
+  width: 128rpx;   /* 64dp */
+  height: 128rpx;
+  border-radius: 50%;
+  background: var(--pr-primary-container);
+}
+.pr-lock-ic {
+  width: 56rpx;    /* 28dp */
+  height: 56rpx;
+}
+.pr-pane-title {
+  margin-top: 32rpx; /* 16dp */
+  font-size: 44rpx;  /* 22sp titleLarge */
+  font-weight: 700;
+  color: var(--pr-on-surface);
+}
+.pr-pane-desc {
+  margin-top: 16rpx; /* 8dp */
+  font-size: 28rpx;  /* 14sp bodyMedium */
+  line-height: 1.6;
+  text-align: center;
+  color: var(--pr-osv);
+}
+.pr-error-text {
+  font-size: 32rpx; /* 16sp bodyLarge */
+  text-align: center;
+  color: var(--pr-error);
+}
+.pr-empty-emoji {
+  font-size: 90rpx; /* 45sp displayMedium */
+  line-height: 1.2;
+}
+
+/* ---- 按钮族（M3 默认全圆 pill，高 40dp，labelLarge 14sp/500） ---- */
+.pr-btn-filled {
+  margin-top: 40rpx;      /* 20dp */
+  height: 80rpx;
+  padding: 0 144rpx;      /* 24dp 内容边距 + 12dp 文字边距 = 72dp */
+  border-radius: 999rpx;
+  background: var(--pr-primary);
+}
+.pr-btn-filled-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--pr-on-primary);
+}
+.pr-error-text + .pr-btn-filled {
+  margin-top: 32rpx; /* 16dp（ErrorBox 按钮上边距） */
+}
+.pr-btn-outlined {
+  margin-top: 40rpx;
+  height: 80rpx;
+  padding: 0 48rpx;       /* 24dp */
+  border-radius: 999rpx;
+  border: 2rpx solid var(--pr-outline);
+}
+.pr-btn-outlined-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--pr-primary);
+}
+.pr-text-btn {
+  margin-top: 16rpx;      /* 8dp（top padding） */
+  padding: 8rpx 24rpx;
+}
+.pr-text-btn-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--pr-primary);
+}
+
+/* ---- 主态：顶栏 ---- */
+.pr-topbar {
+  flex-shrink: 0;
+  height: 96rpx;          /* 48dp */
+  padding-left: 8rpx;     /* 4dp */
+  padding-right: 8rpx;
+  align-items: center;
+}
+.pr-icon-btn {
+  width: 96rpx;
+  height: 96rpx;
+}
+.pr-icon-btn-ic {
+  width: 48rpx;           /* 24dp */
+  height: 48rpx;
+}
+.pr-title {
+  font-size: 32rpx;       /* 16sp titleMedium */
+  font-weight: 700;
+  color: var(--pr-on-surface);
+}
+.pr-badge {
+  margin-right: 8rpx;
+  padding: 8rpx 20rpx;    /* v4dp h10dp */
+  border-radius: 999rpx;
+  background: var(--pr-primary-10); /* primary@0.1 */
+  gap: 8rpx;              /* 4dp */
+  align-items: center;
+}
+.pr-badge-ic {
+  width: 30rpx;           /* 15dp */
+  height: 30rpx;
+}
+.pr-badge-text {
+  font-size: 22rpx;       /* 11sp labelSmall */
+  font-weight: 700;
+  color: var(--pr-primary);
+}
+
+/* ---- 闯关进度条（LinearProgressIndicator 6dp 圆头，h-pad 16dp） ---- */
+.pr-progress-track {
+  flex-shrink: 0;
+  margin: 0 32rpx 24rpx;
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: var(--pr-track);
+  overflow: hidden;
+}
+.pr-progress-bar {
+  height: 100%;
+  border-radius: 999rpx;
+  background: var(--pr-primary);
+  transition: width 0.25s ease;
+}
+
+/* ---- 评测卡滚动区（weight1 + verticalScroll，pad h16 v12 + 尾 8dp） ---- */
+.pr-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.pr-card-pad {
+  padding: 24rpx 32rpx 0;
+}
+.pr-card-tail {
+  height: 32rpx;
+}
+
+/* ---- 底部导航（Surface tonalElevation 2dp） ---- */
+.pr-footer {
+  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--pr-surface);
+  padding: 20rpx 32rpx;   /* v10dp h16dp */
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+.pr-nav-btn {
+  height: 80rpx;          /* 40dp */
+  padding: 0 48rpx;       /* 24dp */
+  border-radius: 999rpx;
+  border: 2rpx solid var(--pr-outline);
+  align-items: center;
+  gap: 4rpx;              /* 2dp */
+}
+.pr-nav-arrow {
+  width: 48rpx;           /* 24dp */
+  height: 48rpx;
+}
+.pr-nav-label {
+  font-size: 28rpx;       /* 14sp labelLarge */
+  font-weight: 500;
+  color: var(--pr-primary);
+}
+.pr-nav-btn-filled {
+  height: 80rpx;
+  padding: 0 48rpx;
+  border-radius: 999rpx;
+  background: var(--pr-primary);
+  align-items: center;
+  gap: 4rpx;
+}
+.pr-nav-label-filled {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--pr-on-primary);
+}
+
+/* ---- 配额余量胶囊（Web [P3-c]：w-fit 全圆 text-xs 700；<3 次转琥珀预警） ---- */
+.pr-quota {
+  align-self: flex-start;
+  margin: 20rpx 32rpx 28rpx;
+  padding: 12rpx 28rpx; /* py-1.5 px-3.5 */
+  border-radius: 999rpx;
+  gap: 8rpx;            /* gap-2 */
+  align-items: center;
+  background: var(--pr-quota-bg);
+}
+.pr-quota-text {
+  font-size: 24rpx;     /* text-xs 12sp */
+  font-weight: 700;
+  color: var(--pr-quota-text);
+}
+.pr-quota--warn {
+  background: var(--pr-amber-bg);
+}
+.pr-quota--warn .pr-quota-text {
+  color: var(--pr-amber-text);
+}
+.pr-quota-crown {
+  width: 26rpx;         /* 13dp */
+  height: 26rpx;
+}
+
+/* ---- 试用结算「成就先行」横幅（Web [P3-c]：rounded-2xl success/30 边 + /5 底） ---- */
+.pr-settle {
+  margin-bottom: 48rpx; /* mb-6 24dp */
+  padding: 32rpx 40rpx; /* py-4 px-5 */
+  border-radius: 32rpx; /* rounded-2xl 16dp */
+  border: 2rpx solid var(--pr-success-border);
+  background: var(--pr-success-bg);
+  gap: 32rpx;           /* gap-4 */
+  align-items: center;
+}
+.pr-settle-emoji {
+  font-size: 60rpx;     /* text-3xl 30sp */
+  line-height: 1.1;
+}
+.pr-settle-title {
+  font-size: 32rpx;     /* text-base 16sp */
+  font-weight: 700;
+  color: var(--pr-on-surface);
+}
+.pr-settle-sub {
+  margin-top: 4rpx;     /* mt-0.5 */
+  font-size: 24rpx;     /* text-xs 12sp */
+  line-height: 1.5;
+  color: var(--pr-quota-text); /* base-content/60 同口径 */
+}
+
+/* ---- 试用结算末钮：琥珀实底「下一关 · 解锁 PRO」（Web amber-500 恒值） ---- */
+.pr-nav-btn-pro {
+  height: 80rpx;
+  padding: 0 48rpx;
+  border-radius: 999rpx;
+  background: #f59e0b;  /* amber-500 */
+  align-items: center;
+  gap: 8rpx;
+  box-shadow: 0 12rpx 40rpx rgba(245, 158, 11, 0.2); /* shadow-amber-500/20 */
+}
+.pr-nav-crown {
+  width: 32rpx;         /* 16dp */
+  height: 32rpx;
+}
+.pr-nav-label-pro {
+  font-size: 28rpx;     /* 14sp labelLarge */
+  font-weight: 500;
+  color: #ffffff;
+}
+
+/* M3 禁用：内容 38% 透明 */
+.pr-nav-btn--off {
+  opacity: 0.38;
 }

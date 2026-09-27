@@ -645,6 +645,136 @@ function decorateWeakRow(record) {
   };
 }
 
+/* ── 闯关复习（T4.5，Android WeaknessPracticeViewModel + SpeechModels 移植）── */
+
+/**
+ * GET /api/speech/errors 信封解析（注意 weakThreshold/totalErrors/isTrialMode
+ * 在信封顶层而非 data 内——后端 route.ts 原样）：成功 → { records, weakThreshold,
+ * totalErrors, isTrialMode }；失败/坏形状 → null（调用方亮错误态）。
+ */
+function parseErrors(res) {
+  if (!res || res.success !== true || !Array.isArray(res.data)) return null;
+  return {
+    records: res.data.map(normalizeErrorRecord),
+    weakThreshold: normalizeThreshold(res.weakThreshold),
+    totalErrors: Number(res.totalErrors) || 0,
+    isTrialMode: !!res.isTrialMode,
+  };
+}
+
+/**
+ * 弱项记录 → 评测卡装配（Android toSubtitle + buildCard 同口径）：
+ * id = subtitleId ?? recognitionid；end = subtitleEnd ?? start + 3；
+ * textCn/words/audioUrl 缺省容忍（原声/词级窗口按缺省降级）。
+ */
+function buildPracticeCard(record) {
+  const src = record || {};
+  const start = typeof src.targetStartTime === 'number' ? src.targetStartTime : 0;
+  const subId = typeof src.subtitleId === 'number' ? src.subtitleId : src.recognitionid;
+  return {
+    subtitle: {
+      textEn: src.targetText || '',
+      textCn: src.subtitleTextCn || '',
+      words: Array.isArray(src.subtitleWords) ? src.subtitleWords : [],
+      audioUrl: src.episodeAudioUrl || '',
+      start,
+      end: src.subtitleEnd != null ? src.subtitleEnd : start + 3,
+    },
+    subtitleId: subId,
+    episodeId: src.episodeid || '',
+    episodeTitle: src.episodeTitle || '',
+  };
+}
+
+/**
+ * 「最近得分」伪结果（Android showLatestScore：仅分数维度，无逐词明细）：
+ * overall = lastScore（overallScore ?? accuracyScore）；三维条全用 accuracyScore；
+ * speed 原值缺省 0。
+ */
+function latestScoreResult(record) {
+  const src = record || {};
+  const overall = num(src.overallScore);
+  const accuracy = num(src.accuracyScore);
+  const lastScore = Math.round(overall !== null ? overall : accuracy !== null ? accuracy : 0);
+  return {
+    overallScore: lastScore,
+    pronunciation: accuracy !== null ? accuracy : 0,
+    fluency: accuracy !== null ? accuracy : 0,
+    integrity: accuracy !== null ? accuracy : 0,
+    speed: num(src.speed) !== null ? num(src.speed) : 0,
+    words: [],
+    userAudioPath: '',
+  };
+}
+
+/* ── 发音达人榜（T4.5，Android SpeechLeaderboard + SpeechModels 移植）── */
+
+/** 周期枚举（LeaderboardPeriod：label / apiValue） */
+const LEADERBOARD_PERIODS = [
+  { key: 'weekly', label: '近7天' },
+  { key: 'daily', label: '今日' },
+];
+
+/** 维度枚举（LeaderboardMetric：label / apiValue / ruleText） */
+const LEADERBOARD_METRICS = [
+  { key: 'score', label: '平均分榜', ruleText: '平均综合分（≥5次评测）' },
+  { key: 'count', label: '勤奋榜', ruleText: '练习次数' },
+];
+
+/**
+ * GET /api/speech/leaderboard?period&metric 信封解析：
+ * 成功 → { entries[{userid,nickname,avatar,evalCount,avgScore}], me|null }；
+ * 失败/坏形状 → null。period/metric 不回填（由调用方持有的选中态为准）。
+ */
+function parseLeaderboard(res) {
+  const d = res && res.success && res.data ? res.data : null;
+  if (!d) return null;
+  const entries = (Array.isArray(d.entries) ? d.entries : []).map(function (e) {
+    const src = e || {};
+    return {
+      userid: String(src.userid == null ? '' : src.userid),
+      nickname: String(src.nickname == null ? '' : src.nickname),
+      avatar: String(src.avatar == null ? '' : src.avatar),
+      evalCount: Number(src.evalCount) || 0,
+      avgScore: Math.round(Number(src.avgScore) || 0),
+    };
+  });
+  let me = null;
+  if (d.me && typeof d.me === 'object') {
+    me = {
+      rank: Number(d.me.rank) || 0,
+      evalCount: Number(d.me.evalCount) || 0,
+      avgScore: Math.round(Number(d.me.avgScore) || 0),
+    };
+  }
+  return { entries, me };
+}
+
+/**
+ * 榜单行视图模型（Android LeaderboardRow 预计算，WXML 零方法调用红线）：
+ * medal：1 gold（EmojiEvents 金）/ 2 silver / 3 bronze（MilitaryTech）/ '' 数字；
+ * mainText/subText 按 metric 互换（score：N 分 / N 次评测；count：N 次 / 平均 N 分）；
+ * initial 昵称首字母大写（头像回退占位）。
+ */
+function decorateLeaderboardRows(entries, metricKey) {
+  const byCount = metricKey === 'count';
+  return (Array.isArray(entries) ? entries : []).map(function (e, i) {
+    const rank = i + 1;
+    return {
+      userid: e.userid,
+      nickname: e.nickname,
+      avatar: e.avatar,
+      avatarFailed: false,
+      rank,
+      rankText: String(rank),
+      medal: rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '',
+      mainText: byCount ? e.evalCount + ' 次' : e.avgScore + ' 分',
+      subText: byCount ? '平均 ' + e.avgScore + ' 分' : e.evalCount + ' 次评测',
+      initial: (e.nickname || '').charAt(0).toUpperCase(),
+    };
+  });
+}
+
 module.exports = {
   DEFAULT_WEAK_SCORE_THRESHOLD,
   WEAK_THRESHOLD_MIN,
@@ -682,4 +812,11 @@ module.exports = {
   phonemeRadarPoints,
   notebookStats,
   decorateWeakRow,
+  parseErrors,
+  buildPracticeCard,
+  latestScoreResult,
+  LEADERBOARD_PERIODS,
+  LEADERBOARD_METRICS,
+  parseLeaderboard,
+  decorateLeaderboardRows,
 };

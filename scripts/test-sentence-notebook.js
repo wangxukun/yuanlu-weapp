@@ -761,6 +761,13 @@ async function driveAttach(opts) {
   assert(WXML.includes('在收听播客时打开「沉浸式逐字稿」，点击字幕行右侧的“书签”按钮，即可一键收藏精选原句！'),
     '空态描述逐字（含全角引号）');
   assert(WXML.includes('去浏览播客'), '空态按钮文案逐字');
+  // 空态 CTA 复刻生词本「去发现播客」按钮（.vn-empty-btn 逐值；弃全局 btn-primary）
+  assert(WXML.includes('class="sn-empty-btn tap-scale"') && !WXML.includes('btn-primary sn-empty-btn'),
+    '空态按钮：独立 sn-empty-btn 类（不再叠全局 btn-primary 88rpx 座）');
+  assert(WXSS.includes('background: var(--primary-600)') &&
+    WXSS.includes('font-weight: 500') && WXSS.includes('padding: 16rpx 40rpx') &&
+    WXSS.includes('border-radius: var(--r-md)'),
+    '空态按钮样式逐值 = 生词本 vn-empty-btn（primary-600/白/26rpx·500/16·40/r-md）');
   assert(WXML.includes('wx:for="{{item.enParts}}"') && WXML.includes("seg.hit ? 'sn-hl'"),
     '高亮段循环 + 命中类切换');
   assert(REVIEW_WXML.includes('<sentence-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />'),

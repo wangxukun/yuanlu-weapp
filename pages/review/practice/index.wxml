@@ -1,5 +1,124 @@
-<!-- 发音弱项闯关（占位）：阶段四 T4.5 实现 -->
-<view class="page-stub">
-  <text class="t-h2">发音闯关</text>
-  <text class="t-caption text-tertiary">弱项句逐题攻克 · 达标判定 · 阶段四落地</text>
+<!-- pages/review/practice — 发音闯关复习（复刻 Android WeaknessPracticeScreen） -->
+<view class="pr-page {{themeClass}}">
+
+  <!-- 首次加载（CircularProgressIndicator） -->
+  <view wx:if="{{loading}}" class="pr-center col">
+    <view class="pr-spin"></view>
+  </view>
+
+  <!-- PRO 会员锁定态（LockedPane） -->
+  <view wx:elif="{{isLocked}}" class="pr-pane col">
+    <view class="pr-lock-circle center">
+      <image class="pr-lock-ic" src="{{dark ? '/assets/icons/lock-primary-dark.svg' : '/assets/icons/lock-primary.svg'}}" />
+    </view>
+    <text class="pr-pane-title">弱项练习是 PRO 会员功能</text>
+    <text class="pr-pane-desc">升级会员解锁发音诊断、弱项句子收录与针对性循环练习。</text>
+    <view class="pr-btn-filled center tap-scale" bindtap="onUnlock">
+      <text class="pr-btn-filled-text">解锁 PRO 会员</text>
+    </view>
+    <view class="pr-text-btn center tap-dim" bindtap="onExit">
+      <text class="pr-text-btn-text">返回</text>
+    </view>
+  </view>
+
+  <!-- 加载失败（ErrorBox + 重试） -->
+  <view wx:elif="{{loadError}}" class="pr-pane col">
+    <text class="pr-error-text">{{loadError}}</text>
+    <view class="pr-btn-filled center tap-scale" bindtap="onRetry">
+      <text class="pr-btn-filled-text">重试</text>
+    </view>
+  </view>
+
+  <!-- 空弱项集完成态（EmptyPane） -->
+  <view wx:elif="{{isEmpty}}" class="pr-pane col">
+    <text class="pr-empty-emoji">🎉</text>
+    <text class="pr-pane-title">没有待复习的弱项</text>
+    <text class="pr-pane-desc">您的发音记录非常完美，继续保持！</text>
+    <view class="pr-btn-outlined center tap-dim" bindtap="onExit">
+      <text class="pr-btn-outlined-text">返回</text>
+    </view>
+  </view>
+
+  <!-- ══ 主态 ══ -->
+  <block wx:else>
+    <!-- 顶栏：返回 + 标题(i+1/N) + 已达标徽章 -->
+    <view class="pr-topbar row" style="padding-top: {{statusBarH}}px">
+      <view class="pr-icon-btn center tap-dim" bindtap="onExit">
+        <image class="pr-icon-btn-ic" src="{{dark ? '/assets/icons/arrow-back-dark.svg' : '/assets/icons/arrow-back-ink.svg'}}" />
+      </view>
+      <text class="pr-title flex-1">发音闯关复习 ({{index + 1}}/{{total}})</text>
+      <view wx:if="{{isCompleted}}" class="pr-badge row">
+        <image class="pr-badge-ic" src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle.svg'}}" />
+        <text class="pr-badge-text">已达标</text>
+      </view>
+    </view>
+
+    <!-- 配额余量胶囊（Web [P3-c]：非会员且已预检才显示；余量 < 3 转琥珀预警） -->
+    <view wx:if="{{showQuota}}" class="pr-quota row {{quotaWarn ? 'pr-quota--warn' : ''}}">
+      <image wx:if="{{quotaWarn}}" class="pr-quota-crown"
+             src="{{dark ? '/assets/icons/workspace-premium-amber-dark.svg' : '/assets/icons/workspace-premium-amber.svg'}}" />
+      <text class="pr-quota-text">{{quotaText}}</text>
+    </view>
+
+    <!-- 闯关进度条（6dp 圆头，progress = (index+1)/N） -->
+    <view class="pr-progress-track">
+      <view class="pr-progress-bar" style="width: {{progressPercent}}%"></view>
+    </view>
+
+    <!-- 评测卡（闯关形态：三播放钮 + 最近得分；换题 key 重挂） -->
+    <scroll-view class="pr-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="pr-card-pad col" wx:if="{{subtitle}}">
+        <!-- 试用结算「成就先行」横幅（Web [P3-c]：isTrialMode 走到末题） -->
+        <view wx:if="{{showSettlement}}" class="pr-settle row">
+          <text class="pr-settle-emoji">🎉</text>
+          <view class="col flex-1">
+            <text class="pr-settle-title">今日攻克 {{completedCount}}/{{total}}</text>
+            <text class="pr-settle-sub">还有 {{lockedCount}} 条弱项句子待攻克，继续闯关精准消灭发音弱点</text>
+          </view>
+        </view>
+        <eval-card
+          key="{{cardKey}}"
+          subtitle="{{subtitle}}"
+          subtitle-id="{{subtitleId}}"
+          episode-id="{{episodeId}}"
+          episode-title="{{episodeTitle}}"
+          eval-scenario="review"
+          quota-locked="{{quotaLocked}}"
+          show-bookmark="{{false}}"
+          show-loop="{{false}}"
+          show-latest-score="{{true}}"
+          pass-threshold="{{weakThreshold}}"
+          bind:evaluate="onEvaluate"
+          bind:quota="onQuota"
+          bind:latestscore="onLatestScore"
+          bind:phasechange="onPhaseChange"
+        />
+        <view class="pr-card-tail"></view>
+      </view>
+    </scroll-view>
+
+    <!-- 底部导航（Surface tonalElevation 2dp）：上一题 | 下一题 / 完成复习 / 下一关·解锁 PRO -->
+    <view class="pr-footer row">
+      <view class="pr-nav-btn row {{prevDisabled || evaluating ? 'pr-nav-btn--off' : ''}}" bindtap="onPrev">
+        <image class="pr-nav-arrow" src="{{dark ? '/assets/icons/keyboard-arrow-left-dark.svg' : '/assets/icons/keyboard-arrow-left-primary.svg'}}" />
+        <text class="pr-nav-label">上一题</text>
+      </view>
+      <!-- 试用结算末钮：琥珀实底「下一关 · 解锁 PRO」（Web 口径） -->
+      <view wx:if="{{isLast && showSettlement}}" class="pr-nav-btn-pro row {{evaluating ? 'pr-nav-btn--off' : ''}}" bindtap="onNext">
+        <image class="pr-nav-crown" src="/assets/icons/workspace-premium-white.svg" />
+        <text class="pr-nav-label-pro">下一关 · 解锁 PRO</text>
+      </view>
+      <view wx:elif="{{isLast}}" class="pr-nav-btn-filled row {{evaluating ? 'pr-nav-btn--off' : ''}}" bindtap="onNext">
+        <text class="pr-nav-label-filled">完成复习</text>
+        <image class="pr-nav-arrow" src="/assets/icons/keyboard-arrow-right-white.svg" />
+      </view>
+      <view wx:else class="pr-nav-btn-filled row {{evaluating ? 'pr-nav-btn--off' : ''}}" bindtap="onNext">
+        <text class="pr-nav-label-filled">下一题</text>
+        <image class="pr-nav-arrow" src="/assets/icons/keyboard-arrow-right-white.svg" />
+      </view>
+    </view>
+  </block>
+
+  <!-- 会员转化弹窗（锁定态解锁 CTA / 试用结算「下一关」） -->
+  <premium-modal visible="{{showPremiumModal}}" source="pronunciation_locked" vars="{{premiumVars}}" bind:close="onPremiumClose" />
 </view>

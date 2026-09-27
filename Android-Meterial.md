@@ -5,7 +5,7 @@
 > 不再使用 lucide/自绘线性图标。新图标烘焙规范见文末。
 >
 > 本清单为 2026-09-27 全量走查的终态台账：全项目 210 处图标引用、252 个图标文件 →
-> 213 个文件，**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
+> 224 个文件（T4.5 批次 +8、Web 口径恢复批 +3），**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
 > 1 处重定向去重），退役旧文件 129 个已删除，`npm test` 31 套件全绿。
 > PNG 重绘覆盖：tabBar 4 Tab ×2 态（8 张）+ 我的页宫格 3 张（school/history/bookmark/
 > credit-card 中 history/bookmark/credit-card 沿用文件名）+ 头像 person.png + 激活态 person-active.png。
@@ -188,6 +188,31 @@
 | 134 | PNG 重绘 | `-` | `bookmark` | `bookmark.png` | （本次退役删除） | ✅ 已替换 |
 | 135 | PNG 重绘 | `-` | `credit_card` | `credit-card.png` | （本次退役删除） | ✅ 已替换 |
 | 136 | PNG 重绘 | `-` | `person` | `person.png` | （本次退役删除） | ✅ 已替换 |
+
+### T4.5 批次（2026-09-27，闯关页 + 排行榜页，+8；同日 Web 口径恢复批 +3）
+
+| 文件 | Material 名 | 色值 | 用途 | 状态 |
+|------|------------|------|------|------|
+| `arrow-back-ink.svg` | `arrow_back` | #1c1917（onSurface 浅） | 两页自定义导航返回钮 24dp | ✅ gstatic 拉取官方 path |
+| `arrow-back-dark.svg` | `arrow_back` | #e8e3d9（onSurface 深） | 同上深色态 | ✅ 同字形换色 |
+| `check-circle-primary-dark.svg` | `check_circle` | #4da989（primary 深） | 闯关顶栏「已达标」徽章 15dp | ✅ 本地缓存源 |
+| `keyboard-arrow-right-white.svg` | `keyboard_arrow_right` | #ffffff（onPrimary） | 底部实底按钮右箭头 | ✅ 本地缓存源 |
+| `leaderboard-primary.svg` | `leaderboard` | #1f7a5c（primary） | 评测卡「最近得分」钮 20dp | ✅ gstatic 拉取官方 path |
+| `emoji-events-gold.svg` | `emoji_events` | #EAB308（RankGold） | 达人榜 #1 皇冠 22dp | ✅ 存量字形换色 |
+| `military-tech-silver.svg` | `military_tech` | #9CA3AF（RankSilver） | 达人榜 #2 银牌 22dp | ✅ 存量字形换色 |
+| `military-tech-bronze.svg` | `military_tech` | #D97706（RankBronze） | 达人榜 #3 铜牌 22dp | ✅ 存量字形换色 |
+| `workspace-premium-amber.svg` | `workspace_premium` | #D97706（amber-600） | 闯关配额胶囊预警皇冠 13dp | ✅ gstatic 拉取官方 path |
+| `workspace-premium-amber-dark.svg` | `workspace_premium` | #FBBF24（amber-400） | 同上深色态 | ✅ 同字形换色 |
+| `workspace-premium-white.svg` | `workspace_premium` | #ffffff | 「下一关 · 解锁 PRO」末钮 16dp | ✅ 同字形换色 |
+
+> 烘焙脚本 `scripts/tmp-material-bake-t45.py`（版本回退 fetch + 本地缓存 + 全幅矩形
+> 过滤 + 存量字形换色；金银铜色值 = Android `RankGold/RankSilver/RankBronze` 原值）。
+>
+> **白图教训（2026-09-27 真机走查）**：`military_tech` 存量源是 `viewBox="0 -960 960 960"`
+> 网格的 Material Symbols 字形，换色烘焙时若沿用 `0 0 24 24` viewBox，路径坐标（480、
+> -174、960…）整体落出视口，#2/#3 奖牌渲染成空白——**换色烘焙必须连同源 viewBox
+> 一起复用**（规范第七节第 2 条「保留源 viewBox」的实例教训）；test-leaderboard.js
+> 已加 viewBox 网格回归断言锁死。
 
 ## 五、已是 Material（历史批次已换装，本次核验存量）
 

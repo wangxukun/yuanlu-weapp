@@ -1,4 +1,8 @@
 {
-  "navigationBarTitleText": "发音闯关",
-  "usingComponents": {}
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "发音闯关复习",
+  "usingComponents": {
+    "eval-card": "/components/voice/eval-card/index",
+    "premium-modal": "/components/premium-modal/index"
+  }
 }

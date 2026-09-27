@@ -56,6 +56,13 @@ Component({
     passThreshold: { type: Number, value: 80 },
     /** 收藏书签态（高亮由父页传入；toggle 动作经 bookmark 事件外抛） */
     bookmarked: { type: Boolean, value: false },
+    /** 收藏书签钮显隐（闯关卡按 Android SpeechEvalCard 隐藏，默认开） */
+    showBookmark: { type: Boolean, value: true },
+    /** 单句循环钮显隐（同上，闯关卡隐藏） */
+    showLoop: { type: Boolean, value: true },
+    /** 「最近得分」入口（Android 卡右侧第 4 钮，仅闯关复习传入；
+     *  点击外抛 latestscore 交父页以伪结果翻结果面） */
+    showLatestScore: { type: Boolean, value: false },
   },
 
   data: {
@@ -121,6 +128,14 @@ Component({
     quotaLocked(v) {
       if (v && !this.data.locked) this.setData({ locked: true });
     },
+    // 父页后置注入历史/伪结果（最近得分）：翻结果面（入场态由 _applySubtitle 承接）
+    previousResult(v) {
+      if (!v) return;
+      if (this._player) this._player.stop();
+      this._applyRating(v.overallScore);
+      this.setData({ phase: 'result', result: v, selectedWordIndex: null });
+      this.triggerEvent('phasechange', { phase: 'result' });
+    },
   },
 
   methods: {
@@ -152,6 +167,11 @@ Component({
         ? '已过关（≥' + th + '），发音很棒！'
         : '继续练习，达到 ' + th + ' 分即可过关';
       this.setData({ rating, ratingSub });
+    },
+
+    /** 相变外抛（父页按 Android EVALUATING 口径联动底部导航可用性） */
+    _emitPhase(phase) {
+      this.triggerEvent('phasechange', { phase });
     },
 
     _onTtsState(s) {
@@ -292,14 +312,17 @@ Component({
       this._player.stop();
       tts.stop();
       this.setData({ phase: 'recording', amplitudes: [], result: null, selectedWordIndex: null });
+      this._emitPhase('recording');
     },
 
     /** 停止录音并评测（T3.1 底座：直取内存帧，不依赖 onStop） */
     async _finishRecording() {
       this.setData({ phase: 'processing', amplitudes: [] });
+      this._emitPhase('processing');
       const { base64, wavPath, bytes } = await recorder.stop();
       if (bytes < MIN_RECORD_BYTES) {
         this.setData({ phase: 'idle' });
+        this._emitPhase('idle');
         wx.showToast({ title: '录音太短，请重试', icon: 'none' });
         return;
       }
@@ -328,6 +351,7 @@ Component({
           result.userAudioPath = wavPath || '';
           this._applyRating(result.overallScore);
           this.setData({ phase: 'result', result, selectedWordIndex: null });
+          this._emitPhase('result');
           this.triggerEvent('evaluate', {
             score: result.overallScore,
             details: result,
@@ -337,6 +361,7 @@ Component({
         })
         .catch((err) => {
           this.setData({ phase: 'idle' });
+          this._emitPhase('idle');
           if (err && err.statusCode === 403) {
             // 配额墙：toast + 本卡永久置锁 + 会员转化（spec 口径）
             const body = err && err.body;
@@ -367,6 +392,14 @@ Component({
     onRetryRecording() {
       this._player.stop();
       this.setData({ phase: 'idle', result: null, selectedWordIndex: null });
+      this._emitPhase('idle');
+    },
+
+    /** 最近得分（Android onShowLatestScore：录音中/评测中禁点；
+     *  伪结果由父页组装经 previousResult 注入翻结果面） */
+    onLatestScore() {
+      if (this.data.phase === 'processing' || this.data.phase === 'recording') return;
+      this.triggerEvent('latestscore', {});
     },
 
     onPremiumClose() {

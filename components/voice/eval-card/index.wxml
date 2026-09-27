@@ -4,8 +4,10 @@
 <view class="ec-card {{themeClass}} col">
 
   <!-- ══ 1. 顶部工具行：AI 朗读 / 原声 / 慢速 / 书签 / 单句循环（圆钮 + 下方文字标签；
-       翻译开关在英文句末，Web SpeechEvaluationCard 同款排布） ══ -->
-  <view class="ec-actions row">
+       翻译开关在英文句末，Web SpeechEvaluationCard 同款排布）；
+       闯关形态（showLatestScore）：三播放钮 + 弹性空隙 + 最近得分居右
+       （Android SpeechEvalCard：spacedBy(12) + Spacer(weight1)） ══ -->
+  <view class="ec-actions row {{showLatestScore ? 'ec-actions--split' : ''}}">
     <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onAiReading">
       <view class="ec-act-btn center {{playing === 'ai' ? 'ec-act-btn--on' : ''}}">
         <image class="ec-act-ic" src="{{playing === 'ai' ? '/assets/icons/graphic-eq-white.svg' : '/assets/icons/graphic-eq-primary.svg'}}" />
@@ -24,18 +26,27 @@
       </view>
       <text class="ec-act-label">慢速播放</text>
     </view>
-    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleBookmark">
+    <view wx:if="{{showBookmark}}" class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleBookmark">
       <view class="ec-act-btn center">
         <image class="ec-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-border-gray.svg'}}" />
       </view>
       <text class="ec-act-label">收藏书签</text>
     </view>
-    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleLoop">
+    <view wx:if="{{showLoop}}" class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleLoop">
       <view class="ec-act-btn center">
         <image class="ec-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-one-primary-dark.svg' : '/assets/icons/repeat-one-primary.svg') : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')}}" />
       </view>
       <text class="ec-act-label">单句循环</text>
     </view>
+    <block wx:if="{{showLatestScore}}">
+      <view class="ec-act-spacer"></view>
+      <view class="ec-act {{(phase === 'processing' || phase === 'recording') ? 'ec-act--off' : ''}}" bindtap="onLatestScore">
+        <view class="ec-act-btn center">
+          <image class="ec-act-ic" src="/assets/icons/leaderboard-primary.svg" />
+        </view>
+        <text class="ec-act-label">最近得分</text>
+      </view>
+    </block>
   </view>
 
   <!-- ══ 英文句（衬线 + 翻译图标随文流排在句尾）+ 中文（开关开时） ══ -->

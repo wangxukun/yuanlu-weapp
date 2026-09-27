@@ -1,12 +1,315 @@
-/* 发音达人榜（占位） */
-.page-stub {
-  min-height: 100vh;
+/**
+ * pages/review/leaderboard — 发音达人榜（复刻 Android SpeechLeaderboardScreen.kt）。
+ * 尺寸 dp/sp→rpx×2；色值 theme/Color.kt + 组件内常量原值（RankGold #EAB308 /
+ * RankSilver #9CA3AF / RankBronze #D97706、secondary 双态恒 #D98A17）。
+ * 三轨主题：媒体查询平类 + .theme-dark 全量重声明 + .theme-light 全量重声明。
+ */
+.lb-page {
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Material3 tokens（light） */
+  --lb-bg: #faf8f3;             /* background */
+  --lb-surface: #ffffff;        /* surface */
+  --lb-on-surface: #1c1917;     /* onSurface */
+  --lb-osv: #57534e;            /* onSurfaceVariant */
+  --lb-osv-60: rgba(87, 83, 78, 0.6);
+  --lb-osv-70: rgba(87, 83, 78, 0.7);
+  --lb-primary: #1f7a5c;        /* primary */
+  --lb-on-primary: #ffffff;     /* onPrimary */
+  --lb-primary-container: #edf7f2; /* primaryContainer（头像回退底） */
+  --lb-secondary: #d98a17;      /* secondary（双态恒值） */
+  --lb-on-secondary: #ffffff;   /* onSecondary */
+  --lb-outline-40: rgba(229, 224, 213, 0.4);
+  --lb-error: #d2503f;
+  --lb-primary-06: rgba(31, 122, 92, 0.06);  /* primary@0.06（me 卡底） */
+  --lb-primary-25: rgba(31, 122, 92, 0.25); /* primary@0.25（me 卡边/spin 环） */
+  background: var(--lb-bg);
+  color: var(--lb-on-surface);
+}
+@media (prefers-color-scheme: dark) {
+  .lb-page:not(.theme-light) {
+    --lb-bg: #151310;
+    --lb-surface: #1e1b16;
+    --lb-on-surface: #e8e3d9;
+    --lb-osv: #a8a29e;
+    --lb-osv-60: rgba(168, 162, 158, 0.6);
+    --lb-osv-70: rgba(168, 162, 158, 0.7);
+    --lb-primary: #4da989;
+    --lb-on-primary: #0a241b;
+    --lb-primary-container: #0f3b2c;
+    --lb-on-secondary: #151310;
+    --lb-outline-40: rgba(58, 52, 44, 0.4);
+    --lb-primary-06: rgba(77, 169, 135, 0.06);
+    --lb-primary-25: rgba(77, 169, 135, 0.25);
+  }
+}
+.lb-page.theme-dark {
+  --lb-bg: #151310;
+  --lb-surface: #1e1b16;
+  --lb-on-surface: #e8e3d9;
+  --lb-osv: #a8a29e;
+  --lb-osv-60: rgba(168, 162, 158, 0.6);
+  --lb-osv-70: rgba(168, 162, 158, 0.7);
+  --lb-primary: #4da989;
+  --lb-on-primary: #0a241b;
+  --lb-primary-container: #0f3b2c;
+  --lb-on-secondary: #151310;
+  --lb-outline-40: rgba(58, 52, 44, 0.4);
+  --lb-primary-06: rgba(77, 169, 135, 0.06);
+  --lb-primary-25: rgba(77, 169, 135, 0.25);
+}
+.lb-page.theme-light {
+  --lb-bg: #faf8f3;
+  --lb-surface: #ffffff;
+  --lb-on-surface: #1c1917;
+  --lb-osv: #57534e;
+  --lb-osv-60: rgba(87, 83, 78, 0.6);
+  --lb-osv-70: rgba(87, 83, 78, 0.7);
+  --lb-primary: #1f7a5c;
+  --lb-on-primary: #ffffff;
+  --lb-primary-container: #edf7f2;
+  --lb-on-secondary: #ffffff;
+  --lb-outline-40: rgba(229, 224, 213, 0.4);
+  --lb-primary-06: rgba(31, 122, 92, 0.06);
+  --lb-primary-25: rgba(31, 122, 92, 0.25);
+}
+
+/* ---- 顶栏（返回 + 奖杯标题 + 副行规则，高 56dp） ---- */
+.lb-topbar {
+  flex-shrink: 0;
+  height: 112rpx;
+  padding-left: 8rpx;  /* 4dp */
+  padding-right: 8rpx;
+  align-items: center;
+}
+.lb-icon-btn {
+  width: 96rpx;
+  height: 96rpx;
+}
+.lb-icon-btn-ic {
+  width: 48rpx;        /* 24dp */
+  height: 48rpx;
+}
+.lb-title-row {
+  align-items: center;
+  gap: 16rpx;          /* 8dp */
+}
+.lb-trophy-box {
+  width: 60rpx;        /* 30dp */
+  height: 60rpx;
+  border-radius: 16rpx; /* 8dp */
+  background: rgba(217, 138, 23, 0.12); /* secondary@0.12（双态恒值） */
+}
+.lb-trophy-ic {
+  width: 36rpx;        /* 18dp */
+  height: 36rpx;
+}
+.lb-title {
+  font-size: 32rpx;    /* 16sp titleMedium */
+  font-weight: 700;
+  color: var(--lb-on-surface);
+}
+.lb-rule {
+  margin-top: 2rpx;
+  padding-left: 76rpx; /* 38dp（与标题文字对齐） */
+  font-size: 22rpx;    /* 11sp labelSmall */
+  color: var(--lb-osv-70);
+}
+
+/* ---- 双 SegmentedPill（surface 底 圆角12 pad3；选项 圆角9 v-pad6） ---- */
+.lb-tabs {
+  flex-shrink: 0;
+  padding: 8rpx 32rpx; /* v4dp h16dp */
+  gap: 16rpx;          /* 8dp */
+}
+.lb-pill {
+  background: var(--lb-surface);
+  border-radius: 24rpx; /* 12dp */
+  padding: 6rpx;        /* 3dp */
+  gap: 6rpx;            /* 3dp */
+}
+.lb-pill-opt {
+  flex: 1;
+  padding: 12rpx 0;    /* v6dp */
+  border-radius: 18rpx; /* 9dp */
+}
+.lb-pill-opt--primary {
+  background: var(--lb-primary);
+}
+.lb-pill-opt--secondary {
+  background: var(--lb-secondary);
+}
+.lb-pill-text {
+  font-size: 24rpx;    /* 12sp labelMedium */
+  font-weight: 700;
+  text-align: center;
+  color: var(--lb-osv);
+}
+.lb-pill-text--primary {
+  color: var(--lb-on-primary);
+}
+.lb-pill-text--secondary {
+  color: var(--lb-on-secondary);
+}
+
+/* ---- 榜单主体 ---- */
+.lb-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.lb-center {
+  height: 100%;
   align-items: center;
   justify-content: center;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 48rpx;
 }
-.page-stub .t-caption {
-  margin-top: 12rpx;
+.lb-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 5rpx solid var(--lb-primary-25);
+  border-top-color: var(--lb-primary);
+  animation: lb-rotate 0.9s linear infinite;
+}
+@keyframes lb-rotate {
+  to { transform: rotate(360deg); }
+}
+.lb-error-text {
+  font-size: 32rpx;    /* 16sp bodyLarge */
+  text-align: center;
+  color: var(--lb-error);
+}
+.lb-retry {
+  margin-top: 32rpx;  /* 16dp */
+  height: 80rpx;
+  padding: 0 48rpx;
+  border-radius: 999rpx;
+  background: var(--lb-primary);
+}
+.lb-retry-text {
+  font-size: 28rpx;    /* 14sp labelLarge */
+  font-weight: 500;
+  color: var(--lb-on-primary);
+}
+.lb-empty-title {
+  font-size: 28rpx;    /* 14sp bodyMedium */
+  font-weight: 500;
+  color: var(--lb-osv);
+}
+.lb-empty-sub {
+  margin-top: 8rpx;   /* 4dp */
+  font-size: 22rpx;    /* 11sp labelSmall */
+  color: var(--lb-osv-60);
+}
+
+/* ---- 榜单卡（surface 圆角16 outline@0.4 边） ---- */
+.lb-scroll {
+  height: 100%;
+}
+.lb-card {
+  margin: 16rpx 32rpx 0; /* t8dp h16dp */
+  background: var(--lb-surface);
+  border-radius: 32rpx;  /* 16dp */
+  border: 2rpx solid var(--lb-outline-40);
+  overflow: hidden;
+}
+.lb-row {
+  padding: 20rpx 28rpx;  /* v10dp h14dp */
+  align-items: center;
+  gap: 24rpx;            /* 头像后 12dp（排名位→头像同距） */
+}
+.lb-rank {
+  width: 60rpx;          /* 30dp */
+  height: 60rpx;
+  flex-shrink: 0;
+}
+.lb-medal {
+  width: 44rpx;          /* 22dp */
+  height: 44rpx;
+}
+.lb-rank-num {
+  font-size: 32rpx;      /* 16sp titleMedium */
+  font-weight: 900;      /* Black */
+  color: var(--lb-osv-60);
+}
+.lb-avatar {
+  width: 80rpx;          /* 40dp */
+  height: 80rpx;
+  border-radius: 50%;
+  background: var(--lb-primary-container);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.lb-avatar-img {
+  width: 100%;
+  height: 100%;
+}
+.lb-avatar-initial {
+  font-size: 28rpx;      /* 14sp titleSmall */
+  font-weight: 700;
+  color: var(--lb-primary);
+}
+.lb-nick {
+  font-size: 28rpx;      /* 14sp bodyMedium */
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lb-on-surface);
+}
+.lb-metrics {
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.lb-main {
+  font-size: 28rpx;      /* 14sp titleSmall */
+  font-weight: 900;      /* Black */
+  color: var(--lb-primary);
+}
+.lb-sub {
+  margin-top: 2rpx;
+  font-size: 22rpx;      /* 11sp labelSmall */
+  color: var(--lb-osv-60);
+}
+.lb-divider {
+  height: 2rpx;          /* HorizontalDivider 1dp */
+  background: var(--lb-outline-40);
+}
+/* 列表底部留白：me 卡存在时 108dp（吸底卡不遮末行），否则 16dp */
+.lb-list-tail {
+  height: 32rpx;
+}
+.lb-list-tail--me {
+  height: 216rpx;
+}
+
+/* ---- 吸底「我的排名」卡（primary@0.06 底 primary@0.25 边 圆角16） ---- */
+.lb-me {
+  position: absolute;
+  left: 32rpx;           /* 16dp */
+  right: 32rpx;
+  bottom: calc(32rpx + env(safe-area-inset-bottom));
+  border-radius: 32rpx;  /* 16dp */
+  background: var(--lb-primary-06);  /* primary@0.06 */
+  border: 2rpx solid var(--lb-primary-25); /* primary@0.25 */
+  padding: 24rpx 32rpx;  /* v12dp h16dp */
+  align-items: center;
+  gap: 28rpx;            /* 14dp */
+}
+.lb-me-rank {
+  font-size: 48rpx;      /* 24sp headlineSmall */
+  font-weight: 900;      /* Black */
+  color: var(--lb-primary);
+}
+.lb-me-title {
+  font-size: 28rpx;      /* 14sp bodyMedium */
+  font-weight: 700;
+  color: var(--lb-on-surface);
+}
+.lb-me-sub {
+  margin-top: 2rpx;
+  font-size: 22rpx;      /* 11sp labelSmall */
+  color: var(--lb-osv);
 }
