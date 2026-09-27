@@ -69,7 +69,9 @@ Page({
         return;
       }
       // 深链定位：id 优先 / subtitleId 兜底 / 未命中回落 0
-      let index = 0;
+      // （index 必须初始化 -1：初始 0 会让 subtitleId 兜底分支被 index<0 短路，
+      //  deck 跟读只传 subtitleId 时恒落第 1 句——刷句卡片与跟读句错位根因）
+      let index = -1;
       if (this._deepLinkId) {
         index = this._sentences.findIndex((s) => String(s.id) === this._deepLinkId);
       }

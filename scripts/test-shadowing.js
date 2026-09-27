@@ -169,6 +169,16 @@ apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, 
   assert(p2.data.subtitle.textEn === 'Subtitle text one.' && p2.data.subtitle.start === 12.1,
     '命中字幕：start/textEn/words 全字幕口径');
 
+  // 非零位深链（deck 跟读场景：只传 subtitleId；回归锁死——index 初始 0 会把
+  // subtitleId 兜底分支短路，恒落第 1 句致卡片与跟读句错位）
+  const p2b = makePage();
+  p2b.onLoad({ subtitleId: '20' });
+  await settle(10);
+  assert(p2b.data.index === 1 && p2b.data.subtitleId === 20,
+    '深链 subtitleId=20（非零位）→ 第 2 句（deck 跟读同句回归）');
+  assert(p2b.data.subtitle.textEn === 'Subtitle text two.',
+    '非零位深链：句子文本与第 3 张刷句卡一致（非第 1 句）');
+
   // 未命中回落 0
   const p3 = makePage();
   p3.onLoad({ id: '999' });
