@@ -489,6 +489,14 @@ async function runRecordEvalSim() {
   ok(SE_WXML.includes("loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')"),
     '循环图标 lucide 同族四态（Repeat/Repeat1 × 深浅）');
 
+  // 「最近得分」钮退役红线（用户指令：顶部圆钮组仅剩五钮；两个入口共用本页）
+  ok(!SE_WXML.includes('最近得分') && !SE_WXML.includes('onShowLatestScore')
+    && !SE_WXML.includes('hasLatestRecord') && !SE_WXML.includes('se-flex-gap')
+    && !SE_WXML.includes('chart-column'),
+    '最近得分钮及联动（hasLatestRecord/se-flex-gap/chart-column 图标）全部移除');
+  ok(['AI朗读', '原声播放', '慢速播放', '收藏书签', '单句循环'].every((l) => SE_WXML.includes('>' + l + '</text>')),
+    '顶部圆钮组恰五钮（AI朗读/原声播放/慢速播放/收藏书签/单句循环）');
+
   // 起录：onStart + 20 帧 × 3200B（2s，> 0.5s 下限）
   recHandlers.start();
   for (let i = 0; i < 20; i++) recHandlers.frame({ frameBuffer: new ArrayBuffer(3200) });

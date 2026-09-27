@@ -175,12 +175,9 @@
   height: 40rpx;
 }
 
-/* ---- 顶部操作栏（三圆钮 + 最近得分） ---- */
+/* ---- 顶部操作栏（五圆钮） ---- */
 .se-actions {
   gap: 24rpx; /* 12dp */
-}
-.se-flex-gap {
-  flex: 1;
 }
 .se-act {
   align-items: center;

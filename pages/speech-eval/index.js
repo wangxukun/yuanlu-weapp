@@ -17,7 +17,7 @@
  *   - 句子过滤（词数区间 + 只练未掌握）与历史匹配（subtitleId || 文本+起点差<0.5s）
  *   - 每句结果缓存（切句返回恢复）+ 历史记录恢复（云端录音直链 + detail 明细回填）
  *   - 盲读模式（遮挡/揭示，评测产出后自动揭示）、音标模式（逐词 IPA 预取缓存）
- *   - 达标 1.5s 自动跳下一句；「最近得分」入口；评测配额墙（403 → 会员弹窗）
+ *   - 达标 1.5s 自动跳下一句；评测配额墙（403 → 会员弹窗）
  *   - 点词查词与精听页共用 vocabulary-modal 同一口径
  */
 const { get, post } = require('../../utils/request');
@@ -56,7 +56,6 @@ Page({
     subsEmpty: false,
     practicedCount: 0,
     progressPercent: 0,
-    hasLatestRecord: false,
     isLastIndex: false,
 
     // 单句评测卡
@@ -284,13 +283,11 @@ Page({
     for (let i = 0; i < subs.length; i++) {
       if (core.latestRecordFor(subs[i], this._records)) practiced++;
     }
-    const cur = subs[idx];
     this.setData({
       indexLabel: (idx + 1) + ' / ' + subs.length,
       subsEmpty: subs.length === 0,
       practicedCount: practiced,
       progressPercent: subs.length ? Math.round((practiced / subs.length) * 100) : 0,
-      hasLatestRecord: !!(cur && core.latestRecordFor(cur, this._records)),
       isLastIndex: subs.length > 0 && idx === subs.length - 1,
     });
   },
@@ -752,21 +749,6 @@ Page({
         }
       })
       .catch(() => {});
-  },
-
-  /** 「最近得分」入口：会话缓存直接翻到结果面，否则从历史恢复 */
-  onShowLatestScore() {
-    if (this.data.phase === 'recording' || this.data.phase === 'evaluating') return;
-    const sub = this._subs[this.data.index];
-    if (!sub) return;
-    const cached = this._resultCache[sub.id];
-    if (!cached) {
-      this._restoreFromHistory(sub.id);
-      return;
-    }
-    this._stopPlayback();
-    this._cancelAdvance();
-    this.setData({ phase: 'result', result: cached, selectedWordIndex: null });
   },
 
   // ==================== 页内播放（单 InnerAudioContext 互斥） ====================

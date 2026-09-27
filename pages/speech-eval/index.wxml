@@ -39,7 +39,7 @@
     <scroll-view wx:else class="se-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view class="se-card col">
 
-        <!-- ── 顶部操作栏：AI 朗读 / 原声播放 / 慢速播放 + 最近得分（居右，仅有历史时显示） ── -->
+        <!-- ── 顶部操作栏：AI 朗读 / 原声播放 / 慢速播放 / 收藏书签 / 单句循环 ── -->
         <view class="se-actions row">
           <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onAiReading">
             <view class="se-act-btn center {{playing === 'ai' ? 'se-act-btn--on' : ''}}">
@@ -70,13 +70,6 @@
               <image class="se-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')}}" />
             </view>
             <text class="se-act-label">单句循环</text>
-          </view>
-          <view class="se-flex-gap"></view>
-          <view wx:if="{{hasLatestRecord}}" class="se-act col {{(phase === 'evaluating' || phase === 'recording') ? 'se-act--off' : ''}}" bindtap="onShowLatestScore">
-            <view class="se-act-btn center">
-              <image class="se-act-ic" src="{{dark ? '/assets/icons/chart-column-dark.svg' : '/assets/icons/chart-column-primary.svg'}}" />
-            </view>
-            <text class="se-act-label">最近得分</text>
           </view>
         </view>
 
