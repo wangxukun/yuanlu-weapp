@@ -1,40 +1,600 @@
-/* 句子本根视图（占位） */
+/* 句子本根视图 — T2.1 数据接入与生词高亮联动
+   统计三格排版对齐 Web SentenceStats（白色统计卡 + 图标底色语义）；
+   高亮 mark 色值逐字取自 Web VocabularyHighlighter highlightClassName：
+   bg-amber-100 #fef3c7 / text-amber-900 #78350f / border-amber-500 #f59e0b，
+   深色态 bg-amber-950/40 / text-amber-300 #fcd34d / border-amber-600 #d97706。 */
+
 .notebook-scroll {
   height: 100%;
 }
-.notebook-pad {
+
+.sn-page {
+  /* 本地令牌（三态块：默认浅色 → 媒体查询深色 → 手动覆盖根类） */
+  --sn-tag-text: #4f46e5;   /* indigo-600（Web 标签胶囊文字） */
+  --sn-divider: #e5e7eb;    /* gray-200（Web divide-y 分隔线） */
+  --sn-fold-bg: #f9fafb;    /* gray-50（Web 折叠区底色） */
+
   padding: var(--page-padding);
+  padding-bottom: calc(var(--mini-player-height, 0rpx) + env(safe-area-inset-bottom));
 }
-.notebook-placeholder {
-  display: flex;
-  flex-direction: column;
+
+/* ---------------- 首次加载 ---------------- */
+.sn-firstload {
+  align-items: center;
+  padding-top: 160rpx;
+}
+.sn-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 5rpx solid var(--primary-50);
+  border-top-color: var(--color-primary);
+  animation: sn-rotate 0.8s linear infinite;
+  margin-bottom: 20rpx;
+}
+@keyframes sn-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------- 全局空态（Web 文案逐字） ---------------- */
+.sn-empty {
   align-items: center;
   padding: 96rpx 48rpx;
 }
-.np-badge {
-  width: 120rpx;
-  height: 120rpx;
+.sn-empty-badge {
+  width: 128rpx;
+  height: 128rpx;
   border-radius: var(--r-full);
   background: var(--primary-50);
   margin-bottom: 24rpx;
 }
-.np-icon {
+.sn-empty-icon {
   width: 56rpx;
   height: 56rpx;
 }
-.np-title {
+.sn-empty-title {
   color: var(--text-primary);
 }
-.np-desc {
+.sn-empty-desc {
   color: var(--text-secondary);
   margin-top: 12rpx;
   text-align: center;
+  line-height: 1.7;
 }
-.np-phase {
-  margin-top: 32rpx;
-  padding: 8rpx 24rpx;
-  border-radius: var(--r-full);
-  background: var(--ink-100);
+.sn-empty-btn {
+  margin-top: 40rpx;
+  padding: 18rpx 48rpx;
+  font-size: 26rpx;
+}
+
+/* ---------------- 统计三格（对齐 Web SentenceStats 移动端 Grid） ---------------- */
+.sn-stats {
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+.sn-stat {
+  flex: 1;
+  align-items: center;
+  background: var(--card-bg);
+  border-radius: 16rpx;
+  border: 1rpx solid var(--ink-100);
+  padding: 24rpx 16rpx;
+  gap: 12rpx;
+}
+.sn-stat-ic {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 12rpx;
+}
+/* 联动词汇：bg-warning/10 text-warning；分类标签：bg-info/10 text-info */
+.sn-stat-ic--amber {
+  background: rgba(217, 138, 23, 0.1);
+}
+.sn-stat-ic--info {
+  background: rgba(74, 127, 165, 0.1);
+}
+.sn-stat-img {
+  width: 32rpx;
+  height: 32rpx;
+}
+.sn-stat-txt {
+  align-items: center;
+  gap: 4rpx;
+}
+.sn-stat-label {
+  font-size: 20rpx;
+  font-weight: 700;
   color: var(--text-tertiary);
+}
+.sn-stat-num {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* ---------------- 句子卡片（卡片详情模式：衬线粗体原句 + meta pills） ---------------- */
+.sn-item {
+  padding: 32rpx;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+}
+/* Web text-base font-serif font-bold text-gray-800 leading-relaxed */
+.sn-item-en {
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1.625;
+  color: var(--text-primary);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+/* meta pills：出处徽章（badge-ghost）+ 标签（indigo-500/10 底） */
+.sn-item-meta {
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.sn-item-ep {
+  flex-shrink: 0;
+  max-width: 360rpx;
+  gap: 8rpx;
+  padding: 6rpx 16rpx;
+  border-radius: var(--r-full);
+  background: var(--color-base-200);
+}
+.sn-item-ep-ic {
+  width: 20rpx;
+  height: 20rpx;
+  flex-shrink: 0;
+}
+.sn-item-ep-text {
   font-size: 22rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.sn-item-tags {
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+.sn-item-tag {
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--sn-tag-text);
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+/* ---------------- 卡片底栏：折叠按钮居左 + 5 图标居右（同一行） ---------------- */
+.sn-item--open {
+  padding-bottom: 0;
+  overflow: hidden;
+}
+.sn-item-bar {
+  /* 分割线与上方内容的间距 = 容器 gap 20rpx + margin-top 8rpx = 28rpx
+     （对齐 Web gap-3.5=14px；padding-top 只作用于分割线下侧，五轮补正） */
+  margin-top: 8rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--sn-divider);
+  justify-content: space-between; /* 折叠按钮居左 / 图标组居右 */
+  gap: 16rpx;
+}
+.sn-item-acts {
+  gap: 8rpx;                 /* Web gap-1（与组件内两钮间距一致，5 图标均匀） */
+  flex-shrink: 0;
+}
+/* 裸图标操作钮（w-8 h-8 圆形；禁用态灰 300） */
+.sn-act {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+.sn-act-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.sn-act--off {
+  opacity: 1;
+}
+
+/* 折叠触发（行内居左，与 5 图标同排；chevron 随展开旋转） */
+.sn-collapse {
+  gap: 8rpx;
+  flex-shrink: 0;
+  max-width: 400rpx;
+}
+.sn-collapse-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.sn-collapse-ic {
+  width: 28rpx;
+  height: 28rpx;
+  transition: transform 0.2s ease;
+}
+.sn-collapse-ic--up {
+  transform: rotate(180deg);
+}
+
+/* 折叠区（Web Accordion Body：灰底 + 上边线） */
+.sn-fold {
+  background: var(--sn-fold-bg);
+  border-top: 1rpx solid var(--sn-divider);
+  margin: 20rpx -32rpx -32rpx;
+  padding: 28rpx 32rpx 32rpx;
+  gap: 24rpx;
+}
+.sn-fold-block {
+  gap: 10rpx;
+}
+.sn-fold-label {
+  gap: 10rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+.sn-fold-label-ic {
+  width: 24rpx;
+  height: 24rpx;
+}
+.sn-fold-zh {
+  font-size: 26rpx;
+  line-height: 1.625;
+  color: var(--text-secondary);
+}
+.sn-fold-note {
+  font-size: 24rpx;
+  line-height: 1.625;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--card-bg);
+  border: 1rpx solid var(--sn-divider);
+  border-radius: 16rpx;
+  padding: 20rpx;
+}
+.sn-fold-addnote {
+  font-size: 24rpx;
+  color: var(--sn-tag-text);
+  padding: 8rpx 0;
+}
+/* 生词高亮 mark（Web highlightClassName 原值，浅色态） */
+.sn-hl {
+  background: #fef3c7;
+  color: #78350f;
+  font-weight: 700;
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+  border-bottom: 4rpx solid #f59e0b;
+  display: inline-block;
+}
+
+/* ---------------- 复习横幅（Web SentenceStats：墨绿底 + 白字 CTA） ---------------- */
+.sn-banner {
+  --snb-bg: var(--primary-600);
+  border-radius: 24rpx;
+  padding: 40rpx;
+  margin-bottom: 24rpx;
+  background: var(--snb-bg);
+}
+.sn-banner-head {
+  gap: 20rpx;
+  margin-bottom: 14rpx;
+}
+.sn-banner-ic {
+  width: 44rpx;
+  height: 44rpx;
+}
+.sn-banner-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+.sn-banner-desc {
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 30rpx;
+}
+.sn-banner-strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+.sn-banner-btn {
+  align-self: flex-start;
+  gap: 12rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 44rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--primary-600);
+}
+.sn-banner-btn-ic {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+/* ---------------- 搜索与筛选面板（Web Control Panel 白卡；与配额卡间距 24rpx） ---------------- */
+.sn-panel {
+  background: var(--card-bg);
+  border-radius: 24rpx;
+  padding: 30rpx;
+  margin-top: 24rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
+}
+.sn-search {
+  background: var(--color-base-200);
+  border-radius: var(--r-md);
+  padding: 14rpx 20rpx;
+  gap: 16rpx;
+}
+.sn-search-ic {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+}
+.sn-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 44rpx;
+  line-height: 44rpx;
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+.sn-search-ph {
+  color: var(--text-tertiary);
+}
+.sn-search-clear {
+  width: 44rpx;
+  height: 44rpx;
+  flex-shrink: 0;
+}
+.sn-search-clear-ic {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.sn-panel-row {
+  gap: 20rpx;
+}
+.sn-picker {
+  flex: 1;
+  min-width: 0;
+}
+.sn-picker-field {
+  background: var(--color-base-200);
+  border-radius: var(--r-md);
+  padding: 12rpx 20rpx;
+  gap: 12rpx;
+}
+.sn-picker-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+.sn-picker-chevron {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+/* 视图切换（Web View Toggle：灰底容器 + 白色激活片；对齐 vocab-notebook 排钮） */
+.sn-viewtoggle {
+  background: var(--color-base-200);
+  border-radius: var(--r-md);
+  padding: 8rpx;
+  gap: 4rpx;
+  flex-shrink: 0;
+}
+.sn-viewbtn {
+  gap: 10rpx;
+  padding: 10rpx 22rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+.sn-viewbtn--on {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+.sn-viewbtn-ic {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* 标签 pills：单行水平滚动（Web overflow-x-auto；内容撑开 max-content，
+   min-width 100% 保证内容不足时「清除筛选」贴右） */
+.sn-tags-scroll {
+  width: 100%;
+}
+.sn-tags {
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: 100%;
+  gap: 14rpx;
+  align-items: center;
+  padding-bottom: 4rpx;
+}
+.sn-tags-ic {
+  width: 24rpx;
+  height: 24rpx;
+  flex-shrink: 0;
+}
+.sn-tags-label {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.sn-tagpill {
+  flex-shrink: 0;
+  padding: 12rpx 26rpx;
+  border-radius: var(--r-full);
+  font-size: 22rpx;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--color-base-200);
+}
+.sn-tagpill--on {
+  background: var(--primary-600);
+  color: #ffffff;
+}
+.sn-clearfilter {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--color-indigo, #4f46e5);
+}
+
+/* ---------------- 筛选空态（与全局空态严格区分） ---------------- */
+.sn-filterempty {
+  align-items: center;
+  padding: 72rpx 48rpx;
+  gap: 8rpx;
+}
+.sn-filterempty-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.sn-filterempty-desc {
+  color: var(--text-secondary);
+}
+
+/* ---------------- 简洁清单（Web SentenceCompactList：单容器 + divide-y 分隔线） ---------------- */
+.sn-compact-wrap {
+  padding: 0;
+  overflow: hidden;
+}
+.sn-compact {
+  padding: 28rpx;
+}
+.sn-compact + .sn-compact {
+  border-top: 1rpx solid var(--sn-divider);
+}
+.sn-compact-main {
+  align-items: flex-start;
+  gap: 20rpx;
+}
+.sn-compact-idx {
+  font-size: 24rpx;
+  font-family: Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: #9ca3af;
+  width: 48rpx;
+  flex-shrink: 0;
+  text-align: right;
+  padding-top: 2rpx;
+}
+.sn-compact-body {
+  flex: 1;
+  min-width: 0;
+  gap: 8rpx;
+}
+/* Web text-sm font-serif font-semibold text-gray-800 leading-snug + 生词高亮 */
+.sn-compact-en {
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.375;
+  color: var(--text-primary);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+/* 中文翻译：完整显示多行换行（不截断——四轮走查：仅元数据行做省略） */
+.sn-compact-zh {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+/* 元数据行：剧集链接 + 笔记摘要（时间切片/分类标签为 Web 桌面端元素，移动端不渲染） */
+.sn-compact-meta {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx;
+  padding-top: 4rpx;
+}
+.sn-compact-ep {
+  gap: 6rpx;
+  max-width: 320rpx;
+  flex-shrink: 0;
+}
+.sn-compact-meta-ic {
+  width: 20rpx;
+  height: 20rpx;
+  flex-shrink: 0;
+}
+.sn-compact-meta-ep {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+.sn-compact-note {
+  flex: 1;
+  min-width: 200rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+/* 底部操作行：仅 播放/循环/麦克风 三裸图标，整行靠右（简洁清单无编辑/删除） */
+.sn-compact-foot {
+  justify-content: flex-end;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+
+/* ---------------- 深色适配（本地令牌三态：媒体查询 + 手动覆盖双轨） ---------------- */
+@media (prefers-color-scheme: dark) {
+  .sn-page {
+    --sn-tag-text: #818cf8;
+    --sn-divider: #3b362b;
+    --sn-fold-bg: rgba(41, 37, 36, 0.4);
+  }
+  .sn-hl {
+    background: rgba(45, 22, 3, 0.4);
+    color: #fcd34d;
+    border-bottom-color: #d97706;
+  }
+  .sn-empty-badge {
+    background: rgba(4, 26, 18, 0.4);
+  }
+  .sn-banner {
+    --snb-bg: rgba(15, 54, 40, 0.45);
+  }
+  .sn-viewbtn--on {
+    box-shadow: none;
+  }
+}
+.theme-dark .sn-hl {
+  background: rgba(45, 22, 3, 0.4);
+  color: #fcd34d;
+  border-bottom-color: #d97706;
+}
+.theme-dark .sn-empty-badge {
+  background: rgba(4, 26, 18, 0.4);
+}
+.theme-dark .sn-banner {
+  --snb-bg: rgba(15, 54, 40, 0.45);
+}
+.theme-dark .sn-viewbtn--on {
+  box-shadow: none;
+}
+/* 手动深色覆盖本地令牌（themeClass 与 sn-page 同元素，独立选择器即可命中） */
+.theme-dark {
+  --sn-tag-text: #818cf8;
+  --sn-divider: #3b362b;
+  --sn-fold-bg: rgba(41, 37, 36, 0.4);
 }

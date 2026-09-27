@@ -188,7 +188,7 @@
     <view class="il-toast {{toast.type === 'saved' ? 'il-toast--saved' : 'il-toast--plain'}}" catchtap="noop">
       <!-- 左：对钩状态图标（success 绿，与图标/文案/按钮同行垂直居中，间距由容器 gap=mr-3 提供） -->
       <image wx:if="{{toast.type === 'saved'}}" class="il-toast-icon"
-             src="/assets/icons/check-circle-success.svg" />
+             src="{{dark ? '/assets/icons/check-circle-success-dark.svg' : '/assets/icons/check-circle-success.svg'}}" />
       <!-- 中：标题 + 引文（上下两行） -->
       <view class="il-toast-main">
         <text class="il-toast-title">{{toast.type === 'saved' ? '已收藏至「句子本」' : '已从「句子本」移除'}}</text>

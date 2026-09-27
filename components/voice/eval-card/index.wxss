@@ -1,0 +1,523 @@
+/**
+ * components/voice/eval-card — 语音评测卡样式
+ * 逐项映射 pages/speech-eval 的 Android Compose 规格（七轮截图走查值）：
+ * - 卡面：surface 圆角 20dp + outline/40 描边 + padding 16dp
+ * - 工具行：44dp 圆钮（primary/8 底 + primary/35 描边，active 实心白图标）
+ * - 录音区：88dp 大圆钮（primary/error）+ 104dp error/18 呼吸光圈 + 音量条
+ * - 配额锁定态：橙色（secondary）虚线圆锁 + 皇冠 CTA（T3.2 spec）
+ * - 结果区：104dp conic-gradient 得分环（85/60 双分界）+ 三维条 + 逐词胶囊
+ *   （Web WordScoreBadge 复刻）+ 音素诊断四胶囊 + 通栏再试一次
+ * 深色：--ec-* 局部变量三态（媒体查询跟随系统 + .theme-dark 手动覆盖双轨；
+ * 图标双态变体随后续真机走查补齐）
+ */
+
+.ec-card {
+  /* ===== 局部主题变量（浅色，Android Color.kt Light*） ===== */
+  --ec-bg: #faf8f3;
+  --ec-surface: #ffffff;
+  --ec-on-surface: #1c1917;
+  --ec-on-surface-var: #57534e;
+  --ec-surface-var: #f2efe8;
+  --ec-outline: #e5e0d5;
+  --ec-primary: #1f7a5c;
+  --ec-on-primary: #ffffff;
+  --ec-secondary: #d98a17;
+  --ec-tertiary: #4a7fa5;
+  --ec-error: #d2503f;
+  --ec-primary-08: rgba(31, 122, 92, 0.08);
+  --ec-primary-10: rgba(31, 122, 92, 0.1);
+  --ec-primary-35: rgba(31, 122, 92, 0.35);
+  --ec-primary-40: rgba(31, 122, 92, 0.4);
+  --ec-secondary-10: rgba(217, 138, 23, 0.1);
+  --ec-secondary-30: rgba(217, 138, 23, 0.3);
+  --ec-secondary-50: rgba(217, 138, 23, 0.5);
+  --ec-error-18: rgba(210, 80, 63, 0.18);
+  --ec-error-75: rgba(210, 80, 63, 0.75);
+  --ec-outline-40: rgba(229, 224, 213, 0.4);
+  --ec-outline-50: rgba(229, 224, 213, 0.5);
+  --ec-phoneme-bg: #f9f8f4;
+  --ec-pill-bg: #f8f6f1;
+
+  background: var(--ec-surface);
+  border-radius: 40rpx; /* 20dp */
+  border: 2rpx solid var(--ec-outline-40);
+  padding: 32rpx; /* 16dp */
+}
+
+/* ===== 深色（Android Color.kt Dark*；双轨：媒体查询跟随系统 + 组件根
+   自持 themeClass 的独立 .theme-dark 块——组件样式无法命中页面层祖先，
+   根节点同类竞争靠文件顺序取胜，vocab-notebook 同配方） ===== */
+@media (prefers-color-scheme: dark) {
+  .ec-card {
+    --ec-bg: #151310;
+    --ec-surface: #1e1b16;
+    --ec-on-surface: #f1ede4;
+    --ec-on-surface-var: #a79e8a;
+    --ec-surface-var: #2c2822;
+    --ec-outline: #322d23;
+    --ec-phoneme-bg: #26221c;
+    --ec-pill-bg: #26221c;
+    --ec-outline-40: rgba(50, 45, 35, 0.4);
+    --ec-outline-50: rgba(50, 45, 35, 0.5);
+  }
+}
+.theme-dark {
+  --ec-bg: #151310;
+  --ec-surface: #1e1b16;
+  --ec-on-surface: #f1ede4;
+  --ec-on-surface-var: #a79e8a;
+  --ec-surface-var: #2c2822;
+  --ec-outline: #322d23;
+  --ec-phoneme-bg: #26221c;
+  --ec-pill-bg: #26221c;
+  --ec-outline-40: rgba(50, 45, 35, 0.4);
+  --ec-outline-50: rgba(50, 45, 35, 0.5);
+}
+
+/* ---- 顶部工具行（五钮：AI 朗读/原声/慢速/书签/循环，圆钮 + 下方文字标签） ---- */
+.ec-actions {
+  justify-content: space-between;
+  gap: 8rpx;
+}
+.ec-act {
+  display: flex; /* 列布局：圆钮与文字标签垂直堆叠、水平居中 */
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.ec-act--off {
+  opacity: 0.4;
+}
+.ec-act-btn {
+  width: 88rpx; /* 44dp */
+  height: 88rpx;
+  border-radius: 50%;
+  background: var(--ec-primary-08);
+  border: 2rpx solid var(--ec-primary-35);
+}
+.ec-act-btn--on {
+  background: var(--ec-primary);
+  border-color: var(--ec-primary);
+}
+.ec-act-ic {
+  width: 40rpx; /* 20dp */
+  height: 40rpx;
+}
+.ec-act-label {
+  margin-top: 8rpx; /* 4dp */
+  font-size: 22rpx; /* labelSmall 11sp */
+  color: var(--ec-on-surface-var);
+}
+
+/* ---- 字幕区（英文衬线 + 句末翻译图标 + 中文） ---- */
+.ec-subtitle {
+  margin-top: 32rpx; /* 16dp */
+  padding: 0 8rpx;
+}
+.ec-sentence {
+  font-size: 40rpx; /* 20sp（bodyLarge 档） */
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ec-on-surface);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+/* 翻译图标：随文流排在句尾（inline 跟最后一个词换行，Web 同款） */
+.ec-translate-ic {
+  width: 34rpx;
+  height: 34rpx;
+  vertical-align: -4rpx;
+  margin-left: 4rpx;
+}
+.ec-cn {
+  margin-top: 12rpx; /* 6dp */
+  font-size: 28rpx; /* bodyMedium 14sp */
+  color: var(--ec-on-surface-var);
+  line-height: 1.6;
+}
+.ec-cn--empty {
+  font-size: 24rpx;
+  opacity: 0.6;
+}
+
+/* ---- 录音区公共 ---- */
+.ec-face {
+  align-items: center;
+  margin-top: 16rpx; /* 8dp */
+}
+.ec-idle-gap { height: 40rpx; }
+.ec-rec-gap { height: 24rpx; }
+.ec-eval-gap { height: 48rpx; }
+.ec-lock-gap { height: 32rpx; }
+.ec-phase-text {
+  margin-top: 24rpx;
+  font-size: 28rpx;
+  color: var(--ec-on-surface-var);
+}
+.ec-arc-spin {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: conic-gradient(var(--ec-primary) 0deg 270deg, transparent 270deg 360deg);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 12rpx), #000 calc(100% - 11rpx));
+  mask: radial-gradient(closest-side, transparent calc(100% - 12rpx), #000 calc(100% - 11rpx));
+  animation: ec-rotate 0.9s linear infinite;
+}
+@keyframes ec-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- 配额锁定态（橙虚线圆锁 + 皇冠 CTA） ---- */
+.ec-lock-circle {
+  width: 176rpx; /* 88dp（与录音钮同径） */
+  height: 176rpx;
+  border-radius: 50%;
+  border: 6rpx dashed var(--ec-secondary-50);
+  background: var(--ec-secondary-10);
+}
+.ec-lock-ic {
+  width: 68rpx;
+  height: 68rpx;
+}
+.ec-lock-title {
+  margin-top: 24rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ec-on-surface);
+}
+.ec-lock-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--ec-on-surface-var);
+}
+.ec-lock-cta {
+  margin-top: 28rpx;
+  gap: 12rpx;
+  padding: 20rpx 44rpx;
+  border-radius: var(--r-full);
+  background: var(--ec-secondary-10);
+  border: 2rpx solid var(--ec-secondary-30);
+  color: var(--ec-secondary);
+  font-size: 28rpx;
+  font-weight: 700;
+}
+.ec-lock-cta-ic {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+/* ---- 录音中（波形 + 红停止钮呼吸光圈） ---- */
+.ec-amps {
+  height: 88rpx; /* 44dp */
+  gap: 8rpx; /* 4dp */
+  align-items: center;
+}
+.ec-amp-bar {
+  width: 10rpx; /* 5dp */
+  border-radius: 6rpx; /* 3dp */
+  background: var(--ec-error-75);
+}
+.ec-rec-wrap {
+  position: relative;
+  width: 208rpx; /* 104dp 光圈外沿 */
+  height: 208rpx;
+}
+.ec-rec-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 208rpx;
+  height: 208rpx;
+  margin: -104rpx 0 0 -104rpx;
+  border-radius: 50%;
+  background: var(--ec-error-18);
+  animation: ec-halo 1.6s ease-in-out infinite;
+}
+@keyframes ec-halo {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.6; }
+}
+.ec-rec-btn {
+  position: relative;
+  width: 176rpx; /* 88dp */
+  height: 176rpx;
+  border-radius: 50%;
+  background: var(--ec-primary);
+}
+.ec-rec-btn--on {
+  background: var(--ec-error);
+}
+.ec-rec-mic-ic {
+  width: 68rpx; /* 34dp */
+  height: 68rpx;
+}
+.ec-rec-stop-ic {
+  width: 72rpx; /* 36dp */
+  height: 72rpx;
+}
+.ec-rec-hint {
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: var(--ec-on-surface);
+  font-weight: 600;
+}
+.ec-rec-hint--stop { color: var(--ec-error); }
+.ec-rec-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--ec-on-surface-var);
+}
+
+/* ---- 结果区 ---- */
+.ec-result {
+  width: 100%;
+  margin-top: 24rpx;
+  gap: 24rpx;
+}
+.ec-score-row {
+  align-items: center;
+  gap: 32rpx; /* 16dp */
+}
+.ec-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 208rpx; /* 104dp */
+  height: 208rpx;
+  border-radius: 50%;
+  background: conic-gradient(var(--ec-ring-c, var(--ec-primary)) 0, var(--ec-ring-c, var(--ec-primary)) var(--ec-pct, 0%), var(--ec-surface-var) var(--ec-pct, 0%));
+}
+.ec-ring.good { --ec-ring-c: var(--ec-primary); }
+.ec-ring.mid { --ec-ring-c: var(--ec-secondary); }
+.ec-ring.bad { --ec-ring-c: var(--ec-error); }
+.ec-ring-hole {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 168rpx;
+  height: 168rpx;
+  margin: -84rpx 0 0 -84rpx;
+  border-radius: 50%;
+  background: var(--ec-surface);
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+}
+.ec-ring-num {
+  font-size: 56rpx;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.ec-ring-num.good { color: var(--ec-primary); }
+.ec-ring-num.mid { color: var(--ec-secondary); }
+.ec-ring-num.bad { color: var(--ec-error); }
+.ec-ring-label {
+  font-size: 20rpx;
+  color: var(--ec-on-surface-var);
+}
+.ec-score-side {
+  gap: 10rpx;
+  min-width: 0;
+}
+.ec-rating {
+  font-size: 44rpx; /* titleLarge 22sp */
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ec-rating.good { color: var(--ec-primary); }
+.ec-rating.mid { color: var(--ec-secondary); }
+.ec-rating.bad { color: var(--ec-error); }
+.ec-rating-sub {
+  font-size: 24rpx; /* bodySmall 12sp */
+  color: var(--ec-on-surface-var);
+}
+.ec-metric {
+  gap: 12rpx;
+  align-items: center;
+}
+.ec-metric-label {
+  width: 96rpx;
+  font-size: 22rpx;
+  color: var(--ec-on-surface-var);
+  flex-shrink: 0;
+}
+.ec-metric-track {
+  height: 10rpx; /* 5dp */
+  border-radius: var(--r-full);
+  background: var(--ec-surface-var);
+  overflow: hidden;
+}
+.ec-metric-bar {
+  height: 100%;
+  border-radius: var(--r-full);
+}
+.ec-metric-bar--p { background: var(--ec-primary); }
+.ec-metric-bar--t { background: var(--ec-tertiary); }
+.ec-metric-bar--s { background: var(--ec-secondary); }
+.ec-metric-value {
+  width: 52rpx; /* 26dp */
+  font-size: 22rpx;
+  font-weight: 700;
+  text-align: right;
+  flex-shrink: 0;
+  color: var(--ec-on-surface);
+}
+
+/* 逐词纠错 */
+.ec-words-header {
+  width: 100%;
+}
+.ec-words-title {
+  font-size: 26rpx; /* labelMedium 12sp */
+  font-weight: 700;
+  color: var(--ec-on-surface);
+}
+.ec-play-self {
+  gap: 8rpx;
+  padding: 8rpx 24rpx;
+  border-radius: var(--r-full);
+  border: 2rpx solid var(--ec-outline-50);
+}
+.ec-play-self-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.ec-play-self-text {
+  font-size: 24rpx;
+  color: var(--ec-on-surface-var);
+}
+.ec-words-empty {
+  font-size: 24rpx;
+  color: var(--ec-on-surface-var);
+}
+.ec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  width: 100%;
+}
+.ec-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  border-radius: var(--r-full);
+  border: 2rpx solid var(--ec-chip-bd);
+  background: var(--ec-chip-bg);
+}
+.ec-chip.good { --ec-chip-bg: #edf7f2; --ec-chip-fg: #1a6349; --ec-chip-bd: #aedcc8; }
+.ec-chip.mid { --ec-chip-bg: #fdf4e7; --ec-chip-fg: #96580d; --ec-chip-bd: #ecb35e; }
+.ec-chip.bad { --ec-chip-bg: #fbeae7; --ec-chip-fg: #a63d30; --ec-chip-bd: #ebaca4; }
+.ec-chip-word {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ec-chip-fg);
+}
+.ec-chip-score {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--ec-chip-fg);
+  opacity: 0.8;
+}
+.ec-chip--click {
+  text-decoration: underline wavy rgba(217, 138, 23, 0.5);
+  text-underline-offset: 6rpx;
+}
+.ec-chip--sel {
+  outline: 2rpx solid var(--ec-secondary-50);
+  outline-offset: 2rpx;
+}
+.ec-chips-hint {
+  width: 100%;
+  font-size: 22rpx;
+  color: var(--ec-on-surface-var);
+}
+
+/* 音素诊断面板 */
+.ec-phoneme {
+  width: 100%;
+  background: var(--ec-phoneme-bg);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  gap: 20rpx;
+}
+.ec-phoneme-header {
+  width: 100%;
+}
+.ec-phoneme-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--ec-on-surface);
+}
+.ec-phoneme-word {
+  font-size: 26rpx;
+  color: var(--ec-on-surface-var);
+}
+.ec-phoneme-pills {
+  gap: 16rpx;
+}
+.ec-pill {
+  padding: 12rpx 28rpx;
+  border-radius: var(--r-full);
+  background: var(--ec-pill-bg);
+}
+.ec-pill--on {
+  background: var(--ec-primary);
+}
+.ec-pill-text {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--ec-on-surface);
+}
+.ec-pill-text--on {
+  color: var(--ec-on-primary);
+}
+.ec-phoneme-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  width: 100%;
+}
+.ec-ph-chip {
+  padding: 10rpx 20rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid var(--ec-primary-40);
+  background: var(--ec-primary-10);
+  gap: 4rpx;
+}
+.ec-ph-chip.bad {
+  border-color: var(--ec-error-18);
+  background: rgba(210, 80, 63, 0.1);
+}
+.ec-ph-ipa {
+  font-size: 24rpx;
+  font-weight: 600;
+}
+.ec-ph-ipa.good { color: var(--ec-primary); }
+.ec-ph-ipa.bad { color: var(--ec-error); }
+.ec-ph-score {
+  font-size: 22rpx;
+  font-weight: 700;
+}
+.ec-ph-score.good { color: var(--ec-primary); }
+.ec-ph-score.bad { color: var(--ec-error); }
+
+/* 再试一次 */
+.ec-retry {
+  width: 100%;
+  gap: 12rpx;
+  padding: 24rpx;
+  border-radius: var(--r-full);
+  border: 2rpx solid var(--ec-outline-50);
+  background: transparent;
+}
+.ec-retry-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.ec-retry-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ec-on-surface);
+}

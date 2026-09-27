@@ -1,0 +1,46 @@
+/* 句子微播放器 — Web SentenceMicroPlayer 移动端裸图标形态
+   （`flex items-center gap-1`；胶囊容器/进度切片/双时间是 sm+ 断点样式，
+   移动端不渲染）。播放中图标转主题色，其余灰色（gray-600/深色 ink-300）。 */
+
+.smp {
+  gap: 8rpx; /* Web gap-1 */
+  flex-shrink: 0;
+}
+
+/* 播放/暂停裸圆钮（w-8 h-8 → 56rpx；无背景） */
+.smp-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: var(--r-full);
+}
+.smp-btn-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.smp-spin {
+  width: 26rpx;
+  height: 26rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--color-primary);
+  border-top-color: transparent;
+  animation: smp-rotate 0.8s linear infinite;
+}
+@keyframes smp-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 单句循环裸圆钮（激活 Repeat1 主题色） */
+.smp-loop {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: var(--r-full);
+}
+.smp-loop-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.smp-loop-ic--on {
+  transform: scale(1.05);
+}

@@ -321,12 +321,15 @@ function makeFakeCtx(cfg) {
 
 let lastCtx = null;
 let _pageCfg = null;
+const navBarColorCalls = []; // setNavigationBarColor frontColor 记录（胶囊联动观测）
 
 function ensurePageLoaded() {
   if (_pageCfg) return _pageCfg;
   global.wx = {
     getStorageSync: () => '',
     setStorageSync: () => {},
+    setNavigationBarColor: (o) => navBarColorCalls.push(o.frontColor),
+    setTabBarStyle: () => {},
     getWindowInfo: () => ({ statusBarHeight: 20, windowWidth: 375 }),
     getSystemInfoSync: () => ({ statusBarHeight: 20, theme: 'light' }),
     getAppBaseInfo: () => ({ theme: 'light' }),
@@ -388,6 +391,23 @@ async function runRecordEvalSim() {
       }), 20);
       return;
     }
+    if (opt.url.indexOf('/api/sentences/keys') >= 0) {
+      setTimeout(() => opt.success({
+        statusCode: 200,
+        data: { success: true, data: { subtitleIds: [3] } },
+      }), 10);
+      return;
+    }
+    if (opt.url.indexOf('/api/sentences/toggle') >= 0) {
+      global.__toggleCalls = global.__toggleCalls || [];
+      global.__toggleCalls.push(opt.data);
+      const savedAtRequest = global.__toggleSaved !== false; // 请求时快照
+      setTimeout(() => opt.success({
+        statusCode: 200,
+        data: { success: true, data: { saved: savedAtRequest } },
+      }), 10);
+      return;
+    }
     if (opt.url.indexOf('/api/speech/practice-data') >= 0) {
       setTimeout(() => opt.success({
         statusCode: 200,
@@ -416,6 +436,58 @@ async function runRecordEvalSim() {
   page.onLoad({ id: 'ep1' });
   await new Promise((r) => setTimeout(r, 40)); // 等练习数据落地
   ok(page._subs.length === 1 && store.indexLabel === '1 / 1', '字幕集就绪（1/1）');
+  ok(navBarColorCalls.length >= 1,
+    'onLoad 调 applyChrome（深色下胶囊深底白图标依赖 frontColor 联动——走查修复）');
+  ok(require('fs').readFileSync(require('path').join(__dirname, '../pages/speech-eval/index.wxml'), 'utf8')
+    .includes("class=\"se-page {{dark ? 'se-page--dark' : ''}} {{themeClass}}\""),
+    '根类挂 themeClass（手动深色下 vocabulary-modal 等共享组件令牌继承——走查修复）');
+
+  // ===== 收藏书签 / 单句循环（eval-card 同款移植）=====
+  await new Promise((r) => setTimeout(r, 30)); // keys 回填落定
+  ok(store.bookmarked === true, '书签回填：keys 含当前句（id=3）→ bookmarked');
+
+  global.__toggleSaved = false; // 本次点击 = 取消收藏
+  global.__toggleCalls = [];
+  await page.onToggleBookmark();
+  ok(global.__toggleCalls.length === 1 &&
+    global.__toggleCalls[0].episodeid === 'ep1' && global.__toggleCalls[0].subtitleId === 3,
+    '书签 toggle：请求体 episodeid/subtitleId 透传');
+  ok(store.bookmarked === false, '取消收藏：saved=false 回填翻转');
+
+  global.__toggleSaved = true;
+  await new Promise((r) => setTimeout(r, 20)); // busy 防重窗释放
+  await page.onToggleBookmark();
+  ok(store.bookmarked === true, '再点收藏：saved=true 翻转回亮');
+
+  // 循环重播：_maybeLoopReplay 单元（loop 关 = 停止；loop 开 + original = 重播）
+  page.onToggleLoop();
+  ok(store.loop === true, '循环开关置位');
+  ok(page._maybeLoopReplay() === false, '非播放态（playing=none）不触发重播');
+  // 模拟原声播放到窗终
+  page.onPlayOriginal();
+  await new Promise((r) => setTimeout(r, 30));
+  const loopCtx = lastCtx;
+  loopCtx._fire('canplay');
+  loopCtx._fire('play');
+  ok(store.playing === 'original', '原声播放态就绪');
+  const replayed = page._maybeLoopReplay();
+  ok(replayed === true && store.playing === 'none' && lastCtx !== loopCtx,
+    '循环重播：窗终不停，销毁旧 ctx 重播（新 ctx 已建，playing 待 canplay）');
+  if (lastCtx) lastCtx._fire('canplay');
+  ok(store.playing === 'original', '重播后 canplay → 播放态恢复');
+  page.onToggleLoop();
+  ok(store.loop === false, '循环开关复位');
+
+  // 结构断言：两钮 + 只切图标不变底 + 循环图标同族四态
+  const SE_WXML = require('fs').readFileSync(require('path').join(__dirname, '../pages/speech-eval/index.wxml'), 'utf8');
+  ok(SE_WXML.includes('>收藏书签</text>') && SE_WXML.includes('>单句循环</text>'),
+    '顶部工具行新增两钮标签');
+  ok(SE_WXML.includes("bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'"),
+    '书签图标只切不变底（无 se-act-btn--on 绑定）');
+  ok(!/onToggleBookmark[\s\S]{0,200}se-act-btn--on/.test(SE_WXML),
+    '书签钮无背景激活类');
+  ok(SE_WXML.includes("loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')"),
+    '循环图标 lucide 同族四态（Repeat/Repeat1 × 深浅）');
 
   // 起录：onStart + 20 帧 × 3200B（2s，> 0.5s 下限）
   recHandlers.start();

@@ -43,7 +43,7 @@
         <vocab-notebook active="{{activeTab === 0}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
       <swiper-item>
-        <sentence-notebook active="{{activeTab === 1}}" />
+        <sentence-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
       <swiper-item>
         <pron-notebook active="{{activeTab === 2}}" />

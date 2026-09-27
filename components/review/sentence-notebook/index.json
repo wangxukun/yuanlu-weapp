@@ -1,4 +1,8 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "quota-card": "/components/common/quota-card/index",
+    "sentence-micro-player": "/components/review/sentence-micro-player/index",
+    "sentence-tag-drawer": "/components/sentence-tag-drawer/index"
+  }
 }

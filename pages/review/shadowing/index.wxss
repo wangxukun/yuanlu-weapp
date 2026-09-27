@@ -1,12 +1,121 @@
-/* AI 影子跟读评测（占位） */
-.page-stub {
-  min-height: 100vh;
+/* pages/review/shadowing — AI 影子跟读评测（复刻 Web SentenceShadowingPractice） */
+
+.sh-page {
+  height: 100vh;
   display: flex;
   flex-direction: column;
+}
+.sh-center {
+  flex: 1;
   align-items: center;
   justify-content: center;
-  padding-bottom: env(safe-area-inset-bottom);
 }
-.page-stub .t-caption {
-  margin-top: 12rpx;
+.sh-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 5rpx solid var(--primary-50);
+  border-top-color: var(--color-primary);
+  animation: sh-rotate 0.8s linear infinite;
+}
+@keyframes sh-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* 空态 */
+.sh-empty {
+  gap: 16rpx;
+  padding: 0 48rpx;
+}
+.sh-empty-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.sh-empty-desc {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  text-align: center;
+}
+.sh-empty-btn {
+  margin-top: 16rpx;
+  padding: 18rpx 56rpx;
+  font-size: 28rpx;
+}
+
+/* 标题 + 进度条 */
+.sh-head {
+  padding: 24rpx 32rpx 16rpx;
+  gap: 14rpx;
+}
+.sh-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.sh-progress-track {
+  height: 10rpx;
+  border-radius: var(--r-full);
+  background: var(--color-base-200);
+  overflow: hidden;
+}
+.sh-progress-bar {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--primary-600);
+  transition: width 0.3s ease;
+}
+
+/* 评测卡滚动区 */
+.sh-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.sh-card-holder {
+  padding: 8rpx 32rpx 0;
+}
+.sh-bottom-space {
+  height: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* 底部导航 */
+.sh-footer {
+  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 32rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  gap: 20rpx;
+}
+.sh-nav {
+  gap: 8rpx;
+  padding: 18rpx 32rpx;
+  border-radius: var(--r-full);
+  border: 2rpx solid rgba(31, 122, 92, 0.3);
+}
+.sh-nav--off {
+  opacity: 0.35;
+}
+.sh-nav-label {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.sh-nav-arrow {
+  width: 30rpx;
+  height: 30rpx;
+}
+.sh-nav-arrow--right {
+  transform: rotate(180deg);
+}
+/* 完成跟读（最后一句右钮变形，Web 同款主实底） */
+.sh-finish {
+  padding: 18rpx 44rpx;
+  border-radius: var(--r-full);
+  background: var(--primary-600);
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 700;
+  box-shadow: 0 6rpx 20rpx rgba(31, 122, 92, 0.25);
 }

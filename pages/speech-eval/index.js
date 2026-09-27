@@ -38,7 +38,10 @@ Page({
     statusBarH: 20,
     gearRightPx: 100, // 齿轮与原生胶囊避让（右偏移 = 屏宽 - 胶囊左缘 + 8）
     dark: false,
+    loop: false,
+    bookmarked: false,
     themeMode: 'system',
+    themeClass: '', // 手动外观根类（全局令牌体系——vocabulary-modal 等共享组件依赖；跟随系统为空走媒体查询）
 
     // 加载态
     loading: true,
@@ -91,6 +94,7 @@ Page({
     this._focusSubtitleId = query.focus ? parseInt(query.focus, 10) : null;
 
     this._allSubs = [];      // 全量字幕（过滤输入）
+    this._savedMap = {};     // 本集已收藏句子书签态（subtitleId → true）
     this._subs = [];         // 过滤后字幕
     this._records = [];      // 历史评测记录
     this._resultCache = {};  // subtitleId → 最近一次结果（切句恢复）
@@ -123,6 +127,7 @@ Page({
       statusBarH,
       gearRightPx,
       themeMode,
+      themeClass: theme.rootClass(),
       dark: theme.getEffective() === 'dark',
       settings,
       effectiveThreshold: core.effectivePassThreshold(settings),
@@ -132,6 +137,7 @@ Page({
     this._initRecorder();
     this._unTheme = theme.subscribe(() => this._onThemeChange());
     this._unbus = audioBus.register(() => this._stopPlayback());
+    theme.applyChrome(); // 深色下把胶囊刷成深底白图标（frontColor 联动，见 _onThemeChange 注释）
 
     // AI 朗读走 tts.js 全链（真机 504 修复的 downloadFile 中转 + dictvoice 降级）：
     // 订阅其播放态点亮 'ai'；配额弹窗自持（入栈保存宿主 handler、退栈恢复）
@@ -193,7 +199,14 @@ Page({
 
   _onThemeChange() {
     const snap = theme.getState();
-    this.setData({ themeMode: snap.mode, dark: snap.effective === 'dark' });
+    this.setData({
+      themeMode: snap.mode,
+      themeClass: snap.rootClass,
+      dark: snap.effective === 'dark',
+    });
+    // 手动深/浅色下重申胶囊前景（frontColor 白 → 胶囊深底白图标）；
+    // 自定义导航页 setNavigationBarColor 不改导航栏（本就不可见），但胶囊样式联动有效
+    theme.applyChrome();
   },
 
   // ==================== 数据加载 ====================
@@ -237,6 +250,7 @@ Page({
         if (cur) this._restoreFromHistory(cur.id);
         if (toastMsg) wx.showToast({ title: toastMsg, icon: 'none' });
         this._fetchVocabSet();
+        this._fetchSaveState(); // 书签态回填（eval-card 同款收藏钮）
       })
       .catch((err) => {
         this.setData({ loading: false, loadError: (err && err.message) || '练习数据加载失败' });
@@ -306,6 +320,7 @@ Page({
     });
     this._renderTokens();
     this._syncDerived();
+    this._refreshBookmarked();
   },
 
   /** 字幕 token / 盲读遮挡条 / 字号档位（音标模式替换展示文本） */
@@ -915,7 +930,7 @@ Page({
       if (this._audio === ctx && !this._stalledAt) this._stalledAt = Date.now();
     });
     ctx.onEnded(() => {
-      if (this._audio === ctx) this._stopPlayback();
+      if (this._audio === ctx && !this._maybeLoopReplay()) this._stopPlayback();
     });
     ctx.onError(() => {
       if (this._audio !== ctx) return;
@@ -935,7 +950,7 @@ Page({
         this._onSweepTick(t);
       }
       if (this._audioEndSec != null && t >= this._audioEndSec - 0.02) {
-        this._stopPlayback();
+        if (!this._maybeLoopReplay()) this._stopPlayback();
       }
     }, 50);
   },
@@ -998,6 +1013,97 @@ Page({
   onPlayOriginal() { this._playOriginal(1); },
 
   onPlaySlow() { this._playOriginal(0.75); },
+
+  // ==================== 收藏书签 / 单句循环（eval-card 同款口径） ====================
+
+  /** 书签态回填：GET /api/sentences/keys（本集已收藏 subtitleId 集） */
+  _fetchSaveState() {
+    if (!this._episodeId) return;
+    get('/api/sentences/keys?episodeid=' + this._episodeId, null, { showError: false })
+      .then((body) => {
+        if (!body || !body.success || !body.data) return;
+        const map = {};
+        (body.data.subtitleIds || []).forEach((id) => { map[id] = true; });
+        this._savedMap = map;
+        this._refreshBookmarked();
+      })
+      .catch(() => {});
+  },
+
+  /** 当前句书签态派生（切句/回填/toggle 后统一出口） */
+  _refreshBookmarked() {
+    const sub = this._subs[this.data.index];
+    const bookmarked = !!(sub && this._savedMap && this._savedMap[sub.id]);
+    if (bookmarked !== this.data.bookmarked) this.setData({ bookmarked });
+  },
+
+  /** 收藏书签：POST /api/sentences/toggle 乐观翻转 + saved 回填 + 失败回滚 */
+  onToggleBookmark() {
+    if (this._bookmarkBusy) return;
+    const sub = this._subs[this.data.index];
+    if (!sub || sub.id == null) return;
+    this._bookmarkBusy = true;
+    const target = !this.data.bookmarked;
+    this._savedMap = Object.assign({}, this._savedMap);
+    if (target) this._savedMap[sub.id] = true;
+    else delete this._savedMap[sub.id];
+    this._refreshBookmarked(); // 乐观翻转
+
+    post('/api/sentences/toggle', {
+      episodeid: this._episodeId,
+      subtitleId: sub.id,
+      startTime: sub.start,
+      endTime: sub.end,
+      enText: sub.textEn,
+      zhText: sub.textCn,
+    }, { showError: false })
+      .then((body) => {
+        if (!body || body.success === false) {
+          if (target) delete this._savedMap[sub.id];
+          else this._savedMap[sub.id] = true;
+          this._refreshBookmarked();
+          wx.showToast({ title: (body && body.message) || '操作失败，请重试', icon: 'none' });
+          return;
+        }
+        const saved = body.data ? !!body.data.saved : target;
+        this._savedMap = Object.assign({}, this._savedMap);
+        if (saved) this._savedMap[sub.id] = true;
+        else delete this._savedMap[sub.id];
+        this._refreshBookmarked();
+        wx.showToast({
+          title: saved ? '已收藏至「句子本」' : '已从「句子本」移除',
+          icon: 'none',
+        });
+      })
+      .catch((err) => {
+        if (target) delete this._savedMap[sub.id];
+        else this._savedMap[sub.id] = true;
+        this._refreshBookmarked();
+        if (err && err.statusCode === 403) {
+          // 句子本容量墙（满 30）：只弹会员窗不叠 toast（Web #14 口径）
+          this.setData({ showPremiumModal: true, premiumSource: 'sentence_quota' });
+        } else {
+          wx.showToast({ title: (err && err.message) || '网络错误', icon: 'none' });
+        }
+      })
+      .then(() => { this._bookmarkBusy = false; });
+  },
+
+  /** 单句循环开关：开 = 原声/慢速到窗终自动重播；关 = 播完即停（不打断在播） */
+  onToggleLoop() {
+    this.setData({ loop: !this.data.loop });
+  },
+
+  /** 窗终/播完时的循环重播判定：命中原声/慢速循环则重播并返回 true */
+  _maybeLoopReplay() {
+    if (!this.data.loop) return false;
+    const kind = this.data.playing;
+    if (kind !== 'original' && kind !== 'slow') return false;
+    const speed = kind === 'slow' ? 0.75 : 1;
+    this._stopPlayback();
+    this._playOriginal(speed);
+    return true;
+  },
 
   /** 回放我的发音（本地 WAV 优先、云端直链回退；可只放词切片） */
   _playUserAudio(startSec, endSec, kind) {

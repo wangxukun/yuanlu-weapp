@@ -1,0 +1,18 @@
+/**
+ * ec.wxs — 语音评测卡视图层助手（se.wxs 同口径）
+ */
+function tierCls(score) {
+  if (score >= 85) return 'good';
+  if (score >= 60) return 'mid';
+  return 'bad';
+}
+
+/** 录音波形条高（10 + amp×0.34 dp → rpx） */
+function ampH(amp) {
+  return 20 + amp * 0.68;
+}
+
+module.exports = {
+  tierCls: tierCls,
+  ampH: ampH,
+};

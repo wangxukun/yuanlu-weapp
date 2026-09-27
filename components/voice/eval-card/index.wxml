@@ -1,0 +1,202 @@
+<wxs src="./ec.wxs" module="fmt" />
+
+<!-- components/voice/eval-card — 语音评测卡（复刻 Web SpeechEvaluationCard 三段式） -->
+<view class="ec-card {{themeClass}} col">
+
+  <!-- ══ 1. 顶部工具行：AI 朗读 / 原声 / 慢速 / 书签 / 单句循环（圆钮 + 下方文字标签；
+       翻译开关在英文句末，Web SpeechEvaluationCard 同款排布） ══ -->
+  <view class="ec-actions row">
+    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onAiReading">
+      <view class="ec-act-btn center {{playing === 'ai' ? 'ec-act-btn--on' : ''}}">
+        <image class="ec-act-ic" src="{{playing === 'ai' ? '/assets/icons/graphic-eq-white.svg' : '/assets/icons/graphic-eq-primary.svg'}}" />
+      </view>
+      <text class="ec-act-label">AI朗读</text>
+    </view>
+    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="_onPlayOriginalTap">
+      <view class="ec-act-btn center {{playing === 'original' ? 'ec-act-btn--on' : ''}}">
+        <image class="ec-act-ic" src="{{playing === 'original' ? '/assets/icons/volume-up-white.svg' : '/assets/icons/volume-up-primary.svg'}}" />
+      </view>
+      <text class="ec-act-label">原声播放</text>
+    </view>
+    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="_onPlaySlowTap">
+      <view class="ec-act-btn center {{playing === 'slow' ? 'ec-act-btn--on' : ''}}">
+        <image class="ec-act-ic" src="{{playing === 'slow' ? '/assets/icons/volume-1-white.svg' : '/assets/icons/volume-1-primary.svg'}}" />
+      </view>
+      <text class="ec-act-label">慢速播放</text>
+    </view>
+    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleBookmark">
+      <view class="ec-act-btn center">
+        <image class="ec-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+      </view>
+      <text class="ec-act-label">收藏书签</text>
+    </view>
+    <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onToggleLoop">
+      <view class="ec-act-btn center">
+        <image class="ec-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')}}" />
+      </view>
+      <text class="ec-act-label">单句循环</text>
+    </view>
+  </view>
+
+  <!-- ══ 英文句（衬线 + 翻译图标随文流排在句尾）+ 中文（开关开时） ══ -->
+  <view class="ec-subtitle col">
+    <view class="ec-sentence font-serif">
+      <text>{{textEn}} </text>
+      <image class="ec-translate-ic" src="{{showCn ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}"
+             bindtap="onToggleCn" />
+    </view>
+    <text wx:if="{{showCn && hasCn}}" class="ec-cn">{{textCn}}</text>
+    <text wx:elif="{{showCn}}" class="ec-cn ec-cn--empty">（本句暂无中文翻译）</text>
+  </view>
+
+  <!-- ══ 2. 录音区 ⇄ 结果区（条件渲染切换，四互斥态） ══ -->
+  <view class="ec-face col">
+
+    <!-- 配额锁定态：橙色虚线圆锁 + 皇冠 CTA -->
+    <block wx:if="{{locked}}">
+      <view class="ec-lock-circle center">
+        <image class="ec-lock-ic" src="/assets/icons/lock.svg" />
+      </view>
+      <text class="ec-lock-title">今日免费跟读评测已用完</text>
+      <text class="ec-lock-sub">升级会员解锁无限评测，把每个弱音磨到满分</text>
+      <view class="ec-lock-cta row center tap-scale" bindtap="onToggleRecording">
+        <image class="ec-lock-cta-ic" src="/assets/icons/infinity-accent.svg" />
+        <text>解锁无限评测</text>
+      </view>
+    </block>
+
+    <!-- 处理中：弧线旋转 + 文案 -->
+    <block wx:elif="{{phase === 'processing'}}">
+      <view class="ec-arc-spin"></view>
+      <text class="ec-phase-text">正在分析发音...</text>
+    </block>
+
+    <!-- 录音中：音量波形 + 红色停止钮（呼吸光圈） -->
+    <block wx:elif="{{phase === 'recording'}}">
+      <view class="ec-amps row">
+        <block wx:if="{{amplitudes.length}}">
+          <view wx:for="{{amplitudes}}" wx:key="index" class="ec-amp-bar"
+                style="height: {{fmt.ampH(item)}}rpx"></view>
+        </block>
+        <block wx:else>
+          <view wx:for="{{[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}" wx:key="index"
+                class="ec-amp-bar" style="height: 12rpx"></view>
+        </block>
+      </view>
+      <view class="ec-rec-wrap center">
+        <view class="ec-rec-halo"></view>
+        <view class="ec-rec-btn ec-rec-btn--on center" bindtap="onToggleRecording">
+          <image class="ec-rec-stop-ic" src="/assets/icons/stop-white.svg" />
+        </view>
+      </view>
+      <text class="ec-rec-hint ec-rec-hint--stop">点击停止并评测</text>
+    </block>
+
+    <!-- 空闲：主色大麦克风钮 -->
+    <block wx:else>
+      <view class="ec-rec-btn center" bindtap="onToggleRecording">
+        <image class="ec-rec-mic-ic" src="/assets/icons/mic-filled.svg" />
+      </view>
+      <text class="ec-rec-hint ec-rec-hint--idle">点击录音</text>
+      <text class="ec-rec-sub">朗读上方句子，跟读练习发音</text>
+    </block>
+
+    <!-- 结果面（与录音区互斥渲染） -->
+    <view wx:if="{{phase === 'result' && result}}" class="ec-result col">
+
+      <!-- 综合得分：环形（≥85 加 ✨）+ 评级 + 三维条 -->
+      <view class="ec-score-row row">
+        <view class="ec-ring {{fmt.tierCls(result.overallScore)}}" style="--ec-pct: {{result.overallScore}}%">
+          <view class="ec-ring-hole col">
+            <text class="ec-ring-num {{fmt.tierCls(result.overallScore)}}">{{result.overallScore}}{{result.overallScore >= 85 ? ' ✨' : ''}}</text>
+            <text class="ec-ring-label">综合得分</text>
+          </view>
+        </view>
+        <view class="ec-score-side col flex-1">
+          <text class="ec-rating {{fmt.tierCls(result.overallScore)}}">{{rating}}</text>
+          <text class="ec-rating-sub">{{ratingSub}}</text>
+          <view class="ec-metric row">
+            <text class="ec-metric-label">准确度</text>
+            <view class="ec-metric-track flex-1"><view class="ec-metric-bar ec-metric-bar--p" style="width: {{result.pronunciation}}%"></view></view>
+            <text class="ec-metric-value">{{result.pronunciation}}</text>
+          </view>
+          <view class="ec-metric row">
+            <text class="ec-metric-label">流利度</text>
+            <view class="ec-metric-track flex-1"><view class="ec-metric-bar ec-metric-bar--t" style="width: {{result.fluency}}%"></view></view>
+            <text class="ec-metric-value">{{result.fluency}}</text>
+          </view>
+          <view class="ec-metric row">
+            <text class="ec-metric-label">完整度</text>
+            <view class="ec-metric-track flex-1"><view class="ec-metric-bar ec-metric-bar--s" style="width: {{result.integrity}}%"></view></view>
+            <text class="ec-metric-value">{{result.integrity}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 逐词纠错：回放我的发音 + 单词流式胶囊 -->
+      <view class="ec-words-header row">
+        <text class="ec-words-title flex-1">逐词纠错</text>
+        <view class="ec-play-self row center tap-dim" bindtap="onPlayUserAudio">
+          <image class="ec-play-self-ic" src="{{(playing === 'user' || playing === 'word_me') ? '/assets/icons/play-filled-primary.svg' : '/assets/icons/play-filled-gray.svg'}}" />
+          <text class="ec-play-self-text">回放我的发音</text>
+        </view>
+      </view>
+
+      <text wx:if="{{!result.words.length}}" class="ec-words-empty">本句未返回逐词明细</text>
+      <block wx:else>
+        <view class="ec-chips">
+          <view wx:for="{{result.words}}" wx:for-index="wi" wx:key="wi"
+                class="ec-chip {{fmt.tierCls(item.score)}} {{selectedWordIndex === wi ? 'ec-chip--sel' : ''}} {{item.score < 85 && item.phonemes.length ? 'ec-chip--click' : ''}}"
+                data-index="{{wi}}" bindtap="onSelectWord">
+            <text class="ec-chip-word {{fmt.tierCls(item.score)}}">{{item.word}}</text>
+            <text class="ec-chip-score {{fmt.tierCls(item.score)}}">{{item.score}}</text>
+          </view>
+        </view>
+        <text class="ec-chips-hint">点击橙色/红色单词查看音素诊断</text>
+      </block>
+
+      <!-- 音素诊断面板（点橙色/红色单词展开：美/英/原声/我 四对比 + 音素得分） -->
+      <view wx:if="{{selectedWordIndex !== null && result.words[selectedWordIndex].phonemes.length}}" class="ec-phoneme col">
+        <view class="ec-phoneme-header row">
+          <text class="ec-phoneme-title flex-1">音素诊断</text>
+          <text class="ec-phoneme-word">{{result.words[selectedWordIndex].word}}</text>
+        </view>
+        <view class="ec-phoneme-pills row">
+          <view class="ec-pill center {{playing === 'word_us' ? 'ec-pill--on' : ''}}"
+                data-word="{{result.words[selectedWordIndex].word}}" data-us="1" bindtap="onPlayDictVoice">
+            <text class="ec-pill-text {{playing === 'word_us' ? 'ec-pill-text--on' : ''}}">美音</text>
+          </view>
+          <view class="ec-pill center {{playing === 'word_uk' ? 'ec-pill--on' : ''}}"
+                data-word="{{result.words[selectedWordIndex].word}}" data-us="0" bindtap="onPlayDictVoice">
+            <text class="ec-pill-text {{playing === 'word_uk' ? 'ec-pill-text--on' : ''}}">英音</text>
+          </view>
+          <view class="ec-pill center {{playing === 'word_original' ? 'ec-pill--on' : ''}}"
+                data-word="{{result.words[selectedWordIndex].word}}" bindtap="onPlayWordOriginal">
+            <text class="ec-pill-text {{playing === 'word_original' ? 'ec-pill-text--on' : ''}}">原声</text>
+          </view>
+          <view class="ec-pill center {{playing === 'word_me' ? 'ec-pill--on' : ''}}"
+                data-index="{{selectedWordIndex}}" bindtap="onPlayWordMe">
+            <text class="ec-pill-text {{playing === 'word_me' ? 'ec-pill-text--on' : ''}}">我</text>
+          </view>
+        </view>
+
+        <view class="ec-phoneme-chips">
+          <view wx:for="{{result.words[selectedWordIndex].phonemes}}" wx:for-item="ph" wx:key="index"
+                class="ec-ph-chip col center {{ph.score >= 80 ? 'good' : 'bad'}}">
+            <text class="ec-ph-ipa {{ph.score >= 80 ? 'good' : 'bad'}}">/{{ph.phoneme}}/</text>
+            <text class="ec-ph-score {{ph.score >= 80 ? 'good' : 'bad'}}">{{ph.score}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 再试一次 -->
+      <view class="ec-retry center tap-scale" bindtap="onRetryRecording">
+        <image class="ec-retry-ic" src="/assets/icons/refresh-ccw-gray.svg" />
+        <text class="ec-retry-text">再试一次</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 会员转化弹窗（评测配额墙，组件自持） -->
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
+</view>

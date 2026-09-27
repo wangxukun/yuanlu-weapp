@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "刷句复习",
-  "usingComponents": {}
+  "usingComponents": {
+    "premium-modal": "/components/premium-modal/index"
+  }
 }

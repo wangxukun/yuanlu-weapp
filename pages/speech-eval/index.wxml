@@ -2,7 +2,7 @@
 
 <!-- pages/speech-eval — 语音评测页（复刻 Android SpeechEvalScreen + SpeechEvalCard + 三态截图）：
      顶部导航（收起/标题/设置）+ 单句评测卡（录音 ⇄ 结果翻转）+ 底部上一句/下一句与进度 -->
-<view class="se-page {{dark ? 'se-page--dark' : ''}}">
+<view class="se-page {{dark ? 'se-page--dark' : ''}} {{themeClass}}">
 
   <!-- ══ 顶部导航：收起 | 标题 | 设置（齿轮与原生胶囊避让） ══ -->
   <view class="se-header" style="padding-top: {{statusBarH}}px">
@@ -58,6 +58,18 @@
               <image class="se-act-ic" src="{{playing === 'slow' ? '/assets/icons/volume-1-white.svg' : (dark ? '/assets/icons/volume-1-dark.svg' : '/assets/icons/volume-1-primary.svg')}}" />
             </view>
             <text class="se-act-label">慢速播放</text>
+          </view>
+          <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onToggleBookmark">
+            <view class="se-act-btn center">
+              <image class="se-act-ic" src="{{bookmarked ? '/assets/icons/bookmark-filled-accent.svg' : '/assets/icons/bookmark-outline-gray.svg'}}" />
+            </view>
+            <text class="se-act-label">收藏书签</text>
+          </view>
+          <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onToggleLoop">
+            <view class="se-act-btn center">
+              <image class="se-act-ic" src="{{loop ? (dark ? '/assets/icons/repeat-1-primary-dark.svg' : '/assets/icons/repeat-1-primary.svg') : (dark ? '/assets/icons/repeat-lucide-graydark.svg' : '/assets/icons/repeat-lucide-gray.svg')}}" />
+            </view>
+            <text class="se-act-label">单句循环</text>
           </view>
           <view class="se-flex-gap"></view>
           <view wx:if="{{hasLatestRecord}}" class="se-act col {{(phase === 'evaluating' || phase === 'recording') ? 'se-act--off' : ''}}" bindtap="onShowLatestScore">

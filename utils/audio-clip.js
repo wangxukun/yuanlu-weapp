@@ -23,15 +23,24 @@ let audioCtx = null;
 let playingKey = null;
 let loadingKey = null;
 let playToken = 0; // 串联调用令牌：快速切卡时丢弃过期异步结果
+let looping = false; // 单句循环（微播放器）：到窗口终点回 seek 句首续播
+let loopGuardUntil = 0; // 循环回 seek 后的静默窗（真机 currentTime 是陈旧快照，防误触发二次 seek）
+let progress = null; // { key, currentTime, start, end }——进度切片条数据源
 const listeners = new Set();
+const progressListeners = new Set();
 
 function getState() {
-  return { playingKey, loadingKey };
+  return { playingKey, loadingKey, progress };
 }
 
 function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+function subscribeProgress(fn) {
+  progressListeners.add(fn);
+  return () => progressListeners.delete(fn);
 }
 
 function notify() {
@@ -42,6 +51,21 @@ function notify() {
       // 单个监听器异常不影响其他
     }
   }
+}
+
+function notifyProgress() {
+  for (const fn of Array.from(progressListeners)) {
+    try {
+      fn(progress);
+    } catch (e) {
+      // 单个监听器异常不影响其他
+    }
+  }
+}
+
+/** 单句循环开关：播放中切换不打断当前播放（微播放器「单句循环」） */
+function setLoop(v) {
+  looping = !!v;
 }
 
 /** 文本归一化：忽略大小写、标点与多余空格——收藏的上下文句与字幕文本
@@ -117,6 +141,11 @@ function stop() {
   const ctx = audioCtx;
   audioCtx = null;
   playingKey = null;
+  looping = false;
+  if (progress) {
+    progress = null;
+    notifyProgress();
+  }
   if (ctx) {
     try {
       ctx.offCanplay();
@@ -146,7 +175,9 @@ function stop() {
  * @param {Function} [params.onBeforePlay] 播放前回调（页面级额外清理）
  */
 async function play(params) {
-  const { key, episodeid, timestamp, contextSentence, onBeforePlay } =
+  const {
+    key, episodeid, timestamp, contextSentence, startTime, endTime, onBeforePlay,
+  } =
     params || {};
   if (!key || !episodeid) return;
   if (playingKey === key) {
@@ -176,15 +207,30 @@ async function play(params) {
       return;
     }
 
-    const target = locateSubtitle(source.subtitles, contextSentence, timestamp);
-    if (!target) {
-      wx.showToast({ title: '未找到该句的原声位置', icon: 'none' });
-      return;
+    // 播放窗口：显式 startTime~endTime 优先（句子本微播放器——收藏句自带精确窗口，
+    // 免文本定位）；否则按上下文句定位 + 词级窗口推导
+    let winStart;
+    let winEnd;
+    const explicit =
+      typeof startTime === 'number' &&
+      isFinite(startTime) &&
+      typeof endTime === 'number' &&
+      isFinite(endTime);
+    if (explicit) {
+      winStart = Math.max(0, startTime);
+      winEnd = endTime;
+    } else {
+      const target = locateSubtitle(source.subtitles, contextSentence, timestamp);
+      if (!target) {
+        wx.showToast({ title: '未找到该句的原声位置', icon: 'none' });
+        return;
+      }
+      const w = computeWindow(target);
+      winStart = w.targetStart;
+      winEnd = w.endTime;
     }
-
-    const { targetStart, endTime } = computeWindow(target);
     // 防御：个别字幕缺时间字段，非有限值按未定位处理，避免 seek NaN
-    if (!isFinite(targetStart) || !isFinite(endTime)) {
+    if (!isFinite(winStart) || !isFinite(winEnd)) {
       wx.showToast({ title: '未找到该句的原声位置', icon: 'none' });
       return;
     }
@@ -194,15 +240,29 @@ async function play(params) {
     ctx.src = source.audioUrl;
     ctx.onCanplay(() => {
       if (token !== playToken) return;
-      ctx.seek(Math.max(0, targetStart));
+      ctx.seek(Math.max(0, winStart));
       ctx.play();
       playingKey = key;
       notify();
     });
     ctx.onTimeUpdate(() => {
-      // 到窗口终点自动停止
-      if ((ctx.currentTime || 0) >= endTime) {
-        stop();
+      if (token !== playToken) return;
+      const t = ctx.currentTime || 0;
+      progress = { key, currentTime: t, start: winStart, end: winEnd };
+      notifyProgress();
+      // 到窗口终点：单句循环回 seek 句首续播，否则自动停止
+      if (t >= winEnd) {
+        if (looping) {
+          const now = Date.now();
+          if (now < loopGuardUntil) return;
+          loopGuardUntil = now + 600;
+          progress = { key, currentTime: winStart, start: winStart, end: winEnd };
+          notifyProgress();
+          ctx.seek(Math.max(0, winStart));
+          ctx.play();
+        } else {
+          stop();
+        }
       }
     });
     ctx.onEnded(() => stop());
@@ -230,5 +290,7 @@ module.exports = {
   stop,
   getState,
   subscribe,
+  subscribeProgress,
+  setLoop,
   normalizeText, // 导出供测试与生词高亮等复用
 };

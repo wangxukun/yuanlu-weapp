@@ -91,7 +91,9 @@ function rootClass() {
   return '';
 }
 
-/** 同步 chrome（tabBar 全局 + 当前页导航栏；自定义导航页静默失败） */
+/** 同步 chrome（tabBar 全局 + 当前页导航栏；自定义导航页的导航栏部分
+ *  fail 静默，但胶囊前景仍与 frontColor 联动——深色下白前景会把右上角
+ *  胶囊刷成深底白图标，speech-eval 等自定义导航页依赖此行为） */
 function applyChrome() {
   const c = CHROME[getEffective()] || CHROME.light;
   try {

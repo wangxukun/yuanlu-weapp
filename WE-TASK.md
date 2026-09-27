@@ -65,11 +65,11 @@
 
 #### 模块 C：跟读测评系统（→ 详细拆解见 REVIEW-TASK.md 阶段 3）
 > 本模块与「复习」Tab 的语音评测共底座（eval-card / recorder / 有道 ISE），统一由 REVIEW-TASK 跟踪，此处仅汇总：
-> **进度（2026-09-23）**：REVIEW-TASK 阶段 0（T0.1–T0.6 复习底座）与阶段 1（T1.1–T1.5 生词本复刻）已完成——T1.5 复习页其后重构为闪卡模式（复刻 Android `VocabularyReviewScreen`，四题型退役；总结页复刻 `ReviewSummary` + 字号对齐 Material3，共四轮），下一任务 T2.1 句子本。
-- [ ] 3.C.1 录音底座 `utils/recorder.js`（wav/16k/mono → base64；授权拒绝引导）〔REVIEW-TASK T3.1〕
-- [ ] 3.C.2 语音评测卡 `components/voice/eval-card`（四互斥态录音区、逐词胶囊、音素对比、三维评分）〔REVIEW-TASK T3.2〕
-- [ ] 3.C.3 刷句复习卡组流 `pages/review/deck`（拖拽手势 ±90px/±400px·s⁻¹、翻面、三模式）〔REVIEW-TASK T3.3〕
-- [ ] 3.C.4 AI 影子跟读页 `pages/review/shadowing`（现为桩，复用 eval-card）〔REVIEW-TASK T3.4〕
+> **进度（2026-09-26）**：REVIEW-TASK 阶段 0（T0.1–T0.6 复习底座）与阶段 1（T1.1–T1.5 生词本复刻）已完成——T1.5 复习页其后重构为闪卡模式（复刻 Android `VocabularyReviewScreen`，四题型退役；总结页复刻 `ReviewSummary` + 字号对齐 Material3，共四轮）；阶段 2 已收口（T2.1–T2.3 数据接入/根视图/卡片+微播放器+标签抽屉 + 六轮截图走查与 setData 守卫，208 断言单测；**T2.4 导出已裁剪——小程序端不做 CSV/Anki 导出**）；阶段 3 已收口（T3.1 录音底座 + T3.2 语音评测卡 `eval-card`/`clip-player` + T3.3 刷句复习 `deck` + T3.4 影子跟读 `shadowing`，34+61+57+35 断言，含六轮深色走查），下一任务 T4.1 发音弱项本；语音评测独立页 `pages/speech-eval` 已先行落地（录音/WAV 封装/有道 ISE 全链路）。
+- [x] 3.C.1 录音底座 `utils/recorder.js`（PCM 直录→端内 WAV→base64；权限三段引导；停止不依赖 onStop）〔REVIEW-TASK T3.1 ✅〕
+- [x] 3.C.2 语音评测卡 `components/voice/eval-card`（四互斥态录音区、逐词胶囊、音素四对比、三维评分 + 播放内核 `utils/clip-player.js`）〔REVIEW-TASK T3.2 ✅〕
+- [x] 3.C.3 刷句复习卡组流 `pages/review/deck`（拖拽手势 ±90px/±400px·s⁻¹、翻面、三模式、翻卡成就）〔REVIEW-TASK T3.3 ✅〕
+- [x] 3.C.4 AI 影子跟读页 `pages/review/shadowing`（eval-card 首个消费方：字幕注入/quota 预检/结果缓存/完成带回 deck 定位）〔REVIEW-TASK T3.4 ✅〕
 - [ ] 3.C.5 剧集页内跟读入口（Web 端 `?practice=true&subtitleId=` 场景；弱项本暂降级跳闯关页，见 REVIEW-TASK 风险 #7）
 
 #### 模块 D：个人中心与句子收藏（⏳ 收藏已毕，余 3 个死链页面）

@@ -147,9 +147,21 @@
   font-size: 24rpx;
   font-weight: 500;
   flex-shrink: 0; /* 行内不被压缩变形 */
-  background: #f3f4f6; /* gray-100（QuickTagDrawer 未选中态原值） */
-  color: #4b5563; /* gray-600 */
+  /* 未选中态：浅色 = QuickTagDrawer gray-100/gray-600 原值；深色走令牌
+     （对齐 Web dark:bg-ink-800/text-ink-200——深色走查修复硬编码残留） */
+  background: #f3f4f6;
+  color: #4b5563;
   transition: all 0.15s ease;
+}
+@media (prefers-color-scheme: dark) {
+  .std-tag {
+    background: var(--color-base-300);
+    color: var(--text-secondary);
+  }
+}
+.theme-dark .std-tag {
+  background: var(--color-base-300);
+  color: var(--text-secondary);
 }
 /* 选中：primary 实底白字 */
 .std-tag--on {

@@ -487,6 +487,25 @@
   background: #ecfdf3;
   border: 1rpx solid #bffcd9;
 }
+/* sonner richColors success 深色原值（styles.css data-theme='dark'）：
+   bg hsl(150,100%,6%)≈#001e0f / border hsl(147,100%,12%)≈#003d1c /
+   text hsl(150,86%,65%)≈#59f2a6 —— 深色走查修复 */
+@media (prefers-color-scheme: dark) {
+  .il-toast--saved {
+    background: #001e0f;
+    border-color: #003d1c;
+  }
+  .il-toast--saved .il-toast-title {
+    color: #59f2a6;
+  }
+}
+.theme-dark .il-toast--saved {
+  background: #001e0f;
+  border-color: #003d1c;
+}
+.theme-dark .il-toast--saved .il-toast-title {
+  color: #59f2a6;
+}
 /* 移除提示：sonner 中性 toast（白底灰边，无图标） */
 .il-toast--plain {
   padding-right: 32rpx;

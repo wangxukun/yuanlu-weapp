@@ -1,5 +1,61 @@
-<!-- AI 影子跟读评测（占位）：阶段三 T3.4 实现 -->
-<view class="page-stub">
-  <text class="t-h2">影子跟读</text>
-  <text class="t-caption text-tertiary">录音跟读 · AI 发音评测 · 阶段三落地</text>
+<!-- pages/review/shadowing — AI 影子跟读评测（复刻 Web SentenceShadowingPractice） -->
+<view class="sh-page {{themeClass}}">
+
+  <!-- 首次加载 -->
+  <view wx:if="{{loading}}" class="sh-center col">
+    <view class="sh-spin"></view>
+  </view>
+
+  <!-- 空句库 -->
+  <view wx:elif="{{isEmpty}}" class="sh-center sh-empty col">
+    <text class="sh-empty-title">句子本为空</text>
+    <text class="sh-empty-desc">请先在句子本收藏一些句子，再来进行影子跟读。</text>
+    <view class="btn-primary sh-empty-btn tap-scale" bindtap="onBack">返回</view>
+  </view>
+
+  <block wx:else>
+    <!-- ══ 标题 + 进度条 ══ -->
+    <view class="sh-head col">
+      <text class="sh-title">AI 影子跟读评测 ({{index + 1}}/{{total}})</text>
+      <view class="sh-progress-track">
+        <view class="sh-progress-bar" style="width: {{progressPercent}}%"></view>
+      </view>
+    </view>
+
+    <!-- ══ 评测卡（换句 key 重挂） ══ -->
+    <scroll-view class="sh-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="sh-card-holder col" wx:if="{{subtitle}}">
+        <eval-card
+          key="{{cardKey}}"
+          subtitle="{{subtitle}}"
+          subtitle-id="{{subtitleId}}"
+          episode-id="{{episodeId}}"
+          episode-title="{{episodeTitle}}"
+          eval-scenario="review"
+          quota-locked="{{quotaLocked}}"
+          previous-result="{{previousResult}}"
+          pass-threshold="{{80}}"
+          bookmarked="{{true}}"
+          bind:evaluate="onEvaluate"
+          bind:quota="onQuota"
+        />
+      </view>
+      <view class="sh-bottom-space"></view>
+    </scroll-view>
+
+    <!-- ══ 底部导航：上一句 | 下一句 / 完成跟读 ══ -->
+    <view class="sh-footer row">
+      <view class="sh-nav row {{index <= 0 ? 'sh-nav--off' : ''}}" bindtap="onPrev">
+        <image class="sh-nav-arrow" src="/assets/icons/chevron-left-primary.svg" />
+        <text class="sh-nav-label">上一句</text>
+      </view>
+      <view wx:if="{{index >= total - 1}}" class="sh-finish center tap-scale" bindtap="onFinish">
+        <text>完成跟读</text>
+      </view>
+      <view wx:else class="sh-nav row" bindtap="onNext">
+        <text class="sh-nav-label">下一句</text>
+        <image class="sh-nav-arrow sh-nav-arrow--right" src="/assets/icons/chevron-left-primary.svg" />
+      </view>
+    </view>
+  </block>
 </view>

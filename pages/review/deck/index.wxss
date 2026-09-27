@@ -1,12 +1,550 @@
-/* 刷句复习卡片流（占位） */
-.page-stub {
+/* pages/review/deck — 刷句复习卡片流（复刻 Web ReviewDeck.tsx）
+   布局：顶栏 / 模式选择器+成就 / 标签 pills / 进度条 / 卡片堆叠区 / 底部操作坞。
+   角标与高亮色值取 Web 原值：cue emerald #10b981 / primary #1f7a5c；
+   生词高亮 = deck 专属 accent 口径（bg-accent-50 #fdf4e7 + ink-900 + accent-400 下边线）。 */
+
+.dk-page {
+  --dk-cue-green: #10b981;
+  --dk-hl-bg: #fdf4e7;
+  --dk-hl-text: #1c1917;
+  --dk-hl-border: #e59d2e;
+
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding: 0 32rpx;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 24rpx);
+  box-sizing: border-box;
+}
+.dk-center {
+  flex: 1;
   align-items: center;
   justify-content: center;
-  padding-bottom: env(safe-area-inset-bottom);
+  min-height: 60vh;
 }
-.page-stub .t-caption {
-  margin-top: 12rpx;
+.dk-spin {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 5rpx solid var(--primary-50);
+  border-top-color: var(--color-primary);
+  animation: dk-rotate 0.8s linear infinite;
+}
+@keyframes dk-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------- 空句库 ---------------- */
+.dk-empty {
+  gap: 20rpx;
+  padding: 0 48rpx;
+}
+.dk-empty-badge {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: var(--r-full);
+  background: var(--color-base-200);
+  margin-bottom: 8rpx;
+}
+.dk-empty-ic {
+  width: 60rpx;
+  height: 60rpx;
+}
+.dk-empty-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dk-empty-desc {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  text-align: center;
+}
+.dk-empty-btn {
+  margin-top: 16rpx;
+  padding: 20rpx 56rpx;
+  font-size: 28rpx;
+}
+
+/* ---------------- 顶栏 ---------------- */
+.dk-topbar {
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 8rpx 12rpx;
+}
+.dk-topbtn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--r-full);
+}
+.dk-topbtn-ic {
+  width: 44rpx;
+  height: 44rpx;
+}
+.dk-toptitle {
+  align-items: center;
+  gap: 4rpx;
+}
+.dk-toptitle-label {
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  color: var(--text-tertiary);
+}
+.dk-toptitle-count {
+  font-size: 30rpx;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+/* ---------------- 模式选择器 + 成就钮 ---------------- */
+.dk-modes {
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 12rpx 0;
+}
+.dk-modes-track {
+  gap: 6rpx;
+  background: var(--color-base-200);
+  border-radius: 32rpx;
+  padding: 8rpx;
+}
+.dk-mode {
+  gap: 8rpx;
+  padding: 14rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+.dk-mode--on {
+  background: var(--card-bg);
+  color: var(--color-primary);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+.dk-mode-ic {
+  width: 26rpx;
+  height: 26rpx;
+}
+.dk-mode-lock {
+  width: 20rpx;
+  height: 20rpx;
+  opacity: 0.6;
+}
+.dk-mode-pro {
+  font-size: 18rpx;
+  font-weight: 900;
+  color: #f59e0b;
+}
+.dk-achv {
+  gap: 8rpx;
+  padding: 14rpx 20rpx;
+  border-radius: 32rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  background: var(--color-base-200);
+  flex-shrink: 0;
+}
+.dk-achv--on {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f97316;
+}
+.dk-achv-ic {
+  width: 26rpx;
+  height: 26rpx;
+}
+
+/* 标签 pills（tag 模式，单行横滚） */
+.dk-tags-scroll {
+  width: 100%;
+}
+.dk-tags {
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: 100%;
+  gap: 12rpx;
+  padding-bottom: 8rpx;
+}
+.dk-tags-empty {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  padding: 8rpx 0;
+}
+.dk-tagpill {
+  flex-shrink: 0;
+  padding: 10rpx 24rpx;
+  border-radius: var(--r-full);
+  font-size: 22rpx;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--color-base-200);
+}
+.dk-tagpill--on {
+  background: var(--primary-600);
+  color: #ffffff;
+}
+
+/* 进度条 */
+.dk-progress-track {
+  height: 12rpx;
+  border-radius: var(--r-full);
+  background: var(--color-base-200);
+  overflow: hidden;
+  margin: 16rpx 0 24rpx;
+}
+.dk-progress-bar {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--primary-600);
+  transition: width 0.3s ease;
+}
+
+/* ---------------- 卡片堆叠区 ---------------- */
+.dk-stage {
+  flex: 1;
+  justify-content: center;
+  position: relative;
+  min-height: 760rpx;
+}
+.dk-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 16rpx;
+  width: 92%;
+  height: 700rpx;
+  border-radius: 48rpx;
+  background: var(--color-base-200);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.dk-stack--back1 {
+  width: 96%;
+  height: 716rpx;
+  opacity: 0.75;
+}
+.dk-stack--back2 {
+  opacity: 0.5;
+  transform: translateX(-50%) scale(0.95);
+}
+.dk-card {
+  position: relative;
+  width: 100%;
+  min-height: 732rpx;
+  background: var(--card-bg);
+  border-radius: 48rpx;
+  border: 2rpx solid var(--ink-100);
+  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.1);
+  padding: 48rpx 40rpx;
+  box-sizing: border-box;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dk-card--drag {
+  transition: none; /* 跟手期去掉 transition（松手归位再启用） */
+}
+
+/* 手势角标（Web rotate ±12° + 描边胶囊） */
+.dk-cue {
+  position: absolute;
+  top: 40rpx;
+  z-index: 30;
+  gap: 10rpx;
+  padding: 12rpx 26rpx;
+  border-radius: 28rpx;
+  font-size: 22rpx;
+  font-weight: 900;
+  letter-spacing: 2rpx;
+  color: #ffffff;
+  border: 4rpx solid #ffffff;
+  pointer-events: none;
+}
+.dk-cue--right {
+  left: 40rpx;
+  background: var(--dk-cue-green);
+  transform: rotate(-12deg);
+  box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.4);
+}
+.dk-cue--left {
+  right: 40rpx;
+  background: var(--primary-600);
+  transform: rotate(12deg);
+  box-shadow: 0 8rpx 24rpx rgba(31, 122, 92, 0.4);
+}
+.dk-cue-ic {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+/* 正面 */
+.dk-face {
+  flex: 1;
+  justify-content: center;
+  gap: 32rpx;
+  z-index: 1;
+}
+.dk-face--front {
+  align-items: center;
+  text-align: center;
+}
+.dk-badge {
+  gap: 10rpx;
+  padding: 10rpx 24rpx;
+  border-radius: var(--r-full);
+  background: var(--primary-50);
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dk-badge-ic {
+  width: 24rpx;
+  height: 24rpx;
+}
+.dk-en {
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text-primary);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  padding: 0 8rpx;
+}
+/* deck 生词高亮（accent 口径，与句子本 amber 相区分） */
+.dk-hl {
+  background: var(--dk-hl-bg);
+  color: var(--dk-hl-text);
+  font-weight: 700;
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+  border-bottom: 4rpx solid var(--dk-hl-border);
+  display: inline-block;
+}
+.dk-flip-hint {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+/* 背面 */
+.dk-face--back {
+  align-items: stretch;
+  text-align: left;
+  gap: 28rpx;
+}
+.dk-back-head {
+  justify-content: space-between;
+  padding-bottom: 16rpx;
+  border-bottom: 2rpx solid var(--ink-100);
+}
+.dk-back-title {
+  gap: 10rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dk-back-title-ic {
+  width: 26rpx;
+  height: 26rpx;
+}
+.dk-back-flag {
+  font-size: 20rpx;
+  color: var(--text-tertiary);
+}
+.dk-zh {
+  font-size: 32rpx;
+  font-weight: 500;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.dk-note {
+  gap: 8rpx;
+  background: var(--color-base-200);
+  border: 2rpx solid var(--ink-100);
+  border-radius: 32rpx;
+  padding: 24rpx;
+}
+.dk-note-label {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dk-note-body {
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.dk-card-tags {
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+.dk-card-tag {
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+  background: var(--color-base-200);
+  font-size: 20rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* 卡底 meta */
+.dk-card-meta {
+  justify-content: space-between;
+  gap: 16rpx;
+  padding-top: 24rpx;
+  margin-top: 16rpx;
+  border-top: 2rpx solid var(--ink-100);
+}
+.dk-card-ep {
+  flex: 1;
+  min-width: 0;
+  font-size: 22rpx;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+.dk-card-slice {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  font-family: Menlo, Consolas, monospace;
+  color: var(--text-tertiary);
+  background: var(--color-base-200);
+  border-radius: 8rpx;
+  padding: 4rpx 16rpx;
+}
+
+/* ---------------- 底部操作坞 ---------------- */
+.dk-dock {
+  justify-content: space-around;
+  align-items: center;
+  gap: 12rpx;
+  background: var(--card-bg);
+  border-radius: 48rpx;
+  border: 2rpx solid var(--ink-100);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+  padding: 24rpx 28rpx;
+  margin-top: 24rpx;
+}
+.dk-dock-replay {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--r-full);
+}
+.dk-dock-replay--on {
+  background: var(--dk-cue-green);
+  animation: dk-pulse 1.2s ease-in-out infinite;
+}
+@keyframes dk-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 16rpx rgba(16, 185, 129, 0); }
+}
+.dk-dock-ic {
+  width: 44rpx;
+  height: 44rpx;
+}
+.dk-dock-ic--white {
+  width: 44rpx;
+  height: 44rpx;
+}
+.dk-dock-flip {
+  gap: 10rpx;
+  height: 96rpx;
+  padding: 0 36rpx;
+  border-radius: 32rpx;
+  border: 2rpx solid var(--ink-100);
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+/* 已翻转态：浅绿实底（与工具行圆钮/正面徽章同源，替代 btn-neutral 深色实心——
+   浅色模式下近黑胶囊与整页米白+墨绿色系反差过大，走查修复）；
+   深色走令牌自适应（primary-50→#12261f 深绿底 / color-primary→#4da989 浅绿字），
+   描边换浅绿透明 + 图标切 repeat-active-dark（深绿图标在深底发暗，走查修复） */
+.dk-dock-flip--on {
+  background: var(--primary-50);
+  border-color: rgba(31, 122, 92, 0.35);
+  color: var(--color-primary);
+}
+@media (prefers-color-scheme: dark) {
+  .dk-dock-flip--on {
+    border-color: rgba(77, 169, 137, 0.35);
+  }
+}
+.theme-dark .dk-dock-flip--on {
+  border-color: rgba(77, 169, 137, 0.35);
+}
+.dk-dock-flip-ic {
+  width: 30rpx;
+  height: 30rpx;
+}
+.dk-dock-shadow {
+  gap: 10rpx;
+  height: 96rpx;
+  padding: 0 30rpx;
+  border-radius: 32rpx;
+  border: 2rpx solid rgba(31, 122, 92, 0.3);
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dk-dock-shadow-ic {
+  width: 30rpx;
+  height: 30rpx;
+}
+.dk-dock-next {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--r-full);
+  background: var(--primary-600);
+  box-shadow: 0 8rpx 24rpx rgba(31, 122, 92, 0.25);
+}
+
+/* ---------------- 帮助弹窗 ---------------- */
+.dk-help-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dk-help {
+  width: 560rpx;
+  background: var(--card-bg);
+  border-radius: 40rpx;
+  padding: 40rpx 36rpx;
+  gap: 28rpx;
+}
+.dk-help-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dk-help-row {
+  align-items: flex-start;
+  gap: 20rpx;
+}
+.dk-help-ic {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 24rpx;
+  background: var(--primary-50);
+  flex-shrink: 0;
+}
+.dk-help-ic-img {
+  width: 32rpx;
+  height: 32rpx;
+}
+.dk-help-text {
+  flex: 1;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.dk-help-strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dk-help-btn {
+  height: 80rpx;
+  font-size: 28rpx;
 }

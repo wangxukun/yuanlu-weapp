@@ -752,6 +752,16 @@ const methodCall = wxmlFiles.map((p) => fs.readFileSync(path.join(__dirname, p),
   .filter((t) => /\{\{[^}]*\.(indexOf|includes|map|filter|slice|join)\(/.test(t));
 assert(methodCall.length === 0, '全组件 WXML：绑定表达式零方法调用（indexOf/includes/map/filter/slice/join）');
 
+// 深色走查（收藏 toast + 抽屉未选中胶囊）：
+assert(pageWxss.includes('#001e0f') && pageWxss.includes('#003d1c') && pageWxss.includes('#59f2a6') &&
+  pageWxss.includes('.theme-dark .il-toast--saved'),
+  '收藏 toast 深色：sonner dark success 原值三件套（bg/border/text）+ 手动覆盖轨');
+assert(pageWxml.includes("dark ? '/assets/icons/check-circle-success-dark.svg' : '/assets/icons/check-circle-success.svg'"),
+  '收藏 toast 对钩图标深浅双态');
+assert(drawerWxss.includes('.theme-dark .std-tag') &&
+  drawerWxss.includes('var(--color-base-300)'),
+  '抽屉未选中标签胶囊令牌化（深色消除硬编码 gray-100 残留）');
+
 /* ==================== 汇总 ==================== */
 
 console.log('\n────────────────────────');

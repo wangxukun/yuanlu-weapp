@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "影子跟读",
-  "usingComponents": {}
+  "usingComponents": {
+    "eval-card": "/components/voice/eval-card/index"
+  }
 }

@@ -1,0 +1,10 @@
+<!-- 句子微播放器（裸图标形态）：播放/暂停 + 单句循环（Web 移动端两裸钮） -->
+<view class="smp row">
+  <view class="smp-btn center {{playing ? 'smp-btn--on' : ''}}" bindtap="onTogglePlay">
+    <view wx:if="{{loading}}" class="smp-spin"></view>
+    <image wx:else class="smp-btn-ic" src="{{playing ? (dark ? '/assets/icons/pause-primary-dark.svg' : '/assets/icons/pause-primary.svg') : playSrc}}" />
+  </view>
+  <view class="smp-loop center" bindtap="onToggleLoop">
+    <image class="smp-loop-ic {{loop ? 'smp-loop-ic--on' : ''}}" src="{{loop ? '/assets/icons/repeat-one-active.svg' : loopSrc}}" />
+  </view>
+</view>

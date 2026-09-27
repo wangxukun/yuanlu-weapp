@@ -1,5 +1,176 @@
-<!-- 刷句复习卡片流（占位）：阶段三 T3.3 实现 -->
-<view class="page-stub">
-  <text class="t-h2">刷句复习</text>
-  <text class="t-caption text-tertiary">左滑下一句 · 右滑重听 · 阶段三落地</text>
+<!-- pages/review/deck — 刷句复习卡片流（复刻 Web ReviewDeck.tsx） -->
+<view class="dk-page {{themeClass}}">
+
+  <!-- 首次加载 -->
+  <view wx:if="{{loading}}" class="dk-center col">
+    <view class="dk-spin"></view>
+  </view>
+
+  <!-- 空句库 -->
+  <view wx:elif="{{isEmpty && !card}}" class="dk-center dk-empty col">
+    <view class="dk-empty-badge center">
+      <image class="dk-empty-ic" src="/assets/icons/text-quote-primary.svg" />
+    </view>
+    <text class="dk-empty-title">句子本为空</text>
+    <text class="dk-empty-desc">请先在播客单集逐字稿中收藏一些句子，再进入卡片复习模式。</text>
+    <view class="btn-primary dk-empty-btn tap-scale" bindtap="onBack">返回句子本</view>
+  </view>
+
+  <block wx:else>
+    <!-- ══ 顶栏：返回 | 刷句复习 + N/total | 帮助 ══ -->
+    <view class="dk-topbar row">
+      <view class="dk-topbtn center tap-dim" bindtap="onBack">
+        <image class="dk-topbtn-ic" src="/assets/icons/chevron-left-primary.svg" />
+      </view>
+      <view class="dk-toptitle col">
+        <text class="dk-toptitle-label">刷句复习</text>
+        <text class="dk-toptitle-count">{{indexLabel}}</text>
+      </view>
+      <view class="dk-topbtn center tap-dim" bindtap="onHelpToggle">
+        <image class="dk-topbtn-ic" src="/assets/icons/help-circle-primary.svg" />
+      </view>
+    </view>
+
+    <!-- ══ 模式选择器（顺序刷免费 / 标签组卷·SRS 为 PRO）+ 成就钮 ══ -->
+    <view class="dk-modes row">
+      <view class="dk-modes-track row">
+        <view class="dk-mode row {{mode === 'sequential' ? 'dk-mode--on' : ''}}" data-mode="sequential" bindtap="onModeTap">
+          <image class="dk-mode-ic" src="{{mode === 'sequential' ? '/assets/icons/list-ordered-primary.svg' : '/assets/icons/list-ordered-gray.svg'}}" />
+          <text>顺序刷</text>
+        </view>
+        <view class="dk-mode row {{mode === 'tag' ? 'dk-mode--on' : ''}}" data-mode="tag" bindtap="onModeTap">
+          <image class="dk-mode-ic" src="{{mode === 'tag' ? '/assets/icons/layers-primary.svg' : '/assets/icons/layers-gray.svg'}}" />
+          <text>标签组卷</text>
+          <image wx:if="{{!isPremium}}" class="dk-mode-lock" src="/assets/icons/lock.svg" />
+          <text wx:else class="dk-mode-pro">PRO</text>
+        </view>
+        <view class="dk-mode row {{mode === 'srs' ? 'dk-mode--on' : ''}}" data-mode="srs" bindtap="onModeTap">
+          <image class="dk-mode-ic" src="{{mode === 'srs' ? '/assets/icons/sparkles-primary.svg' : '/assets/icons/sparkles-gray.svg'}}" />
+          <text>SRS 调度</text>
+          <image wx:if="{{!isPremium}}" class="dk-mode-lock" src="/assets/icons/lock.svg" />
+          <text wx:else class="dk-mode-pro">PRO</text>
+        </view>
+      </view>
+      <view class="dk-achv row {{isPremium ? 'dk-achv--on' : ''}}" bindtap="onAchievementTap">
+        <image class="dk-achv-ic" src="{{isPremium ? '/assets/icons/flame-orange.svg' : '/assets/icons/lock.svg'}}" />
+        <text>{{isPremium ? flipCount : '成就'}}</text>
+      </view>
+    </view>
+
+    <!-- 标签组卷：标签 pills（无标签句引导） -->
+    <scroll-view wx:if="{{mode === 'tag'}}" class="dk-tags-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="dk-tags row">
+        <text wx:if="{{!tagOptions.length}}" class="dk-tags-empty">句库还没有标签——先在句子本为句子添加标签，再来组卷刷句</text>
+        <view wx:for="{{tagOptions}}" wx:key="name"
+              class="dk-tagpill {{selectedTag === item.name ? 'dk-tagpill--on' : ''}}"
+              data-tag="{{item.name}}" bindtap="onTagTap">{{item.name}} ({{item.count}})</view>
+      </view>
+    </scroll-view>
+
+    <!-- 进度条 -->
+    <view class="dk-progress-track">
+      <view class="dk-progress-bar" style="width: {{progressPercent}}%"></view>
+    </view>
+
+    <!-- ══ 卡片区：堆叠背景 + 当前卡（拖拽跟手 + 角标 + 正/背面） ══ -->
+    <view class="dk-stage col">
+      <view class="dk-stack dk-stack--back2"></view>
+      <view class="dk-stack dk-stack--back1"></view>
+
+      <view wx:if="{{card}}" class="dk-card col {{dragging ? 'dk-card--drag' : ''}}"
+            style="transform: translateX({{dx}}px) rotate({{rotate}}deg);"
+            bindtouchstart="onCardTouchStart" bindtouchmove="onCardTouchMove"
+            bindtouchend="onCardTouchEnd" bindtouchcancel="onCardTouchEnd">
+
+        <!-- 手势角标：右滑 = 重听原音（emerald），左滑 = 下一句（primary） -->
+        <view class="dk-cue dk-cue--right row" style="opacity: {{cueRightOp}};">
+          <image class="dk-cue-ic" src="/assets/icons/volume-up-white.svg" />
+          <text>重听原音</text>
+        </view>
+        <view class="dk-cue dk-cue--left row" style="opacity: {{cueLeftOp}};">
+          <text>下一句</text>
+          <image class="dk-cue-ic" src="/assets/icons/arrow-right-white.svg" />
+        </view>
+
+        <!-- 正面：徽章 + 衬线英文（accent 高亮）+ 翻面提示 -->
+        <view wx:if="{{!flipped}}" class="dk-face dk-face--front col">
+          <view class="dk-badge row">
+            <image class="dk-badge-ic" src="/assets/icons/sparkles-primary.svg" />
+            <text>原句精听与复习</text>
+          </view>
+          <view class="dk-en font-serif">
+            <text wx:for="{{card.enParts}}" wx:for-item="seg" wx:key="index"
+                  class="{{seg.hit ? 'dk-hl' : ''}}">{{seg.text}}</text>
+          </view>
+          <text class="dk-flip-hint">轻触卡片空白处翻转查看译文与笔记</text>
+        </view>
+
+        <!-- 背面：中文翻译参考 + 学习笔记 + 标签 -->
+        <view wx:else class="dk-face dk-face--back col">
+          <view class="dk-back-head row">
+            <view class="dk-back-title row">
+              <image class="dk-back-title-ic" src="/assets/icons/book-open-primary.svg" />
+              <text>中文翻译参考</text>
+            </view>
+            <text class="dk-back-flag">已翻转</text>
+          </view>
+          <text class="dk-zh">{{card.zhText || '暂无翻译'}}</text>
+          <view wx:if="{{card.note}}" class="dk-note col">
+            <text class="dk-note-label">学习笔记：</text>
+            <text class="dk-note-body">{{card.note}}</text>
+          </view>
+          <view class="dk-card-tags row">
+            <text class="dk-card-tag" wx:for="{{card.tags}}" wx:for-item="tag" wx:key="*this">#{{tag}}</text>
+          </view>
+        </view>
+
+        <!-- 卡底 meta：剧集名 + mono 时间戳 -->
+        <view class="dk-card-meta row">
+          <text class="dk-card-ep ellipsis">{{card.episodeTitle || '播客单集原声'}}</text>
+          <text class="dk-card-slice">{{card.startText}} - {{card.endText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ══ 底部单手操作坞：重听 | 看译文/看英文 | 跟读 | 下一句 ══ -->
+    <view class="dk-dock row">
+      <view class="dk-dock-replay center {{playingKey === 'deck:' + card.id ? 'dk-dock-replay--on' : ''}}" bindtap="onReplay">
+        <image class="dk-dock-ic" src="{{playingKey === 'deck:' + card.id ? '/assets/icons/volume-up-white.svg' : '/assets/icons/volume-2-gray.svg'}}" />
+      </view>
+      <view class="dk-dock-flip row {{flipped ? 'dk-dock-flip--on' : ''}}" bindtap="onFlipToggle">
+        <image class="dk-dock-flip-ic" src="{{flipped ? (dark ? '/assets/icons/repeat-active-dark.svg' : '/assets/icons/repeat-active.svg') : (dark ? '/assets/icons/repeat-white.svg' : '/assets/icons/repeat.svg')}}" />
+        <text>{{flipped ? '看英文' : '看译文'}}</text>
+      </view>
+      <view wx:if="{{card.hasSubtitle}}" class="dk-dock-shadow row" bindtap="onShadow">
+        <image class="dk-dock-shadow-ic" src="/assets/icons/mic-gray.svg" />
+        <text>跟读</text>
+      </view>
+      <view class="dk-dock-next center" bindtap="onNext">
+        <image class="dk-dock-ic--white" src="/assets/icons/arrow-right-white.svg" />
+      </view>
+    </view>
+  </block>
+
+  <!-- ══ 手势操作指南弹窗 ══ -->
+  <view wx:if="{{showHelp}}" class="dk-help-mask center" bindtap="onHelpToggle">
+    <view class="dk-help col" catchtap="noop">
+      <text class="dk-help-title">手势操作指南</text>
+      <view class="dk-help-row row">
+        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/help-circle-primary.svg" /></view>
+        <text class="dk-help-text"><text class="dk-help-strong">点击卡片空白处</text>：翻转卡片查看译文与笔记</text>
+      </view>
+      <view class="dk-help-row row">
+        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/chevron-left-primary.svg" /></view>
+        <text class="dk-help-text"><text class="dk-help-strong">左滑卡片</text>：切换到下一句</text>
+      </view>
+      <view class="dk-help-row row">
+        <view class="dk-help-ic dk-help-ic--primary center"><image class="dk-help-ic-img" src="/assets/icons/volume-2-gray.svg" /></view>
+        <text class="dk-help-text"><text class="dk-help-strong">右滑卡片</text>：重听原声音频</text>
+      </view>
+      <view class="btn-primary dk-help-btn tap-scale" catchtap="onHelpToggle">知道了</view>
+    </view>
+  </view>
+
+  <!-- 会员转化弹窗（高级模式 / 成就入口共用） -->
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
 </view>
