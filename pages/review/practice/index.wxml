@@ -84,13 +84,9 @@
           episode-title="{{episodeTitle}}"
           eval-scenario="review"
           quota-locked="{{quotaLocked}}"
-          show-bookmark="{{false}}"
-          show-loop="{{false}}"
-          show-latest-score="{{true}}"
           pass-threshold="{{weakThreshold}}"
           bind:evaluate="onEvaluate"
           bind:quota="onQuota"
-          bind:latestscore="onLatestScore"
           bind:phasechange="onPhaseChange"
         />
         <view class="pr-card-tail"></view>

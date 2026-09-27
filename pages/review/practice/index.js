@@ -11,8 +11,6 @@
 //   顶层）；403 → isLocked；records 空 → EmptyPane「没有待复习的弱项」
 // - 达标：eval-card evaluate 事件 score ≥ weakThreshold → completed 集合 +
 //   （顶栏徽章口径，Android 同为内存态不持久化）
-// - 最近得分：latestscore 事件 → latestScoreResult 伪结果（仅分数维度）经
-//   previousResult 注入翻结果面（Android showLatestScore 同口径）
 // - 换题：phase 置 IDLE、结果清空（Android switchQuestion 不缓存已答）
 // - 深链 ?subtitleId= 定位初始题（未命中回落 0）
 // - 【Web 口径恢复 2026-09-27】①复习日池预检 GET /api/speech/quota?scenario=
@@ -62,7 +60,6 @@ Page({
     episodeId: '',
     episodeTitle: '',
     cardKey: '',
-    previousResult: null,
     // 会员窗（锁定态解锁 CTA）
     showPremiumModal: false,
     // 外观
@@ -150,8 +147,8 @@ Page({
   _applyQuestion(index) {
     const rec = this._records[index];
     if (!rec) return;
-    // previousResult 先清（伪结果残留会在换题瞬间闪结果面）
-    this.setData({ previousResult: null, subtitle: null });
+    // 换句先置空（eval-card observers 重置录音/结果态）
+    this.setData({ subtitle: null });
     const card = core.buildPracticeCard(rec);
     const completed = this._completed.has(index);
     this.setData({
@@ -232,13 +229,6 @@ Page({
       this.setData({ isCompleted: true });
       this._syncSettlement();
     }
-  },
-
-  /** 最近得分：伪结果（仅分数维度）注入翻结果面 */
-  onLatestScore() {
-    const rec = this._records[this.data.index];
-    if (!rec) return;
-    this.setData({ previousResult: core.latestScoreResult(rec) });
   },
 
   /** 相变联动底部导航（Android enabled = phase != EVALUATING） */

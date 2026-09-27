@@ -686,27 +686,6 @@ function buildPracticeCard(record) {
   };
 }
 
-/**
- * 「最近得分」伪结果（Android showLatestScore：仅分数维度，无逐词明细）：
- * overall = lastScore（overallScore ?? accuracyScore）；三维条全用 accuracyScore；
- * speed 原值缺省 0。
- */
-function latestScoreResult(record) {
-  const src = record || {};
-  const overall = num(src.overallScore);
-  const accuracy = num(src.accuracyScore);
-  const lastScore = Math.round(overall !== null ? overall : accuracy !== null ? accuracy : 0);
-  return {
-    overallScore: lastScore,
-    pronunciation: accuracy !== null ? accuracy : 0,
-    fluency: accuracy !== null ? accuracy : 0,
-    integrity: accuracy !== null ? accuracy : 0,
-    speed: num(src.speed) !== null ? num(src.speed) : 0,
-    words: [],
-    userAudioPath: '',
-  };
-}
-
 /* ── 发音达人榜（T4.5，Android SpeechLeaderboard + SpeechModels 移植）── */
 
 /** 周期枚举（LeaderboardPeriod：label / apiValue） */
@@ -814,7 +793,6 @@ module.exports = {
   decorateWeakRow,
   parseErrors,
   buildPracticeCard,
-  latestScoreResult,
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
   parseLeaderboard,

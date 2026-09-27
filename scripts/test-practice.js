@@ -8,10 +8,9 @@
  *      进度 (index+1)/N、isLast、prevDisabled、结果不缓存（换题重置）
  *   3. 深链 ?subtitleId= 定位
  *   4. 达标：evaluate score ≥ weakThreshold → 顶栏徽章（completed 集合）
- *   5. 最近得分：伪结果（仅分数维度）经 previousResult 注入
  *   6. 相变联动：phasechange processing → evaluating → 底部两钮禁用
- *   7. eval-card 闯关形态扩展（showBookmark/showLoop/showLatestScore +
- *      latestscore/phasechange 事件 + previousResult observer）
+ *   7. eval-card 工具行五钮同语音评测页（最近得分链路整体退役）+
+ *      phasechange 事件 + previousResult observer
  *   8. WXML/WXSS 结构与图标资产断言（Material 原值）
  *
  * 运行：node scripts/test-practice.js
@@ -219,8 +218,8 @@ apiResponses['/api/speech/quota'] = {
     success: true, data: [R1, R2], weakThreshold: 85, totalErrors: 2, isTrialMode: false,
   };
 
-  /* ---------- 3. 达标徽章 + 最近得分 ---------- */
-  section('达标判定 + 最近得分伪结果');
+  /* ---------- 3. 达标徽章 ---------- */
+  section('达标判定');
 
   const q = makePage();
   q.onLoad({});
@@ -235,19 +234,6 @@ apiResponses['/api/speech/quota'] = {
   assert(q.data.index === 1 && q.data.isCompleted === false, '换到第 2 题：该题未达标');
   q.onPrev();
   assert(q.data.index === 0 && q.data.isCompleted === true, '换回第 1 题：徽章恢复（集合口径）');
-
-  // 最近得分（第 2 题 overallScore null → 回落 accuracyScore）
-  q.onNext();
-  assert(q.data.index === 1, '进第 2 题（overall 缺省题）');
-  q.onLatestScore();
-  const pseudo = q.data.previousResult;
-  assert(!!pseudo, 'latestscore → previousResult 注入');
-  assert(pseudo.overallScore === 62 && pseudo.pronunciation === 62 && pseudo.fluency === 62,
-    '伪结果：lastScore = accuracyScore（overall 缺省），三维全用 accuracy');
-  assert(pseudo.words.length === 0 && pseudo.speed === 120, '伪结果：无逐词明细 / speed 原值');
-  // 换题清空（不缓存已答）
-  q.onPrev();
-  assert(q.data.previousResult === null, '换题：伪结果清空（Android switchQuestion 不缓存）');
 
   /* ---------- 4. 相变联动底部导航 ---------- */
   section('phasechange → evaluating');
@@ -276,7 +262,7 @@ apiResponses['/api/speech/quota'] = {
   assert(navBackCalls.length === 1, '完成复习 → navigateBack');
 
   /* ---------- 6. pron-core 纯函数 ---------- */
-  section('pron-core：parseErrors / buildPracticeCard / latestScoreResult');
+  section('pron-core：parseErrors / buildPracticeCard');
 
   const core = require('../utils/pron-core');
   const parsed = core.parseErrors({
@@ -294,35 +280,28 @@ apiResponses['/api/speech/quota'] = {
   assert(card.subtitle.words.length === 0, 'words 缺省 → []');
   assert(card.subtitle.audioUrl === 'https://oss/a3.m4a', 'audioUrl 透传');
 
-  const lr = core.latestScoreResult(makeRecord(4, { overallScore: null, accuracyScore: null, speed: null }));
-  assert(lr.overallScore === 0 && lr.pronunciation === 0 && lr.speed === 0, '全缺省 → 0 兜底');
-
-  /* ---------- 7. eval-card 闯关形态扩展 ---------- */
-  section('eval-card：闯关形态扩展');
+  /* ---------- 7. eval-card 工具行（五钮同语音评测页；最近得分退役） ---------- */
+  section('eval-card：五钮工具行 + 相变外抛');
 
   const EC_JS = fs.readFileSync(path.join(__dirname, '../components/voice/eval-card/index.js'), 'utf8');
   const EC_WXML = fs.readFileSync(path.join(__dirname, '../components/voice/eval-card/index.wxml'), 'utf8');
   const EC_WXSS = fs.readFileSync(path.join(__dirname, '../components/voice/eval-card/index.wxss'), 'utf8');
 
-  assert(EC_JS.includes('showBookmark: { type: Boolean, value: true }') &&
-    EC_JS.includes('showLoop: { type: Boolean, value: true }'), 'props：showBookmark/showLoop（默认开）');
-  assert(EC_JS.includes('showLatestScore: { type: Boolean, value: false }'), 'props：showLatestScore（默认关）');
-  assert(EC_WXML.includes('wx:if="{{showBookmark}}"') && EC_WXML.includes('wx:if="{{showLoop}}"'),
-    'WXML：收藏/循环钮条件渲染');
-  assert(EC_WXML.includes('ec-actions--split') && EC_WXML.includes('ec-act-spacer'),
-    'WXML：闯关 split 布局（三钮 + 空隙 + 最近得分居右）');
-  assert(EC_WXML.includes('leaderboard-primary.svg') && EC_WXML.includes('最近得分'),
-    'WXML：最近得分钮（Material leaderboard 图标）');
-  assert(EC_WXML.includes("(phase === 'processing' || phase === 'recording') ? 'ec-act--off'"),
-    '最近得分钮：录音中/评测中禁用态');
-  assert(EC_JS.includes("triggerEvent('latestscore'"), 'latestscore 事件外抛');
+  // 五钮顺序：AI朗读 → 原声播放 → 慢速播放 → 收藏书签 → 单句循环（无最近得分）
+  const acts = EC_WXML.match(/<text class="ec-act-label">([^<]+)<\/text>/g) || [];
+  const labels = acts.map((m) => m.replace(/<[^>]+>/g, ''));
+  assert(labels.join('|') === 'AI朗读|原声播放|慢速播放|收藏书签|单句循环',
+    '工具行五钮次序 = 语音评测页同款');
+  assert(!EC_WXML.includes('最近得分') && !EC_WXML.includes('leaderboard-primary'),
+    '最近得分钮退役（无文案/无图标引用）');
+  assert(!EC_JS.includes('showLatestScore') && !EC_JS.includes('latestscore') &&
+    !EC_JS.includes('showBookmark') && !EC_JS.includes('showLoop'),
+    '闯关形态三 props + latestscore 事件退役（无死代码）');
+  assert(!EC_WXSS.includes('ec-actions--split') && !EC_WXSS.includes('ec-act-spacer'),
+    'split 布局样式退役');
   assert(EC_JS.includes("previousResult(v)") && EC_JS.includes("phase: 'result', result: v"),
-    'previousResult observer：后置注入翻结果面');
+    'previousResult observer：后置注入翻结果面（shadowing 结果恢复共用）');
   assert((EC_JS.match(/_emitPhase\(/g) || []).length >= 6, 'phasechange 相变外抛（recording/processing/result/idle 全覆盖）');
-  assert(EC_JS.includes("if (this.data.phase === 'processing' || this.data.phase === 'recording') return;"),
-    'onLatestScore：录音中/评测中守卫');
-  assert(EC_WXSS.includes('.ec-actions--split') && EC_WXSS.includes('gap: 24rpx'),
-    'WXSS：split 布局 spacedBy(12dp) 等价');
 
   /* ---------- 9. Web 口径恢复：日池预检 + 配额余量胶囊 ---------- */
   section('配额预检与余量胶囊（Web [P3-c]）');
@@ -389,11 +368,14 @@ apiResponses['/api/speech/quota'] = {
     WXML.includes('/assets/icons/check-circle.svg'), '达标徽章：CheckCircle 双深浅');
   assert(WXML.includes('pr-progress-track') && WXML.includes('style="width: {{progressPercent}}%"'),
     '闯关进度条');
-  assert(WXML.includes('show-bookmark="{{false}}"') && WXML.includes('show-loop="{{false}}"') &&
-    WXML.includes('show-latest-score="{{true}}"'), '评测卡闯关形态接线');
+  assert(!WXML.includes('show-bookmark') && !WXML.includes('show-loop') &&
+    !WXML.includes('show-latest-score'),
+    '评测卡走默认五钮工具行（无形态开关透传）');
   assert(WXML.includes('pass-threshold="{{weakThreshold}}"'), '卡片 Excellent 档绑定 weakThreshold（信封顶层同源）');
-  assert(WXML.includes('bind:latestscore="onLatestScore"') && WXML.includes('bind:phasechange="onPhaseChange"'),
-    'latestscore/phasechange 事件接线');
+  assert(WXML.includes('bind:phasechange="onPhaseChange"') && !WXML.includes('latestscore'),
+    'phasechange 事件接线（latestscore 已退役）');
+  assert(WXML.includes('bind:quota="onQuota"') && WXML.includes('quota-locked="{{quotaLocked}}"'),
+    '日池预检置锁 + 余量刷新接线');
   // Web [P3-c] 口径恢复：配额胶囊 / 结算横幅 / PRO 末钮
   assert(WXML.includes('pr-quota--warn') && WXML.includes('{{quotaText}}'),
     '配额余量胶囊（普通/预警双态 + JS 派生文案）');
@@ -443,7 +425,7 @@ apiResponses['/api/speech/quota'] = {
   assert(WXSS.includes('margin-bottom: 48rpx'), '结算横幅 mb-6 间距');
 
   ['arrow-back-ink', 'arrow-back-dark', 'check-circle', 'check-circle-primary-dark',
-    'keyboard-arrow-right-white', 'leaderboard-primary', 'lock-primary', 'lock-primary-dark',
+    'keyboard-arrow-right-white', 'lock-primary', 'lock-primary-dark',
     'keyboard-arrow-left-primary', 'keyboard-arrow-left-dark',
     'workspace-premium-amber', 'workspace-premium-amber-dark', 'workspace-premium-white'].forEach((name) => {
     assert(fs.existsSync(path.join(__dirname, '../assets/icons', name + '.svg')),
@@ -452,8 +434,8 @@ apiResponses['/api/speech/quota'] = {
   const wpSvg = fs.readFileSync(path.join(__dirname, '../assets/icons/workspace-premium-white.svg'), 'utf8');
   assert(wpSvg.includes('M9.68,13.69') && wpSvg.includes('fill="#ffffff"'),
     'workspace_premium：Material 官方 path（gstatic 原值）+ 白色');
-  const lbSvg = fs.readFileSync(path.join(__dirname, '../assets/icons/leaderboard-primary.svg'), 'utf8');
-  assert(lbSvg.includes('M7.5,21H2V9h5.5V21z'), 'leaderboard：Material 官方 path（gstatic 原值）');
+  assert(!fs.existsSync(path.join(__dirname, '../assets/icons/leaderboard-primary.svg')),
+    'leaderboard-primary.svg 已随「最近得分」退役删除');
   const abSvg = fs.readFileSync(path.join(__dirname, '../assets/icons/arrow-back-ink.svg'), 'utf8');
   assert(abSvg.includes('M20,11H7.83l5.59-5.59'), 'arrow_back：Material 官方 path');
 

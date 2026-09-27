@@ -118,8 +118,8 @@ if __name__ == '__main__':
     write_svg('check-circle-primary-dark.svg', '#4da989', cached_path('check_circle'))
     # 3) 底部实底按钮右箭头（onPrimary 白）
     write_svg('keyboard-arrow-right-white.svg', '#ffffff', cached_path('keyboard_arrow_right'))
-    # 4) 评测卡「最近得分」按钮（Material leaderboard，primary）
-    write_svg('leaderboard-primary.svg', '#1f7a5c', resolve('leaderboard'))
+    # 4) 「最近得分」钮已随 2026-09-27 走查退役（闯关卡回归默认五钮，
+    #    leaderboard-primary.svg + 缓存一并删除）
     # 5) 达人榜前三金银铜（emoji_events / military tech 原 path 换色；
     #    连同源 viewBox 一起复用——military_tech 是 0 -960 960 960 网格）
     emoji_d, emoji_vb = asset_path('emoji-events-secondary.svg')

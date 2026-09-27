@@ -5,7 +5,7 @@
 > 不再使用 lucide/自绘线性图标。新图标烘焙规范见文末。
 >
 > 本清单为 2026-09-27 全量走查的终态台账：全项目 210 处图标引用、252 个图标文件 →
-> 224 个文件（T4.5 批次 +8、Web 口径恢复批 +3），**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
+> 223 个文件（T4.5 批次 +7〔leaderboard-primary 随「最近得分」退役删除〕、Web 口径恢复批 +3），**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
 > 1 处重定向去重），退役旧文件 129 个已删除，`npm test` 31 套件全绿。
 > PNG 重绘覆盖：tabBar 4 Tab ×2 态（8 张）+ 我的页宫格 3 张（school/history/bookmark/
 > credit-card 中 history/bookmark/credit-card 沿用文件名）+ 头像 person.png + 激活态 person-active.png。
@@ -189,7 +189,7 @@
 | 135 | PNG 重绘 | `-` | `credit_card` | `credit-card.png` | （本次退役删除） | ✅ 已替换 |
 | 136 | PNG 重绘 | `-` | `person` | `person.png` | （本次退役删除） | ✅ 已替换 |
 
-### T4.5 批次（2026-09-27，闯关页 + 排行榜页，+8；同日 Web 口径恢复批 +3）
+### T4.5 批次（2026-09-27，闯关页 + 排行榜页，+7；同日 Web 口径恢复批 +3）
 
 | 文件 | Material 名 | 色值 | 用途 | 状态 |
 |------|------------|------|------|------|
@@ -197,7 +197,6 @@
 | `arrow-back-dark.svg` | `arrow_back` | #e8e3d9（onSurface 深） | 同上深色态 | ✅ 同字形换色 |
 | `check-circle-primary-dark.svg` | `check_circle` | #4da989（primary 深） | 闯关顶栏「已达标」徽章 15dp | ✅ 本地缓存源 |
 | `keyboard-arrow-right-white.svg` | `keyboard_arrow_right` | #ffffff（onPrimary） | 底部实底按钮右箭头 | ✅ 本地缓存源 |
-| `leaderboard-primary.svg` | `leaderboard` | #1f7a5c（primary） | 评测卡「最近得分」钮 20dp | ✅ gstatic 拉取官方 path |
 | `emoji-events-gold.svg` | `emoji_events` | #EAB308（RankGold） | 达人榜 #1 皇冠 22dp | ✅ 存量字形换色 |
 | `military-tech-silver.svg` | `military_tech` | #9CA3AF（RankSilver） | 达人榜 #2 银牌 22dp | ✅ 存量字形换色 |
 | `military-tech-bronze.svg` | `military_tech` | #D97706（RankBronze） | 达人榜 #3 铜牌 22dp | ✅ 存量字形换色 |

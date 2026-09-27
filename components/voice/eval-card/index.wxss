@@ -79,17 +79,6 @@
   justify-content: space-between;
   gap: 8rpx;
 }
-/* 闯关形态（Android SpeechEvalCard）：三播放钮 spacedBy(12dp) + 弹性空隙 + 最近得分居右 */
-.ec-actions--split {
-  justify-content: flex-start;
-  gap: 24rpx;
-}
-.ec-actions--split .ec-act {
-  flex: none;
-}
-.ec-act-spacer {
-  flex: 1;
-}
 .ec-act {
   display: flex; /* 列布局：圆钮与文字标签垂直堆叠、水平居中 */
   flex-direction: column;

@@ -56,13 +56,6 @@ Component({
     passThreshold: { type: Number, value: 80 },
     /** 收藏书签态（高亮由父页传入；toggle 动作经 bookmark 事件外抛） */
     bookmarked: { type: Boolean, value: false },
-    /** 收藏书签钮显隐（闯关卡按 Android SpeechEvalCard 隐藏，默认开） */
-    showBookmark: { type: Boolean, value: true },
-    /** 单句循环钮显隐（同上，闯关卡隐藏） */
-    showLoop: { type: Boolean, value: true },
-    /** 「最近得分」入口（Android 卡右侧第 4 钮，仅闯关复习传入；
-     *  点击外抛 latestscore 交父页以伪结果翻结果面） */
-    showLatestScore: { type: Boolean, value: false },
   },
 
   data: {
@@ -393,13 +386,6 @@ Component({
       this._player.stop();
       this.setData({ phase: 'idle', result: null, selectedWordIndex: null });
       this._emitPhase('idle');
-    },
-
-    /** 最近得分（Android onShowLatestScore：录音中/评测中禁点；
-     *  伪结果由父页组装经 previousResult 注入翻结果面） */
-    onLatestScore() {
-      if (this.data.phase === 'processing' || this.data.phase === 'recording') return;
-      this.triggerEvent('latestscore', {});
     },
 
     onPremiumClose() {
