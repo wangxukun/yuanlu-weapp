@@ -5,6 +5,10 @@
       {
         "value": ".eslintrc.js",
         "type": "file"
+      },
+      {
+        "value": "scripts",
+        "type": "folder"
       }
     ],
     "include": []
