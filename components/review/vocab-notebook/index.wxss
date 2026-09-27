@@ -178,8 +178,8 @@
   margin-bottom: 24rpx;
 }
 .vn-allclear-ic {
-  width: 64rpx;
-  height: 64rpx;
+  width: 60rpx; /* Android CheckCircle 30dp */
+  height: 60rpx;
   margin-bottom: 16rpx;
 }
 .vn-allclear-title {
@@ -276,8 +276,8 @@
   gap: 16rpx;
 }
 .vn-search-ic {
-  width: 32rpx;
-  height: 32rpx;
+  width: 36rpx; /* Android Search 18dp */
+  height: 36rpx;
   flex-shrink: 0;
 }
 .vn-search-input {
@@ -295,8 +295,8 @@
   flex-shrink: 0;
 }
 .vn-search-clear-ic {
-  width: 28rpx;
-  height: 28rpx;
+  width: 36rpx; /* Android Close 18dp */
+  height: 36rpx;
 }
 .vn-sorts {
   gap: 16rpx;
@@ -443,9 +443,15 @@
   flex-shrink: 0;
 }
 .vn-badge-ic {
-  width: 28rpx;
+  width: 28rpx; /* Android CheckCircle 14dp */
   height: 28rpx;
   margin-right: 8rpx;
+}
+/* 需要复习徽章（Android Schedule 13dp + Spacer 3dp，比已掌握徽章小一号） */
+.vn-badge-due .vn-badge-ic {
+  width: 26rpx;
+  height: 26rpx;
+  margin-right: 6rpx;
 }
 .vn-badge-done {
   font-size: 26rpx;
@@ -463,9 +469,14 @@
   font-weight: 700;
   color: var(--text-secondary);
 }
+/* 展开指示（Android KeyboardArrowDown 20dp，单枚旋转 180°，tween(250)） */
 .vn-chev {
-  width: 36rpx;
-  height: 36rpx;
+  width: 40rpx;
+  height: 40rpx;
+  transition: transform 0.25s ease;
+}
+.vn-chev--open {
+  transform: rotate(180deg);
 }
 
 /* ── 展开面板 ── */

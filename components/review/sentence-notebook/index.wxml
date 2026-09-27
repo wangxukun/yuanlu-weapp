@@ -53,7 +53,7 @@
           </view>
           <text class="sn-banner-desc">共收藏 <text class="sn-banner-strong">{{stats.sentenceCount}} 个关键句</text>，与生词本 <text class="sn-banner-strong">{{stats.vocabCount}} 个词汇</text> 深度联动，随时开始 AI 影子跟读与卡片复习。</text>
           <view class="sn-banner-btn center tap-scale" bindtap="onStartDeck">
-            <image class="sn-banner-btn-ic" src="{{dark ? '/assets/icons/play-circle-dark.svg' : '/assets/icons/play-circle-primary.svg'}}" />
+            <image class="sn-banner-btn-ic" src="{{dark ? '/assets/icons/play-circle-primary-m-dark.svg' : '/assets/icons/play-circle-primary-m.svg'}}" />
             <text>卡片复习模式</text>
           </view>
         </view>

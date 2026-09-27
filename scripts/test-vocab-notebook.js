@@ -733,6 +733,23 @@ const WXML_REVIEW = fs.readFileSync(
     assert(WXML_NOTEBOOK.includes('catchtap="noop"'), '展开面板 catchtap 阻断冒泡');
     assert(WXML_NOTEBOOK.includes('vn-bottom-space'), '底部让位（迷你播放条）');
 
+    // 图标完整复刻红线（Android VocabularyScreen Material Icons.Filled 同名同色）：
+    // 统计 MenuBook/Schedule/MilitaryTech、发音 VolumeUp、展开 KeyboardArrowDown（单枚旋转）、
+    // 词源 Lightbulb、掌握按钮 Refresh/CheckCircle、删除 Delete；旧 lucide 引用不得回流
+    ['menu-book-onsurface', 'schedule-accent-filled', 'military-tech-primary500',
+      'volume-up-primary70', 'volume-up-primary-m', 'volume-up-accent',
+      'keyboard-arrow-down-osv50', 'lightbulb-accent', 'refresh-onsurface',
+      'check-circle-white', 'delete-error', 'play-circle-primary-m'].forEach((ic) => {
+      assert(WXML_NOTEBOOK.includes(ic), 'Material 图标挂载：' + ic);
+    });
+    ['book-open-gray', 'clock-warning', 'award-success', 'volume-2-primary', 'volume-2-secondary',
+      'chevron-up.svg', 'chevron-down.svg', 'lightbulb-warning', 'trash-2-red', 'refresh-ccw-gray'].forEach((old) => {
+      assert(!WXML_NOTEBOOK.includes(old), '旧 lucide 图标不回流：' + old);
+    });
+    assert(WXML_NOTEBOOK.includes('vn-chev--open'), '展开指示单枚 KeyboardArrowDown + 旋转类（Android rotate 180°）');
+    assert(WXML_NOTEBOOK.includes("item.mastered ? (dark ? '/assets/icons/refresh-onsurface-dark.svg' : '/assets/icons/refresh-onsurface.svg') : '/assets/icons/check-circle-white.svg'"),
+      '掌握按钮图标：未掌握 CheckCircle 白 / 已掌握 Refresh onSurface（深色变体）');
+
     assert(WXML_REVIEW.includes('显示答案'), 'SRS 底栏：显示答案');
     assert(WXML_REVIEW.includes('再来一轮'), '总结页：再来一轮');
     assert(WXML_REVIEW.includes('复习完成！') && WXML_REVIEW.includes('本轮共复习了 {{summary.total}} 个生词'), '总结页主副标题（绑真实数据）');

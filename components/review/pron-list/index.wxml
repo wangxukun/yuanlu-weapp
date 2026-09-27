@@ -1,0 +1,119 @@
+<!-- 弱项列表模块：完整复刻 Android PronunciationNotebookScreen（统计面板 + 复习横幅 + 音素雷达 + 弱项句列表） -->
+<view class="pl-root {{themeClass}}">
+
+  <!-- ① 统计面板：页头 + 达人榜入口 + 三统计卡 -->
+  <view class="pl-panel">
+    <view class="pl-panel-head">
+      <image class="pl-panel-mic" src="{{icons.mic}}" mode="aspectFit" />
+      <view class="pl-panel-titles">
+        <text class="pl-panel-title">发音弱项本</text>
+        <text class="pl-panel-sub">针对性攻克发音短板，提升口语地道程度。</text>
+      </view>
+      <view class="pl-leaderboard" hover-class="pl-leaderboard-hover" bindtap="openLeaderboard">
+        <image class="pl-leaderboard-icon" src="{{icons.emojiEventsSecondary}}" mode="aspectFit" />
+        <text class="pl-leaderboard-text">发音达人榜</text>
+      </view>
+    </view>
+    <view class="pl-stats">
+      <view class="pl-stat">
+        <view class="pl-stat-iconbox pl-stat-iconbox--secondary">
+          <image class="pl-stat-icon" src="{{icons.description}}" mode="aspectFit" />
+        </view>
+        <text class="pl-stat-label">待复习句子</text>
+        <text class="pl-stat-value">{{totalErrors}}</text>
+      </view>
+      <view class="pl-stat">
+        <view class="pl-stat-iconbox pl-stat-iconbox--error">
+          <image class="pl-stat-icon" src="{{icons.trackChangesError}}" mode="aspectFit" />
+        </view>
+        <text class="pl-stat-label">最弱音素</text>
+        <text class="pl-stat-value pl-stat-value--mono">{{weakestPhoneme}}</text>
+      </view>
+      <view class="pl-stat">
+        <view class="pl-stat-iconbox pl-stat-iconbox--success">
+          <image class="pl-stat-icon" src="{{icons.emojiEventsSuccess}}" mode="aspectFit" />
+        </view>
+        <text class="pl-stat-label">已攻克音素</text>
+        <text class="pl-stat-value">{{masteredCount}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ② 复习横幅（弱项>0 深青蓝 / =0 全部完成卡） -->
+  <view wx:if="{{totalErrors > 0}}" class="pl-banner">
+    <view class="pl-banner-head">
+      <image class="pl-banner-icon" src="{{icons.psychology}}" mode="aspectFit" />
+      <text class="pl-banner-title">复习计划已就绪</text>
+    </view>
+    <text class="pl-banner-text">针对你的发音短板，你有 {{totalErrors}} 个弱项句子需要复习。</text>
+    <view class="pl-banner-btn" hover-class="pl-banner-btn-hover" bindtap="openPractice">
+      <image class="pl-banner-btn-icon" src="{{icons.playCircle}}" mode="aspectFit" />
+      <text class="pl-banner-btn-text">开始闯关复习</text>
+    </view>
+  </view>
+  <view wx:else class="pl-shell pl-done">
+    <image class="pl-done-icon" src="{{icons.checkCircle}}" mode="aspectFit" />
+    <text class="pl-done-title">全部完成了！</text>
+    <text class="pl-done-text">你做得很好，目前没有待复习的弱项句子。快去挑战新播客吧。</text>
+  </view>
+
+  <!-- ③ 薄弱音素诊断雷达（top6 '/音素/'，#4F46E5） -->
+  <view class="pl-shell">
+    <view class="pl-card-head pl-card-head--tight">
+      <view class="pl-icon-badge pl-icon-badge--primary">
+        <image class="pl-icon-badge-img" src="{{icons.trackChangesPrimary}}" mode="aspectFit" />
+      </view>
+      <text class="pl-card-title">薄弱音素诊断雷达</text>
+    </view>
+    <view wx:if="{{radarReady}}" class="pl-radar">
+      <canvas id="plPhonemeRadar" type="2d" class="pl-canvas" />
+    </view>
+    <view wx:else class="pl-radar-empty">
+      <image class="pl-radar-empty-icon" src="{{icons.trackChangesFaint}}" mode="aspectFit" />
+      <text class="pl-radar-empty-title">数据积累中</text>
+      <text class="pl-radar-empty-desc">完成更多评测即可解锁雷达图</text>
+    </view>
+  </view>
+
+  <!-- ④ 待复习弱项句子列表 -->
+  <view class="pl-shell">
+    <view class="pl-card-head">
+      <view class="pl-icon-badge pl-icon-badge--secondary">
+        <image class="pl-icon-badge-img" src="{{icons.emojiEventsSecondary}}" mode="aspectFit" />
+      </view>
+      <text class="pl-card-title">待复习弱项句子</text>
+    </view>
+
+    <block wx:if="{{rows.length > 0}}">
+      <view class="pl-rows">
+        <view wx:for="{{rows}}" wx:key="recognitionid" class="pl-row" hover-class="pl-row-hover" bindtap="openSpeechEval" data-index="{{index}}">
+          <image class="pl-cover" src="{{item.episodeCoverUrl}}" mode="aspectFill" />
+          <view class="pl-row-body">
+            <text class="pl-row-episode">{{item.episodeTitle}}</text>
+            <text class="pl-row-text">{{item.targetText}}</text>
+            <view class="pl-row-meta">
+              <text class="pl-score pl-score--{{item.tone}}">{{item.scoreText}}</text>
+              <text class="pl-row-date">{{item.dateText}}</text>
+            </view>
+          </view>
+        </view>
+        <view wx:if="{{lockedCount > 0}}" class="pl-locked" hover-class="pl-locked-hover" bindtap="openUnlock">
+          <view class="pl-icon-badge pl-icon-badge--primary">
+            <image class="pl-icon-badge-img" src="{{icons.lockPrimary}}" mode="aspectFit" />
+          </view>
+          <view class="pl-locked-texts">
+            <text class="pl-locked-title">还有 {{lockedCount}} 条弱项句子待攻克</text>
+            <text class="pl-locked-sub">解锁 PRO 会员查看完整弱项本，开始针对性循环练习</text>
+          </view>
+          <view class="pl-locked-cta">解锁</view>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="pl-empty">
+      <text class="pl-empty-title">太棒了！</text>
+      <text class="pl-empty-text">您目前没有待复习的弱项句子</text>
+    </view>
+  </view>
+
+  <premium-modal visible="{{premiumVisible}}" source="pronunciation_locked" vars="{{premiumVars}}" bind:close="onModalClose" />
+</view>

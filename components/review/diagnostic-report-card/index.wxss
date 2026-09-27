@@ -1,0 +1,465 @@
+/**
+ * diagnostic-report-card — 复刻 Web DiagnosticReportCard.tsx 排版/语义色；
+ * 卡壳与主题令牌沿用 T4.2 的 Android Material3 语言（surface/outline/onSurface/
+ * onSurfaceVariant 双态原值），行内语义色取 Web 原值（success #2E8F6F /
+ * amber #F59E0B / error #D2503F 系）。尺寸换算 1px=2rpx（p-3.5=28rpx、
+ * rounded-xl=24rpx、text-lg=36rpx、w-14=112rpx、h-2=16rpx、text-xs=24rpx、
+ * text-[11px]=22rpx、h-52=416rpx）。
+ */
+.drc-card {
+  --drc-surface: #ffffff;
+  --drc-on-surface: #1c1917;
+  --drc-on-surface-80: rgba(28, 25, 23, 0.8);
+  --drc-inset: #faf8f3;
+  --drc-osv-60: rgba(87, 83, 78, 0.6);
+  --drc-osv-40: rgba(87, 83, 78, 0.4);
+  --drc-outline-40: rgba(229, 224, 213, 0.4);
+  --drc-primary: #1f7a5c;
+  --drc-primary-10: rgba(31, 122, 92, 0.1);
+  --drc-row-border: rgba(227, 221, 207, 0.55);
+  --drc-row-bg: rgba(250, 248, 243, 0.45);
+  --drc-locked-border: rgba(207, 199, 180, 0.8);
+  --drc-error-text: #b8402f; /* error-600 */
+  --drc-warn-text: #d97706; /* amber-600 */
+  --drc-tip-bg: rgba(255, 251, 235, 0.7); /* amber-50/70 */
+  --drc-tip-border: rgba(253, 230, 138, 0.5); /* amber-200/50 */
+
+  background: var(--drc-surface);
+  border-radius: 32rpx;
+  border: 2rpx solid var(--drc-outline-40);
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+/* 深色双轨（媒体查询 + 手动类；vocab/sentence 同款已验证模式） */
+@media (prefers-color-scheme: dark) {
+  .drc-card {
+    --drc-surface: #1e1b16;
+    --drc-on-surface: #e8e3d9;
+    --drc-on-surface-80: rgba(232, 227, 217, 0.8);
+    --drc-inset: #26221c;
+    --drc-osv-60: rgba(168, 162, 158, 0.6);
+    --drc-osv-40: rgba(168, 162, 158, 0.4);
+    --drc-outline-40: rgba(58, 52, 44, 0.4);
+    --drc-primary: #4da989;
+    --drc-primary-10: rgba(77, 169, 137, 0.1);
+    --drc-row-border: rgba(50, 45, 35, 0.55); /* ink-800 */
+    --drc-row-bg: rgba(21, 19, 16, 0.35); /* ink-950/30 */
+    --drc-locked-border: #4a4436; /* ink-700 */
+    --drc-error-text: #db6b5c; /* error-400 */
+    --drc-warn-text: #fbbf24; /* amber-400 */
+    --drc-tip-bg: rgba(245, 158, 11, 0.05); /* amber-500/5 */
+    --drc-tip-border: rgba(245, 158, 11, 0.2); /* amber-500/20 */
+  }
+}
+
+.drc-card.theme-dark {
+  --drc-surface: #1e1b16;
+  --drc-on-surface: #e8e3d9;
+  --drc-on-surface-80: rgba(232, 227, 217, 0.8);
+  --drc-inset: #26221c;
+  --drc-osv-60: rgba(168, 162, 158, 0.6);
+  --drc-osv-40: rgba(168, 162, 158, 0.4);
+  --drc-outline-40: rgba(58, 52, 44, 0.4);
+  --drc-primary: #4da989;
+  --drc-primary-10: rgba(77, 169, 137, 0.1);
+  --drc-row-border: rgba(50, 45, 35, 0.55);
+  --drc-row-bg: rgba(21, 19, 16, 0.35);
+  --drc-locked-border: #4a4436;
+  --drc-error-text: #db6b5c;
+  --drc-warn-text: #fbbf24;
+  --drc-tip-bg: rgba(245, 158, 11, 0.05);
+  --drc-tip-border: rgba(245, 158, 11, 0.2);
+}
+
+.drc-card.theme-light {
+  --drc-surface: #ffffff;
+  --drc-on-surface: #1c1917;
+  --drc-on-surface-80: rgba(28, 25, 23, 0.8);
+  --drc-inset: #faf8f3;
+  --drc-osv-60: rgba(87, 83, 78, 0.6);
+  --drc-osv-40: rgba(87, 83, 78, 0.4);
+  --drc-outline-40: rgba(229, 224, 213, 0.4);
+  --drc-primary: #1f7a5c;
+  --drc-primary-10: rgba(31, 122, 92, 0.1);
+  --drc-row-border: rgba(227, 221, 207, 0.55);
+  --drc-row-bg: rgba(250, 248, 243, 0.45);
+  --drc-locked-border: rgba(207, 199, 180, 0.8);
+  --drc-error-text: #b8402f;
+  --drc-warn-text: #d97706;
+  --drc-tip-bg: rgba(255, 251, 235, 0.7);
+  --drc-tip-border: rgba(253, 230, 138, 0.5);
+}
+
+/* ── 头部（与画像卡同款 Android IconBadge + titleMedium 700） ── */
+.drc-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.drc-icon-badge {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 20rpx;
+  background: var(--drc-primary-10); /* primary-600/10（dark primary-400/10） */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.drc-icon-badge-img {
+  width: 38rpx;
+  height: 38rpx;
+}
+
+.drc-title {
+  flex: 1;
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 48rpx;
+  color: var(--drc-on-surface);
+  margin-left: 16rpx;
+  min-width: 0;
+}
+
+/* PRO 角标（daisyUI badge-sm + bg-amber-500 白字 + Lock 11px） */
+.drc-pro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: 4rpx 20rpx;
+  border-radius: 16rpx; /* radius-selector .5rem */
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+.drc-pro-lock {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+.drc-pro-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 32rpx;
+}
+
+/* ── 空态（bg-base-100 rounded-2xl py-10） ── */
+.drc-empty {
+  background: var(--drc-inset);
+  border-radius: 32rpx;
+  padding: 80rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.drc-empty-icon {
+  width: 80rpx; /* w-10 */
+  height: 80rpx;
+  margin-bottom: 24rpx;
+}
+
+.drc-empty-title {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--drc-osv-60);
+}
+
+.drc-empty-desc {
+  font-size: 24rpx;
+  color: var(--drc-osv-40);
+  margin-top: 8rpx;
+}
+
+/* ── 音素行（space-y-3 → 列间 gap 24rpx） ── */
+.drc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.drc-row {
+  border-radius: 24rpx; /* rounded-xl */
+  border: 2rpx solid var(--drc-row-border);
+  background: var(--drc-row-bg);
+  padding: 28rpx; /* p-3.5 */
+}
+
+.drc-row--locked {
+  border-style: dashed; /* border-dashed border-base-300/60 */
+  border-color: var(--drc-locked-border);
+  background: var(--drc-inset); /* bg-base-100 */
+}
+
+.drc-row-main {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+/* 音素符号：mono 黑体 18px 宽 56px；可见态两档色（<60 error / 其余 amber） */
+.drc-phoneme {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 36rpx;
+  font-weight: 900;
+  width: 112rpx;
+  flex-shrink: 0;
+  line-height: 44rpx;
+}
+
+.drc-phoneme--error {
+  color: var(--drc-error-text);
+}
+
+.drc-phoneme--warn {
+  color: var(--drc-warn-text);
+}
+
+/* 锁定文字：transparent + blur（Web text-transparent blur-[Npx] 原样；字号不同 blur 不同） */
+.drc-phoneme--hidden {
+  color: transparent;
+  filter: blur(12rpx); /* blur-[6px] */
+}
+
+.drc-text-hidden {
+  color: transparent;
+  filter: blur(10rpx); /* blur-[5px]（分值）/ blur-[4px]（meta 取同档近似） */
+}
+
+.drc-mid {
+  flex: 1;
+  min-width: 0;
+}
+
+.drc-bar-line {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.drc-bar-track {
+  flex: 1;
+  height: 16rpx; /* h-2 */
+  border-radius: 999rpx;
+  background: var(--drc-row-border); /* bg-base-200 */
+  overflow: hidden;
+}
+
+/* 进度条三档（scoreColor：≥80 success / ≥60 amber-500 / 其余 error-500） */
+.drc-bar-fill {
+  height: 100%;
+  border-radius: 999rpx;
+}
+
+.drc-bar-fill--good {
+  background: #2e8f6f; /* bg-success */
+}
+
+.drc-bar-fill--mid {
+  background: #f59e0b; /* bg-amber-500 */
+}
+
+.drc-bar-fill--low {
+  background: #d2503f; /* bg-error-500 */
+}
+
+.drc-bar-fill--blur {
+  filter: blur(6rpx); /* blur(3px)（宽度已 ×0.4 由数据层计算） */
+}
+
+.drc-score {
+  font-size: 24rpx; /* text-xs */
+  font-weight: 900;
+  width: 72rpx; /* w-9 */
+  text-align: right;
+  color: var(--drc-on-surface);
+  flex-shrink: 0;
+}
+
+.drc-meta {
+  font-size: 22rpx; /* text-[11px] */
+  font-weight: 500;
+  color: var(--drc-osv-40);
+  margin-top: 8rpx; /* mt-1 */
+}
+
+.drc-row-lock {
+  width: 28rpx; /* Lock 14 */
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+/* ── 专项建议盒（amber-50/70 底 + Lightbulb 12px，仅可见行） ── */
+.drc-tip {
+  margin-top: 20rpx; /* mt-2.5 */
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: var(--drc-tip-bg);
+  border: 2rpx solid var(--drc-tip-border);
+  border-radius: 16rpx; /* rounded-lg */
+  padding: 16rpx 20rpx; /* px-2.5 py-2 */
+}
+
+.drc-tip-icon {
+  width: 24rpx; /* Lightbulb 12 */
+  height: 24rpx;
+  margin-top: 4rpx;
+  flex-shrink: 0;
+}
+
+.drc-tip-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.drc-tip-text {
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--drc-on-surface-80); /* base-content/80 */
+}
+
+.drc-tip-contrast {
+  display: block;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--drc-osv-60); /* base-content/50 取中近似 */
+  margin-top: 4rpx; /* mt-0.5 */
+}
+
+/* ── 解锁引导（虚线 amber 底 + Lock 徽标 + CTA 胶囊） ── */
+.drc-unlock {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  border-radius: 32rpx; /* rounded-2xl */
+  border: 2rpx dashed rgba(251, 191, 36, 0.6); /* border-amber-400/60 */
+  background: rgba(255, 251, 235, 0.6); /* bg-amber-50/60 */
+  padding: 28rpx 32rpx;
+}
+
+/* 解锁引导深色（amber-500/40 边 + amber-500/5 底，双轨） */
+@media (prefers-color-scheme: dark) {
+  .drc-card:not(.theme-light) .drc-unlock {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.05);
+  }
+}
+
+.drc-card.theme-dark .drc-unlock {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.drc-unlock-hover {
+  opacity: 0.85;
+}
+
+.drc-unlock-badge {
+  padding: 16rpx;
+  border-radius: 24rpx; /* rounded-xl */
+  background: rgba(245, 158, 11, 0.1); /* amber-500/10 */
+  flex-shrink: 0;
+}
+
+.drc-unlock-lock {
+  width: 32rpx; /* Lock 16 */
+  height: 32rpx;
+}
+
+.drc-unlock-texts {
+  flex: 1;
+  min-width: 0;
+}
+
+.drc-unlock-title {
+  display: block;
+  font-size: 28rpx; /* text-sm */
+  font-weight: 700;
+  color: var(--drc-on-surface);
+}
+
+.drc-unlock-sub {
+  display: block;
+  font-size: 22rpx;
+  color: var(--drc-osv-60);
+  margin-top: 4rpx;
+}
+
+.drc-unlock-cta {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx; /* btn rounded-full */
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── PRO 进步曲线（pt-2 + 折线区 h-52） ── */
+.drc-trend {
+  padding-top: 16rpx;
+}
+
+.drc-trend-btn {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.drc-trend-hover {
+  opacity: 0.75;
+}
+
+.drc-trend-chevron,
+.drc-trend-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.drc-trend-label {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--drc-primary);
+}
+
+.drc-trend-area {
+  margin-top: 24rpx;
+  height: 416rpx; /* h-52 */
+}
+
+.drc-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.drc-trend-center {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.drc-loader {
+  width: 48rpx;
+  height: 48rpx;
+  animation: drc-spin 1s linear infinite;
+}
+
+@keyframes drc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.drc-trend-empty {
+  font-size: 24rpx;
+  color: var(--drc-osv-40);
+}

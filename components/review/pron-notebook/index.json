@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
-    "speech-profile-card": "/components/review/speech-profile-card/index"
+    "speech-profile-card": "/components/review/speech-profile-card/index",
+    "diagnostic-report-card": "/components/review/diagnostic-report-card/index",
+    "pron-list": "/components/review/pron-list/index"
   }
 }

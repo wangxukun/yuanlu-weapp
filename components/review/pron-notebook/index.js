@@ -37,18 +37,12 @@ Component({
     // 五维雷达点（toRadarData 派生，喂 speech-profile-card）
     radar: [],
 
-    // 加载中占位（T4.3–T4.5 模块未上线期间的三态文案）
+    // 加载中/失败占位（T4.4 后已加载态为全量真实模块，不再需要 coming 占位）
     placeholder: {
       icon: '/assets/icons/mic-ink-active.svg',
       title: '发音弱项本',
       desc: 'AI 诊断发音弱项，五维画像 + 音素报告，逐句闯关攻克弱音。',
-      phase: '阶段四落地'
-    },
-    coming: {
-      icon: '/assets/icons/mic-ink-active.svg',
-      title: '更多模块开发中',
-      desc: 'AI 发音诊断报告、弱项句列表、闯关复习与发音达人榜即将上线。',
-      phase: 'T4.3–T4.5'
+      phase: '加载中'
     },
     failed: {
       icon: '/assets/icons/book-a-warning.svg',

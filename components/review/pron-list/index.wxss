@@ -1,0 +1,580 @@
+/**
+/**
+ * pron-list — 完整复刻 Android PronunciationNotebookScreen 四块（StatsPanelHeader /
+ * ReviewPlanBanner / PhonemeRadarCard / WeakSentenceListCard + MiniStatCard）。
+ * 尺寸换算 dp/sp→rpx×2；色值 theme/Color.kt + 组件内常量原值：
+ * 横幅浅 #3D6A8D/深 #1B3348、Psychology #9CC3E0、达成绿 #2E8F6F、
+ * 音素雷达 #4F46E5、primary 浅 #1F7A5C/深 #4DA989（onPrimary 深 #0A241B）。
+ */
+.pl-root {
+  /* 四块纵向间距 = Android 外层 Column spacedBy(12.dp)（与卡片宿主 notebook-pad 同节奏） */
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.pl-root {
+  --pl-surface: #ffffff;
+  --pl-on-surface: #1c1917;
+  --pl-inset: #faf8f3; /* light: background */
+  --pl-inset-dark: #26221c; /* dark: surfaceVariant */
+  --pl-osv: #57534e;
+  --pl-osv-60: rgba(87, 83, 78, 0.6);
+  --pl-osv-70: rgba(87, 83, 78, 0.7);
+  --pl-outline-40: rgba(229, 224, 213, 0.4);
+  --pl-outline-60: rgba(229, 224, 213, 0.6);
+  --pl-outline-full: #e5e0d5;
+  --pl-primary: #1f7a5c;
+  --pl-on-primary: #ffffff;
+  --pl-secondary: #d98a17; /* 双态恒值 */
+  --pl-error: #d2503f; /* 双态恒值 */
+  --pl-tertiary: #4a7fa5;
+  --pl-banner: #3d6a8d; /* ReviewBannerLight */
+  --pl-row-bg: rgba(250, 248, 243, 0.5);
+  --pl-row-border: rgba(229, 224, 213, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pl-root:not(.theme-light) {
+    --pl-surface: #1e1b16;
+    --pl-on-surface: #e8e3d9;
+    --pl-inset: #26221c;
+    --pl-osv: #a8a29e;
+    --pl-osv-60: rgba(168, 162, 158, 0.6);
+    --pl-osv-70: rgba(168, 162, 158, 0.7);
+    --pl-outline-40: rgba(58, 52, 44, 0.4);
+    --pl-outline-60: #3a342c;
+    --pl-outline-full: #3a342c;
+    --pl-primary: #4da989;
+    --pl-on-primary: #0a241b;
+    --pl-tertiary: #7fa8c8;
+    --pl-banner: #1b3348; /* ReviewBannerDark */
+    --pl-row-bg: rgba(38, 34, 28, 0.4); /* surfaceVariant@0.4 */
+    --pl-row-border: #3a342c; /* outline 整值 */
+  }
+}
+
+.pl-root.theme-dark {
+  --pl-surface: #1e1b16;
+  --pl-on-surface: #e8e3d9;
+  --pl-inset: #26221c;
+  --pl-osv: #a8a29e;
+  --pl-osv-60: rgba(168, 162, 158, 0.6);
+  --pl-osv-70: rgba(168, 162, 158, 0.7);
+  --pl-outline-40: rgba(58, 52, 44, 0.4);
+  --pl-outline-60: #3a342c;
+  --pl-outline-full: #3a342c;
+  --pl-primary: #4da989;
+  --pl-on-primary: #0a241b;
+  --pl-tertiary: #7fa8c8;
+  --pl-banner: #1b3348;
+  --pl-row-bg: rgba(38, 34, 28, 0.4);
+  --pl-row-border: #3a342c;
+}
+
+.pl-root.theme-light {
+  --pl-surface: #ffffff;
+  --pl-on-surface: #1c1917;
+  --pl-inset: #faf8f3;
+  --pl-osv: #57534e;
+  --pl-osv-60: rgba(87, 83, 78, 0.6);
+  --pl-osv-70: rgba(87, 83, 78, 0.7);
+  --pl-outline-40: rgba(229, 224, 213, 0.4);
+  --pl-outline-60: rgba(229, 224, 213, 0.6);
+  --pl-outline-full: #e5e0d5;
+  --pl-primary: #1f7a5c;
+  --pl-on-primary: #ffffff;
+  --pl-secondary: #d98a17;
+  --pl-error: #d2503f;
+  --pl-tertiary: #4a7fa5;
+  --pl-banner: #3d6a8d;
+  --pl-row-bg: rgba(250, 248, 243, 0.5);
+  --pl-row-border: rgba(229, 224, 213, 0.6);
+}
+
+/* ═══ ① 统计面板 ═══ */
+.pl-panel {
+  padding: 16rpx 0 8rpx 0; /* Android: top 8dp bottom 4dp */
+}
+
+.pl-panel-head {
+  display: flex;
+  align-items: center;
+}
+
+.pl-panel-mic {
+  width: 56rpx; /* Mic 28dp */
+  height: 56rpx;
+  flex-shrink: 0;
+}
+
+.pl-panel-titles {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20rpx; /* Spacer(10.dp) */
+}
+
+.pl-panel-title {
+  display: block;
+  font-size: 44rpx; /* titleLarge 22sp */
+  font-weight: 700;
+  line-height: 56rpx;
+  color: var(--pl-on-surface);
+}
+
+.pl-panel-sub {
+  display: block;
+  font-size: 24rpx; /* labelMedium 12sp */
+  line-height: 32rpx;
+  color: var(--pl-osv);
+}
+
+/* 达人榜入口：secondary@0.1 底 + @0.3 边全圆 + h12/v6 */
+.pl-leaderboard {
+  display: inline-flex;
+  align-items: center;
+  padding: 12rpx 24rpx;
+  border-radius: 999rpx;
+  background: rgba(217, 138, 23, 0.1);
+  border: 2rpx solid rgba(217, 138, 23, 0.3);
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.pl-leaderboard-hover {
+  opacity: 0.8;
+}
+
+.pl-leaderboard-icon {
+  width: 32rpx; /* EmojiEvents 16dp */
+  height: 32rpx;
+  margin-right: 8rpx; /* Spacer(4.dp) */
+}
+
+.pl-leaderboard-text {
+  font-size: 24rpx; /* labelMedium */
+  font-weight: 700;
+  color: var(--pl-secondary);
+}
+
+/* 三统计卡（MiniStatCard）：surface 卡 + 12dp 圆角 + outline@0.4 边 + v10dp */
+.pl-stats {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx; /* Spacer(8.dp) */
+}
+
+.pl-stat {
+  flex: 1;
+  background: var(--pl-surface);
+  border-radius: 24rpx;
+  border: 2rpx solid var(--pl-outline-40);
+  padding: 20rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.pl-stat-iconbox {
+  width: 56rpx; /* 28dp */
+  height: 56rpx;
+  border-radius: 16rpx; /* 8dp */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-stat-iconbox--secondary {
+  background: rgba(217, 138, 23, 0.12);
+}
+
+.pl-stat-iconbox--error {
+  background: rgba(210, 80, 63, 0.12);
+}
+
+.pl-stat-iconbox--success {
+  background: rgba(46, 143, 111, 0.12);
+}
+
+.pl-stat-icon {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+
+.pl-stat-label {
+  font-size: 22rpx; /* labelSmall 11sp */
+  font-weight: 700;
+  color: var(--pl-osv-60);
+  margin-top: 8rpx; /* Spacer(4.dp) */
+}
+
+.pl-stat-value {
+  font-size: 32rpx; /* titleMedium 16sp */
+  font-weight: 700;
+  color: var(--pl-on-surface);
+}
+
+.pl-stat-value--mono {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 28rpx; /* titleSmall 14sp */
+  line-height: 40rpx;
+}
+
+/* ═══ ② 复习横幅 ═══ */
+.pl-banner {
+  background: var(--pl-banner);
+  border-radius: 32rpx; /* 16dp */
+  padding: 40rpx; /* 20dp */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pl-banner-head {
+  display: flex;
+  align-items: center;
+}
+
+.pl-banner-icon {
+  width: 52rpx; /* Psychology 26dp */
+  height: 52rpx;
+  margin-right: 20rpx; /* Spacer(10.dp) */
+}
+
+.pl-banner-title {
+  font-size: 32rpx; /* titleMedium */
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.pl-banner-text {
+  font-size: 24rpx; /* bodySmall 12sp */
+  line-height: 36rpx;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  margin-top: 12rpx; /* Spacer(6.dp) */
+}
+
+/* Material3 Button：白底 12dp 圆角 h40dp，content #3D6A8D（双态恒值） */
+.pl-banner-btn {
+  margin-top: 28rpx; /* Spacer(14.dp) */
+  height: 80rpx;
+  padding: 0 48rpx; /* 默认 contentPadding 24dp */
+  background: #ffffff;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-banner-btn-hover {
+  opacity: 0.9;
+}
+
+.pl-banner-btn-icon {
+  width: 40rpx; /* PlayCircle 20dp */
+  height: 40rpx;
+  margin-right: 12rpx; /* Spacer(6.dp) */
+}
+
+.pl-banner-btn-text {
+  font-size: 28rpx; /* button 14sp */
+  font-weight: 700;
+  color: #3d6a8d;
+}
+
+/* 空态：全部完成卡（CardShell + v20dp） */
+.pl-done {
+  padding: 40rpx 32rpx; /* v20dp + 卡内距 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pl-done-icon {
+  width: 64rpx; /* CheckCircle 32dp */
+  height: 64rpx;
+  margin-bottom: 16rpx; /* Spacer(8.dp) */
+}
+
+.pl-done-title {
+  font-size: 28rpx; /* titleSmall 14sp */
+  font-weight: 500;
+  color: var(--pl-on-surface);
+}
+
+.pl-done-text {
+  font-size: 24rpx; /* bodySmall */
+  color: var(--pl-osv);
+  margin-top: 4rpx; /* Spacer(2.dp) */
+  text-align: center;
+}
+
+/* ═══ 卡壳（CardShell：surface + 16dp 圆角 + outline@0.4 边 + 16dp 内距） ═══ */
+.pl-shell {
+  background: var(--pl-surface);
+  border-radius: 32rpx;
+  border: 2rpx solid var(--pl-outline-40);
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.pl-card-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.pl-card-head--tight {
+  margin-bottom: 8rpx; /* 雷达卡 padding(bottom 4dp) */
+}
+
+.pl-icon-badge {
+  width: 68rpx; /* IconBadge 34dp */
+  height: 68rpx;
+  border-radius: 20rpx; /* 10dp */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pl-icon-badge--primary {
+  background: rgba(31, 122, 92, 0.1); /* primary@0.1（深色 #4DA989@0.1 双轨见下） */
+}
+
+.pl-icon-badge--secondary {
+  background: rgba(217, 138, 23, 0.1);
+}
+
+.pl-icon-badge-img {
+  width: 38rpx; /* 19dp */
+  height: 38rpx;
+}
+
+.pl-card-title {
+  font-size: 32rpx; /* titleMedium */
+  font-weight: 700;
+  color: var(--pl-on-surface);
+  margin-left: 16rpx; /* Spacer(8.dp) */
+}
+
+@media (prefers-color-scheme: dark) {
+  .pl-root:not(.theme-light) .pl-icon-badge--primary {
+    background: rgba(77, 169, 137, 0.1);
+  }
+}
+
+.pl-root.theme-dark .pl-icon-badge--primary {
+  background: rgba(77, 169, 137, 0.1);
+}
+
+/* ═══ ③ 音素雷达（240dp 高；<3 点空态 200dp） ═══ */
+.pl-radar {
+  height: 480rpx;
+}
+
+.pl-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pl-radar-empty {
+  height: 400rpx; /* 200dp */
+  background: var(--pl-inset);
+  border-radius: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-radar-empty-icon {
+  width: 88rpx; /* 44dp */
+  height: 88rpx;
+  margin-bottom: 16rpx;
+}
+
+.pl-radar-empty-title {
+  font-size: 28rpx; /* bodyMedium */
+  font-weight: 500;
+  color: var(--pl-osv);
+}
+
+.pl-radar-empty-desc {
+  font-size: 22rpx; /* labelSmall */
+  color: var(--pl-osv-60);
+  margin-top: 4rpx;
+}
+
+/* ═══ ④ 弱项句列表 ═══ */
+.pl-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx; /* spacedBy(10.dp) */
+}
+
+.pl-row {
+  background: var(--pl-row-bg);
+  border-radius: 32rpx; /* 16dp */
+  border: 2rpx solid var(--pl-row-border);
+  padding: 24rpx; /* 12dp */
+  display: flex;
+  align-items: center;
+}
+
+.pl-row-hover {
+  opacity: 0.85;
+}
+
+.pl-cover {
+  width: 112rpx; /* 56dp */
+  height: 112rpx;
+  border-radius: 20rpx; /* 10dp */
+  background: var(--pl-inset-dark); /* 封面加载/缺省占位底 */
+  flex-shrink: 0;
+}
+
+.pl-row-body {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx; /* Spacer(12.dp) */
+}
+
+.pl-row-episode {
+  display: block;
+  font-size: 22rpx; /* labelSmall */
+  font-weight: 700;
+  color: var(--pl-osv-70);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pl-row-text {
+  display: block;
+  font-size: 28rpx; /* bodyMedium 14sp */
+  font-weight: 500;
+  color: var(--pl-on-surface);
+  line-height: 40rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4rpx; /* Spacer(2.dp) */
+}
+
+.pl-row-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx; /* Spacer(4.dp) */
+}
+
+/* 得分徽章：tone@0.12 底三档（good #2E8F6F / mid secondary / bad error），6dp 圆角 h8/v2 */
+.pl-score {
+  font-size: 22rpx; /* labelSmall */
+  font-weight: 700;
+  border-radius: 12rpx;
+  padding: 4rpx 16rpx;
+}
+
+.pl-score--good {
+  background: rgba(46, 143, 111, 0.12);
+  color: #2e8f6f;
+}
+
+.pl-score--mid {
+  background: rgba(217, 138, 23, 0.12);
+  color: var(--pl-secondary);
+}
+
+.pl-score--bad {
+  background: rgba(210, 80, 63, 0.12);
+  color: var(--pl-error);
+}
+
+.pl-row-date {
+  font-size: 22rpx;
+  color: var(--pl-osv-60);
+  margin-left: 16rpx; /* Spacer(8.dp) */
+}
+
+/* 锁定卡：primary@0.05 底 + @0.3 边 16dp 圆角 + Lock IconBadge + 解锁胶囊 */
+.pl-locked {
+  background: rgba(31, 122, 92, 0.05);
+  border-radius: 32rpx;
+  border: 2rpx solid rgba(31, 122, 92, 0.3);
+  padding: 28rpx; /* 14dp */
+  display: flex;
+  align-items: center;
+}
+
+.pl-locked-hover {
+  opacity: 0.85;
+}
+
+.pl-locked-texts {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx; /* Spacer(12.dp) */
+}
+
+.pl-locked-title {
+  display: block;
+  font-size: 28rpx; /* bodyMedium */
+  font-weight: 700;
+  color: var(--pl-on-surface);
+}
+
+.pl-locked-sub {
+  display: block;
+  font-size: 22rpx; /* labelSmall */
+  color: var(--pl-osv);
+  margin-top: 4rpx; /* Spacer(2.dp) */
+  line-height: 32rpx;
+}
+
+.pl-locked-cta {
+  background: var(--pl-primary);
+  color: var(--pl-on-primary);
+  border-radius: 999rpx; /* RoundedCornerShape(50) */
+  font-size: 24rpx; /* labelMedium */
+  font-weight: 700;
+  padding: 12rpx 28rpx; /* h14/v6 */
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pl-root:not(.theme-light) .pl-locked {
+    background: rgba(77, 169, 137, 0.05);
+    border-color: rgba(77, 169, 137, 0.3);
+  }
+}
+
+.pl-root.theme-dark .pl-locked {
+  background: rgba(77, 169, 137, 0.05);
+  border-color: rgba(77, 169, 137, 0.3);
+}
+
+/* 列表空态：太棒了（inset 底 v40dp） */
+.pl-empty {
+  background: var(--pl-inset);
+  border-radius: 32rpx;
+  padding: 80rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pl-empty-title {
+  font-size: 28rpx; /* titleSmall */
+  font-weight: 700;
+  color: var(--pl-osv);
+}
+
+.pl-empty-text {
+  font-size: 24rpx; /* bodySmall */
+  color: var(--pl-osv-60);
+  margin-top: 4rpx;
+}

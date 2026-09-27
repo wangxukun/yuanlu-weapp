@@ -433,10 +433,8 @@ assert(
   '画像卡挂载：profile/radar 双向传递',
 );
 assert(
-  nbWxml.indexOf('{{coming.title}}') >= 0 &&
-    nbDef.data.coming.title === '更多模块开发中' &&
-    nbDef.data.coming.phase === 'T4.3–T4.5',
-  '已加载态保留后续模块占位卡（data 驱动文案）',
+  nbWxml.indexOf('notebook-placeholder') >= 0 && nbDef.data.placeholder.title === '发音弱项本',
+  '加载中/失败占位保留（T4.4 后已加载态为全量真实模块，coming 占位退场）',
 );
 assert(nbWxml.indexOf('bindtap="retry"') >= 0 && nbWxml.indexOf('重试') >= 0, '失败态重试按钮接线 retry');
 assert(nbWxml.indexOf('wx:elif="{{loadError}}"') >= 0, '三态分支：loadError 优先于加载中占位');

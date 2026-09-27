@@ -4,6 +4,10 @@
 }
 .notebook-pad {
   padding: var(--page-padding);
+  /* 卡片间距：Android PronunciationNotebookRoute 外层 Column spacedBy(12.dp) */
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
 .notebook-placeholder {
   display: flex;

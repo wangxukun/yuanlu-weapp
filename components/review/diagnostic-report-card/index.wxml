@@ -1,0 +1,74 @@
+<!-- AI 发音诊断报告卡：复刻 Web DiagnosticReportCard.tsx（Top3 实分+建议 / 模糊锁定 / PRO 曲线） -->
+<view class="drc-card {{themeClass}}">
+  <view class="drc-head">
+    <view class="drc-icon-badge">
+      <image class="drc-icon-badge-img" src="{{icons.stethoscope}}" mode="aspectFit" />
+    </view>
+    <text class="drc-title">AI 发音诊断报告</text>
+    <view wx:if="{{!isPremium}}" class="drc-pro-badge">
+      <image class="drc-pro-lock" src="/assets/icons/lock-white.svg" mode="aspectFit" />
+      <text class="drc-pro-text">PRO</text>
+    </view>
+  </view>
+
+  <view wx:if="{{isEmpty}}" class="drc-empty">
+    <image class="drc-empty-icon" src="{{icons.stethoscopeFaint}}" mode="aspectFit" />
+    <text class="drc-empty-title">诊断数据积累中</text>
+    <text class="drc-empty-desc">完成更多语音评测后，这里会逐个指出你的薄弱音素</text>
+  </view>
+
+  <view wx:else class="drc-body">
+    <view wx:for="{{rows}}" wx:key="phoneme" class="drc-row {{item.visible ? '' : 'drc-row--locked'}}">
+      <view class="drc-row-main">
+        <text class="drc-phoneme drc-phoneme--{{item.visible ? item.scoreClass : 'hidden'}}">/{{item.phoneme}}/</text>
+        <view class="drc-mid">
+          <view class="drc-bar-line">
+            <view class="drc-bar-track">
+              <view class="drc-bar-fill drc-bar-fill--{{item.scoreTier}} {{item.visible ? '' : 'drc-bar-fill--blur'}}" style="width: {{item.barWidth}}%"></view>
+            </view>
+            <text class="drc-score {{item.visible ? '' : 'drc-text-hidden'}}">{{item.avgScore}}分</text>
+          </view>
+          <text class="drc-meta {{item.visible ? '' : 'drc-text-hidden'}}">{{item.metaText}}</text>
+        </view>
+        <image wx:if="{{!item.visible}}" class="drc-row-lock" src="{{icons.lockFaint}}" mode="aspectFit" />
+      </view>
+      <view wx:if="{{item.visible}}" class="drc-tip">
+        <image class="drc-tip-icon" src="/assets/icons/lightbulb-amber.svg" mode="aspectFit" />
+        <view class="drc-tip-body">
+          <text class="drc-tip-text" user-select>{{item.tipText}}</text>
+          <text class="drc-tip-contrast" user-select>对比练习：{{item.tipContrast}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!isPremium}}" class="drc-unlock" hover-class="drc-unlock-hover" bindtap="openUnlock">
+      <view class="drc-unlock-badge">
+        <image class="drc-unlock-lock" src="/assets/icons/lock-amber.svg" mode="aspectFit" />
+      </view>
+      <view class="drc-unlock-texts">
+        <text class="drc-unlock-title">还有 {{lockedCount}} 个薄弱音素的专项建议已锁定</text>
+        <text class="drc-unlock-sub">PRO 解锁：Top10 逐个击破方案 + 逐月进步曲线</text>
+      </view>
+      <view class="drc-unlock-cta">解锁完整诊断</view>
+    </view>
+
+    <view wx:if="{{isPremium}}" class="drc-trend">
+      <view class="drc-trend-btn" hover-class="drc-trend-hover" bindtap="toggleTrend">
+        <image class="drc-trend-chevron" src="{{showTrend ? icons.chevronUp : icons.chevronDown}}" mode="aspectFit" />
+        <image class="drc-trend-icon" src="{{icons.trending}}" mode="aspectFit" />
+        <text class="drc-trend-label">近 6 个月进步曲线</text>
+      </view>
+      <view wx:if="{{showTrend}}" class="drc-trend-area">
+        <view wx:if="{{trendLoading}}" class="drc-trend-center">
+          <image class="drc-loader" src="/assets/icons/loader-primary.svg" mode="aspectFit" />
+        </view>
+        <canvas wx:elif="{{trend.length > 0}}" id="drcTrend" type="2d" class="drc-canvas" />
+        <view wx:else class="drc-trend-center">
+          <text class="drc-trend-empty">近 6 个月暂无带综合分的评测记录</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <premium-modal visible="{{premiumVisible}}" source="diagnostic_report" bind:close="onModalClose" />
+</view>

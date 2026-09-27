@@ -370,6 +370,281 @@ function labelY(dy, anchorY) {
   return anchorY - RADAR_LABEL_LINE_H / 2;
 }
 
+/* ── AI 发音诊断报告（T4.3，Web DiagnosticReportCard.tsx + phoneme-tips.ts 移植）── */
+
+/** 免费层可见音素数（其后模糊锁定——「看得到数据但看不到深度分析」） */
+const FREE_VISIBLE_PHONEMES = 3;
+const DIAGNOSTIC_TOP_N = 10;
+
+/** IPA → 中文练习建议静态映射（core/speech/phoneme-tips.ts 逐字移植，
+ * 针对中文母语学习者的高频弱音；未命中回退通用建议） */
+const PHONEME_TIPS = {
+  // ── 咬舌音：中文无对应，最高频弱音 ──
+  'θ': { tip: '舌尖轻咬上下齿之间，气流从舌齿缝隙摩擦出——不是「斯」，舌要真伸出去', contrast: 'think vs. sink · path vs. pass' },
+  'ð': { tip: '与 /θ/ 同口型但声带振动，轻咬舌尖发浊音，常见于 the/this/that', contrast: 'then vs. den · they vs. day' },
+  // ── 唇齿音 vs 圆唇音 ──
+  'v': { tip: '上齿轻触下唇摩擦发声，不是「乌」——w 是双唇圆拢，v 要见到牙齿', contrast: 'very vs. wary · vest vs. west' },
+  'w': { tip: '双唇撮圆像吹蜡烛起点，不要碰到牙齿（碰到就成了 v）', contrast: 'wine vs. vine · wet vs. vet' },
+  // ── l / r ──
+  'r': { tip: '舌尖卷起不触上颚，口型收圆；中文「日」的卷舌更靠前，英语 r 更松', contrast: 'light vs. right · lace vs. race' },
+  'l': { tip: '舌尖抵上齿龈；词尾 l（feel/call）舌尖要真抵住，不要吞掉', contrast: 'feel vs. fee · call vs. caw' },
+  // ── 长短元音 ──
+  'iː': { tip: '长音拉满、嘴角向两侧咧开（微笑状），比「衣」更靠前更紧', contrast: 'seat vs. sit · eat vs. it' },
+  'ɪ': { tip: '短促放松，舌位比 iː 低且靠中——不是缩短版的「衣」，是更松的音', contrast: 'sit vs. seat · ship vs. sheep' },
+  'æ': { tip: '口张大、下巴下压，介于「哎」和「安」之间；胆子放大把嘴张开', contrast: 'bad vs. bed · cat vs. ket' },
+  'e': { tip: '口半开、舌位中前，比 /æ/ 嘴小一半——不要滑成「哎」', contrast: 'bed vs. bad · men vs. man' },
+  'ə': { tip: 'schwa 最常见的英语元音：完全放松、短而含糊（about 的 a）', contrast: 'about · banana · sofa' },
+  'ɑː': { tip: '口张大、舌后部压低，长音（father 的 a）——不是「阿」的扁音', contrast: 'car vs. 卡 · heart vs. hut' },
+  'ʌ': { tip: '短促、口半开、完全放松（cup/bus 的 u），比「阿」嘴小且短', contrast: 'cup vs. carp · cut vs. cart' },
+  // ── 鼻音与后鼻音 ──
+  'ŋ': { tip: '舌后部抵软腭，走鼻子出气（sing/long 结尾）——不要读成 n（舌尖抵齿龈）', contrast: 'sin vs. sing · thin vs. thing' },
+  // ── 摩擦/塞擦音 ──
+  'ʃ': { tip: '双唇前突圆拢、气流摩擦（「嘘」的口型），比「西」更圆更靠后', contrast: 'she vs. see · ship vs. sip' },
+  'tʃ': { tip: 't+ʃ 连发（「吃」更硬朗），气流一冲而出', contrast: 'chair vs. share · cheat vs. sheet' },
+  'dʒ': { tip: 'tʃ 的浊音版（jeep 的 j），声带振动', contrast: 'jazz vs. chart · joke vs. choke' },
+  'z': { tip: '与 s 同口型但声带振动——中文无浊辅音，喉咙要真 buzz 起来', contrast: 'zoo vs. sue · buzz vs. bus' },
+  // ── 双元音（动程要足）──
+  'eɪ': { tip: '从 e 滑向 ɪ，动程要完整（late/take），不要读成单元音「诶」', contrast: 'late vs. let · fate vs. fed' },
+  'aɪ': { tip: '从 a 滑向 ɪ，前半开口大（like/time），不要读成「爱」的扁音', contrast: 'like vs. 莱克 · time vs. 泰姆' },
+  'aʊ': { tip: '从 a 滑向 ʊ（now/out），收尾嘴唇收圆', contrast: 'now vs. 闹 · about vs. 额抱特' },
+  'oʊ': { tip: '从 o 滑向 ʊ，收尾圆唇（go/know），动程比「欧」更后', contrast: 'go vs. 够 · so vs. 搜' },
+};
+
+/** 通用兜底建议（音素未命中映射时，phoneme-tips.ts 同款） */
+const FALLBACK_TIP = {
+  tip: '在跟读练习中放慢原声，对着音标口型重复 5 遍，再以正常语速连读 3 遍',
+  contrast: '对比原声录音回放，逐词定位失分点',
+};
+
+/** IPA → 建议查询（归一化：有道返回可能带斜杠/空白，/θ/ → θ） */
+function getPhonemeTip(phoneme) {
+  const key = String(phoneme || '').replace(/\//g, '').trim();
+  return PHONEME_TIPS[key] || FALLBACK_TIP;
+}
+
+/**
+ * 诊断卡行视图模型（Web topPhonemes.map 内联口径逐项）：
+ * - Top10 截取（stats 已升序 = 最弱在前）
+ * - visible = isPremium || idx < 3；锁定行：barWidth ×0.4（blur 由样式层实现）
+ * - 进度条三档（scoreTier：≥80 good 绿 / ≥60 mid 琥珀 / 其余 low 红）
+ * - 音素符号两档色（scoreClass：<60 error / 其余 warn；与进度条口径不同，Web 原样）
+ * - meta 文案「评测 N 次 · 低分 N 次」与 tip（getPhonemeTip）预计算
+ */
+function diagnosticRows(stats, isPremium) {
+  return (Array.isArray(stats) ? stats : [])
+    .slice(0, DIAGNOSTIC_TOP_N)
+    .map(function (ph, idx) {
+      const src = ph || {};
+      const avgScore = Math.round(Number(src.avgScore) || 0);
+      const visible = !!isPremium || idx < FREE_VISIBLE_PHONEMES;
+      const tip = getPhonemeTip(src.phoneme);
+      return {
+        phoneme: String(src.phoneme == null ? '' : src.phoneme),
+        avgScore,
+        count: Number(src.count) || 0,
+        lowScoreCount: Number(src.lowScoreCount) || 0,
+        visible,
+        scoreTier: avgScore >= 80 ? 'good' : avgScore >= 60 ? 'mid' : 'low',
+        scoreClass: avgScore < 60 ? 'error' : 'warn',
+        barWidth: visible ? avgScore : Math.round(avgScore * 0.4),
+        metaText: '评测 ' + (Number(src.count) || 0) + ' 次 · 低分 ' + (Number(src.lowScoreCount) || 0) + ' 次',
+        tipText: tip.tip,
+        tipContrast: tip.contrast,
+      };
+    });
+}
+
+/** 非会员锁定音素数（Top10 − 免费 3，下限 0） */
+function diagnosticLockedCount(stats) {
+  const n = Math.min(Array.isArray(stats) ? stats.length : 0, DIAGNOSTIC_TOP_N) - FREE_VISIBLE_PHONEMES;
+  return n > 0 ? n : 0;
+}
+
+/**
+ * GET /api/speech/diagnostic 信封解析（PRO 专属；非会员 403 由调用方捕获弹窗）：
+ * {success, data:{phonemes, trend}} → 归一 {phonemes(升序 Top10), trend(月份升序)}
+ */
+function parseDiagnostic(res) {
+  const d = res && res.success && res.data ? res.data : null;
+  if (!d) return null;
+  const trend = (Array.isArray(d.trend) ? d.trend : [])
+    .map(function (t) {
+      const src = t || {};
+      return {
+        month: String(src.month || ''),
+        avgScore: Math.round(Number(src.avgScore) || 0),
+        count: Number(src.count) || 0,
+      };
+    })
+    .filter(function (t) { return t.month; })
+    .sort(function (a, b) { return a.month < b.month ? -1 : a.month > b.month ? 1 : 0; });
+  return {
+    phonemes: parsePhonemeStats(d.phonemes).slice(0, DIAGNOSTIC_TOP_N),
+    trend,
+  };
+}
+
+/* ── 进步曲线渲染（canvas 2d，recharts LineChart 视觉等价）── */
+const TREND_LINE = '#4F46E5'; // Web Line stroke（indigo-600，音素雷达同族色）
+const TREND_GRID = 'rgba(107, 114, 128, 0.15)'; // CartesianGrid currentColor opacity .1
+const TREND_TICK = '#6B7280';
+const TREND_AXIS_LEFT = 28; // YAxis width
+const TREND_AXIS_BOTTOM = 18; // X 标签行高
+const TREND_PAD_TOP = 8;
+
+/**
+ * 近 6 个月进步曲线自绘：水平虚线网格（Y 0/25/50/75/100）+ 平滑折线
+ * （中点二次贝塞尔近似 recharts type="monotone"）+ 半径 4 圆点 + 月份标签。
+ */
+function drawTrendChart(node, cssW, cssH, trend, dpr) {
+  if (!node || typeof node.getContext !== 'function') return false;
+  const ctx = node.getContext('2d');
+  const arr = Array.isArray(trend) ? trend : [];
+  if (!ctx || !cssW || !cssH || arr.length === 0) return false;
+
+  const d = Number(dpr) || 1;
+  node.width = Math.round(cssW * d);
+  node.height = Math.round(cssH * d);
+  if (ctx.setTransform) {
+    try { ctx.setTransform(1, 0, 0, 1, 0, 0); } catch (e) { /* 基础库兜底 */ }
+  }
+  if (ctx.scale) ctx.scale(d, d);
+
+  const w = cssW;
+  const h = cssH;
+  const plotL = TREND_AXIS_LEFT;
+  const plotR = w - 8;
+  const plotT = TREND_PAD_TOP;
+  const plotB = h - TREND_AXIS_BOTTOM;
+  const plotW = plotR - plotL;
+  const plotH = plotB - plotT;
+  if (plotW <= 0 || plotH <= 0) return false;
+
+  const yFor = function (score) { return plotB - (Math.min(100, Math.max(0, score)) / 100) * plotH; };
+  const xFor = function (i) {
+    return arr.length === 1 ? plotL + plotW / 2 : plotL + (plotW * i) / (arr.length - 1);
+  };
+
+  ctx.clearRect(0, 0, w, h);
+
+  // 水平虚线网格 + Y 刻度（0/25/50/75/100，字号 11）
+  ctx.strokeStyle = TREND_GRID;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.fillStyle = TREND_TICK;
+  ctx.font = '400 11px sans-serif';
+  ctx.textBaseline = 'middle';
+  for (var v = 0; v <= 100; v += 25) {
+    const y = yFor(v);
+    ctx.beginPath();
+    ctx.moveTo(plotL, y);
+    ctx.lineTo(plotR, y);
+    ctx.stroke();
+    ctx.textAlign = 'right';
+    ctx.fillText(String(v), plotL - 4, y);
+  }
+  ctx.setLineDash([]);
+
+  // 月份标签（X 轴，居中于各点下方）
+  arr.forEach(function (t, i) {
+    ctx.textAlign = 'center';
+    ctx.fillText(t.month, xFor(i), plotB + 9);
+  });
+
+  // 平滑折线（中点二次贝塞尔）+ 数据点
+  const pts = arr.map(function (t, i) { return { x: xFor(i), y: yFor(t.avgScore) }; });
+  ctx.strokeStyle = TREND_LINE;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (var k = 1; k < pts.length; k++) {
+    const prev = pts[k - 1];
+    const cur = pts[k];
+    const mx = (prev.x + cur.x) / 2;
+    ctx.quadraticCurveTo(mx, prev.y, mx, (prev.y + cur.y) / 2);
+    ctx.quadraticCurveTo(mx, cur.y, cur.x, cur.y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = TREND_LINE;
+  pts.forEach(function (p) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  return true;
+}
+
+/* ── 弱项列表（T4.4，Android PronunciationUtils.kt + SpeechNotebook 派生口径）── */
+
+/** 得分档位（Android ScoreTone：≥80 good / ≥60 mid / 其余 bad，Web 列表徽章同口径） */
+function classifyScore(score) {
+  const n = Math.round(Number(score) || 0);
+  if (n >= 80) return 'good';
+  if (n >= 60) return 'mid';
+  return 'bad';
+}
+
+/**
+ * ISO 时间 → 「Y年M月D日」（Android formatZhDate，Web toLocaleDateString zh-CN 等价）。
+ * 带偏移 ISO 按本地时区换算；解析失败回退原串前 10 位。
+ */
+function formatZhDate(iso) {
+  const s = String(iso || '');
+  if (!s) return '';
+  let d = new Date(s);
+  if (isNaN(d.getTime())) d = new Date(s.slice(0, 10));
+  if (isNaN(d.getTime())) return s.slice(0, 10);
+  return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+}
+
+/** 薄弱音素雷达点：最弱前 6 项，标签包 /音素/（Android phonemeRadarPoints） */
+function phonemeRadarPoints(stats, limit) {
+  const n = limit === undefined ? 6 : limit;
+  return (Array.isArray(stats) ? stats : [])
+    .slice(0, n)
+    .map(function (s) {
+      const src = s || {};
+      return {
+        dim: '/' + String(src.phoneme == null ? '' : src.phoneme) + '/',
+        score: Math.round(Number(src.avgScore) || 0),
+      };
+    });
+}
+
+/** notebook 派生统计（Android SpeechNotebook.weakestPhoneme/masteredPhonemeCount）：
+ * 最弱音素 '/θ/'（无数据 null）/ 已攻克音素（avgScore ≥ 85 计数） */
+function notebookStats(notebook) {
+  const stats = notebook && Array.isArray(notebook.phonemeStats) ? notebook.phonemeStats : [];
+  const first = stats[0];
+  return {
+    weakestPhoneme: first && first.phoneme ? '/' + first.phoneme + '/' : null,
+    masteredPhonemeCount: stats.filter(function (s) {
+      return Math.round(Number((s || {}).avgScore) || 0) >= 85;
+    }).length,
+  };
+}
+
+/** 弱项句行装饰（Android WeakSentenceRow + record.lastScore 口径）：
+ * lastScore = overallScore ?? accuracyScore（round）；tone 三档；得分徽章与中文日期预计算 */
+function decorateWeakRow(record) {
+  const src = record || {};
+  const overall = num(src.overallScore);
+  const accuracy = num(src.accuracyScore);
+  const lastScore = Math.round(overall !== null ? overall : accuracy !== null ? accuracy : 0);
+  return {
+    recognitionid: src.recognitionid,
+    episodeid: src.episodeid || '',
+    episodeTitle: src.episodeTitle || '未知播客',
+    episodeCoverUrl: src.episodeCoverUrl || '',
+    targetText: src.targetText || '',
+    subtitleId: typeof src.subtitleId === 'number' ? src.subtitleId : null,
+    lastScore,
+    tone: classifyScore(lastScore),
+    scoreText: '上次得分: ' + lastScore,
+    dateText: formatZhDate(src.recognitionDate),
+  };
+}
+
 module.exports = {
   DEFAULT_WEAK_SCORE_THRESHOLD,
   WEAK_THRESHOLD_MIN,
@@ -394,4 +669,17 @@ module.exports = {
   RADAR_GRID_STROKE_DARK,
   RADAR_TICK_FILL_LIGHT,
   RADAR_TICK_FILL_DARK,
+  FREE_VISIBLE_PHONEMES,
+  DIAGNOSTIC_TOP_N,
+  PHONEME_TIPS,
+  getPhonemeTip,
+  diagnosticRows,
+  diagnosticLockedCount,
+  parseDiagnostic,
+  drawTrendChart,
+  classifyScore,
+  formatZhDate,
+  phonemeRadarPoints,
+  notebookStats,
+  decorateWeakRow,
 };

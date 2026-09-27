@@ -19,17 +19,17 @@
       <!-- ══ 1. 统计三格（全局空态隐藏，避免全 0 空仪表盘） ══ -->
       <view wx:if="{{stats.total > 0}}" class="vn-stats row">
         <view class="vn-stat col">
-          <view class="vn-stat-ic center"><image class="vn-stat-img" src="/assets/icons/book-open-gray.svg" /></view>
+          <view class="vn-stat-ic center"><image class="vn-stat-img" src="{{dark ? '/assets/icons/menu-book-onsurface-dark.svg' : '/assets/icons/menu-book-onsurface.svg'}}" /></view>
           <text class="vn-stat-label">总计</text>
           <text class="vn-stat-num">{{stats.total}}</text>
         </view>
         <view class="vn-stat col">
-          <view class="vn-stat-ic vn-stat-ic--due center"><image class="vn-stat-img" src="/assets/icons/clock-warning.svg" /></view>
+          <view class="vn-stat-ic vn-stat-ic--due center"><image class="vn-stat-img" src="/assets/icons/schedule-accent-filled.svg" /></view>
           <text class="vn-stat-label">待复习</text>
           <text class="vn-stat-num">{{stats.due}}</text>
         </view>
         <view class="vn-stat col">
-          <view class="vn-stat-ic vn-stat-ic--done center"><image class="vn-stat-img" src="/assets/icons/award-success.svg" /></view>
+          <view class="vn-stat-ic vn-stat-ic--done center"><image class="vn-stat-img" src="/assets/icons/military-tech-primary500.svg" /></view>
           <text class="vn-stat-label">已掌握</text>
           <text class="vn-stat-num">{{stats.mastered}}</text>
         </view>
@@ -44,13 +44,13 @@
           </view>
           <text class="vn-banner-desc">根据遗忘曲线，你有 <text class="vn-banner-strong">{{stats.due}} 个生词</text> 需要复习。</text>
           <view class="vn-banner-btn center tap-scale" bindtap="onStartReview">
-            <image class="vn-banner-btn-ic" src="{{dark ? '/assets/icons/play-circle-dark.svg' : '/assets/icons/play-circle-primary.svg'}}" />
+            <image class="vn-banner-btn-ic" src="{{dark ? '/assets/icons/play-circle-primary-m-dark.svg' : '/assets/icons/play-circle-primary-m.svg'}}" />
             <text>开始复习</text>
           </view>
         </view>
 
         <view wx:else class="vn-allclear col">
-          <image class="vn-allclear-ic" src="/assets/icons/check-circle.svg" />
+          <image class="vn-allclear-ic" src="/assets/icons/check-circle-success-m3.svg" />
           <text class="vn-allclear-title">全部完成了！</text>
           <text class="vn-allclear-desc">你做得很好，今日复习任务已清空。快去听播客添加新词吧。</text>
         </view>
@@ -137,7 +137,7 @@
                 data-id="{{item.vocabularyid}}"
                 catchtap="onPlayWord"
               >
-                <image class="vn-play-ic" src="/assets/icons/volume-2-primary.svg" />
+                <image class="vn-play-ic" src="{{dark ? '/assets/icons/volume-up-primary70-dark.svg' : '/assets/icons/volume-up-primary70.svg'}}" />
               </view>
             </view>
             <text class="vn-def ellipsis">{{item.defText}}</text>
@@ -150,15 +150,15 @@
               </view>
               <view class="vn-meta-right row">
                 <view wx:if="{{item.mastered}}" class="vn-badge-done row">
-                  <image class="vn-badge-ic" src="/assets/icons/check-circle.svg" />
+                  <image class="vn-badge-ic" src="/assets/icons/check-circle-success-m3.svg" />
                   <text>已掌握</text>
                 </view>
                 <view wx:elif="{{item.due}}" class="vn-badge-due row">
-                  <image class="vn-badge-ic" src="/assets/icons/clock-warning.svg" />
+                  <image class="vn-badge-ic" src="/assets/icons/schedule-accent-filled.svg" />
                   <text>需要复习</text>
                 </view>
                 <text wx:else class="vn-badge-date">{{item.dateText}}</text>
-                <image class="vn-chev" src="{{expandedId === item.vocabularyid ? '/assets/icons/chevron-up.svg' : '/assets/icons/chevron-down.svg'}}" />
+                <image class="vn-chev {{expandedId === item.vocabularyid ? 'vn-chev--open' : ''}}" src="{{dark ? '/assets/icons/keyboard-arrow-down-osv50-dark.svg' : '/assets/icons/keyboard-arrow-down-osv50.svg'}}" />
               </view>
             </view>
           </view>
@@ -174,7 +174,7 @@
                 <text class="vn-phon-text">{{item.dictData.phonetics.us}}</text>
                 <view wx:if="{{item.dictData.audio_urls.us}}" class="vn-phon-btn center tap-dim"
                       data-url="{{item.dictData.audio_urls.us}}" data-word="{{item.word}}" catchtap="onPlayPhon">
-                  <image class="vn-phon-btn-ic" src="/assets/icons/volume-2-primary.svg" />
+                  <image class="vn-phon-btn-ic" src="{{dark ? '/assets/icons/volume-up-primary-m-dark.svg' : '/assets/icons/volume-up-primary-m.svg'}}" />
                 </view>
               </view>
               <view wx:if="{{item.dictData.phonetics.uk}}" class="vn-phon-pill row">
@@ -182,7 +182,7 @@
                 <text class="vn-phon-text">{{item.dictData.phonetics.uk}}</text>
                 <view wx:if="{{item.dictData.audio_urls.uk}}" class="vn-phon-btn center tap-dim"
                       data-url="{{item.dictData.audio_urls.uk}}" data-word="{{item.word}}" catchtap="onPlayPhon">
-                  <image class="vn-phon-btn-ic vn-phon-btn-ic--uk" src="/assets/icons/volume-2-secondary.svg" />
+                  <image class="vn-phon-btn-ic vn-phon-btn-ic--uk" src="/assets/icons/volume-up-accent.svg" />
                 </view>
               </view>
             </view>
@@ -213,7 +213,7 @@
             <!-- 词源记忆卡（前缀/词根/后缀 chips + 💡 记忆技巧） -->
             <view wx:if="{{item.hasEty}}" class="vn-ety col">
               <view class="vn-ety-head row">
-                <image class="vn-ety-ic" src="/assets/icons/lightbulb-warning.svg" />
+                <image class="vn-ety-ic" src="/assets/icons/lightbulb-accent.svg" />
                 <text class="vn-sec-label">词源记忆</text>
               </view>
               <view wx:if="{{item.dictData.etymology.prefix || item.dictData.etymology.root || item.dictData.etymology.suffix}}" class="vn-ety-chips row">
@@ -231,12 +231,12 @@
             <view class="vn-actions row">
               <view class="vn-action {{item.mastered ? 'vn-action--relearn' : 'vn-action--master'}} row tap-scale"
                     data-id="{{item.vocabularyid}}" catchtap="onToggleStatus">
-                <image class="vn-action-ic" src="{{item.mastered ? '/assets/icons/refresh-ccw-gray.svg' : '/assets/icons/check-circle.svg'}}" />
+                <image class="vn-action-ic" src="{{item.mastered ? (dark ? '/assets/icons/refresh-onsurface-dark.svg' : '/assets/icons/refresh-onsurface.svg') : '/assets/icons/check-circle-white.svg'}}" />
                 <text>{{item.mastered ? '重新学习' : '标记为已掌握'}}</text>
               </view>
               <view class="vn-action vn-action--del row tap-scale"
                     data-id="{{item.vocabularyid}}" catchtap="onDeleteTap">
-                <image class="vn-action-ic" src="/assets/icons/trash-2-red.svg" />
+                <image class="vn-action-ic" src="/assets/icons/delete-error.svg" />
                 <text>彻底删除</text>
               </view>
             </view>

@@ -1,18 +1,12 @@
-<!-- 发音弱项本根视图：T4.1 数据接入 + T4.2 画像卡已落地；
-     诊断报告（T4.3）/弱项列表（T4.4）/闯关与排行榜（T4.5）逐任务替换占位卡 -->
+<!-- 发音弱项本根视图：画像卡（T4.2）+ 诊断报告（T4.3）+ 弱项列表（T4.4）全量落地；
+     闯关页/排行榜页（T4.5）为独立页面，经 pron-list 横幅与达人榜入口进入 -->
 <scroll-view class="notebook-scroll {{themeClass}}" scroll-y enhanced show-scrollbar="{{false}}">
   <view class="notebook-pad">
 
     <block wx:if="{{notebook}}">
       <speech-profile-card profile="{{notebook.profile}}" radar="{{radar}}" />
-      <view class="card notebook-placeholder">
-        <view class="np-badge center">
-          <image class="np-icon" src="{{coming.icon}}" mode="aspectFit" />
-        </view>
-        <text class="np-title t-h3">{{coming.title}}</text>
-        <text class="np-desc t-caption">{{coming.desc}}</text>
-        <view class="np-phase">{{coming.phase}}</view>
-      </view>
+      <diagnostic-report-card stats="{{notebook.phonemeStats}}" is-premium="{{notebook.isPremium}}" />
+      <pron-list notebook="{{notebook}}" />
     </block>
 
     <view wx:elif="{{loadError}}" class="card notebook-placeholder">
