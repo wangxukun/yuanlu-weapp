@@ -1,5 +1,5 @@
-<!-- 发音弱项本根视图（占位）：真实实现见 REVIEW-TASK.md 阶段四 -->
-<scroll-view class="notebook-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+<!-- 发音弱项本根视图（占位）：真实实现见 REVIEW-TASK.md 阶段四；T4.1 数据已接入（notebook/loading/loadError 在 JS 侧） -->
+<scroll-view class="notebook-scroll {{themeClass}}" scroll-y enhanced show-scrollbar="{{false}}">
   <view class="notebook-pad">
     <view class="card notebook-placeholder">
       <view class="np-badge center">

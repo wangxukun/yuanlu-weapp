@@ -46,7 +46,7 @@
         <sentence-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
       <swiper-item>
-        <pron-notebook active="{{activeTab === 2}}" />
+        <pron-notebook active="{{activeTab === 2}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
     </swiper>
   </block>
