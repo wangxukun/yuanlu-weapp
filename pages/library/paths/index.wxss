@@ -1,0 +1,656 @@
+/**
+ * pages/library/paths/index.wxss — 学习路径列表
+ *
+ * 视觉规格：卡片区移植 Android LearningPathsScreen.kt（1dp≈2rpx）：
+ *   - 路径卡片：16dp 圆角白卡 + outline 描边 + 12dp 内衬，左 110dp×16:9
+ *     （220rpx×124rpx）封面圆角 10dp + 左上角黑底 60% PUBLIC/PRIVATE 角标
+ *     （OFFICIAL 主色），右列 标题/两行描述/「进度 N%」+3dp 细条/集数与创建者；
+ *   - 双 Tab：surfaceVariant 容器（4dp 内衬）+ 白底激活胶囊 12dp + primary 加粗；
+ *   - 搜索框：圆角 16dp + outline 描边 + 18dp 放大镜。
+ * 按钮区融合 Web LearningPathsClient（Tailwind 口径）：
+ *   - 「AI 生成路径」= bg-gradient violet-500(#8b5cf6)→primary-500(#2e8f6f)
+ *     圆角 rounded-xl(24rpx) 白字加粗；免费态琥珀 PRO 变体（amber-50/300/600，
+ *     深色 amber-500 10% 底 / amber-400 字）三轨声明；
+ *   - 「+ 创建新路径」= 主题绿（var(--color-primary) 双态）。
+ */
+
+.paths-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 32rpx 0;
+  background: var(--page-bg);
+
+  /* AI 按钮免费态（琥珀 PRO）：浅色值，深色三轨覆盖见下 */
+  --ai-free-bg: #fffbeb;
+  --ai-free-border: rgba(252, 211, 77, 0.6);
+  --ai-free-text: #d97706;
+}
+
+/* 跟随系统深色：仅重声明自定义色（语义令牌由 app.wxss 媒体查询统一翻转） */
+@media (prefers-color-scheme: dark) {
+  .paths-page {
+    --ai-free-bg: rgba(245, 158, 11, 0.1);
+    --ai-free-border: rgba(245, 158, 11, 0.3);
+    --ai-free-text: #fbbf24;
+  }
+}
+
+/* 手动深/浅色：全量重声明自定义色（对齐 app.wxss 双轨三段式惯例） */
+.paths-page.theme-dark {
+  --ai-free-bg: rgba(245, 158, 11, 0.1);
+  --ai-free-border: rgba(245, 158, 11, 0.3);
+  --ai-free-text: #fbbf24;
+}
+.paths-page.theme-light {
+  --ai-free-bg: #fffbeb;
+  --ai-free-border: rgba(252, 211, 77, 0.6);
+  --ai-free-text: #d97706;
+}
+
+/* ==================== 状态盒（加载 / 错误 / 未登录） ==================== */
+
+.state-box {
+  padding: 160rpx 48rpx;
+}
+
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid var(--ink-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: paths-spin 0.8s linear infinite;
+}
+
+.loading-spinner--sm {
+  width: 40rpx;
+  height: 40rpx;
+  border-width: 4rpx;
+}
+
+/* 彩色按钮上的白色小转圈（生成/创建在途） */
+.loading-spinner--onbtn {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  margin-right: 12rpx;
+}
+
+@keyframes paths-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-text {
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.state-btn {
+  margin-top: 32rpx;
+  padding: 18rpx 72rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* ==================== 双按钮操作区（融合 Web 双 CTA） ==================== */
+
+.action-row {
+  display: flex;
+  align-items: center;
+}
+
+.btn-ai {
+  flex: 1;
+  height: 88rpx; /* Web py-2.5 ≈ 44px */
+  border-radius: 24rpx; /* rounded-xl 12px */
+  /* Web：bg-gradient-to-r from-violet-500 to-primary-500（深浅同值，不随主题翻转） */
+  background: linear-gradient(90deg, #8b5cf6, #2e8f6f);
+  box-shadow: 0 8rpx 24rpx rgba(139, 92, 246, 0.25);
+  color: #ffffff;
+}
+
+/* 免费用户：琥珀 PRO 变体（Web 非会员态） */
+.btn-ai--free {
+  background: var(--ai-free-bg);
+  border: 2rpx solid var(--ai-free-border);
+  box-shadow: none;
+  color: var(--ai-free-text);
+}
+
+.btn-ai-icon {
+  width: 36rpx; /* Sparkles 18px */
+  height: 36rpx;
+  margin-right: 12rpx; /* gap-2 8px */
+}
+
+.btn-ai-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.btn-create {
+  flex: 1;
+  height: 88rpx;
+  margin-left: 24rpx; /* gap-3 12px（flex gap 兼容写法） */
+  border-radius: 24rpx;
+  background: var(--color-primary); /* Web bg-[#1F7A5C]，深色随主题亮一档 */
+  color: var(--color-primary-content);
+  box-shadow: var(--e1);
+}
+
+.btn-create-icon {
+  width: 40rpx; /* Plus 20px */
+  height: 40rpx;
+  margin-right: 10rpx;
+}
+
+.btn-create-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* ==================== 双 Tab 胶囊 + 搜索框（对齐 Android） ==================== */
+
+.path-tabs {
+  display: flex;
+  margin-top: 24rpx; /* spacedBy(10dp)≈20rpx + 按钮区呼吸 */
+  padding: 8rpx; /* 4dp 内衬 */
+  background: var(--color-base-300); /* surfaceVariant 60% 的双态等价 */
+  border-radius: 32rpx; /* 16dp */
+}
+
+.path-tab {
+  flex: 1;
+  padding: 16rpx 0; /* 8dp */
+  text-align: center;
+  font-size: 26rpx; /* labelMedium */
+  color: var(--text-tertiary);
+  border-radius: 24rpx; /* 12dp 激活胶囊 */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.path-tab + .path-tab {
+  margin-left: 8rpx; /* spacedBy(4dp) */
+}
+
+.path-tab--on {
+  background: var(--card-bg); /* surface 白底胶囊 */
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  margin-top: 20rpx; /* 10dp */
+  padding: 20rpx 24rpx; /* horizontal 12dp / vertical 10dp */
+  background: var(--color-base-200); /* surfaceVariant 50% */
+  border: 2rpx solid var(--border-color); /* outlineVariant */
+  border-radius: 32rpx; /* 16dp */
+}
+
+.search-icon {
+  width: 36rpx; /* 18dp */
+  height: 36rpx;
+  margin-right: 16rpx; /* 8dp */
+  opacity: 0.6;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 44rpx; /* 显式定高：input 无固有高度，防横向 flex 下同样塌陷 */
+  line-height: 44rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.search-placeholder {
+  color: var(--text-tertiary);
+  font-size: 28rpx;
+}
+
+.search-clear {
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 12rpx;
+  padding: 4rpx;
+  opacity: 0.5;
+}
+
+/* ==================== 路径卡片（对齐 Android LearningPathCard） ==================== */
+
+.pcard {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx; /* spacedBy(12dp) */
+  padding: 24rpx; /* 12dp */
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color); /* outline 1dp */
+  border-radius: 32rpx; /* 16dp */
+}
+
+.pcard-cover-box {
+  position: relative;
+  width: 220rpx; /* 110dp */
+  height: 124rpx; /* 16:9 */
+  flex-shrink: 0;
+}
+
+.pcard-cover {
+  width: 220rpx;
+  height: 124rpx;
+  border-radius: 20rpx; /* cornerRadius 10dp */
+  background: var(--color-base-300); /* 封面缺失占位底 */
+}
+
+.pcard-cover--ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pcard-cover-ph {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+/* 状态角标：黑底 60%（PUBLIC/PRIVATE）/ OFFICIAL 主色 */
+.pcard-badge {
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  display: flex;
+  align-items: center;
+  padding: 4rpx 10rpx; /* horizontal 5dp / vertical 2dp */
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8rpx; /* 4dp */
+}
+
+.pcard-badge--official {
+  background: var(--color-primary);
+}
+
+.pcard-badge-icon {
+  width: 20rpx; /* 10dp */
+  height: 20rpx;
+  margin-right: 4rpx; /* 2dp */
+}
+
+.pcard-badge-text {
+  font-size: 16rpx; /* 8sp */
+  font-weight: 700;
+  letter-spacing: 1.6rpx; /* 0.8sp */
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.pcard-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx; /* spacedBy(12dp) */
+  display: flex;
+  flex-direction: column;
+}
+
+.pcard-title {
+  font-size: 30rpx; /* bodyLarge */
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.pcard-desc {
+  margin-top: 4rpx; /* 2dp */
+  font-size: 24rpx; /* bodySmall */
+  color: var(--text-secondary);
+  line-height: 1.45;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 进度行：左「进度」灰字 / 右百分比主色加粗（对齐 Android） */
+.pcard-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx; /* 6dp */
+}
+
+.pcard-progress-label {
+  font-size: 20rpx; /* labelSmall */
+  color: var(--text-tertiary);
+  opacity: 0.8;
+}
+
+.pcard-progress-value {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* 3dp 细进度条：完成=主色 / 未完成=轨道浅灰 */
+.pcard-bar-track {
+  height: 6rpx; /* 3dp */
+  margin-top: 4rpx; /* 2dp */
+  background: var(--color-base-300); /* trackColor surfaceVariant */
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.pcard-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--r-full);
+}
+
+/* 底部 meta：集数图标 + N 集（左）/ 创建者（右） */
+.pcard-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx; /* 6dp */
+}
+
+.pcard-meta-icon {
+  width: 24rpx; /* 12dp */
+  height: 24rpx;
+  margin-right: 4rpx; /* 2dp */
+  opacity: 0.7; /* onSurfaceVariant 50% */
+}
+
+.pcard-meta-count {
+  font-size: 20rpx; /* labelSmall */
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.pcard-meta-creator {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+  text-align: right;
+  font-size: 20rpx;
+  color: var(--text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ==================== 搜索无结果 ==================== */
+
+.no-match {
+  padding: 80rpx 32rpx; /* vertical 40dp */
+  font-size: 28rpx; /* bodyMedium */
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ==================== 列表空态（对齐 Android 双空态） ==================== */
+
+.empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 24rpx;
+  padding: 48rpx 48rpx; /* vertical 24dp */
+  border: 4rpx dashed var(--border-color); /* 2dp outlineVariant */
+  border-radius: 48rpx; /* 24dp */
+}
+
+.empty-circle {
+  width: 144rpx; /* 72dp */
+  height: 144rpx;
+  border-radius: 50%;
+  background: var(--color-base-300); /* surfaceVariant */
+}
+
+.empty-circle-icon {
+  width: 64rpx; /* 32dp */
+  height: 64rpx;
+  opacity: 0.4;
+}
+
+.empty-title {
+  margin-top: 32rpx; /* 16dp */
+  font-size: 32rpx; /* titleMedium */
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.empty-desc {
+  margin-top: 12rpx; /* 6dp */
+  font-size: 24rpx; /* bodySmall */
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.empty-cta {
+  margin-top: 32rpx; /* 16dp */
+  padding: 20rpx 44rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.empty-cta-icon {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+  margin-right: 8rpx;
+}
+
+/* ==================== 弹窗（AI 生成 / 创建路径） ==================== */
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 640rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 40rpx; /* Web p-6 */
+  background: var(--card-bg);
+  border-radius: 48rpx; /* Web rounded-3xl / Android Dialog 24dp */
+  box-shadow: var(--e2);
+  box-sizing: border-box;
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.modal-title-icon {
+  width: 40rpx; /* Sparkles 20px */
+  height: 40rpx;
+  margin-right: 16rpx; /* gap-2 */
+}
+
+.modal-title {
+  font-size: 36rpx; /* Web text-xl */
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.modal-lead {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.field-label {
+  margin: 28rpx 0 12rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.mt-field {
+  margin-top: 24rpx; /* space-y-4 16px */
+}
+
+.field-input {
+  width: 100%;
+  /* 原生 input 在纵向 flex 容器内无固有高度，auto 会塌成一条细缝
+     （placeholder 被裁切）——必须显式定高（参考样式 ≈44px = 88rpx） */
+  height: 88rpx;
+  padding: 0 24rpx;
+  line-height: 84rpx; /* border-box 内视觉居中（上下边框各 2rpx） */
+  background: var(--color-base-200); /* Web bg-base-200 */
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx; /* rounded-lg→xl 口径 */
+  font-size: 28rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.field-textarea {
+  width: 100%;
+  height: 168rpx; /* rows=3（textarea 须显式定高，同塌陷坑） */
+  min-height: 168rpx;
+  padding: 20rpx 24rpx;
+  line-height: 1.5;
+  background: var(--color-base-200);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.field-placeholder {
+  color: var(--text-tertiary);
+  font-size: 28rpx;
+}
+
+.field-hint {
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+
+/* 公开状态勾选卡（整卡可点 + 主色方框勾选，对齐 Web/Android） */
+.public-check {
+  display: flex;
+  align-items: center;
+  margin-top: 28rpx;
+  padding: 24rpx; /* 12dp */
+  background: var(--color-base-200);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx; /* 12dp */
+}
+
+.public-check-box {
+  width: 48rpx; /* 24dp */
+  height: 48rpx;
+  margin-right: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid var(--border-color);
+  border-radius: 12rpx; /* 6dp */
+  background: var(--card-bg);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.public-check-box--on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.public-check-tick {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+
+.public-check-title {
+  font-size: 28rpx; /* bodyMedium */
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.public-check-desc {
+  font-size: 22rpx; /* labelSmall */
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.modal-actions {
+  display: flex;
+  margin-top: 36rpx; /* pt-2 8px + 表单呼吸 */
+}
+
+.modal-btn-cancel {
+  flex: 1;
+  height: 88rpx; /* 44dp */
+  border-radius: 24rpx; /* 12dp */
+  border: 2rpx solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 28rpx;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.modal-btn-submit,
+.modal-btn-generate {
+  flex: 1;
+  height: 88rpx;
+  margin-left: 20rpx; /* gap-3 12px≈24rpx，压缩版距 */
+  border-radius: 24rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn-submit {
+  background: var(--color-primary);
+}
+
+.modal-btn-generate {
+  background: linear-gradient(90deg, #8b5cf6, #2e8f6f);
+}
+
+.modal-btn-icon {
+  width: 32rpx; /* 16px */
+  height: 32rpx;
+  margin-right: 8rpx;
+}
+
+.is-busy {
+  opacity: 0.75;
+}
+
+/* ==================== 底部留白 ==================== */
+
+.footer-space {
+  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+}

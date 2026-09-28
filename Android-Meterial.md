@@ -5,8 +5,9 @@
 > 不再使用 lucide/自绘线性图标。新图标烘焙规范见文末。
 >
 > 本清单为 2026-09-27 全量走查的终态台账：全项目 210 处图标引用、252 个图标文件 →
-> 223 个文件（T4.5 批次 +7〔leaderboard-primary 随「最近得分」退役删除〕、Web 口径恢复批 +3），**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
-> 1 处重定向去重），退役旧文件 129 个已删除，`npm test` 31 套件全绿。
+> 223 个文件（T4.5 批次 +7〔leaderboard-primary 随「最近得分」退役删除〕、Web 口径恢复批 +3）
+> → **235 个（2026-09-28 学习路径批 +12，见第四节）**，**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
+> 1 处重定向去重），退役旧文件 129 个已删除，`npm test` 35 套件全绿。
 > PNG 重绘覆盖：tabBar 4 Tab ×2 态（8 张）+ 我的页宫格 3 张（school/history/bookmark/
 > credit-card 中 history/bookmark/credit-card 沿用文件名）+ 头像 person.png + 激活态 person-active.png。
 
@@ -212,6 +213,31 @@
 > -174、960…）整体落出视口，#2/#3 奖牌渲染成空白——**换色烘焙必须连同源 viewBox
 > 一起复用**（规范第七节第 2 条「保留源 viewBox」的实例教训）；test-leaderboard.js
 > 已加 viewBox 网格回归断言锁死。
+
+### 学习路径批次（2026-09-28，pages/library/paths 列表 + 详情页，+12）
+
+| 文件 | Material 名 | 色值 | 用途 | 状态 |
+|------|------------|------|------|------|
+| `auto-awesome-white.svg` | `auto_awesome` v7 | #ffffff | AI 生成按钮（会员紫渐变态）/ 生成弹窗标题与提交钮 | ✅ gstatic 拉取官方 path |
+| `auto-awesome-amber.svg` | `auto_awesome` v7 | #d97706（amber-600） | AI 生成按钮免费态（· PRO 琥珀变体，Web 口径） | ✅ 同字形换色 |
+| `public-white.svg` | `public` | #ffffff | 卡片 PUBLIC 角标 / 详情页公开胶囊 / 发现空态 | ✅ gstatic 拉取官方 path |
+| `map-white.svg` | `map` | #ffffff | 详情页头部右上 Map 水印（CSS opacity 0.1） | ✅ 同上 |
+| `playlist-add-onsurface.svg` | `playlist_add` | #655d4c（text-secondary 浅） | 添加剧集 chip / 空路径引导图 | ✅ 同上 |
+| `playlist-add-onsurface-dark.svg` | `playlist_add` | #a8a29e（text-secondary 深） | 同上深色态 | ✅ 同字形换色 |
+| `more-horiz-onsurface.svg` | `more_horiz` | #655d4c | 操作栏「更多」下拉菜单钮 | ✅ gstatic 拉取官方 path |
+| `more-horiz-onsurface-dark.svg` | `more_horiz` | #a8a29e | 同上深色态 | ✅ 同字形换色 |
+| `play-circle-white.svg` | `play_circle` | #ffffff | 操作栏「播放全部」主按钮 20dp | ✅ gstatic 拉取官方 path |
+| `add-white.svg` | `add` | #ffffff | 「+ 创建新路径」按钮 / 空态 CTA | ✅ 同上 |
+| `shuffle-onsurface.svg` | `shuffle` | #655d4c | 操作栏「随机播放」图标钮（Web base-content/60 灰口径） | ✅ 同上 |
+| `shuffle-onsurface-dark.svg` | `shuffle` | #a8a29e | 同上深色态 | ✅ 同字形换色 |
+
+> 烘焙脚本 `scripts/tmp-bake-path-icons.py`（直连 + Clash 7891 兜底双通道）。
+>
+> **矩形过滤坑补遗（2026-09-28）**：materialicons 新版源文件的全幅 bounding 底实为
+> `M0 0h24v24H0z`——去空白小写归一化后是 `m00h24v24h0z`（**H0z 收笔，两个 0**），
+> 与第七节示例里的 `H0V0z` / `H-24z` 写法都不同，按示例字面量匹配会漏滤、图标渲染
+> 成实心方块；过滤必须以归一化后的精确串比对（`m00h24v24h0z` / `m00h24v24h-24z` /
+> `m00h24v24h0v0z` + `h0v0z` 后缀兜底）。
 
 ## 五、已是 Material（历史批次已换装，本次核验存量）
 

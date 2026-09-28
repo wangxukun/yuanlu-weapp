@@ -1,0 +1,300 @@
+<!-- pages/library/paths/detail.wxml — 学习路径详情
+  严格复刻 Web /library/learning-paths/[id] 移动端（LearningPathDetailClient）：
+  主色沉浸头部（Map 10% 水印 + 封面/公开标签/标题/描述/创建者·集数）→
+  -mt-6 上叠操作栏卡片（播放全部/随机；拥有者=添加剧集+更多菜单）→
+  剧集行（序号/16:9 封面〔PRO 角标+底部细进度条〕/标题/播客·时长/移除）。
+  拥有者条件渲染对齐 Web：detail.userid === 当前用户（isOwner）。
+  顶部「路径详情」由原生导航栏承担。 -->
+
+<view class="pd-page {{themeClass}}">
+
+  <!-- ===== 加载 / 错误 / 未登录态 ===== -->
+  <view wx:if="{{isLoading}}" class="state-box col center">
+    <view class="loading-spinner" />
+    <text class="state-text">正在加载路径…</text>
+  </view>
+  <view wx:elif="{{needLogin || error}}" class="state-box col center">
+    <text class="state-text">{{needLogin ? '登录后即可查看学习路径' : error}}</text>
+    <view
+      class="state-btn center tap-scale"
+      bindtap="{{needLogin ? 'onGoLogin' : 'onRetry'}}"
+    >{{needLogin ? '去登录' : '重试'}}</view>
+  </view>
+
+  <!-- ===== 详情内容 ===== -->
+  <block wx:elif="{{detail}}">
+
+    <!-- 沉浸式主色头部（对齐 Web Detail Header：Map 水印 + 封面 + 信息列） -->
+    <view class="pd-header">
+      <image class="pd-header-map" mode="aspectFit" src="/assets/icons/map-white.svg" />
+
+      <view class="pd-header-row">
+        <!-- 封面：第一集封面（无剧集字母占位），白色 15% 描边 -->
+        <view class="pd-cover-box">
+          <image wx:if="{{detail.coverUrl}}" class="pd-cover" src="{{detail.coverUrl}}" mode="aspectFill" />
+          <view wx:else class="pd-cover pd-cover--ph center">
+            <text class="pd-cover-ph">{{detail.pathName[0] || '路'}}</text>
+          </view>
+        </view>
+
+        <view class="pd-header-info">
+          <!-- 公开/私有胶囊（白底 10%） -->
+          <view class="pd-visibility">
+            <image
+              class="pd-visibility-icon"
+              mode="aspectFit"
+              src="{{detail.isPublic ? '/assets/icons/public-white.svg' : '/assets/icons/lock-white.svg'}}"
+            />
+            <text class="pd-visibility-text">{{detail.isPublic ? '公开' : '私有'}}</text>
+          </view>
+          <text class="pd-title">{{detail.pathName}}</text>
+          <text wx:if="{{detail.description}}" class="pd-desc">{{detail.description}}</text>
+          <text class="pd-meta">创建者 {{detail.creatorName}} · {{detail.itemCount}} 剧集</text>
+        </view>
+      </view>
+      <!-- 给上叠操作栏（-12dp 负偏移）留出空隙 -->
+      <view class="pd-header-tail" />
+    </view>
+
+    <!-- 上叠操作栏（对齐 Web -mt-6 卡片） -->
+    <view class="pd-actionbar">
+      <view class="pd-playall center {{detail.itemCount === 0 ? 'is-disabled' : ''}}" bindtap="onPlayAll">
+        <image class="pd-playall-icon" mode="aspectFit" src="/assets/icons/play-circle-white.svg" />
+        <text>播放全部</text>
+      </view>
+      <view
+        class="pd-iconbtn center {{detail.itemCount === 0 ? 'is-disabled' : ''}}"
+        bindtap="onShuffle"
+      >
+        <image
+          class="pd-iconbtn-img"
+          mode="aspectFit"
+          src="{{dark ? '/assets/icons/shuffle-onsurface-dark.svg' : '/assets/icons/shuffle-onsurface.svg'}}"
+        />
+      </view>
+
+      <!-- 拥有者：添加剧集 + 更多菜单；非拥有者仅分享（对齐 Web 条件渲染） -->
+      <block wx:if="{{detail.isOwner}}">
+        <view class="pd-addchip center tap-scale" bindtap="onOpenAddDialog">
+          <image
+            class="pd-addchip-icon"
+            mode="aspectFit"
+            src="{{dark ? '/assets/icons/playlist-add-onsurface-dark.svg' : '/assets/icons/playlist-add-onsurface.svg'}}"
+          />
+          <text class="pd-addchip-text">添加剧集</text>
+        </view>
+
+        <view class="pd-more-wrap">
+          <view class="pd-iconbtn center" bindtap="onToggleMoreMenu">
+            <image
+              class="pd-iconbtn-img"
+              mode="aspectFit"
+              src="{{dark ? '/assets/icons/more-horiz-onsurface-dark.svg' : '/assets/icons/more-horiz-onsurface.svg'}}"
+            />
+          </view>
+          <!-- 下拉菜单：编辑 / 删除 / 分享 -->
+          <view wx:if="{{showMoreMenu}}" class="pd-menu-mask" bindtap="onCloseMoreMenu" />
+          <view wx:if="{{showMoreMenu}}" class="pd-menu">
+            <view class="pd-menu-item row" bindtap="onOpenEdit">
+              <image class="pd-menu-icon" mode="aspectFit" src="/assets/icons/edit-gray.svg" />
+              <text class="pd-menu-text">编辑路径</text>
+            </view>
+            <view class="pd-menu-item row" bindtap="onDeletePath">
+              <image class="pd-menu-icon" mode="aspectFit" src="/assets/icons/delete-error.svg" />
+              <text class="pd-menu-text pd-menu-text--error">删除路径</text>
+            </view>
+            <view class="pd-menu-divider" />
+            <view class="pd-menu-item row" bindtap="onShare">
+              <image class="pd-menu-icon" mode="aspectFit" src="/assets/icons/share.svg" />
+              <text class="pd-menu-text">分享路径</text>
+            </view>
+          </view>
+        </view>
+      </block>
+      <view wx:else class="pd-iconbtn center" bindtap="onShare">
+        <image class="pd-iconbtn-img" mode="aspectFit" src="/assets/icons/share.svg" />
+      </view>
+    </view>
+
+    <!-- 剧集列表 -->
+    <block wx:if="{{detail.itemCount > 0}}">
+      <view
+        wx:for="{{detail.items}}"
+        wx:key="itemId"
+        class="eprow"
+        bindtap="onPlayEpisode"
+        data-id="{{item.episodeid}}"
+      >
+        <text class="eprow-index">{{index + 1}}</text>
+
+        <view class="eprow-cover-box">
+          <image class="eprow-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+          <view wx:if="{{item.isExclusive}}" class="eprow-pro">PRO</view>
+          <!-- 封面底部细进度条（移动端口径：完成=success 绿） -->
+          <view wx:if="{{item.progressPercent > 0}}" class="eprow-bar">
+            <view
+              class="eprow-bar-fill {{item.isFinished ? 'eprow-bar-fill--done' : ''}}"
+              style="width: {{item.progressPercent}}%;"
+            />
+          </view>
+        </view>
+
+        <view class="eprow-info">
+          <text class="eprow-title ellipsis-2">{{item.title}}</text>
+          <view class="eprow-metarow">
+            <text class="eprow-meta ellipsis">{{item.podcastTitle || '未知播客'}} · {{item.durationText}}</text>
+            <image
+              wx:if="{{item.isFinished}}"
+              class="eprow-done"
+              mode="aspectFit"
+              src="{{dark ? '/assets/icons/check-circle-success-dark.svg' : '/assets/icons/check-circle-success.svg'}}"
+            />
+          </view>
+        </view>
+
+        <!-- 拥有者：移除按钮 -->
+        <view
+          wx:if="{{detail.isOwner}}"
+          class="eprow-remove center"
+          catchtap="onRemoveEpisode"
+          data-item="{{item.itemId}}"
+          data-ep="{{item.episodeid}}"
+        >
+          <image class="eprow-remove-icon" mode="aspectFit" src="/assets/icons/delete-error.svg" />
+        </view>
+      </view>
+    </block>
+
+    <!-- 空路径（对齐 Web This path is empty） -->
+    <view wx:else class="pd-empty col">
+      <image
+        class="pd-empty-icon"
+        mode="aspectFit"
+        src="{{dark ? '/assets/icons/playlist-add-onsurface-dark.svg' : '/assets/icons/playlist-add-onsurface.svg'}}"
+      />
+      <text class="pd-empty-title">这条路径还是空的</text>
+      <text class="pd-empty-desc">添加剧集，开始你的学习之旅。</text>
+      <view wx:if="{{detail.isOwner}}" class="pd-empty-cta center tap-scale" bindtap="onOpenAddDialog">
+        <image class="pd-empty-cta-icon" mode="aspectFit" src="/assets/icons/add-white.svg" />
+        <text>添加剧集</text>
+      </view>
+    </view>
+
+    <!-- 底部留白（防被播放条遮挡） -->
+    <view class="footer-space" />
+  </block>
+</view>
+
+<!-- ===== 编辑路径弹窗（复刻 Web EDIT MODAL / Android FormDialog） ===== -->
+<view wx:if="{{showEditDialog}}" class="modal-mask" bindtap="onCloseEditDialog">
+  <view class="modal-card col" catchtap="noop">
+    <text class="modal-title">编辑路径</text>
+
+    <text class="field-label">名称</text>
+    <input
+      class="field-input"
+      value="{{editName}}"
+      placeholder="例如：词汇学习"
+      placeholder-class="field-placeholder"
+      bindinput="onEditName"
+    />
+
+    <text class="field-label mt-field">描述</text>
+    <textarea
+      class="field-textarea"
+      value="{{editDesc}}"
+      maxlength="-1"
+      placeholder="这个集合是关于什么的？"
+      placeholder-class="field-placeholder"
+      bindinput="onEditDesc"
+    />
+
+    <!-- 公开状态勾选卡（Web 提示语：允许其他看这条学习路径） -->
+    <view class="public-check" bindtap="onToggleEditPublic">
+      <view class="public-check-box {{editPublic ? 'public-check-box--on' : ''}}">
+        <image wx:if="{{editPublic}}" class="public-check-tick" mode="aspectFit" src="/assets/icons/check-white.svg" />
+      </view>
+      <view class="col flex-1">
+        <text class="public-check-title">公开</text>
+        <text class="public-check-desc">允许其他看这条学习路径</text>
+      </view>
+    </view>
+
+    <view class="modal-actions">
+      <view class="modal-btn-cancel center tap-scale" bindtap="onCloseEditDialog">取消</view>
+      <view class="modal-btn-submit center {{isSaving ? 'is-busy' : ''}}" bindtap="onSubmitEdit">
+        <view wx:if="{{isSaving}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
+        <text wx:else>保存</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- ===== 添加剧集弹窗（复刻 Web ADD EPISODE MODAL：搜索 + 结果列表） ===== -->
+<view wx:if="{{showAddDialog}}" class="modal-mask" bindtap="onCloseAddDialog">
+  <view class="addcard col" catchtap="noop">
+    <!-- 头部：标题 + 关闭 -->
+    <view class="addcard-head">
+      <text class="addcard-title">添加剧集</text>
+      <view class="addcard-close center" bindtap="onCloseAddDialog">
+        <image class="addcard-close-icon" mode="aspectFit" src="/assets/icons/close.svg" />
+      </view>
+    </view>
+
+    <!-- 搜索框 -->
+    <view class="addcard-searchrow">
+      <image class="addcard-search-icon" mode="aspectFit" src="/assets/icons/search.svg" />
+      <input
+        class="addcard-search-input"
+        value="{{addQuery}}"
+        focus
+        placeholder="搜索..."
+        placeholder-class="field-placeholder"
+        bindinput="onAddQuery"
+      />
+    </view>
+
+    <!-- 结果列表（已在路径中的置灰；scroll-view 须显式 max-height） -->
+    <scroll-view class="addcard-list" scroll-y>
+      <view wx:if="{{isSearching}}" class="addcard-state center">
+        <view class="loading-spinner loading-spinner--sm" />
+      </view>
+      <block wx:elif="{{addResults.length > 0}}">
+        <view
+          wx:for="{{addResults}}"
+          wx:key="episodeid"
+          class="addrow {{item.added ? 'addrow--added' : ''}}"
+          bindtap="{{item.added ? '' : 'onAddEpisode'}}"
+          data-id="{{item.episodeid}}"
+        >
+          <image class="addrow-cover" src="{{item.thumbnailUrl}}" mode="aspectFill" />
+          <view class="addrow-info col flex-1">
+            <text class="addrow-title ellipsis">{{item.title}}</text>
+            <text class="addrow-meta ellipsis">{{item.author}}</text>
+          </view>
+          <image
+            class="addrow-action"
+            mode="aspectFit"
+            src="{{item.added ? '/assets/icons/check-circle.svg' : '/assets/icons/add-primary.svg'}}"
+            style="{{item.added ? 'opacity:0.35;' : ''}}"
+          />
+        </view>
+      </block>
+      <view wx:else class="addcard-state col center">
+        <image class="addcard-state-icon" mode="aspectFit" src="/assets/icons/search.svg" />
+        <text class="addcard-state-text">{{addQuery ? '没有剧集被找到' : '输入剧集标题进行搜索...'}}</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>
+
+<!-- 会员转化弹窗（专属剧集拦截场景） -->
+<premium-modal
+  visible="{{showPremiumModal}}"
+  source="{{premiumSource}}"
+  vars="{{premiumVars}}"
+  bind:close="onPremiumClose"
+/>
+
+<!-- 跨页迷你播放条 -->
+<mini-player elevated />

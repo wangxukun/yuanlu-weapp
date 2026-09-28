@@ -12,6 +12,8 @@
     "pages/auth/index",
     "pages/library/favorites/index",
     "pages/library/history/index",
+    "pages/library/paths/index",
+    "pages/library/paths/detail",
     "pages/podcast/podcast",
     "pages/episode/episode",
     "pages/search/search",

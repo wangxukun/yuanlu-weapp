@@ -1,0 +1,236 @@
+<!-- pages/library/paths/index.wxml — 学习路径列表
+  UI 基准 = Android LearningPathsScreen.kt（横向卡片：左 16:9 封面 + PUBLIC 角标，
+  右标题/两行描述/进度条/集数与创建者）；顶部按钮区融合 Web LearningPathsClient
+  双按钮（紫渐变「AI 生成路径」+ 主题绿「+ 创建新路径」并排 flex gap-3）。
+  页面无大标题/副标题，「学习路径」由原生导航栏承担（navigationBarTitleText）。 -->
+
+<view class="paths-page {{themeClass}}">
+
+  <!-- ===== 加载态 ===== -->
+  <view wx:if="{{isLoading}}" class="state-box col center">
+    <view class="loading-spinner" />
+    <text class="state-text">正在加载学习路径…</text>
+  </view>
+
+  <!-- ===== 错误 / 未登录态 ===== -->
+  <view wx:elif="{{needLogin || error}}" class="state-box col center">
+    <text class="state-text">{{needLogin ? '登录后即可创建专属学习路径' : error}}</text>
+    <view
+      class="state-btn center tap-scale"
+      bindtap="{{needLogin ? 'onGoLogin' : 'onRetry'}}"
+    >{{needLogin ? '去登录' : '重试'}}</view>
+  </view>
+
+  <!-- ===== 内容区 ===== -->
+  <block wx:else>
+
+    <!-- 双按钮操作区（融合 Web：AI 生成路径〔会员=紫渐变 / 免费=琥珀 PRO〕+ 创建新路径） -->
+    <view class="action-row">
+      <view
+        class="btn-ai {{isPremium ? '' : 'btn-ai--free'}} center tap-scale"
+        bindtap="onGenerateClick"
+      >
+        <image
+          class="btn-ai-icon"
+          mode="aspectFit"
+          src="{{isPremium ? '/assets/icons/auto-awesome-white.svg' : '/assets/icons/auto-awesome-amber.svg'}}"
+        />
+        <text class="btn-ai-text">AI 生成路径{{isPremium ? '' : ' · PRO'}}</text>
+      </view>
+      <view class="btn-create center tap-scale" bindtap="onCreateClick">
+        <image class="btn-create-icon" mode="aspectFit" src="/assets/icons/add-white.svg" />
+        <text class="btn-create-text">创建新路径</text>
+      </view>
+    </view>
+
+    <!-- 双 Tab 胶囊切换 + 搜索框（对齐 Android：surfaceVariant 60% 容器 + 白底激活胶囊） -->
+    <view class="path-tabs">
+      <view
+        class="path-tab {{activeTab === 'mine' ? 'path-tab--on' : ''}}"
+        bindtap="onSelectTab"
+        data-tab="mine"
+      >我的集合</view>
+      <view
+        class="path-tab {{activeTab === 'discover' ? 'path-tab--on' : ''}}"
+        bindtap="onSelectTab"
+        data-tab="discover"
+      >发现</view>
+    </view>
+    <view class="search-box">
+      <image class="search-icon" mode="aspectFit" src="/assets/icons/search.svg" />
+      <input
+        class="search-input"
+        value="{{searchQuery}}"
+        placeholder="搜索路径..."
+        placeholder-class="search-placeholder"
+        confirm-type="search"
+        bindinput="onSearchInput"
+      />
+      <image
+        wx:if="{{searchQuery}}"
+        class="search-clear"
+        mode="aspectFit"
+        src="/assets/icons/close.svg"
+        catchtap="onClearSearch"
+      />
+    </view>
+
+    <!-- 路径卡片列表 -->
+    <block wx:if="{{displayPaths.length > 0}}">
+      <view
+        wx:for="{{displayPaths}}"
+        wx:key="pathid"
+        class="pcard"
+        bindtap="onOpenPath"
+        data-id="{{item.pathid}}"
+      >
+        <!-- 左：16:9 封面（220×124rpx）+ 状态角标（OFFICIAL 主色 / PUBLIC·PRIVATE 黑底 60%） -->
+        <view class="pcard-cover-box">
+          <image wx:if="{{item.coverUrl}}" class="pcard-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+          <view wx:else class="pcard-cover pcard-cover--ph center">
+            <text class="pcard-cover-ph">{{item.pathName[0] || '路'}}</text>
+          </view>
+          <view class="pcard-badge {{item.isOfficial ? 'pcard-badge--official' : ''}}">
+            <image class="pcard-badge-icon" mode="aspectFit" src="{{item.badgeIcon === 'public' ? '/assets/icons/public-white.svg' : '/assets/icons/lock-white.svg'}}" />
+            <text class="pcard-badge-text">{{item.badge}}</text>
+          </view>
+        </view>
+
+        <!-- 右：标题 / 两行描述 / 进度 / 集数与创建者 -->
+        <view class="pcard-info">
+          <text class="pcard-title ellipsis">{{item.pathName}}</text>
+          <text class="pcard-desc ellipsis-2">{{item.description}}</text>
+          <view class="pcard-progress-row">
+            <text class="pcard-progress-label">进度</text>
+            <text class="pcard-progress-value">{{item.progress}}%</text>
+          </view>
+          <view class="pcard-bar-track">
+            <view class="pcard-bar-fill" style="width: {{item.progress}}%;" />
+          </view>
+          <view class="pcard-meta">
+            <image class="pcard-meta-icon" mode="aspectFit" src="/assets/icons/layers-gray.svg" />
+            <text class="pcard-meta-count">{{item.itemCountText}}</text>
+            <text class="pcard-meta-creator ellipsis">{{item.creatorName}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 搜索无结果（与列表空态区分，对齐 Android no_match 分支） -->
+    <view wx:elif="{{searchQuery}}" class="no-match">
+      没有匹配「{{searchQuery}}」的路径
+    </view>
+
+    <!-- 列表空态：我的集合=引导创建 / 发现=暂无公开（对齐 Android 双空态） -->
+    <view wx:else class="empty-box">
+      <block wx:if="{{activeTab === 'mine'}}">
+        <view class="empty-circle center">
+          <image class="empty-circle-icon" mode="aspectFit" src="/assets/icons/add-gray.svg" />
+        </view>
+        <text class="empty-title">还没有学习路径</text>
+        <text class="empty-desc">把喜欢的剧集串成一条专属课程，按自己的节奏听完一个主题。</text>
+        <view class="empty-cta center tap-scale" bindtap="onCreateClick">
+          <image class="empty-cta-icon" mode="aspectFit" src="/assets/icons/add-white.svg" />
+          <text>创建第一条路径</text>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="empty-circle center">
+          <image class="empty-circle-icon" mode="aspectFit" src="/assets/icons/public-white.svg" />
+        </view>
+        <text class="empty-title">暂无公开路径</text>
+        <text class="empty-desc">还没有其他用户分享的公开路径，去「我的集合」创建并公开一条吧。</text>
+      </block>
+    </view>
+
+    <!-- 底部留白以防被播放条遮挡 -->
+    <view class="footer-space" />
+  </block>
+</view>
+
+<!-- ===== AI 生成路径弹窗（复刻 Web GENERATE MODAL） ===== -->
+<view wx:if="{{showGenerateDialog}}" class="modal-mask" bindtap="onCloseGenerateDialog">
+  <view class="modal-card col" catchtap="noop">
+    <view class="modal-title-row">
+      <image class="modal-title-icon" mode="aspectFit" src="/assets/icons/auto-awesome-white.svg" />
+      <text class="modal-title">AI 生成学习路径</text>
+    </view>
+    <text class="modal-lead">告诉 AI 你的学习目标，它会从剧集库中挑出最相关的一串，按先易后难排好。</text>
+
+    <text class="field-label">学习主题 / 目标</text>
+    <input
+      class="field-input"
+      value="{{generateTopic}}"
+      maxlength="200"
+      placeholder="例如：商务英语入门 / 日常口语表达"
+      placeholder-class="field-placeholder"
+      bindinput="onGenerateTopic"
+    />
+    <text class="field-hint">生成失败会自动切换到手动创建，主题会帮你预填好。</text>
+
+    <view class="modal-actions">
+      <view class="modal-btn-cancel center tap-scale" bindtap="onCloseGenerateDialog">取消</view>
+      <view class="modal-btn-generate center {{isGenerating ? 'is-busy' : ''}}" bindtap="onSubmitGenerate">
+        <view wx:if="{{isGenerating}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
+        <image wx:else class="modal-btn-icon" mode="aspectFit" src="/assets/icons/auto-awesome-white.svg" />
+        <text>{{isGenerating ? 'AI 正在挑选剧集...' : '开始生成'}}</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- ===== 创建路径弹窗（复刻 Android LearningPathFormDialog / Web CREATE MODAL） ===== -->
+<view wx:if="{{showCreateDialog}}" class="modal-mask" bindtap="onCloseCreateDialog">
+  <view class="modal-card col" catchtap="noop">
+    <text class="modal-title">创建新的学习路径</text>
+
+    <text class="field-label">路径名称</text>
+    <input
+      class="field-input"
+      value="{{formName}}"
+      placeholder="例如：词汇学习"
+      placeholder-class="field-placeholder"
+      bindinput="onFormName"
+    />
+
+    <text class="field-label mt-field">描述（可选）</text>
+    <textarea
+      class="field-textarea"
+      value="{{formDesc}}"
+      maxlength="-1"
+      placeholder="这个集合是关于什么的？"
+      placeholder-class="field-placeholder"
+      bindinput="onFormDesc"
+    />
+
+    <!-- 公开状态勾选卡（整卡可点 + 主色方框勾选） -->
+    <view class="public-check" bindtap="onToggleFormPublic">
+      <view class="public-check-box {{formPublic ? 'public-check-box--on' : ''}}">
+        <image wx:if="{{formPublic}}" class="public-check-tick" mode="aspectFit" src="/assets/icons/check-white.svg" />
+      </view>
+      <view class="col flex-1">
+        <text class="public-check-title">公开</text>
+        <text class="public-check-desc">允许其他用户发现并关注这条路径</text>
+      </view>
+    </view>
+
+    <view class="modal-actions">
+      <view class="modal-btn-cancel center tap-scale" bindtap="onCloseCreateDialog">取消</view>
+      <view class="modal-btn-submit center {{isSubmitting ? 'is-busy' : ''}}" bindtap="onSubmitCreate">
+        <view wx:if="{{isSubmitting}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
+        <text wx:else>创建路径</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 会员转化弹窗（配额墙 / AI 生成墙场景承接） -->
+<premium-modal
+  visible="{{showPremiumModal}}"
+  source="{{premiumSource}}"
+  vars="{{premiumVars}}"
+  bind:close="onPremiumClose"
+/>
+
+<!-- 跨页迷你播放条：无播放会话时整条不渲染 -->
+<mini-player elevated />

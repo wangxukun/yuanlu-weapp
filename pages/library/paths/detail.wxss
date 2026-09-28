@@ -1,0 +1,784 @@
+/**
+ * pages/library/paths/detail.wxss — 学习路径详情
+ *
+ * 视觉规格移植自 Web LearningPathDetailClient 移动端断点（1px≈2rpx）：
+ *   - 头部：primary-600 沉浸底 + 右上角 Map 巨标 10% 水印，封面 140dp×16:9
+ *     （280×158rpx）圆角 16dp 白 10% 描边，右侧 公开/私有白 10% 胶囊、
+ *     标题 extrabold、描述白 80%、创建者·集数白 60%；
+ *   - 操作栏：-mt-6（-24rpx）上叠白卡 rounded-xl + 边框 + 阴影：
+ *     播放全部（primary 圆角 lg 主按钮）+ Shuffle 图标钮 + 拥有者
+ *     （添加剧集 chip + MoreHoriz 下拉菜单〔编辑/删除/分享〕）；
+ *   - 剧集行：rounded-xl 白卡 + 边框，序号 / 16:9 封面（PRO 角标 + 底部
+ *     4rpx 进度条）/ 标题两行 / 播客·时长 / 拥有者红圈移除钮；
+ *   - 空路径：虚线框 + ListPlus 20% 图标 + 拥有者「添加剧集」CTA。
+ */
+
+.pd-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--page-bg);
+}
+
+/* ==================== 状态盒 ==================== */
+
+.state-box {
+  padding: 160rpx 48rpx;
+}
+
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid var(--ink-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: pd-spin 0.8s linear infinite;
+}
+
+.loading-spinner--sm {
+  width: 48rpx;
+  height: 48rpx;
+  border-width: 5rpx;
+}
+
+.loading-spinner--onbtn {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  margin-right: 12rpx;
+}
+
+@keyframes pd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-text {
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.state-btn {
+  margin-top: 32rpx;
+  padding: 18rpx 72rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* ==================== 沉浸式头部 ==================== */
+
+.pd-header {
+  position: relative;
+  padding: 32rpx 32rpx 0;
+  background: var(--color-primary);
+  overflow: hidden;
+}
+
+/* Map 巨标水印：右上角溢出裁剪，白 6%（Web opacity-10 整体再压） */
+.pd-header-map {
+  position: absolute;
+  top: -112rpx;
+  right: -112rpx;
+  width: 560rpx;
+  height: 560rpx;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.pd-header-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pd-cover-box {
+  width: 280rpx; /* 140dp */
+  height: 158rpx; /* 16:9 */
+  flex-shrink: 0;
+  border: 4rpx solid rgba(255, 255, 255, 0.15); /* border-white/10 ≈2dp */
+  border-radius: 32rpx; /* 16dp */
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.pd-cover {
+  width: 100%;
+  height: 100%;
+  background: var(--color-base-300);
+}
+
+.pd-cover--ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pd-cover-ph {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pd-header-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 28rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 公开/私有胶囊（白底 10%） */
+.pd-visibility {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  padding: 6rpx 16rpx;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 12rpx;
+}
+
+.pd-visibility-icon {
+  width: 22rpx; /* 11dp */
+  height: 22rpx;
+  margin-right: 8rpx;
+  opacity: 0.85;
+}
+
+.pd-visibility-text {
+  font-size: 24rpx; /* text-xs */
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pd-title {
+  margin-top: 16rpx;
+  font-size: 40rpx; /* 2xl extrabold */
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.3;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  word-break: break-word;
+}
+
+.pd-desc {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.55;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  word-break: break-word;
+}
+
+.pd-meta {
+  margin-top: 16rpx;
+  font-size: 26rpx; /* text-sm */
+  color: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pd-header-tail {
+  height: 52rpx; /* 上叠操作栏负偏移的呼吸空隙 */
+}
+
+/* ==================== 上叠操作栏（-mt-6 卡片） ==================== */
+
+.pd-actionbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  margin: -24rpx 32rpx 0; /* -mt-6 上叠 */
+  padding: 20rpx;
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
+  border-radius: 32rpx; /* rounded-xl */
+  box-shadow: var(--e1);
+}
+
+.pd-playall {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 16rpx; /* rounded-lg */
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.pd-playall-icon {
+  width: 40rpx; /* PlayCircle 20px */
+  height: 40rpx;
+  margin-right: 12rpx;
+}
+
+.pd-iconbtn {
+  width: 88rpx;
+  height: 88rpx;
+  flex-shrink: 0;
+  border-radius: 16rpx;
+}
+
+.pd-iconbtn-img {
+  width: 44rpx; /* 22dp */
+  height: 44rpx;
+  opacity: 0.65; /* text-base-content/60 */
+}
+
+.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* 添加剧集 chip（描边胶囊） */
+.pd-addchip {
+  height: 80rpx;
+  padding: 0 20rpx;
+  margin-left: 8rpx;
+  border: 2rpx solid var(--border-color);
+  border-radius: 20rpx; /* 10dp */
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.pd-addchip-icon {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+  margin-right: 8rpx;
+}
+
+.pd-addchip-text {
+  font-size: 26rpx; /* labelMedium */
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 更多菜单（右对齐下拉） */
+.pd-more-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pd-menu-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+}
+
+.pd-menu {
+  position: absolute;
+  top: 92rpx;
+  right: 0;
+  z-index: 4;
+  width: 288rpx; /* w-48 */
+  padding: 8rpx 0;
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx; /* rounded-xl */
+  box-shadow: var(--e2);
+}
+
+.pd-menu-item {
+  padding: 20rpx 32rpx;
+}
+
+.pd-menu-icon {
+  width: 32rpx; /* 16px */
+  height: 32rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.pd-menu-text {
+  font-size: 28rpx; /* text-sm */
+  color: var(--text-primary);
+}
+
+.pd-menu-text--error {
+  color: var(--color-error);
+}
+
+.pd-menu-divider {
+  height: 2rpx;
+  margin: 8rpx 0;
+  background: var(--border-color);
+}
+
+/* ==================== 剧集行 ==================== */
+
+.eprow {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 32rpx 0; /* space-y-3 */
+  padding: 20rpx; /* p-2 */
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
+  border-radius: 32rpx; /* rounded-xl */
+}
+
+.eprow-index {
+  width: 44rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.eprow-cover-box {
+  position: relative;
+  width: 240rpx; /* 120dp */
+  height: 135rpx; /* 16:9 */
+  margin-left: 8rpx;
+  flex-shrink: 0;
+  border-radius: 16rpx; /* rounded-lg */
+  overflow: hidden;
+  background: var(--color-base-300);
+}
+
+.eprow-cover {
+  width: 100%;
+  height: 100%;
+}
+
+/* PRO 角标（黑底 60%） */
+.eprow-pro {
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  padding: 4rpx 10rpx;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8rpx;
+  font-size: 16rpx; /* 8sp */
+  font-weight: 700;
+  letter-spacing: 1.6rpx;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+/* 封面底部细进度条（4rpx；完成=success 绿） */
+.eprow-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 4rpx;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.eprow-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.eprow-bar-fill--done {
+  background: var(--color-success);
+}
+
+.eprow-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.eprow-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  word-break: break-word;
+}
+
+.eprow-metarow {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.eprow-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: 22rpx; /* text-xs */
+  color: var(--text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.eprow-done {
+  width: 28rpx;
+  height: 28rpx;
+  margin-left: 8rpx;
+  flex-shrink: 0;
+}
+
+/* 拥有者移除钮（红 10% 圆底） */
+.eprow-remove {
+  width: 60rpx;
+  height: 60rpx;
+  margin-left: 12rpx;
+  flex-shrink: 0;
+  background: rgba(210, 80, 63, 0.1);
+  border-radius: 50%;
+}
+
+.eprow-remove-icon {
+  width: 32rpx; /* 16dp */
+  height: 32rpx;
+}
+
+/* ==================== 空路径（虚线框引导） ==================== */
+
+.pd-empty {
+  align-items: center;
+  margin: 24rpx 32rpx 0;
+  padding: 56rpx 32rpx;
+  border: 4rpx dashed var(--border-color);
+  border-radius: 32rpx;
+}
+
+.pd-empty-icon {
+  width: 80rpx; /* 40dp */
+  height: 80rpx;
+  opacity: 0.25;
+}
+
+.pd-empty-title {
+  margin-top: 20rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pd-empty-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.pd-empty-cta {
+  margin-top: 28rpx;
+  padding: 18rpx 40rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.pd-empty-cta-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
+}
+
+/* ==================== 弹窗公共（编辑路径） ==================== */
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 640rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 40rpx;
+  background: var(--card-bg);
+  border-radius: 48rpx; /* rounded-3xl */
+  box-shadow: var(--e2);
+  box-sizing: border-box;
+}
+
+.modal-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.field-label {
+  margin: 28rpx 0 12rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.mt-field {
+  margin-top: 24rpx;
+}
+
+.field-input {
+  width: 100%;
+  /* 原生 input 在纵向 flex 容器内无固有高度，auto 会塌成一条细缝——必须显式定高 */
+  height: 88rpx;
+  padding: 0 24rpx;
+  line-height: 84rpx; /* border-box 内视觉居中（上下边框各 2rpx） */
+  background: var(--color-base-200);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.field-textarea {
+  width: 100%;
+  height: 168rpx; /* textarea 须显式定高，同塌陷坑 */
+  min-height: 168rpx;
+  padding: 20rpx 24rpx;
+  line-height: 1.5;
+  background: var(--color-base-200);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.field-placeholder {
+  color: var(--text-tertiary);
+  font-size: 28rpx;
+}
+
+.public-check {
+  display: flex;
+  align-items: center;
+  margin-top: 28rpx;
+  padding: 24rpx;
+  background: var(--color-base-200);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx;
+}
+
+.public-check-box {
+  width: 48rpx;
+  height: 48rpx;
+  margin-right: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid var(--border-color);
+  border-radius: 12rpx;
+  background: var(--card-bg);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.public-check-box--on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.public-check-tick {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.public-check-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.public-check-desc {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.modal-actions {
+  display: flex;
+  margin-top: 36rpx;
+}
+
+.modal-btn-cancel {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 28rpx;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.modal-btn-submit {
+  flex: 1;
+  height: 88rpx;
+  margin-left: 24rpx;
+  border-radius: 24rpx;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.is-busy {
+  opacity: 0.75;
+}
+
+/* ==================== 添加剧集弹窗 ==================== */
+
+.addcard {
+  width: 100%;
+  max-width: 640rpx;
+  max-height: 80vh;
+  background: var(--card-bg);
+  border-radius: 48rpx;
+  box-shadow: var(--e2);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.addcard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 24rpx 20rpx 40rpx;
+  border-bottom: 2rpx solid var(--border-color);
+}
+
+.addcard-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.addcard-close {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+}
+
+.addcard-close-icon {
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.6;
+}
+
+.addcard-searchrow {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 32rpx;
+  padding: 20rpx 24rpx;
+  background: var(--color-base-200);
+  border-radius: 24rpx;
+}
+
+.addcard-search-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+  opacity: 0.45;
+}
+
+.addcard-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 44rpx; /* 显式定高：input 无固有高度，防塌陷 */
+  line-height: 44rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+/* 结果列表：显式 max-height（scroll-view 必须，否则弹窗内不滚） */
+.addcard-list {
+  height: 560rpx;
+  max-height: 560rpx;
+  padding: 8rpx 16rpx 24rpx;
+  box-sizing: border-box;
+}
+
+.addcard-state {
+  padding: 64rpx 0;
+}
+
+.addcard-state-icon {
+  width: 64rpx;
+  height: 64rpx;
+  opacity: 0.2;
+}
+
+.addcard-state-text {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+}
+
+.addrow {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  border-radius: 24rpx;
+}
+
+.addrow--added {
+  opacity: 0.5;
+}
+
+.addrow-cover {
+  width: 96rpx; /* w-12 */
+  height: 96rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  background: var(--color-base-300);
+}
+
+.addrow-info {
+  margin-left: 24rpx;
+}
+
+.addrow-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.addrow-meta {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.addrow-action {
+  width: 40rpx; /* 20px */
+  height: 40rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+/* ==================== 底部留白 ==================== */
+
+.footer-space {
+  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+}

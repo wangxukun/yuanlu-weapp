@@ -112,6 +112,31 @@ const SCENARIOS = {
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '解锁 AI 精讲',
   },
+
+  /* ---- 学习路径模块（文案逐字移植 Web premium-modal-scenarios.ts） ---- */
+  path_quota: {
+    title: '第一条学习路径已经就位',
+    description:
+      '免费用户可创建 1 条学习路径——编辑、排序、添加剧集全部免费。PRO：无限路径，把每个学习目标都单独排一条。',
+    benefits: ['无限学习路径', 'AI 智能生成路径', '按目标分线推进'],
+    priceAnchor: 'PRO ' + YEARLY_ANCHOR,
+    cta: '解锁无限路径',
+  },
+  path_ai_generate: {
+    title: '让 AI 帮你排一条学习路径',
+    description:
+      '告诉 AI 你的学习目标，它从剧集库中挑出最相关的一串，按先易后难排好顺序。PRO 专属：无限次智能生成。',
+    benefits: ['AI 按主题挑选剧集', '先易后难自动排序', '无限学习路径'],
+    priceAnchor: 'PRO ' + WEEKLY_ANCHOR,
+    cta: '解锁 AI 生成',
+  },
+  exclusive_play: {
+    title: '这是会员专享剧集',
+    description: '专享剧集向 PRO 会员开放。已有会员？登录后即可直接播放。',
+    benefits: ['专享剧集畅听', '音频文稿下载', '无限跟读评测'],
+    priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
+    cta: '解锁专享剧集',
+  },
 };
 
 /** 未知 source / 未传 source 时的通用兜底（对齐 Web DEFAULT_SCENARIO） */

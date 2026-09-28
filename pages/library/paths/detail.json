@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "路径详情",
+  "usingComponents": {
+    "mini-player": "/components/player/mini-player/index",
+    "premium-modal": "/components/premium-modal/index"
+  }
+}
