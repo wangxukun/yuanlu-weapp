@@ -34,6 +34,10 @@ Component({
     themeClass: '',
     dark: false,
     hasData: false,
+    // canvas 显式 px 尺寸（真机 scroll-view→swiper-item 内百分比尺寸解析错，
+    // 原生 canvas 层拿到异常尺寸产生大块白色占位；attached 即按窗口宽度算术定寸）
+    canvasW: 0,
+    canvasH: 0,
     // 三统计格展示口径（Android StatCell：round / null→— / 语速带单位）
     avgOverallText: '—',
     avgSpeedText: '—',
@@ -45,6 +49,7 @@ Component({
   lifetimes: {
     attached() {
       this._syncTheme();
+      this._sizeCanvas();
       this._applyProfile();
     },
     ready() {
@@ -126,8 +131,29 @@ Component({
       this.triggerEvent('hintopen', { hintText: this.data.hintText });
     },
 
-    /** 雷达自绘：setData 回调（渲染完成后）再查 canvas 节点；主题色随 dark */
-    _draw() {
+    /**
+     * canvas 显式定寸（真机坑：width:100%/height:100% 穿透 scroll-view→
+     * swiper-item 时部分内核解析错，原生 canvas 层尺寸异常→大块白色占位）。
+     * 尺寸全部可算术推导：窗口宽 − 两侧（页面 32rpx + 卡壳 32rpx）×2；
+     * 高 = 雷达块 440rpx − 上下内衬 16rpx×2 = 408rpx
+     */
+    _sizeCanvas() {
+      try {
+        const wi = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+        const r2p = (wi.windowWidth || 375) / 750;
+        const canvasW = Math.round(wi.windowWidth - 128 * r2p);
+        const canvasH = Math.round(408 * r2p);
+        if (canvasW > 0 && canvasH > 0 && (canvasW !== this.data.canvasW || canvasH !== this.data.canvasH)) {
+          this.setData({ canvasW, canvasH });
+        }
+      } catch (e) {
+        /* 窗口信息异常时保留 wxml 的百分比兜底 */
+      }
+    },
+
+    /** 雷达自绘：setData 回调（渲染完成后）再查 canvas 节点；主题色随 dark。
+     *  首查失败（真机 canvas 2d 节点创建晚于组件 ready）延时 120ms 重试一次 */
+    _draw(isRetry) {
       if (!this.data.hasData) return;
       const radar = this.data.radar || [];
       if (!radar.length) return;
@@ -138,7 +164,19 @@ Component({
           .fields({ node: true, size: true })
           .exec((res) => {
             const info = res && res[0];
-            if (!info || !info.node || !info.width) return;
+            if (!info || !info.node) {
+              if (!isRetry) setTimeout(() => this._draw(true), 120);
+              return;
+            }
+            // 真机坑②：fields(size) 对 canvas 2d 可能返回默认内在尺寸（300×150）
+            // 而非布局尺寸 → 雷达按迷你尺寸绘制、块内大面积空白。绘制尺寸一律
+            // 用 _sizeCanvas 算术下发的显式 px（与内联 style 同源），查询只取 node
+            const cw = this.data.canvasW || info.width;
+            const ch = this.data.canvasH || info.height;
+            if (!cw || !ch) {
+              if (!isRetry) setTimeout(() => this._draw(true), 120);
+              return;
+            }
             let dpr = 1;
             try {
               const wi = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
@@ -146,7 +184,7 @@ Component({
             } catch (e) {
               /* 画布清晰度兜底 1x */
             }
-            pronCore.drawRadarChart(info.node, info.width, info.height, radar, dpr, {
+            pronCore.drawRadarChart(info.node, cw, ch, radar, dpr, {
               gridColor: dark
                 ? pronCore.RADAR_GRID_STROKE_DARK
                 : pronCore.RADAR_GRID_STROKE_LIGHT,

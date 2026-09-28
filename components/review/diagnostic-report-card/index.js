@@ -34,6 +34,10 @@ Component({
     rows: [],
     lockedCount: 0,
     isEmpty: true,
+    // canvas 显式 px 尺寸（真机 scroll-view→swiper-item 内百分比解析错，
+    // 原生 canvas 层尺寸异常→白色占位；attached 按窗口宽度算术定寸）
+    canvasW: 0,
+    canvasH: 0,
     // PRO 进步曲线（懒加载；null=未加载 / []=已加载但无记录）
     showTrend: false,
     trendLoading: false,
@@ -45,6 +49,7 @@ Component({
   lifetimes: {
     attached() {
       this._syncTheme();
+      this._sizeCanvas();
       this._applyRows();
     },
   },
@@ -149,8 +154,28 @@ Component({
       }
     },
 
-    /** 曲线自绘：setData 回调（canvas wx:if 挂载后）再查节点 */
-    _drawTrend() {
+    /**
+     * 曲线 canvas 显式定寸（与画像卡雷达同款真机坑：swiper 内百分比尺寸解析
+     * 错→原生层白色占位）。宽 = 窗口宽 − 两侧（页面 32rpx + 卡壳 32rpx）×2；
+     * 高 = .drc-canvas 固定 416rpx
+     */
+    _sizeCanvas() {
+      try {
+        const wi = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+        const r2p = (wi.windowWidth || 375) / 750;
+        const canvasW = Math.round(wi.windowWidth - 128 * r2p);
+        const canvasH = Math.round(416 * r2p);
+        if (canvasW > 0 && canvasH > 0 && (canvasW !== this.data.canvasW || canvasH !== this.data.canvasH)) {
+          this.setData({ canvasW, canvasH });
+        }
+      } catch (e) {
+        /* 窗口信息异常时保留 wxml 的百分比兜底 */
+      }
+    },
+
+    /** 曲线自绘：setData 回调（canvas wx:if 挂载后）再查节点；
+     *  首查失败（节点创建晚于展开）延时 120ms 重试一次 */
+    _drawTrend(isRetry) {
       const trend = this.data.trend;
       if (!trend || !trend.length) return;
       try {
@@ -159,7 +184,19 @@ Component({
           .fields({ node: true, size: true })
           .exec((res) => {
             const info = res && res[0];
-            if (!info || !info.node || !info.width) return;
+            if (!info || !info.node) {
+              if (!isRetry) setTimeout(() => this._drawTrend(true), 120);
+              return;
+            }
+            // 真机坑：fields(size) 对 canvas 2d 可能返回默认内在尺寸而非布局
+            // 尺寸 → 绘制尺寸一律用 _sizeCanvas 算术下发的显式 px（与内联
+            // style 同源），查询只取 node
+            const cw = this.data.canvasW || info.width;
+            const ch = this.data.canvasH || info.height;
+            if (!cw || !ch) {
+              if (!isRetry) setTimeout(() => this._drawTrend(true), 120);
+              return;
+            }
             let dpr = 1;
             try {
               const wi = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
@@ -167,7 +204,7 @@ Component({
             } catch (e) {
               /* 画布清晰度兜底 1x */
             }
-            pronCore.drawTrendChart(info.node, info.width, info.height, trend, dpr);
+            pronCore.drawTrendChart(info.node, cw, ch, trend, dpr);
           });
       } catch (e) {
         // 画布查询失败静默（空态文案兜底已就位）

@@ -347,7 +347,8 @@ assert(
   '首次展开懒加载恰一次',
 );
 assert(inst.data.trend && inst.data.trend.length === 2, 'trend 落库');
-assert(trendQueries >= 1 && trendNode.width === 640, 'canvas 节点查询 + DPR 自绘落地');
+assert(trendQueries >= 1 && trendNode.width === 622 && trendNode.height === 416,
+  'canvas 节点查询 + DPR 自绘落地（算术定寸 311×208 × pixelRatio=2；fields(size) 返回值仅兜底）');
 assert(trendOps.arcs === 2, '折线圆点绘制（2 个月）');
 
 // —— 宿主页弹窗联动：打开卸载曲线画布（开发者工具 canvas 原生层悬浮防透出）/ 关闭重绘 ——

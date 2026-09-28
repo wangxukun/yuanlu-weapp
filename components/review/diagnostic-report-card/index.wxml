@@ -63,8 +63,15 @@
           <image class="drc-loader" src="/assets/icons/autorenew-primary.svg" mode="aspectFit" />
         </view>
         <!-- canvas 2d 开发者工具模拟器不走同层渲染（真机正常）：宿主页弹窗期
-             （popupOpen）卸载画布防透出，占位空盒保高度，关闭后重绘 -->
-        <canvas wx:elif="{{trend.length > 0 && !popupOpen}}" id="drcTrend" type="2d" class="drc-canvas" />
+             （popupOpen）卸载画布防透出，占位空盒保高度，关闭后重绘；
+             尺寸算术 px 显式下发（真机 swiper 内百分比解析错→白色占位） -->
+        <canvas
+          wx:elif="{{trend.length > 0 && !popupOpen}}"
+          id="drcTrend"
+          type="2d"
+          class="drc-canvas"
+          style="{{canvasW ? 'width:' + canvasW + 'px;height:' + canvasH + 'px' : ''}}"
+        />
         <view wx:elif="{{trend.length > 0}}" class="drc-canvas"></view>
         <view wx:else class="drc-trend-center">
           <text class="drc-trend-empty">近 6 个月暂无带综合分的评测记录</text>

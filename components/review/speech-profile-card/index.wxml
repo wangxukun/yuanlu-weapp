@@ -14,9 +14,17 @@
 
   <!-- 五维雷达（准确度/流利度/完整度/语速适配/综合表现）或空态。
        canvas 2d 在开发者工具模拟器不走同层渲染（原生层悬浮于弹窗之上，
-       真机正常）：宿主页弹窗打开期间（popupOpen）卸载画布防透出 -->
+       真机正常）：宿主页弹窗打开期间（popupOpen）卸载画布防透出。
+       尺寸用算术 px 显式下发（真机 swiper 内百分比解析错→白色占位块），
+       未定寸时回退类名百分比 -->
   <view class="spc-radar-block">
-    <canvas wx:if="{{hasData && !popupOpen}}" id="spcRadar" type="2d" class="spc-canvas" />
+    <canvas
+      wx:if="{{hasData && !popupOpen}}"
+      id="spcRadar"
+      type="2d"
+      class="spc-canvas"
+      style="{{canvasW ? 'width:' + canvasW + 'px;height:' + canvasH + 'px' : ''}}"
+    />
     <view wx:if="{{!hasData}}" class="spc-empty">
       <image class="spc-empty-icon" src="{{icons.speedFaint}}" mode="aspectFit" />
       <text class="spc-empty-title">暂无画像数据</text>

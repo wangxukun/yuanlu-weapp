@@ -4,6 +4,10 @@
 }
 .notebook-pad {
   padding: var(--page-padding);
+  /* 底部大间距（用户拍板的终态口径，勿改回小间距）：迷你播放条 + 安全区 +
+     24rpx 呼吸位，vocab-notebook 占位视图同款；曾短暂改 24rpx（=卡片间距）
+     被要求恢复本版 */
+  padding-bottom: calc(var(--mini-player-height) + env(safe-area-inset-bottom) + 24rpx);
   /* 卡片间距：Android PronunciationNotebookRoute 外层 Column spacedBy(12.dp) */
   display: flex;
   flex-direction: column;

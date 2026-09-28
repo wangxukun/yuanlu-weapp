@@ -390,7 +390,8 @@ assert(
   '点击「？」→ triggerEvent hintopen 携带 hintText（页面弹窗内容源）',
 );
 assert(queries === 1, 'setData 回调后恰查询一次画布');
-assert(drawNode.width === 640, '画布 DPR 缩放落地（wx.getWindowInfo pixelRatio=2）');
+assert(drawNode.width === 622 && drawNode.height === 408,
+  '画布 DPR 缩放落地（算术定寸 311×204 × pixelRatio=2；fields(size) 返回值仅兜底）');
 assert(drawOps.fillTexts.length === 5 && drawOps.strokeStyles.indexOf('#E5E7EB') >= 0, '雷达浅色自绘（网格 #E5E7EB）');
 
 // —— 宿主页弹窗联动：打开卸载画布（开发者工具 canvas 2d 原生层悬浮防透出）/ 关闭重绘 ——
@@ -475,8 +476,9 @@ assert(
   '三统计格标签逐字（Android「综合得分」非 Web「综合均分」）',
 );
 assert(
-  /<canvas wx:if="\{\{hasData && !popupOpen\}\}" id="spcRadar" type="2d" class="spc-canvas" \/>/.test(wxml),
-  'canvas 2d：hasData 且弹窗未开才挂载（开发者工具原生层防透出）',
+  /<canvas[^>]*wx:if="\{\{hasData && !popupOpen\}\}"[^>]*id="spcRadar"[^>]*type="2d"[^>]*\/>/.test(wxml) &&
+    wxml.indexOf("canvasW ? 'width:' + canvasW + 'px;height:' + canvasH + 'px'") >= 0,
+  'canvas 2d：hasData 且弹窗未开才挂载（防透出）+ 显式 px 定寸（真机 swiper 白块坑）',
 );
 assert(
   wxml.indexOf('spc-help-btn') >= 0 && wxml.indexOf('bindtap="onHintToggle"') >= 0,
