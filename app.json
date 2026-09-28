@@ -66,6 +66,7 @@
     ]
   },
   "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json",
   "darkmode": true,
   "themeLocation": "theme.json"
