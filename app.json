@@ -21,7 +21,9 @@
     "pages/channel/index",
     "pages/intensive-listening/index",
     "pages/speech-eval/index",
-    "pages/contact/index"
+    "pages/contact/index",
+    "pages/profile/index",
+    "pages/profile/edit"
   ],
   "requiredBackgroundModes": [
     "audio"

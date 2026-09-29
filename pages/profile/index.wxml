@@ -1,0 +1,134 @@
+<!-- pages/profile/index.wxml — 个人中心主页（阶段 2：骨架 + 用户信息卡 + Tab 行；
+     三个面板随阶段 3/4/5 落地，UI 基准 PersonalCenterScreen.kt） -->
+<view class="profile-page {{themeClass}}">
+
+  <!-- 首载骨架（HeaderCard 加载态：头像圆 + 三行 shimmer，对齐 L313-324） -->
+  <view wx:if="{{isLoading}}" class="pf-card">
+    <view class="row">
+      <view class="pf-skel-avatar"></view>
+      <view class="flex-1 pf-skel-col">
+        <view class="pf-skel-bar" style="width: 50%; height: 44rpx;"></view>
+        <view class="pf-skel-bar" style="width: 70%; height: 28rpx;"></view>
+        <view class="pf-skel-bar" style="width: 40%; height: 24rpx;"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 未登录守门态（入口为已登录用户卡，此为兜底） -->
+  <view wx:elif="{{needLogin}}" class="state-box col center">
+    <view class="state-title">登录后查看个人中心</view>
+    <view class="state-btn" bindtap="onLogin">去登录</view>
+  </view>
+
+  <!-- 主内容 -->
+  <block wx:else>
+    <!-- ============ 用户信息卡（HeaderCard L305-446） ============ -->
+    <view class="pf-card">
+      <!-- 资料加载失败：卡内错误态（非页级拦断，Android 同口径） -->
+      <view wx:if="{{!profile}}" class="pf-card-error col center">
+        <view class="pf-card-error-text">{{loadError || '资料加载失败'}}</view>
+        <view class="pf-card-retry" bindtap="onRetry">点击重试</view>
+      </view>
+
+      <view wx:else class="pf-header">
+        <view class="pf-header-top row">
+          <!-- 头像：白描边圆 + surfaceVariant 底；http 开头才加载 -->
+          <view class="pf-avatar-box center">
+            <image wx:if="{{profile.avatarUrl}}" class="pf-avatar-img" src="{{profile.avatarUrl}}" mode="aspectFill" />
+            <image wx:else class="pf-avatar-ph" src="{{dark ? '/assets/icons/person-variant-dark.svg' : '/assets/icons/person-variant.svg'}}" mode="aspectFit" />
+          </view>
+          <view class="flex-1 pf-id-col">
+            <view class="pf-name ellipsis">{{profile.displayName}}</view>
+            <!-- 远行客徽章：secondary 橙 10% 底 + 30% 描边胶囊（紧凑包裹内容，勿用 center 类——会把内容在拉伸宽度里居中） -->
+            <view class="pf-level-pill row">
+              <image class="pf-level-icon" src="/assets/icons/hiking-accent.svg" mode="aspectFit" />
+              <text class="pf-level-text">远行客 · {{profile.levelLabel}}</text>
+            </view>
+            <view class="pf-bio ellipsis-2">{{profile.bioText}}</view>
+            <view class="pf-meta row">
+              <view class="pf-meta-item row center">
+                <image class="pf-meta-icon" src="{{dark ? '/assets/icons/calendar-month-variant-dark.svg' : '/assets/icons/calendar-month-variant.svg'}}" mode="aspectFit" />
+                <text class="pf-meta-text">{{profile.joinDateText}} 加入</text>
+              </view>
+              <view class="pf-meta-item row center">
+                <image class="pf-meta-icon" src="{{dark ? '/assets/icons/place-variant-dark.svg' : '/assets/icons/place-variant.svg'}}" mode="aspectFit" />
+                <text class="pf-meta-text">中国</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <!-- 整宽描边按钮（OutlinedButton r12dp） -->
+        <view class="pf-edit-btn center" hover-class="pf-edit-btn-hover" bindtap="onOpenEdit">编辑资料</view>
+      </view>
+    </view>
+
+    <!-- ============ 三 Tab 行（CenterTabRow L469-507） ============ -->
+    <view class="pf-tabs row">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="key"
+        class="pf-tab col center {{activeTab === item.key ? 'on' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="onTab"
+      >
+        <view class="pf-tab-label">{{item.label}}</view>
+        <view class="pf-tab-underline"></view>
+      </view>
+    </view>
+    <view class="pf-tabs-divider"></view>
+
+    <!-- ============ Tab 面板（wx:if 重建触发进出场动画） ============ -->
+    <view class="pf-panel">
+      <!-- 旅程数据（阶段 3：StatsOverview 三卡 + ActivityChartCard） -->
+      <view wx:if="{{activeTab === 'journey'}}" class="pf-panel-inner pf-journey">
+        <block wx:if="{{statsLoading}}">
+          <view class="pf-card pf-stat-skel" wx:for="{{[1, 2, 3]}}" wx:key="*this"></view>
+        </block>
+        <block wx:elif="{{stats}}">
+          <view class="pf-card pf-stat-card row" wx:for="{{statCards}}" wx:key="key">
+            <view class="flex-1">
+              <view class="pf-stat-label">{{item.label}}</view>
+              <view class="row pf-stat-value-row">
+                <view class="pf-stat-value">{{item.value}}</view>
+                <view class="pf-stat-unit">{{item.unit}}</view>
+              </view>
+              <view wx:if="{{item.subtext}}" class="pf-stat-sub">{{item.subtext}}</view>
+            </view>
+            <view class="pf-stat-icon-box center {{item.tintClass}}">
+              <image class="pf-stat-icon" src="{{item.icon}}" mode="aspectFit" />
+            </view>
+          </view>
+        </block>
+
+        <view class="pf-card pf-chart-card">
+          <view class="row between">
+            <view class="pf-chart-title">本周行程记录</view>
+            <view class="row pf-week-seg">
+              <view class="pf-week-opt {{weekOffset === 0 ? 'on' : ''}}" data-offset="0" bindtap="onChangeWeek">本周</view>
+              <view class="pf-week-opt {{weekOffset === 1 ? 'on' : ''}}" data-offset="1" bindtap="onChangeWeek">上周</view>
+            </view>
+          </view>
+          <view class="pf-chart-body">
+            <view wx:if="{{activityLoading}}" class="pf-chart-loading center">
+              <view class="pf-spin"></view>
+            </view>
+            <canvas wx:else type="2d" id="weeklyChart" class="pf-chart-canvas" style="width: {{chartW}}px; height: {{chartH}}px;"></canvas>
+          </view>
+        </view>
+      </view>
+
+      <view wx:elif="{{activeTab === 'milestones'}}" class="pf-panel-inner">
+        <view class="pf-panel-ph">里程碑 · 阶段 4</view>
+      </view>
+      <view wx:else class="pf-panel-inner">
+        <view class="pf-panel-ph">账号与安全 · 阶段 5</view>
+      </view>
+    </view>
+
+    <!-- 底部预留：24dp 间距 + mini-player + 安全区（对齐 Android 尾部 Spacer 24dp） -->
+    <view class="pf-bottom-space"></view>
+  </block>
+
+  <!-- 跨页迷你播放条：无播放会话时整条不渲染（非 tab 页不传 elevated） -->
+  <mini-player />
+</view>

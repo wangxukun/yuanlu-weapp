@@ -1,0 +1,10 @@
+/* 阶段 0 占位（PROFILE-TASK T0.5），阶段 6 整体替换 */
+.profile-stub {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-top: 200rpx;
+  text-align: center;
+  background: var(--page-bg);
+  color: var(--text-secondary);
+  font-size: 28rpx;
+}

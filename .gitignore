@@ -21,4 +21,6 @@ test-output/
 
 # 复习模块重构任务清单（本地工作文档，不入库）
 REVIEW-TASK.md
+# 个人中心模块任务清单（本地工作文档，不入库）
+PROFILE-TASK.md
 commit-msg.tmp

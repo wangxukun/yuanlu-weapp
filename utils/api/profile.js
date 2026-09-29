@@ -1,0 +1,127 @@
+/**
+ * utils/api/profile.js — 「个人中心」接口封装（PROFILE-TASK 1.3 API 契约）
+ *
+ * 端点与响应形状对照 yuanlu-android data/remote/AuthApi.kt + 后端 app/api/**：
+ *   - GET  /api/user/profile                        裸 user_profile 行 + 嵌套 User（404=无
+ *     profile 行，邮箱新注册常态 → 返回 null 交 mapProfile 走 toFallbackProfile 兜底）
+ *   - GET  /api/user/stats/overview                 裸 { totalHours, streakDays, wordsLearned, ... }
+ *   - GET  /api/user/stats/weekly-activity?weekOffset=0|1   { weeklyActivity: [{day, minutes}] }
+ *   - GET  /api/user/achievements                   裸数组 [{key, name, icon(emoji), unlocked, ...}]
+ *   - POST /api/user/profile                        保存：JSON 纯文本 / multipart 带头像
+ *     （后端 T1.1 别名；wx.uploadFile 无 method 参数只能 POST）
+ *   - POST /api/auth/sms/send {phone, scene:'BIND'} / sms/bind {phone, code}
+ *   - POST /api/auth/bind-email/send {email} / bind-email/confirm {email, code, password}
+ *   - DELETE /api/user/self-delete                  注销（服务端清 OSS + 级联删库）
+ *
+ * 读接口统一 showError:false（区块级降级，由页面决定空态/骨架）；写接口沿用
+ * request.js 默认 toast（调用方 catch 勿重复提示）。
+ */
+const { get, post, delete: del, ApiError } = require('../request');
+
+/** GET profile；404 归一为 null（mapProfile(null, userInfo) 合成最小资料） */
+function getProfile() {
+  return get('/api/user/profile', undefined, { showError: false }).then(
+    (body) => body || null,
+    (err) => {
+      if (err instanceof ApiError && err.statusCode === 404) return null;
+      throw err;
+    }
+  );
+}
+
+function getStatsOverview() {
+  return get('/api/user/stats/overview', undefined, { showError: false });
+}
+
+/** weekOffset：0 本周 / 1 上周（后端 parseInt+isNaN→0 兜底） */
+function getWeeklyActivity(weekOffset) {
+  const offset = Number(weekOffset) === 1 ? 1 : 0;
+  return get('/api/user/stats/weekly-activity?weekOffset=' + offset, undefined, {
+    showError: false,
+  });
+}
+
+function getAchievements() {
+  return get('/api/user/achievements', undefined, { showError: false });
+}
+
+/**
+ * 纯文本保存（编辑资料不改头像时走 wx.request JSON，uploadFile 必须带文件）。
+ * 字段：nickname/bio/learnLevel + 三目标（dailyStudyGoalMins/weeklyListeningGoalHours/weeklyWordsGoal）。
+ */
+function saveProfile(fields) {
+  return post('/api/user/profile', fields || {});
+}
+
+/**
+ * 带头像保存（wx.uploadFile multipart，name=avatar；multipart 文件名由运行时取自
+ * filePath——canvasToTempFilePath(fileType:'jpg') 产物天然带 .jpg 后缀，后端据此
+ * 生成 yuanlu/avatar/{ts}_{rand}.jpg objectKey）。
+ * formData 文本分片与 JSON 分支字段同构；成功返回 {success, data: profile}，
+ * 失败 reject Error（HTTP 状态码挂 err.statusCode），由调用方 toast。
+ */
+function uploadProfileWithAvatar(filePath, fields) {
+  return new Promise((resolve, reject) => {
+    wx.uploadFile({
+      url: require('../config').BASE_URL + '/api/user/profile',
+      filePath: filePath,
+      name: 'avatar',
+      header: { Authorization: 'Bearer ' + (wx.getStorageSync('token') || '') },
+      formData: fields || {},
+      success: (res) => {
+        let body = null;
+        try {
+          body = JSON.parse(res.data);
+        } catch (e) {
+          body = null;
+        }
+        if (res.statusCode >= 200 && res.statusCode < 300 && body && body.success) {
+          resolve(body);
+        } else {
+          const err = new Error((body && (body.error || body.message)) || '上传失败，请重试');
+          err.statusCode = res.statusCode;
+          reject(err);
+        }
+      },
+      fail: (e) => {
+        reject(new Error((e && e.errMsg) || '网络错误，请重试'));
+      },
+    });
+  });
+}
+
+/** 绑定手机验证码（scene=BIND 专用短信模板） */
+function sendBindPhoneCode(phone) {
+  return post('/api/auth/sms/send', { phone: phone, scene: 'BIND' });
+}
+
+function bindPhone(phone, code) {
+  return post('/api/auth/sms/bind', { phone: phone, code: code });
+}
+
+function sendBindEmailCode(email) {
+  return post('/api/auth/bind-email/send', { email: email });
+}
+
+function bindEmailConfirm(email, code, password) {
+  return post('/api/auth/bind-email/confirm', { email: email, code: code, password: password });
+}
+
+/** 注销账号（成功后调用方 authStore.logout + navigateBack） */
+function deleteSelfAccount() {
+  return del('/api/user/self-delete');
+}
+
+module.exports = {
+  getProfile,
+  getStatsOverview,
+  getWeeklyActivity,
+  getAchievements,
+  saveProfile,
+  uploadProfileWithAvatar,
+  sendBindPhoneCode,
+  bindPhone,
+  sendBindEmailCode,
+  bindEmailConfirm,
+  deleteSelfAccount,
+};

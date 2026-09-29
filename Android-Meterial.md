@@ -6,7 +6,8 @@
 >
 > 本清单为 2026-09-27 全量走查的终态台账：全项目 210 处图标引用、252 个图标文件 →
 > 223 个文件（T4.5 批次 +7〔leaderboard-primary 随「最近得分」退役删除〕、Web 口径恢复批 +3）
-> → **235 个（2026-09-28 学习路径批 +12，见第四节）**，**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
+> → **235 个（2026-09-28 学习路径批 +12，见第四节）** → **276 个（2026-09-29 个人中心批 +38，见第八节；
+> 较上批记账 235 实有 238——git 跟踪 238，历史批 3 个零头未记账，本批一并校准）**，**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
 > 1 处重定向去重），退役旧文件 129 个已删除，`npm test` 35 套件全绿。
 > PNG 重绘覆盖：tabBar 4 Tab ×2 态（8 张）+ 我的页宫格 3 张（school/history/bookmark/
 > credit-card 中 history/bookmark/credit-card 沿用文件名）+ 头像 person.png + 激活态 person-active.png。
@@ -348,3 +349,41 @@
 4. **命名**：与 Android `Icons.Filled.X` 一一对应（`keyboard_arrow_right` → `keyboard-arrow-right-*`）；
    深色变体沿用 `-dark` 后缀约定。
 5. **验收**：替换后 `npm test` 全绿 + 更新本清单对应行。
+
+---
+
+## 八、个人中心模块批（2026-09-29，PROFILE-TASK T0.4，+38）
+
+> 复刻源：yuanlu-android `feature/profile/`（PersonalCenterScreen / EditProfileDialog /
+> BindAccountSheets）。色值 = `theme/Color.kt` 原值；烘焙驱动
+> `scripts/tmp-profile-bake-icons.py`（取源逻辑同第七节，直连失败自动回退 Clash 7891）。
+> 本批新增两个色角色后缀：**`-variant(-dark)` = onSurfaceVariant（#57534e / #a8a29e）**、
+> **`-onsurface(-dark)` = onSurface（#1c1917 / #e8e3d9）**；其余沿用既有语义后缀
+> （`-primary(-dark)` #1f7a5c/#4da989、`-accent` #d98a17〔schedule-accent 先例，深浅同值〕、
+> `-tertiary(-dark)` #4a7fa5/#7fa8c8〔mic-tertiary 先例〕、`-error` #d2503f 深浅同值、`-white`）。
+> ⚠️ 注意：`keyboard-arrow-right-tertiary(-dark)` 历史批为 #a79e8a 暖灰（行尾箭头槽位），
+> 与本批 `-tertiary`=#4a7fa5 含义不同，引用时勿混淆。
+
+| 区块 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 用户信息卡·等级徽章/累计里程 | `Hiking` | hiking-primary(-dark).svg / hiking-accent.svg | 徽章=secondary 橙（L408 tint），里程卡=primary |
+| 用户信息卡·加入日期 | `CalendarMonth` | calendar-month-variant(-dark).svg | |
+| 用户信息卡·国家 | `Place` | place-variant(-dark).svg | |
+| 头像占位（主页 40%/编辑 35% 透明度） | `Person` | person-variant(-dark).svg | CSS opacity 调透 |
+| 旅程·连续天数/目标横幅 | `LocalFireDepartment` | local-fire-department-accent.svg | #d98a17；闯关卡 -orange(#f97316) 历史批**不动** |
+| 旅程·词汇路标 | `Bookmark` | bookmark-tertiary(-dark).svg | |
+| 安全·手机号 | `Smartphone` | smartphone-primary(-dark).svg | |
+| 安全·邮箱 | `Email` | email-accent.svg | |
+| 安全·登录密码 | `Lock` | lock-tertiary(-dark).svg | |
+| 安全·注销 | `PersonRemove` | person-remove-error.svg | error 深浅同值，单变体 |
+| 安全·已验证对勾 | `CheckCircle` | check-circle-primary.svg | 补浅色款；-primary-dark 既有 |
+| 安全·未绑定警示 | `Warning` | warning.svg（复用） | Android secondary 深浅同值，深色模式沿用同文件 |
+| 绑定弹层 leading | `PhoneIphone`/`Password`/`Mail`/`Lock` | phone-iphone-variant(-dark) / password-variant(-dark) / mail-variant(-dark) / lock-variant(-dark).svg | OutlinedTextField leading 默认 onSurfaceVariant |
+| 密码强度达标对勾 | `Check` | check-primary(-dark).svg | check-white 为保存按钮既有件 |
+| 编辑资料·头部/Tab1 | `Person` | person-primary(-dark).svg | |
+| 编辑资料·Tab2 | `Tune` | tune-primary(-dark) / tune-variant(-dark).svg | 选中/未选中 |
+| 编辑资料·头像角标 | `CameraAlt` | camera-alt-white.svg | |
+| 编辑资料·关闭 | `Close` | close-onsurface(-dark).svg | 区别于 premium-modal 的 close.svg(#a79e8a) |
+
+> 新增缓存源 11 个：hiking / calendar_month / smartphone / email / person_remove /
+> place / camera_alt / tune / mail / phone_iphone / password（均 v1 命中，全幅矩形过滤通过）。
