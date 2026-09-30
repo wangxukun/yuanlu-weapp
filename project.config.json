@@ -9,6 +9,10 @@
       {
         "value": "scripts",
         "type": "folder"
+      },
+      {
+        "value": "assets/brand",
+        "type": "folder"
       }
     ],
     "include": []
