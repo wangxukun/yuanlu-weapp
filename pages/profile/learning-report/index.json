@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "学习报表",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "premium-modal": "/components/premium-modal/index"
+  }
+}

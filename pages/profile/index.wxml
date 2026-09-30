@@ -116,6 +116,18 @@
             <canvas wx:else type="2d" id="weeklyChart" class="pf-chart-canvas" style="width: {{chartW}}px; height: {{chartH}}px;"></canvas>
           </view>
         </view>
+
+        <!-- 学习报表入口（Web personal-center 入口卡：浅绿圆角卡 + 三柱图标 + 权限副标题） -->
+        <view class="pf-report-entry" hover-class="pf-report-entry-hover" bindtap="onOpenLearningReport">
+          <view class="pf-report-icon-box center">
+            <image class="pf-report-icon" src="{{reportEntryIcon}}" mode="aspectFit" />
+          </view>
+          <view class="flex-1 pf-report-text">
+            <view class="pf-report-title">学习报表</view>
+            <view class="pf-report-sub">{{isPremium ? '近7天简报·全年的趋势、热力图与智能建议' : '近7天简报·升级PRO解锁全年报表'}}</view>
+          </view>
+          <image class="pf-report-arrow" src="{{reportArrowIcon}}" mode="aspectFit" />
+        </view>
       </view>
 
       <!-- 里程碑（阶段 4：MilestoneRoadmapCard 路图 + AchievementsCard 成就墙） -->

@@ -52,6 +52,9 @@ function respond(opts, statusCode, data) {
 
 const flush = () => new Promise((r) => setImmediate(r));
 
+/** 业务四源计数（剔除 onShow 的 membership ensureFresh 订阅校正请求） */
+const bizCalls = () => calls.request.filter((o) => o.url.indexOf('subscription/status') < 0);
+
 /** 按当前 handler 服务一轮四源请求后等全部微任务落定 */
 async function settle(times) {
   for (let i = 0; i < (times || 6); i++) await flush();
@@ -171,6 +174,7 @@ function serveAll(opts) {
   if (opts.url.indexOf('/api/user/stats/overview') >= 0) return respond(opts, 200, STATS_DTO);
   if (opts.url.indexOf('/api/user/stats/weekly-activity') >= 0) return respond(opts, 200, WEEKLY_DTO);
   if (opts.url.indexOf('/api/user/achievements') >= 0) return respond(opts, 200, ACH_DTO);
+  if (opts.url.indexOf('/api/user/subscription/status') >= 0) return respond(opts, 200, { role: 'USER' });
   respond(opts, 404, { error: 'not found' });
 }
 
@@ -213,7 +217,7 @@ function ok(cond, label) {
   await settle();
 
   ok(page.data.isLoading === false && page.data.needLogin === false, '首载完成退出骨架态');
-  ok(calls.request.length === 4, '四源各一发（profile/overview/weekly/achievements）');
+  ok(bizCalls().length === 4, '四源各一发（profile/overview/weekly/achievements；subscription/status 校正另计）');
   const vm = page.data.profile;
   ok(vm && vm.displayName === '远路漫漫' && vm.levelLabel === '初级', 'mapProfile 展平：昵称/等级');
   ok(vm.bioText === '路虽远行则将至，事虽难做则成。', '空签名回退默认座右铭');
@@ -240,6 +244,13 @@ function ok(cond, label) {
   ok(cards[0].icon === '/assets/icons/hiking-primary.svg' &&
      cards[1].icon === '/assets/icons/local-fire-department-accent.svg' &&
      cards[2].icon === '/assets/icons/bookmark-tertiary.svg', '浅色图标变体');
+
+  // 学习报表入口卡（阶段 8）：普通用户（role=USER 校正后）副标题走解锁文案 + 浅色图标
+  ok(page.data.isPremium === false, 'isPremium 订阅校正为 false（USER）');
+  ok(page.data.reportEntryIcon === '/assets/icons/bar-chart-primary.svg' &&
+     page.data.reportArrowIcon === '/assets/icons/keyboard-arrow-right-primary.svg', '入口卡浅色图标变体');
+  page.onOpenLearningReport();
+  ok(navigations.indexOf('/pages/profile/learning-report/index') >= 0, '入口卡跳转学习报表页');
 
   // onReady：canvas 显式算术 px 定寸（375 屏宽 → 内缩 144rpx → 303px；440rpx → 220px；256rpx → 128px）
   page.onReady();
@@ -327,13 +338,13 @@ function ok(cond, label) {
   calls.request.length = 0;
   page.onShow();
   await settle();
-  ok(calls.request.length === 0, '已加载且无脏标记 → onShow 不重拉');
+  ok(bizCalls().length === 0, '已加载且无脏标记 → onShow 不重拉四源（订阅校正除外）');
 
   global.getApp = () => ({ globalData: { profileDirty: true } });
   calls.request.length = 0;
   page.onShow();
   await settle();
-  ok(calls.request.length === 4, 'profileDirty → 静默四源重拉');
+  ok(bizCalls().length === 4, 'profileDirty → 静默四源重拉');
   ok(page.data.isLoading !== true, '静默刷新不回骨架态');
 
   /* ---------- 4. Tab 切换 ---------- */
@@ -534,7 +545,7 @@ function ok(cond, label) {
   calls.stopPull = 0;
   page.onPullDownRefresh();
   await settle();
-  ok(calls.request.length === 4 && calls.stopPull === 1, '下拉刷新四源重拉 + stopPullDownRefresh');
+  ok(bizCalls().length === 4 && calls.stopPull === 1, '下拉刷新四源重拉 + stopPullDownRefresh');
 
   /* ---------- 7. profile 404 → 兜底合成 ---------- */
   console.log('== profile 404 兜底 ==');

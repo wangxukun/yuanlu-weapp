@@ -387,3 +387,18 @@
 
 > 新增缓存源 11 个：hiking / calendar_month / smartphone / email / person_remove /
 > place / camera_alt / tune / mail / phone_iphone / password（均 v1 命中，全幅矩形过滤通过）。
+
+## 学习报表模块（2026-09-30 · Web 严格源，图标取 Material 对应物）
+
+> 学习报表 Web 端独有（yuanlu-android 无对应实现），复刻源 =
+> yuanlu `LearningReportView.tsx`（lucide BarChart3/CalendarCheck/Flame/BookMarked）。
+> Material 对应：`BarChart`（三柱）/`EventAvailable`（带勾日历）/`LocalFireDepartment`/`Bookmark`。
+> 四宫格图标统一 primary 绿（Web 源码 label 行灰 40%，按用户提供的截图四绿观感取绿——偏离记录在案）。
+> 新增缓存源 1 个：event_available（v1 命中，全幅矩形过滤通过）。
+
+| 区块 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 报表页头 + 入口卡 + 四宫格「近 7 天时长」 | `BarChart` | bar-chart-primary(-dark).svg | |
+| 四宫格「目标达成」 | `EventAvailable` | event-available-primary(-dark).svg | |
+| 四宫格「连续打卡」 | `LocalFireDepartment` | local-fire-department-primary(-dark).svg | 绿款；accent 橙款既有 |
+| 四宫格「新收生词」 | `Bookmark` | bookmark-primary(-dark).svg | 绿款；tertiary 蓝款既有 |

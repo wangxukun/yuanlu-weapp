@@ -1,0 +1,129 @@
+<!--pages/profile/learning-report/index.wxml — 学习报表（Web LearningReportView 复刻）-->
+<view class="lr-page {{themeClass}}">
+
+  <!-- 页头：条形图图标 + 标题 + 权限副标题（Web L102-125） -->
+  <view class="lr-header">
+    <view class="lr-header-title-row row">
+      <image class="lr-header-icon" src="{{headerIcon}}" mode="aspectFit" />
+      <view class="lr-header-title">学习报表</view>
+    </view>
+    <view class="lr-header-sub">{{isPremium ? 'PRO · 全年趋势、热力图与智能建议' : '近 7 天学习简报 · 升级 PRO 解锁全年报表'}}</view>
+  </view>
+
+  <!-- 首载骨架 -->
+  <block wx:if="{{isLoading}}">
+    <view class="lr-grid">
+      <view class="lr-card lr-skel-stat" wx:for="{{[1, 2, 3, 4]}}" wx:key="*this"></view>
+    </view>
+    <view class="lr-card lr-skel-chart"></view>
+  </block>
+
+  <!-- 错误态（卡内呈现 + 点击重试） -->
+  <view wx:elif="{{loadError}}" class="lr-card lr-error center">
+    <view class="lr-error-text">{{loadError}}</view>
+    <view class="lr-error-btn" bindtap="onRetry">点击重试</view>
+  </view>
+
+  <block wx:else>
+    <!-- 近 7 天四宫格（Web 4 stat cards：2×2） -->
+    <view class="lr-grid">
+      <view class="lr-card lr-stat" wx:for="{{statCards}}" wx:key="key">
+        <view class="lr-stat-label row">
+          <image class="lr-stat-label-icon" src="{{item.icon}}" mode="aspectFit" />
+          <view class="lr-stat-label-text">{{item.label}}</view>
+        </view>
+        <view class="lr-stat-value-row row">
+          <view class="lr-stat-value">{{item.value}}</view>
+          <view class="lr-stat-unit">{{item.unit}}</view>
+          <block wx:if="{{item.value2}}">
+            <view class="lr-stat-value lr-stat-value2">{{item.value2}}</view>
+            <view class="lr-stat-unit">{{item.unit2}}</view>
+          </block>
+        </view>
+      </view>
+    </view>
+
+    <!-- 近 7 天逐日学习（免费层核心面积图） -->
+    <view class="lr-card">
+      <view class="lr-card-title">近 7 天逐日学习</view>
+      <canvas type="2d" id="last7Chart" class="lr-canvas" style="width: {{chartW}}px; height: {{last7H}}px;"></canvas>
+    </view>
+
+    <!-- ================= PRO 层（isPremium 严格条件渲染） ================= -->
+    <block wx:if="{{isPremium}}">
+
+      <!-- 趋势报表：月/季/年分段 + 长周期面积图 -->
+      <view class="lr-card">
+        <view class="row between">
+          <view class="lr-card-title">趋势报表</view>
+          <view class="row lr-range-seg">
+            <view class="lr-range-opt {{range === 30 ? 'on' : ''}}" data-range="30" bindtap="onChangeRange">月</view>
+            <view class="lr-range-opt {{range === 90 ? 'on' : ''}}" data-range="90" bindtap="onChangeRange">季</view>
+            <view class="lr-range-opt {{range === 365 ? 'on' : ''}}" data-range="365" bindtap="onChangeRange">年</view>
+          </view>
+        </view>
+        <canvas type="2d" id="trendChart" class="lr-canvas" style="width: {{chartW}}px; height: {{trendH}}px;"></canvas>
+      </view>
+
+      <!-- 全年学习热力图（GitHub 风格：周一列化 + 月标注 + 5 档绿 + 横向滚动） -->
+      <view class="lr-card">
+        <view class="lr-card-title">全年学习热力图</view>
+        <scroll-view class="lr-heat-scroll" scroll-x>
+          <view class="lr-heat-inner">
+            <view class="lr-heat-months">
+              <view class="lr-heat-month" wx:for="{{heatMonthLabels}}" wx:key="index">{{item}}</view>
+            </view>
+            <view class="lr-heat-main row">
+              <view class="lr-heat-wds">
+                <view class="lr-heat-wd" wx:for="{{weekdayLabels}}" wx:key="index">{{item}}</view>
+              </view>
+              <view class="lr-heat-cols row">
+                <view class="lr-heat-col" wx:for="{{heatWeeks}}" wx:for-item="col" wx:key="index">
+                  <view class="lr-heat-cell {{item.cls}}" wx:for="{{col}}" wx:key="index"></view>
+                </view>
+              </view>
+            </view>
+            <view class="lr-heat-legend row">
+              <view class="lr-heat-legend-text">少</view>
+              <view class="lr-heat-cell lv0"></view>
+              <view class="lr-heat-cell lv1"></view>
+              <view class="lr-heat-cell lv2"></view>
+              <view class="lr-heat-cell lv3"></view>
+              <view class="lr-heat-cell lv4"></view>
+              <view class="lr-heat-legend-text">多</view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 智能学习建议（amber 灯泡 + 圆序号列表） -->
+      <view class="lr-card">
+        <view class="lr-card-title row">
+          <image class="lr-sugg-bulb" src="/assets/icons/lightbulb-amber.svg" mode="aspectFit" />
+          <view>智能学习建议</view>
+        </view>
+        <view class="lr-sugg row" wx:for="{{suggestions}}" wx:key="index">
+          <view class="lr-sugg-no center">{{index + 1}}</view>
+          <view class="lr-sugg-text flex-1">{{item}}</view>
+        </view>
+      </view>
+    </block>
+
+    <!-- ================= 免费锁定层（stats_report 场景承接） ================= -->
+    <view wx:else class="lr-lock row" bindtap="onUnlock" hover-class="lr-lock-hover">
+      <view class="lr-lock-icon-box center">
+        <image class="lr-lock-icon" src="/assets/icons/lock-amber.svg" mode="aspectFit" />
+      </view>
+      <view class="lr-lock-text flex-1">
+        <view class="lr-lock-title">月 / 季 / 年趋势报表 · 全年热力图 · 智能学习建议</view>
+        <view class="lr-lock-desc">你的每一步积累都值得被看清——PRO 解锁完整学习报表，回顾一年来的坚持</view>
+      </view>
+      <view class="lr-lock-cta">解锁学习报表</view>
+    </view>
+  </block>
+
+  <view class="lr-bottom-space"></view>
+
+  <!-- 免费锁定承接弹窗（弹窗 + 埋点红线，文案 = Web premium-modal-scenarios stats_report） -->
+  <premium-modal visible="{{pmVisible}}" source="stats_report" bind:close="onPmClose" />
+</view>

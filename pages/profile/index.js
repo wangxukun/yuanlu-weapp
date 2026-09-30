@@ -27,6 +27,7 @@
  */
 const theme = require('../../utils/theme');
 const authStore = require('../../store/authStore');
+const membershipStore = require('../../store/membershipStore');
 const core = require('../../utils/profile-core');
 const api = require('../../utils/api/profile');
 
@@ -90,6 +91,10 @@ Page({
     weekly: [],
     chartW: 0, // canvas 显式算术 px（onReady 下发，真机红线）
     chartH: 0,
+    // ---- 学习报表入口卡（阶段 8：权限双文案副标题） ----
+    isPremium: false, // membershipStore 快照；onShow refreshMembership 校正
+    reportEntryIcon: '/assets/icons/bar-chart-primary.svg',
+    reportArrowIcon: '/assets/icons/keyboard-arrow-right-primary.svg',
     // ---- 里程碑 Tab（阶段 4） ----
     msH: 0, // 路图 canvas 高（256rpx 换算 px，onReady 下发）
     msKmText: '0.0', // 卡头胶囊 formatKm(totalKm)（stats 缺失按 0）
@@ -147,7 +152,12 @@ Page({
     const __t = theme.getState();
     const themeChanged = this._lastThemeEffective && this._lastThemeEffective !== __t.effective;
     this._lastThemeEffective = __t.effective;
-    this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
+    this.setData(
+      Object.assign(
+        { themeClass: __t.rootClass, dark: __t.effective === 'dark' },
+        this.buildReportEntryIcons(__t.effective === 'dark'),
+      ),
+    );
     theme.applyChrome();
     if (themeChanged) {
       if (this.data.stats) {
@@ -159,10 +169,19 @@ Page({
 
     // 登录闸：入口是 mine 页已登录的用户信息卡，此为守门态
     if (!authStore.getState().isLoggedIn) {
-      this.setData({ isLoading: false, needLogin: true, loadError: '' });
+      this.setData({ isLoading: false, needLogin: true, loadError: '', isPremium: false });
       this._hasLoaded = false;
       return;
     }
+
+    // 学习报表入口卡副标题口径：乐观快照先行 + subscription/status 静默校正
+    // （会员判定事实在订阅表，role 展示缓存不作数——与锁态校正同款红线）
+    this.setData({ isPremium: membershipStore.getState().isPremium });
+    membershipStore.ensureFresh().then((s) => {
+      if (s && s.isPremium !== this.data.isPremium) {
+        this.setData({ isPremium: s.isPremium });
+      }
+    });
 
     // 首载全量拉取；编辑页保存（阶段 6）置 profileDirty → 返回后静默刷新
     if (!this._hasLoaded) {
@@ -303,6 +322,24 @@ Page({
         icon: dark ? '/assets/icons/bookmark-tertiary-dark.svg' : '/assets/icons/bookmark-tertiary.svg',
       },
     ];
+  },
+
+  // ==================== 学习报表入口卡（阶段 8） ====================
+
+  /** 入口卡图标变体（主题切换即时换肤） */
+  buildReportEntryIcons(dark) {
+    return {
+      reportEntryIcon: dark
+        ? '/assets/icons/bar-chart-primary-dark.svg'
+        : '/assets/icons/bar-chart-primary.svg',
+      reportArrowIcon: dark
+        ? '/assets/icons/keyboard-arrow-right-primary-dark.svg'
+        : '/assets/icons/keyboard-arrow-right-primary.svg',
+    };
+  },
+
+  onOpenLearningReport() {
+    wx.navigateTo({ url: '/pages/profile/learning-report/index' });
   },
 
   // ==================== 周活动图（ActivityChartCard L609-764） ====================

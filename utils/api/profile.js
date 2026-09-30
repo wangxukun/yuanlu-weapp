@@ -6,6 +6,8 @@
  *     profile 行，邮箱新注册常态 → 返回 null 交 mapProfile 走 toFallbackProfile 兜底）
  *   - GET  /api/user/stats/overview                 裸 { totalHours, streakDays, wordsLearned, ... }
  *   - GET  /api/user/stats/weekly-activity?weekOffset=0|1   { weeklyActivity: [{day, minutes}] }
+ *   - GET  /api/user/stats/learning-report          { days:[{date,minutes,wordsLearned,
+ *     isActive}], streakDays, dailyGoalMins }（服务端按会员切片 7/365 天）
  *   - GET  /api/user/achievements                   裸数组 [{key, name, icon(emoji), unlocked, ...}]
  *   - POST /api/user/profile                        保存：JSON 纯文本 / multipart 带头像
  *     （后端 T1.1 别名；wx.uploadFile 无 method 参数只能 POST）
@@ -57,6 +59,11 @@ function getWeeklyActivity(weekOffset) {
 
 function getAchievements() {
   return get('/api/user/achievements', undefined, { showError: false });
+}
+
+/** 学习报表（服务端按会员切片：免费 7 天 / PRO 365 天，DTO 同 Web learning-report.service） */
+function getLearningReport() {
+  return get('/api/user/stats/learning-report', undefined, { showError: false });
 }
 
 /**
@@ -145,6 +152,7 @@ module.exports = {
   getProfile,
   getStatsOverview,
   getWeeklyActivity,
+  getLearningReport,
   getAchievements,
   saveProfile,
   uploadProfileWithAvatar,

@@ -1,0 +1,459 @@
+/**
+ * pages/profile/learning-report/index.wxss — 学习报表（阶段 8）
+ * UI 基准 Web LearningReportView.tsx + LearningHeatmap.tsx（Android 无对应实现）。
+ * 色值：卡片/文字走 app.wxss 令牌（page-bg、card-bg、border-color、text-primary、
+ * text-secondary、color-primary）；图表紫 #4f46e5、热力图 5 档绿 = yuanlu tailwind
+ * primary 色阶（200/400/500/600 + base-200，深色 ink-800/primary-900/700/500/400）、
+ * 锁卡 amber（#d98a17 系）深浅同值。
+ * dp→rpx ×2：卡 rounded-2xl=32rpx、卡内边距 px-6 py-5≈40/32rpx、热力格 12px=24rpx、
+ * 缝 3px=6rpx、格圆角 3px=6rpx、月/周标注 9px=18rpx、四宫格数值 text-2xl=48rpx、
+ * 单位 text-sm=28rpx、建议序号 w-5 h-5=40rpx、近 7 天图 h-44=352rpx、趋势 h-56=448rpx。
+ */
+
+.lr-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 32rpx 0;
+  background: var(--page-bg);
+  color: var(--text-primary);
+}
+
+/* ============ 页头（图标 + 标题 + 权限副标题） ============ */
+
+.lr-header {
+  padding: 8rpx 8rpx 32rpx;
+}
+
+.lr-header-title-row {
+  align-items: center;
+}
+
+.lr-header-icon {
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 16rpx;
+}
+
+.lr-header-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 56rpx;
+}
+
+.lr-header-sub {
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 34rpx;
+}
+
+/* ============ 通用卡（Web bg-white rounded-2xl border shadow-sm） ============ */
+
+.lr-card {
+  background: var(--card-bg);
+  border-radius: 32rpx;
+  border: 1rpx solid var(--border-color);
+  padding: 36rpx 40rpx;
+  margin-bottom: 24rpx;
+}
+
+.lr-card-title {
+  font-size: 32rpx;
+  font-weight: 900;
+  margin-bottom: 28rpx;
+}
+
+.lr-canvas {
+  display: block;
+}
+
+/* ============ 四宫格（grid-cols-2 gap-4） ============ */
+
+.lr-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.lr-stat {
+  flex: 0 0 calc((100% - 24rpx) / 2);
+  box-sizing: border-box;
+  margin-bottom: 0;
+}
+
+.lr-stat-label {
+  align-items: center;
+}
+
+.lr-stat-label-icon {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.lr-stat-label-text {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  line-height: 30rpx;
+}
+
+.lr-stat-value-row {
+  align-items: baseline;
+  margin-top: 12rpx;
+  flex-wrap: wrap;
+}
+
+.lr-stat-value {
+  font-size: 48rpx;
+  font-weight: 900;
+  line-height: 60rpx;
+}
+
+.lr-stat-value2 {
+  margin-left: 8rpx;
+}
+
+.lr-stat-unit {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-left: 6rpx;
+  line-height: 40rpx;
+}
+
+/* ============ 趋势报表分段（月/季/年 join 按钮组 → 分段胶囊） ============ */
+
+.lr-range-seg {
+  border-radius: 16rpx;
+  background: var(--ink-100);
+  padding: 4rpx;
+}
+
+.lr-range-opt {
+  padding: 6rpx 24rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  line-height: 32rpx;
+}
+
+.lr-range-opt.on {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+/* ============ 全年热力图（周一列化 + 月标注 + 5 档绿 + 横滚） ============ */
+
+.lr-heat-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.lr-heat-inner {
+  display: inline-block;
+}
+
+.lr-heat-months {
+  display: flex;
+  margin-left: 36rpx; /* 周几标注列宽（28rpx）+ 列间距 8rpx */
+  margin-bottom: 6rpx;
+}
+
+.lr-heat-month {
+  width: 24rpx;
+  margin-right: 6rpx;
+  font-size: 18rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  line-height: 26rpx;
+  overflow: visible;
+}
+
+.lr-heat-main {
+  align-items: flex-start;
+}
+
+.lr-heat-wds {
+  display: flex;
+  flex-direction: column;
+  width: 28rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
+}
+
+.lr-heat-wd {
+  height: 24rpx;
+  margin-bottom: 6rpx;
+  font-size: 18rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  line-height: 24rpx;
+  text-align: right;
+  opacity: 0.7;
+}
+
+.lr-heat-cols {
+  align-items: flex-start;
+}
+
+.lr-heat-col {
+  display: flex;
+  flex-direction: column;
+  margin-right: 6rpx;
+  flex-shrink: 0;
+}
+
+.lr-heat-cell {
+  width: 24rpx;
+  height: 24rpx;
+  margin-bottom: 6rpx;
+  border-radius: 6rpx;
+  background: transparent;
+}
+
+/* 5 档绿（light：base-200/primary-200/400/500/600） */
+.lr-heat-cell.lv0 { background: #e3ddcf; }
+.lr-heat-cell.lv1 { background: #aedcc8; }
+.lr-heat-cell.lv2 { background: #4da989; }
+.lr-heat-cell.lv3 { background: #2e8f6f; }
+.lr-heat-cell.lv4 { background: #1f7a5c; }
+.lr-heat-cell.lvx { background: transparent; }
+
+.lr-heat-legend {
+  margin-top: 8rpx;
+  padding-left: 36rpx;
+}
+
+.lr-heat-legend-text {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-right: 8rpx;
+  line-height: 24rpx;
+}
+
+.lr-heat-legend-text:last-child {
+  margin-left: 8rpx;
+  margin-right: 0;
+}
+
+.lr-heat-legend .lr-heat-cell {
+  margin-right: 4rpx;
+  width: 20rpx;
+  height: 20rpx;
+  margin-bottom: 0;
+}
+
+/* ============ 智能学习建议（amber 灯泡 + 圆序号） ============ */
+
+.lr-sugg-bulb {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+}
+
+.lr-sugg {
+  align-items: flex-start;
+  margin-bottom: 20rpx;
+}
+
+.lr-sugg:last-child {
+  margin-bottom: 0;
+}
+
+.lr-sugg-no {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(31, 122, 92, 0.1);
+  color: #1f7a5c;
+  font-size: 24rpx;
+  font-weight: 900;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.lr-sugg-text {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  opacity: 0.85;
+  line-height: 44rpx;
+}
+
+/* ============ 免费锁定层（amber 虚线卡 + 解锁 CTA） ============ */
+
+.lr-lock {
+  align-items: center;
+  border-radius: 32rpx;
+  border: 2rpx dashed rgba(217, 138, 23, 0.6);
+  background: rgba(217, 138, 23, 0.05);
+  padding: 48rpx 40rpx;
+  margin-bottom: 24rpx;
+}
+
+.lr-lock-hover {
+  background: rgba(217, 138, 23, 0.1);
+}
+
+.lr-lock-icon-box {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 32rpx;
+  background: rgba(217, 138, 23, 0.1);
+  flex-shrink: 0;
+}
+
+.lr-lock-icon {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+.lr-lock-text {
+  margin-left: 32rpx;
+  min-width: 0;
+}
+
+.lr-lock-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 44rpx;
+}
+
+.lr-lock-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 36rpx;
+}
+
+.lr-lock-cta {
+  margin-left: 24rpx;
+  padding: 16rpx 32rpx;
+  border-radius: 999rpx;
+  background: #d98a17;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ============ 骨架 / 错误态 ============ */
+
+.lr-skel-stat {
+  height: 160rpx;
+  background: var(--ink-100);
+  border: none;
+  animation: lr-pulse 1.5s ease-in-out infinite;
+}
+
+.lr-skel-chart {
+  height: 420rpx;
+  background: var(--ink-100);
+  border: none;
+  animation: lr-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes lr-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.lr-error {
+  padding: 120rpx 40rpx;
+}
+
+.lr-error-text {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  margin-bottom: 32rpx;
+}
+
+.lr-error-btn {
+  padding: 16rpx 56rpx;
+  border-radius: 999rpx;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 28rpx;
+}
+
+/* ============ 底部预留（mini-player + 安全区） ============ */
+
+.lr-bottom-space {
+  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+}
+
+/* ============ 深色三段式（媒体查询轨 + 类轨全量重声明） ============ */
+@media (prefers-color-scheme: dark) {
+  .lr-range-seg {
+    background: rgba(35, 32, 26, 0.6);
+  }
+  .lr-heat-cell.lv0 { background: #322d23; }
+  .lr-heat-cell.lv1 { background: #0f3628; }
+  .lr-heat-cell.lv2 { background: #1a6349; }
+  .lr-heat-cell.lv3 { background: #2e8f6f; }
+  .lr-heat-cell.lv4 { background: #4da989; }
+  .lr-sugg-no {
+    background: rgba(77, 169, 137, 0.12);
+    color: #4da989;
+  }
+  .lr-lock {
+    border-color: rgba(217, 138, 23, 0.4);
+    background: rgba(217, 138, 23, 0.04);
+  }
+  .lr-lock-hover {
+    background: rgba(217, 138, 23, 0.1);
+  }
+}
+
+.theme-dark .lr-range-seg {
+  background: rgba(35, 32, 26, 0.6);
+}
+
+.theme-dark .lr-heat-cell.lv0 { background: #322d23; }
+.theme-dark .lr-heat-cell.lv1 { background: #0f3628; }
+.theme-dark .lr-heat-cell.lv2 { background: #1a6349; }
+.theme-dark .lr-heat-cell.lv3 { background: #2e8f6f; }
+.theme-dark .lr-heat-cell.lv4 { background: #4da989; }
+
+.theme-dark .lr-sugg-no {
+  background: rgba(77, 169, 137, 0.12);
+  color: #4da989;
+}
+
+.theme-dark .lr-lock {
+  border-color: rgba(217, 138, 23, 0.4);
+  background: rgba(217, 138, 23, 0.04);
+}
+
+.theme-dark .lr-lock-hover {
+  background: rgba(217, 138, 23, 0.1);
+}
+
+.theme-light .lr-range-seg {
+  background: var(--ink-100);
+}
+
+.theme-light .lr-heat-cell.lv0 { background: #e3ddcf; }
+.theme-light .lr-heat-cell.lv1 { background: #aedcc8; }
+.theme-light .lr-heat-cell.lv2 { background: #4da989; }
+.theme-light .lr-heat-cell.lv3 { background: #2e8f6f; }
+.theme-light .lr-heat-cell.lv4 { background: #1f7a5c; }
+
+.theme-light .lr-sugg-no {
+  background: rgba(31, 122, 92, 0.1);
+  color: #1f7a5c;
+}
+
+.theme-light .lr-lock {
+  border-color: rgba(217, 138, 23, 0.6);
+  background: rgba(217, 138, 23, 0.05);
+}
+
+.theme-light .lr-lock-hover {
+  background: rgba(217, 138, 23, 0.1);
+}

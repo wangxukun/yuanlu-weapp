@@ -750,6 +750,145 @@ function clipPolyline(points, ratio) {
   return out;
 }
 
+// ---------- 学习报表派生（Web LearningReportView.tsx L40-98 / LearningHeatmap.tsx） ----------
+
+/** 后端 LearningReportDto 防御性映射（dailyGoalMins ?? 20 与 service 同口径兜底） */
+function mapReport(raw) {
+  const r = raw || {};
+  const days = (Array.isArray(r.days) ? r.days : []).map(function (d) {
+    return {
+      date: String((d && d.date) || ''),
+      minutes: Math.max(0, Math.round(Number(d && d.minutes) || 0)),
+      wordsLearned: Math.max(0, Math.round(Number(d && d.wordsLearned) || 0)),
+      isActive: !!(d && d.isActive),
+    };
+  });
+  const goal = Number(r.dailyGoalMins);
+  return {
+    days: days,
+    streakDays: Math.max(0, Math.round(Number(r.streakDays) || 0)),
+    dailyGoalMins: goal > 0 ? Math.round(goal) : 20,
+  };
+}
+
+/** 近 7 天简报派生：总时长拆小时+分、活跃天数、新收生词、日均（四宫格 + 建议输入） */
+function reportBrief(days) {
+  const list = (Array.isArray(days) ? days : []).slice(-7);
+  let totalMins = 0;
+  let activeDays = 0;
+  let wordsLearned = 0;
+  list.forEach(function (d) {
+    totalMins += Math.max(0, Math.round(Number(d && d.minutes) || 0));
+    activeDays += d && d.isActive ? 1 : 0;
+    wordsLearned += Math.max(0, Math.round(Number(d && d.wordsLearned) || 0));
+  });
+  return {
+    hours: Math.floor(totalMins / 60),
+    minsPart: totalMins % 60,
+    totalMins: totalMins,
+    activeDays: activeDays,
+    wordsLearned: wordsLearned,
+    avgMins: Math.round(totalMins / 7),
+  };
+}
+
+/** 智能学习建议（规则派生零 LLM，Web 逐字文案；命中多条时取前 3） */
+function reportSuggestions(brief, streakDays, dailyGoalMins) {
+  const b = brief || {};
+  const streak = Math.max(0, Math.round(Number(streakDays) || 0));
+  const goal = Number(dailyGoalMins) > 0 ? Math.round(Number(dailyGoalMins)) : 20;
+  const list = [];
+  if (streak >= 3) {
+    list.push('连续打卡 ' + streak + ' 天，节奏已经成型——保持“每天一集短播客”的惯性比时长更重要。');
+  }
+  if (b.avgMins > 0 && b.avgMins < goal) {
+    list.push('近 7 天日均 ' + b.avgMins + ' 分钟，低于目标 ' + goal + ' 分钟——通勤时打开自动连播，碎片时间就能补齐。');
+  }
+  if (b.activeDays >= 5) {
+    list.push('近 7 天学习 ' + b.activeDays + ' 天，稳定性很好——可以把每日目标上调 10% 挑战一下自己。');
+  } else if (b.activeDays > 0 && b.activeDays < 3) {
+    list.push('学习日还比较分散，试着固定一个时段（如睡前 15 分钟）培养触发习惯。');
+  }
+  if (b.wordsLearned === 0) {
+    list.push('近 7 天没有新收生词——精听时遇到生词点一下查词收藏，复习闭环从这里开始。');
+  }
+  if (list.length === 0) {
+    list.push('继续保持，数据积累后这里会给出更具体的学习建议。');
+  }
+  return list.slice(0, 3);
+}
+
+/** 热力图档位：分钟 → 0..4（Web LearningHeatmap levelOf，相对期内最大值分档） */
+function heatmapLevel(minutes, max) {
+  const m = Math.max(0, Number(minutes) || 0);
+  if (m <= 0) return 0;
+  if (!(max > 0)) return 1;
+  const ratio = m / max;
+  if (ratio <= 0.25) return 1;
+  if (ratio <= 0.5) return 2;
+  if (ratio <= 0.75) return 3;
+  return 4;
+}
+
+/**
+ * 全年热力图网格（Web LearningHeatmap）：周一为每周第一行，首日前置空格对齐到
+ * 周一列；月标注 = 每列首个非空格月份与前列不同时标「X月」；max 至少 1（全零期
+ * 档位按 1 处理，与 Web Math.max(..., 1) 同）。
+ */
+function heatmapGrid(days) {
+  const list = Array.isArray(days) ? days : [];
+  if (list.length === 0) return { weeks: [], monthLabels: [], max: 1 };
+  const parsed = list.map(function (d) {
+    const dt = new Date(String((d && d.date) || '') + 'T00:00:00Z');
+    return {
+      date: String((d && d.date) || ''),
+      minutes: Math.max(0, Math.round(Number(d && d.minutes) || 0)),
+      isActive: !!(d && d.isActive),
+      month: isFinite(dt.getTime()) ? dt.getUTCMonth() : -1,
+      row: isFinite(dt.getTime()) ? (dt.getUTCDay() + 6) % 7 : 0,
+    };
+  });
+  let max = 1;
+  parsed.forEach(function (p) {
+    if (p.minutes > max) max = p.minutes;
+  });
+  const cells = new Array(parsed[0].row).fill(null).concat(parsed);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(
+      cells.slice(i, i + 7).map(function (c) {
+        if (!c) return null;
+        return {
+          date: c.date,
+          minutes: c.minutes,
+          isActive: c.isActive,
+          month: c.month,
+          level: heatmapLevel(c.minutes, max),
+        };
+      }),
+    );
+  }
+  const monthLabels = weeks.map(function (week, i) {
+    const first = week.find(function (c) {
+      return c !== null;
+    });
+    if (!first) return '';
+    const prev = i > 0 ? weeks[i - 1].find(function (c) {
+      return c !== null;
+    }) : null;
+    if (!prev || prev.month !== first.month) return (first.month + 1) + '月';
+    return '';
+  });
+  return { weeks: weeks, monthLabels: monthLabels, max: max };
+}
+
+/** 趋势图 X 轴标签抽稀（recharts interval=preserveStartEnd 等价：≤7 全显，否则约 6 个含首尾） */
+function xLabelStride(n) {
+  const count = Number(n) || 0;
+  if (count <= 7) return 1;
+  return Math.ceil(count / 6);
+}
+
 module.exports = {
   // 常量
   KM_PER_HOUR: KM_PER_HOUR,
@@ -800,6 +939,13 @@ module.exports = {
   formatDate: formatDate,
   // 目标
   coerceGoals: coerceGoals,
+  // 学习报表
+  mapReport: mapReport,
+  reportBrief: reportBrief,
+  reportSuggestions: reportSuggestions,
+  heatmapLevel: heatmapLevel,
+  heatmapGrid: heatmapGrid,
+  xLabelStride: xLabelStride,
   // 映射
   mapStats: mapStats,
   mapWeekly: mapWeekly,

@@ -23,7 +23,8 @@
     "pages/speech-eval/index",
     "pages/contact/index",
     "pages/profile/index",
-    "pages/profile/edit"
+    "pages/profile/edit",
+    "pages/profile/learning-report/index"
   ],
   "requiredBackgroundModes": [
     "audio"
