@@ -235,5 +235,22 @@ const road = core.sampleQuadPath(core.quadMidPath(geo.xs, geo.ys), 64);
 close(core.polylineLength(core.clipPolyline(road, 1)), core.polylineLength(road), '裁剪 ratio=1 等长');
 ok(core.clipPolyline(road, 0.5).length >= 2 && core.clipPolyline(road, 0.5).length <= road.length, '半程裁剪点数界');
 
+/* ==================== 头像裁剪参数（cropSquareJpeg 等价） ==================== */
+(function () {
+  console.log('\n== 头像裁剪参数 ==');
+  const r1 = core.avatarCropRect(1080, 1920, 512);
+  ok(r1 && r1.sSide === 1080 && r1.sx === 0 && r1.sy === 420 && r1.dSide === 512,
+    '竖图 1080×1920：居中取 1080 方形（sy=420）并下采样 512');
+  const r2 = core.avatarCropRect(300, 200, 512);
+  ok(r2 && r2.sSide === 200 && r2.sx === 50 && r2.sy === 0 && r2.dSide === 200,
+    '小图 300×200：居中取 200 方形，≤512 不放大');
+  const r3 = core.avatarCropRect(1024, 1024, 512);
+  ok(r3 && r3.sx === 0 && r3.sy === 0 && r3.dSide === 512, '正方形图：零偏移 + 恰下采样');
+  ok(core.avatarCropRect(0, 100, 512) === null && core.avatarCropRect(-5, 'x', 512) === null,
+    '非法尺寸 → null（调用方静默保持原图）');
+  const r4 = core.avatarCropRect(1000, 1000);
+  ok(r4 && r4.dSide === 512, 'maxDim 缺省 512');
+})();
+
 console.log('\n========== 个人中心核心逻辑测试：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed ? 1 : 0);

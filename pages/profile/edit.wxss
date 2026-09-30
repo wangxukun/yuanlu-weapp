@@ -1,10 +1,473 @@
-/* 阶段 0 占位（PROFILE-TASK T0.5），阶段 6 整体替换 */
-.profile-stub {
-  min-height: 100vh;
+/**
+ * pages/profile/edit.wxss — 编辑资料全屏页（阶段 6）
+ * UI 基准 EditProfileDialog.kt；页面三段 flex column（头部 / Tab / 滚动体 / 底部操作条）。
+ * dp→rpx ×2：头部图标 18dp=36rpx；Tab 图标 15dp=30rpx、选中胶囊 r10dp=r20；头像 96dp=192rpx、
+ * 角标 30dp=60rpx、CameraAlt 15dp=30rpx；输入框 r12dp=r24；FilterChip 间距 8dp=16rpx；
+ * 横幅 r12dp=r24 padding 12dp=24rpx、Fire 18dp=36rpx；值胶囊 r50+1dp 描边 padding h10 v3。
+ */
+
+.edit-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+/* ============ 头部：横向品牌渐变（primary 8% → secondary 8%）============ */
+
+.edit-header {
+  padding: 16rpx 40rpx 28rpx;
+  background: linear-gradient(to right, rgba(31, 122, 92, 0.08), rgba(217, 138, 23, 0.08));
+  flex-shrink: 0;
+}
+
+.edit-header-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.edit-header-title {
+  margin-left: 12rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.edit-header-close {
+  width: 48rpx;
+  height: 48rpx;
+  padding: 4rpx;
   box-sizing: border-box;
-  padding-top: 200rpx;
-  text-align: center;
-  background: var(--page-bg);
-  color: var(--text-secondary);
+}
+
+/* ============ Tab 分段（surfaceVariant 50% 底 r24 内 padding 8rpx）============ */
+
+.edit-tabs {
+  margin: 24rpx 40rpx;
+  padding: 8rpx;
+  border-radius: 24rpx;
+  background: rgba(241, 237, 228, 0.5); /* surfaceVariant 50% */
+  flex-shrink: 0;
+}
+
+.edit-tab {
+  flex: 1;
+  height: 80rpx; /* v10dp 内衬 */
+  margin: 0 8rpx;
+  border-radius: 20rpx;
+}
+
+.edit-tab.on {
+  background: var(--card-bg);
+}
+
+.edit-tab-icon {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+.edit-tab-label {
+  margin-left: 12rpx;
   font-size: 28rpx;
+  color: var(--text-secondary);
+}
+
+.edit-tab.on .edit-tab-label {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* ============ 表单滚动体 ============ */
+
+.edit-body {
+  flex: 1;
+  min-height: 0; /* flex 子项滚动必需 */
+  box-sizing: border-box;
+}
+
+.edit-body-inner {
+  padding: 0 40rpx;
+}
+
+.edit-body-tail {
+  height: 48rpx;
+}
+
+/* ---- 头像选择 ---- */
+
+.edit-avatar-block {
+  align-items: center;
+  padding-top: 16rpx;
+}
+
+.edit-avatar-box {
+  position: relative;
+  width: 192rpx;
+  height: 192rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(31, 122, 92, 0.6); /* primary 60% */
+  box-sizing: border-box;
+  overflow: visible; /* 角标压边溢出 */
+  background: var(--ink-100);
+}
+
+.edit-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.edit-avatar-ph {
+  width: 96rpx; /* 48dp 占位人形 35% */
+  height: 96rpx;
+  margin: 44rpx;
+  opacity: 0.35;
+}
+
+/* 相机角标：右下 30dp primary 圆 + 2dp surface 描边 */
+.edit-avatar-badge {
+  position: absolute;
+  right: -6rpx;
+  bottom: -6rpx;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 4rpx solid var(--card-bg);
+  box-sizing: border-box;
+}
+
+.edit-avatar-badge-icon {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+.edit-avatar-hint {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* ---- 输入框（OutlinedTextField r12dp）---- */
+
+.edit-field-label {
+  margin: 32rpx 0 8rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.edit-section-label {
+  margin: 28rpx 0 16rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.edit-input-box {
+  display: flex;
+  align-items: center;
+  min-height: 112rpx;
+  padding: 0 24rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid var(--border-color);
+  box-sizing: border-box;
+}
+
+.edit-input-box.err {
+  border-color: #d2503f; /* error 深浅同值 */
+}
+
+.edit-input {
+  flex: 1;
+  height: 108rpx; /* 显式定高（input 高度塌陷坑） */
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
+.edit-input-box-area {
+  padding: 16rpx 24rpx;
+  align-items: flex-start;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 120rpx; /* ≈3 行 */
+  font-size: 30rpx;
+  line-height: 40rpx;
+  color: var(--text-primary);
+}
+
+.edit-ph {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* 支持行：错误文案（error labelSmall）+ 计数 */
+.edit-field-support {
+  min-height: 40rpx;
+  margin-top: 4rpx;
+}
+
+.edit-field-error {
+  font-size: 22rpx;
+  color: #d2503f;
+  visibility: hidden;
+}
+
+.edit-field-error.show {
+  visibility: visible;
+}
+
+.edit-field-count {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.edit-input-box .edit-field-count {
+  margin-left: 16rpx;
+}
+
+/* ---- 英语水平 FilterChip（Material3：高 32dp、r8 圆角；未选中透明底+outline 描边，
+   选中 primary 描边+10% 底+leading 对勾；横向流式随内容收缩——容器必须是 flex，
+   否则块级子 view 纵向堆叠拉满整行〔徽章同款坑〕） ---- */
+
+.edit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.edit-chip {
+  display: flex;
+  align-items: center;
+  height: 64rpx; /* 32dp */
+  padding: 0 28rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-primary);
+  background: transparent;
+  border: 2rpx solid var(--border-color);
+  box-sizing: border-box;
+}
+
+.edit-chip.on {
+  background: rgba(31, 122, 92, 0.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.edit-chip-check {
+  width: 26rpx;
+  height: 26rpx;
+  margin-right: 8rpx;
+}
+
+/* ---- 学习目标 ---- */
+
+.edit-banner {
+  margin-top: 8rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: rgba(241, 237, 228, 0.5);
+  align-items: flex-start;
+}
+
+.edit-banner-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.edit-banner-text {
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--text-secondary);
+}
+
+.edit-goal {
+  margin-top: 40rpx;
+}
+
+.edit-goal-head {
+  align-items: center;
+}
+
+.edit-goal-title {
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+/* 值胶囊：primary 10% 底 + 25% 描边 r50 */
+.edit-goal-pill {
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(31, 122, 92, 0.1);
+  border: 2rpx solid rgba(31, 122, 92, 0.25);
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 32rpx;
+}
+
+.edit-slider {
+  margin: 8rpx 8rpx 0;
+}
+
+/* 三段刻度 60% */
+.edit-ticks {
+  margin-top: 4rpx;
+  padding: 0 8rpx;
+}
+
+.edit-tick {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* ============ 底部操作条（surfaceVariant 30% 底 + 安全区）============ */
+
+.edit-footer {
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 24rpx;
+  padding: 24rpx 40rpx calc(24rpx + env(safe-area-inset-bottom));
+  background: rgba(241, 237, 228, 0.3);
+  box-sizing: border-box;
+}
+
+.edit-cancel {
+  padding: 16rpx 32rpx;
+  font-size: 28rpx;
+  color: var(--color-primary);
+}
+
+.edit-save {
+  min-width: 280rpx;
+  height: 80rpx;
+  padding: 0 40rpx;
+  border-radius: 40rpx;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 28rpx;
+  gap: 8rpx;
+}
+
+.edit-save.disabled {
+  opacity: 0.6;
+}
+
+.edit-save-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.edit-save-spin {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  animation: edit-spin 0.8s linear infinite;
+}
+
+@keyframes edit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 隐藏裁剪画布（屏幕外，勿 display:none——canvas 2d 需在渲染树内） */
+.edit-crop-canvas {
+  position: fixed;
+  left: -2000px;
+  top: 0;
+}
+
+/* ============ 深色三段式 ============ */
+
+@media (prefers-color-scheme: dark) {
+  .edit-tabs {
+    background: rgba(35, 32, 26, 0.5);
+  }
+  .edit-banner {
+    background: rgba(35, 32, 26, 0.5);
+  }
+  .edit-footer {
+    background: rgba(35, 32, 26, 0.3);
+  }
+  .edit-avatar-box {
+    border-color: rgba(77, 169, 137, 0.6);
+  }
+  .edit-chip.on {
+    background: rgba(77, 169, 137, 0.1);
+  }
+  .edit-goal-pill {
+    background: rgba(77, 169, 137, 0.1);
+    border-color: rgba(77, 169, 137, 0.25);
+  }
+  .edit-header {
+    background: linear-gradient(to right, rgba(77, 169, 137, 0.08), rgba(217, 138, 23, 0.08));
+  }
+}
+
+.theme-dark .edit-tabs {
+  background: rgba(35, 32, 26, 0.5);
+}
+
+.theme-dark .edit-banner {
+  background: rgba(35, 32, 26, 0.5);
+}
+
+.theme-dark .edit-footer {
+  background: rgba(35, 32, 26, 0.3);
+}
+
+.theme-dark .edit-avatar-box {
+  border-color: rgba(77, 169, 137, 0.6);
+}
+
+.theme-dark .edit-chip.on {
+  background: rgba(77, 169, 137, 0.1);
+}
+
+.theme-dark .edit-goal-pill {
+  background: rgba(77, 169, 137, 0.1);
+  border-color: rgba(77, 169, 137, 0.25);
+}
+
+.theme-dark .edit-header {
+  background: linear-gradient(to right, rgba(77, 169, 137, 0.08), rgba(217, 138, 23, 0.08));
+}
+
+.theme-light .edit-tabs {
+  background: rgba(241, 237, 228, 0.5);
+}
+
+.theme-light .edit-banner {
+  background: rgba(241, 237, 228, 0.5);
+}
+
+.theme-light .edit-footer {
+  background: rgba(241, 237, 228, 0.3);
+}
+
+.theme-light .edit-avatar-box {
+  border-color: rgba(31, 122, 92, 0.6);
+}
+
+.theme-light .edit-chip.on {
+  background: rgba(31, 122, 92, 0.1);
+}
+
+.theme-light .edit-goal-pill {
+  background: rgba(31, 122, 92, 0.1);
+  border-color: rgba(31, 122, 92, 0.25);
+}
+
+.theme-light .edit-header {
+  background: linear-gradient(to right, rgba(31, 122, 92, 0.08), rgba(217, 138, 23, 0.08));
 }

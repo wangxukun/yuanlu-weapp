@@ -1,2 +1,154 @@
-<!-- 阶段 0 占位（PROFILE-TASK T0.5），阶段 6 整体替换 -->
-<view class="profile-stub {{themeClass}}">编辑资料建设中</view>
+<!-- pages/profile/edit.wxml — 编辑资料全屏页（阶段 6，EditProfileDialog.kt 全屏等价：
+     渐变头部 + 双 Tab 分段 + 自管 scroll-view 表单 + 底部固定操作条 + 隐藏裁剪画布） -->
+<view class="edit-page {{themeClass}}">
+
+  <!-- ============ 头部：品牌渐变（横向 primary 8%→secondary 8%）+ 状态栏避让 ============ -->
+  <view class="edit-header row" style="padding-top: {{statusBarH}}px;">
+    <image class="edit-header-icon" src="{{dark ? '/assets/icons/person-primary-dark.svg' : '/assets/icons/person-primary.svg'}}" mode="aspectFit" />
+    <text class="edit-header-title">编辑资料</text>
+    <view class="flex-1"></view>
+    <image class="edit-header-close" src="{{dark ? '/assets/icons/close-onsurface-dark.svg' : '/assets/icons/close-onsurface.svg'}}" mode="aspectFit" bindtap="onGoBack" />
+  </view>
+
+  <!-- ============ Tab 分段（Web tabs-boxed：surfaceVariant 50% 底 r24 内选中白底胶囊） ============ -->
+  <view class="edit-tabs row">
+    <view class="edit-tab row center {{editTab === 'profile' ? 'on' : ''}}" data-tab="profile" bindtap="onSwitchTab">
+      <image class="edit-tab-icon" src="{{editTab === 'profile' ? (dark ? '/assets/icons/person-primary-dark.svg' : '/assets/icons/person-primary.svg') : (dark ? '/assets/icons/person-variant-dark.svg' : '/assets/icons/person-variant.svg')}}" mode="aspectFit" />
+      <text class="edit-tab-label">个人资料</text>
+    </view>
+    <view class="edit-tab row center {{editTab === 'goals' ? 'on' : ''}}" data-tab="goals" bindtap="onSwitchTab">
+      <image class="edit-tab-icon" src="{{editTab === 'goals' ? (dark ? '/assets/icons/tune-primary-dark.svg' : '/assets/icons/tune-primary.svg') : (dark ? '/assets/icons/tune-variant-dark.svg' : '/assets/icons/tune-variant.svg')}}" mode="aspectFit" />
+      <text class="edit-tab-label">学习目标</text>
+    </view>
+  </view>
+
+  <!-- ============ 表单内容（自管滚动；键盘弹起时 padding 让位） ============ -->
+  <scroll-view class="edit-body" scroll-y enhanced show-scrollbar="{{false}}" style="padding-bottom: {{kbH}}px;">
+    <view class="edit-body-inner">
+
+      <!-- ---- Tab 1：个人资料 ---- -->
+      <block wx:if="{{editTab === 'profile'}}">
+        <!-- 头像选择（96dp 圆 + primary 60% 描边 + 右下相机角标） -->
+        <view class="edit-avatar-block col">
+          <view class="edit-avatar-box" bindtap="onPickAvatar">
+            <image wx:if="{{avatarPreview}}" class="edit-avatar-img" src="{{avatarPreview}}" mode="aspectFill" />
+            <image wx:else class="edit-avatar-ph" src="{{dark ? '/assets/icons/person-variant-dark.svg' : '/assets/icons/person-variant.svg'}}" mode="aspectFit" />
+            <view class="edit-avatar-badge center">
+              <image class="edit-avatar-badge-icon" src="/assets/icons/camera-alt-white.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view class="edit-avatar-hint">点击更换头像</view>
+        </view>
+
+        <!-- 昵称（placeholder + 错误文案/计数支持行） -->
+        <view class="edit-field-label">昵称</view>
+        <view class="edit-input-box {{nicknameError ? 'err' : ''}}">
+          <input
+            class="edit-input"
+            placeholder="你的名字"
+            placeholder-class="edit-ph"
+            value="{{formNickname}}"
+            maxlength="20"
+            bindinput="onNicknameInput"
+          />
+          <view wx:if="{{formNickname}}" class="edit-field-count">{{formNickname.length}}/20</view>
+        </view>
+        <view class="edit-field-support row between">
+          <view class="edit-field-error {{nicknameError ? 'show' : ''}}">{{nicknameError}}</view>
+        </view>
+
+        <!-- 英语水平（FilterChip×4，LEARN_LEVELS 顺序钉死；选中 leading 对勾） -->
+        <view class="edit-section-label">英语水平</view>
+        <view class="edit-chips">
+          <view
+            wx:for="{{levelChips}}"
+            wx:key="value"
+            class="edit-chip {{formLearnLevel === item.value ? 'on' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="onLevelTap"
+          >
+            <image
+              wx:if="{{formLearnLevel === item.value}}"
+              class="edit-chip-check"
+              src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle-primary.svg'}}"
+              mode="aspectFit"
+            />
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+
+        <!-- 个性签名（textarea ≈3 行 + 计数） -->
+        <view class="edit-field-label">个性签名</view>
+        <view class="edit-input-box edit-input-box-area {{bioError ? 'err' : ''}}">
+          <textarea
+            class="edit-textarea"
+            placeholder="展示我的独特态度"
+            placeholder-class="edit-ph"
+            value="{{formBio}}"
+            maxlength="100"
+            auto-height
+            bindinput="onBioInput"
+          ></textarea>
+        </view>
+        <view class="edit-field-support row between">
+          <view class="edit-field-error {{bioError ? 'show' : ''}}">{{bioError}}</view>
+          <view wx:if="{{formBio}}" class="edit-field-count">{{formBio.length}}/100</view>
+        </view>
+      </block>
+
+      <!-- ---- Tab 2：学习目标 ---- -->
+      <block wx:else>
+        <!-- 提示横幅（Web alert + FireIcon） -->
+        <view class="edit-banner row">
+          <image class="edit-banner-icon" src="/assets/icons/local-fire-department-accent.svg" mode="aspectFit" />
+          <text class="edit-banner-text">设定合理的每日目标有助于保持连胜纪录！</text>
+        </view>
+
+        <!-- 三组滑杆（值胶囊 + slider + 三段刻度） -->
+        <view class="edit-goal" wx:for="{{goalSliders}}" wx:key="key">
+          <view class="row between edit-goal-head">
+            <view class="edit-goal-title">{{item.title}}</view>
+            <view wx:if="{{item.key === 'dailyStudyGoalMins'}}" class="edit-goal-pill">{{formDailyGoalMins}} 分钟</view>
+            <view wx:elif="{{item.key === 'weeklyListeningGoalHours'}}" class="edit-goal-pill">{{formWeeklyHours}} 小时</view>
+            <view wx:else class="edit-goal-pill">{{formWeeklyWords}} 个</view>
+          </view>
+          <slider
+            class="edit-slider"
+            min="{{item.min}}"
+            max="{{item.max}}"
+            step="{{item.step}}"
+            value="{{item.key === 'dailyStudyGoalMins' ? formDailyGoalMins : (item.key === 'weeklyListeningGoalHours' ? formWeeklyHours : formWeeklyWords)}}"
+            activeColor="{{sliderActive}}"
+            backgroundColor="{{sliderTrack}}"
+            block-size="24"
+            data-key="{{item.key}}"
+            bindchange="onGoalSlide"
+            bindchanging="onGoalSlide"
+          />
+          <view class="edit-ticks row between">
+            <view class="edit-tick">{{item.minLabel}}</view>
+            <view class="edit-tick">{{item.midLabel}}</view>
+            <view class="edit-tick">{{item.maxLabel}}</view>
+          </view>
+        </view>
+      </block>
+
+      <view class="edit-body-tail"></view>
+    </view>
+  </scroll-view>
+
+  <!-- ============ 底部操作条（surfaceVariant 30% 底；键盘高度抬升=imePadding 等价） ============ -->
+  <view class="edit-footer row" style="transform: translateY(-{{kbH}}px);">
+    <view class="edit-cancel" bindtap="onGoBack">取消</view>
+    <view class="edit-save row center {{isSaving ? 'disabled' : ''}}" bindtap="onSave">
+      <view wx:if="{{isSaving}}" class="edit-save-spin"></view>
+      <block wx:else>
+        <image class="edit-save-icon" src="/assets/icons/check-white.svg" mode="aspectFit" />
+        <text>保存所有更改</text>
+      </block>
+    </view>
+  </view>
+
+  <!-- 隐藏裁剪画布（算术定寸，真机红线：禁百分比） -->
+  <canvas type="2d" id="cropCanvas" class="edit-crop-canvas" style="width: {{cropW}}px; height: {{cropH}}px;"></canvas>
+</view>

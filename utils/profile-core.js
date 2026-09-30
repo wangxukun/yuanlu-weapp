@@ -186,6 +186,27 @@ function allPasswordCriteriaMet(password) {
   return c.length && c.hasLetter && c.hasNumber;
 }
 
+// ---------- 头像裁剪（EditProfileDialog.kt cropSquareJpeg 的参数化等价） ----------
+
+/**
+ * 居中正方形裁剪 + 最长边下采样参数：min(w,h) 为源边，偏移取整；
+ * 源边超过 maxDim（默认 512）时目标边收缩到 maxDim，否则原尺寸。
+ * 返回 { sx, sy, sSide, dSide }（drawImage 9 参直用）；非法尺寸 → null（调用方静默保持原图）。
+ */
+function avatarCropRect(width, height, maxDim) {
+  const w = Math.floor(Number(width) || 0);
+  const h = Math.floor(Number(height) || 0);
+  if (w <= 0 || h <= 0) return null;
+  const side = Math.min(w, h);
+  const md = Math.floor(Number(maxDim) || 512);
+  return {
+    sx: Math.floor((w - side) / 2),
+    sy: Math.floor((h - side) / 2),
+    sSide: side,
+    dSide: side > md ? md : side,
+  };
+}
+
 // ---------- 成就排序（ProfileUtils.kt L140-141） ----------
 
 /** 已解锁排前、解锁与否之间保持稳定（手工稳定排序，不依赖引擎 sort 稳定性） */
@@ -758,6 +779,7 @@ module.exports = {
   validateBindEmail: validateBindEmail,
   passwordCriteria: passwordCriteria,
   allPasswordCriteriaMet: allPasswordCriteriaMet,
+  avatarCropRect: avatarCropRect,
   // 图表
   chartYMax: chartYMax,
   // 图表几何（T0.2）
