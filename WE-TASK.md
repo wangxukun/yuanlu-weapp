@@ -73,13 +73,13 @@
 - [x] 3.C.4 AI 影子跟读页 `pages/review/shadowing`（eval-card 首个消费方：字幕注入/quota 预检/结果缓存/完成带回 deck 定位）〔REVIEW-TASK T3.4 ✅〕
 - [ ] 3.C.5 剧集页内跟读入口（Web 端 `?practice=true&subtitleId=` 场景；弱项本暂降级跳闯关页，见 REVIEW-TASK 风险 #7）
 
-#### 模块 D：个人中心与句子收藏（⏳ 收藏已毕，余 3 个死链页面）
+#### 模块 D：个人中心与句子收藏（⏳ 收藏已毕，死链宫格仅余「我的订阅」1 项）
 - [x] 3.D.1 用户中心页：由 `pages/mine/index` 承担（原规划的 `pages/library/index` 不再单独建页，3.A.4 已覆盖，本项关闭）。
-- [ ] 3.D.2 收听历史页 `pages/library/history/index`（mine 宫格入口当前指向**未注册页面**，点击报错；对齐 Web `/library/history`）。
+- [x] 3.D.2 ~~收听历史页 `pages/library/history/index`（mine 宫格入口当前指向**未注册页面**，点击报错）~~ → **已解决（e318c08）**：三段过滤 + 今天/昨天/日期分组 + 细进度条止点圆点，mine 宫格入口已注册激活。
 - [x] 3.D.3 我的收藏 `pages/library/favorites`（双 Tab「播客系列 (X)/单集 (Y)」+ 搜索过滤 + 封面卡片 + 乐观取消收藏/失败回滚；单测 `test-favorites.js`）。
-- [ ] 3.D.4 学习路径页 `pages/library/paths/index`（mine 宫格死链入口之二，对齐 Web `/library/paths`）。
+- [x] 3.D.4 ~~学习路径页 `pages/library/paths/index`（mine 宫格死链入口之二）~~ → **已解决（ee33b57）**：列表+详情两页（Android 卡片+Web 双按钮融合/AI 生成降级手动创建/详情=Web 移动端复刻），mine 宫格入口已注册激活。
 - [ ] 3.D.5 我的订阅页 `pages/library/subscribe/index`（mine 宫格死链入口之三；与订阅/虚拟支付排期联动）。
-- [ ] 3.D.6 个人资料编辑页 `pages/profile/index`（mine 头部点击跳转，当前死链；头像/昵称编辑，注意微信头像昵称填写能力）。
+- [x] 3.D.6 ~~个人资料编辑页 `pages/profile/index`（mine 头部点击跳转，当前死链；头像/昵称编辑）~~ → **已解决（4317ea7..67eb2cb 个人中心模块阶段 0-6）**：`pages/profile/index`（三 Tab：旅程数据/里程碑/账号与安全）+ `pages/profile/edit` 全屏编辑页（头像居中裁剪 512 上传/昵称/签名/水平/三目标滑杆）；微信头像昵称填写能力未采用——头像走自建 OSS 裁剪上传链（对齐 Android 口径）。
 
 #### 模块 E：订阅与支付转化（新增，未开始）
 - [ ] 3.E.1 订阅页 `pages/subscription/index`（premium-modal 全部 10 场景 CTA 仍是「即将上线」占位；Web 端 `/subscription` 会员权益对比 + 价格档位复刻）。
