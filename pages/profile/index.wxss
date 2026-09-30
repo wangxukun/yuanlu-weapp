@@ -1,9 +1,12 @@
 /**
- * pages/profile/index.wxss — 个人中心主页（阶段 2）
- * UI 基准 PersonalCenterScreen.kt；色值走 app.wxss 令牌（card-bg、ink-100、
- * text-primary、text-secondary、border-color、color-primary），secondary 橙 #d98a17 深浅同值可直用。
- * dp→rpx ×2：头像 88dp=176rpx、卡 r20dp=40rpx、卡内边距 20dp=40rpx、
- * 徽章 Hiking 13dp=26rpx、Tab 下划线 28×3dp=56×6rpx。
+ * pages/profile/index.wxss — 个人中心主页（阶段 2 骨架 / 3 旅程 / 4 里程碑 / 5 账号与安全）
+ * UI 基准 PersonalCenterScreen.kt + BindAccountSheets.kt；色值走 app.wxss 令牌（card-bg、
+ * ink-100、text-primary、text-secondary、border-color、color-primary），secondary 橙
+ * #d98a17 / error 红 #d2503f 深浅同值可直用。
+ * dp→rpx ×2：头像 88dp=176rpx、卡 r20dp=40rpx、卡内边距 20dp=40rpx（安全卡 18dp=36rpx）、
+ * 徽章 Hiking 13dp=26rpx、Tab 下划线 28×3dp=56×6rpx、里程碑 canvas 128dp=256rpx、
+ * 成就格 r14dp=28rpx、emoji 26sp=52rpx、骨架条 96×20dp=192×40rpx、安全图标底 40dp r12dp、
+ * 弹层输入框高 56dp=112rpx、强度图标 14dp=28rpx、注销弹图标 28dp=56rpx。
  */
 
 .profile-page {
@@ -394,6 +397,110 @@
   display: block;
 }
 
+/* ============ 里程碑 Tab（MilestoneRoadmapCard + AchievementsCard，阶段 4） ============ */
+
+/* 路图卡 + 成就墙卡纵向间距 12dp */
+.pf-milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+/* 路图卡骨架：整宽 190dp（ShimmerBox r20dp，非卡内） */
+.pf-ms-skel {
+  height: 380rpx;
+  border-radius: 40rpx;
+  background: var(--ink-100);
+  animation: pf-pulse 1.5s ease-in-out infinite;
+}
+
+/* 卡头右胶囊：labelSmall primary 文案 + primary 10% 底 r50（L833-843） */
+.pf-ms-km-pill {
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(31, 122, 92, 0.1);
+  color: var(--color-primary);
+  font-size: 22rpx;
+  font-weight: 500;
+  line-height: 32rpx;
+}
+
+/* 卡头与路图间距 8dp */
+.pf-ms-body {
+  margin-top: 16rpx;
+}
+
+.pf-ms-canvas {
+  display: block;
+}
+
+/* 成就墙骨架标题条：96×20dp */
+.pf-ach-skel-title {
+  width: 192rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
+  background: var(--ink-100);
+  animation: pf-pulse 1.5s ease-in-out infinite;
+}
+
+/* 标题 titleSmall SemiBold；「全部查看」labelMedium primary */
+.pf-ach-title {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.pf-ach-more {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+/* 空态：bodySmall 次要色，上下 24dp */
+.pf-ach-empty {
+  padding: 48rpx 0;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* 4 列网格：行列间距 10dp=20rpx，末行不足 4 以空格补位（flex 换行天然等宽） */
+.pf-ach-grid {
+  margin-top: 28rpx; /* 标题下 14dp */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+/* Tile 1:1 r14dp：解锁 primary 8% 底 + 25% 描边；未解锁 surfaceVariant 45% + outline 60% */
+.pf-ach-tile {
+  width: calc((100% - 60rpx) / 4);
+  aspect-ratio: 1 / 1;
+  border-radius: 28rpx;
+  box-sizing: border-box;
+  background: rgba(241, 237, 228, 0.45);
+  border: 2rpx solid rgba(227, 221, 207, 0.6);
+}
+
+.pf-ach-tile.on {
+  background: rgba(31, 122, 92, 0.08);
+  border-color: rgba(31, 122, 92, 0.25);
+}
+
+.pf-ach-emoji {
+  font-size: 52rpx; /* 26sp */
+  line-height: 1;
+}
+
+.pf-ach-tile.off .pf-ach-emoji {
+  opacity: 0.4;
+}
+
+.pf-ach-skel-tile {
+  width: calc((100% - 60rpx) / 4);
+  aspect-ratio: 1 / 1;
+  border-radius: 28rpx;
+  background: var(--ink-100);
+  animation: pf-pulse 1.5s ease-in-out infinite;
+}
+
 /* ---- 深色三段式（媒体查询轨 + 类轨全量重声明） ---- */
 @media (prefers-color-scheme: dark) {
   .pf-stat-icon-box.tint-primary {
@@ -408,6 +515,17 @@
   .pf-week-seg {
     background: rgba(35, 32, 26, 0.6);
   }
+  .pf-ms-km-pill {
+    background: rgba(77, 169, 137, 0.1);
+  }
+  .pf-ach-tile {
+    background: rgba(35, 32, 26, 0.45);
+    border-color: rgba(56, 51, 42, 0.6);
+  }
+  .pf-ach-tile.on {
+    background: rgba(77, 169, 137, 0.08);
+    border-color: rgba(77, 169, 137, 0.25);
+  }
 }
 
 .theme-dark .pf-stat-icon-box.tint-primary {
@@ -420,6 +538,20 @@
 
 .theme-dark .pf-week-seg {
   background: rgba(35, 32, 26, 0.6);
+}
+
+.theme-dark .pf-ms-km-pill {
+  background: rgba(77, 169, 137, 0.1);
+}
+
+.theme-dark .pf-ach-tile {
+  background: rgba(35, 32, 26, 0.45);
+  border-color: rgba(56, 51, 42, 0.6);
+}
+
+.theme-dark .pf-ach-tile.on {
+  background: rgba(77, 169, 137, 0.08);
+  border-color: rgba(77, 169, 137, 0.25);
 }
 
 .theme-light .pf-stat-icon-box.tint-primary {
@@ -440,6 +572,20 @@
 
 .theme-light .pf-week-seg {
   background: rgba(241, 237, 228, 0.6);
+}
+
+.theme-light .pf-ms-km-pill {
+  background: rgba(31, 122, 92, 0.1);
+}
+
+.theme-light .pf-ach-tile {
+  background: rgba(241, 237, 228, 0.45);
+  border-color: rgba(227, 221, 207, 0.6);
+}
+
+.theme-light .pf-ach-tile.on {
+  background: rgba(31, 122, 92, 0.08);
+  border-color: rgba(31, 122, 92, 0.25);
 }
 
 /* 进出场动画（近似 AnimatedContent：fadeIn 300ms + 上滑 24px） */
@@ -464,6 +610,461 @@
   font-size: 24rpx;
   color: var(--text-secondary);
   opacity: 0.6;
+}
+
+/* ============ 账号与安全（SecuritySection 四卡，阶段 5） ============ */
+
+/* 四卡纵向间距 12dp */
+.pf-security {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+/* 卡内边距 18dp；图标底 40dp r12 tint12% + 20dp 图标；左列与尾随钮间距 10dp */
+.pf-sec-card {
+  padding: 36rpx;
+  align-items: center;
+}
+
+.pf-sec-icon-box {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 24rpx;
+  flex-shrink: 0;
+}
+
+.pf-sec-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 图标底 tint 12%（tint-primary/secondary/tertiary/error 四色调） */
+.pf-sec-icon-box.tint-primary {
+  background: rgba(31, 122, 92, 0.12);
+}
+
+.pf-sec-icon-box.tint-secondary {
+  background: rgba(217, 138, 23, 0.12);
+}
+
+.pf-sec-icon-box.tint-tertiary {
+  background: rgba(74, 127, 165, 0.12);
+}
+
+.pf-sec-icon-box.tint-error {
+  background: rgba(210, 80, 63, 0.12);
+}
+
+.pf-sec-main {
+  margin-left: 28rpx;
+  min-width: 0;
+}
+
+/* 标题 titleSmall SemiBold；err 款标题同红（注销卡） */
+.pf-sec-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.pf-sec-title-err {
+  color: #d2503f; /* error 深浅同值 */
+}
+
+/* 副文案区：标题下 2dp；值 bodySmall onSurfaceVariant */
+.pf-sec-verified-row {
+  margin-top: 4rpx;
+  gap: 0;
+}
+
+.pf-sec-value {
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--text-secondary);
+}
+
+/* 已验证徽章：CheckCircle primary 13dp + labelSmall primary（图标左 6dp/右 2dp 间距） */
+.pf-sec-badge-icon {
+  width: 26rpx;
+  height: 26rpx;
+  margin-left: 12rpx;
+}
+
+.pf-sec-verified {
+  margin-left: 4rpx;
+  font-size: 22rpx;
+  line-height: 32rpx;
+  color: var(--color-primary);
+}
+
+/* 未绑定：60% 文案 + Warning secondary 13dp（左 4dp） */
+.pf-sec-unbound-row {
+  margin-top: 4rpx;
+}
+
+.pf-sec-unbound {
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.pf-sec-badge-warn {
+  margin-left: 8rpx;
+  opacity: 1; /* warning.svg 本体即 secondary 橙 */
+}
+
+/* 未设置行：正文 60% + 括注 labelSmall 60%（同行） */
+.pf-sec-unset-row {
+  margin-top: 4rpx;
+}
+
+.pf-sec-set {
+  margin-top: 4rpx;
+}
+
+.pf-sec-unset-note {
+  font-size: 22rpx;
+  line-height: 32rpx;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* 注销卡副文案（60% onSurfaceVariant，可换行） */
+.pf-sec-danger-sub {
+  margin-top: 4rpx;
+  line-height: 36rpx;
+}
+
+/* 操作胶囊：色 10% 底 r12、labelMedium Medium、padding h14 v8；dangerous=error */
+.pf-sec-btn {
+  flex-shrink: 0;
+  margin-left: 20rpx;
+  padding: 16rpx 28rpx;
+  border-radius: 24rpx;
+  background: rgba(31, 122, 92, 0.1);
+  color: var(--color-primary);
+  font-size: 24rpx;
+  font-weight: 500;
+  line-height: 32rpx;
+}
+
+.pf-sec-btn-danger {
+  background: rgba(210, 80, 63, 0.1);
+  color: #d2503f;
+}
+
+/* ============ 底部弹层（ModalBottomSheet 等价骨架） ============ */
+
+.pf-sheet-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.pf-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--card-bg);
+  border-radius: 48rpx 48rpx 0 0;
+  padding: 48rpx 48rpx calc(48rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+/* 标题 titleLarge Bold primary 居中 + 副文案 bodySmall onSurfaceVariant */
+.pf-sheet-title {
+  text-align: center;
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 56rpx;
+  color: var(--color-primary);
+}
+
+.pf-sheet-subtitle {
+  margin-top: 8rpx;
+  text-align: center;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--text-secondary);
+}
+
+/* 输入框（OutlinedTextField）：r8 描边、高 56dp、leading 图标 24dp */
+.pf-field {
+  margin-top: 24rpx;
+  height: 112rpx;
+  padding: 0 24rpx;
+  border-radius: 8rpx;
+  border: 2rpx solid var(--border-color);
+  box-sizing: border-box;
+}
+
+.pf-field-icon {
+  width: 48rpx;
+  height: 48rpx;
+  opacity: 0.6;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.pf-field-input {
+  height: 108rpx; /* 显式定高（input 高度塌陷坑） */
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
+.pf-field-ph {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* 验证码尾随：倒计时文本 / 获取验证码按钮（TextButton 等价） */
+.pf-code-count {
+  margin-left: 16rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.pf-code-send {
+  margin-left: 16rpx;
+  padding: 8rpx 12rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.pf-code-send.disabled {
+  opacity: 0.4;
+}
+
+/* 密码可见切换（trailing TextButton） */
+.pf-field-eye {
+  margin-left: 16rpx;
+  padding: 8rpx 12rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* 密码强度三项：间距 16dp、图标 14dp、labelSmall */
+.pf-criteria {
+  margin-top: 12rpx;
+  justify-content: space-between;
+  padding: 0 8rpx;
+}
+
+.pf-criteria-item {
+  gap: 8rpx;
+}
+
+.pf-criteria-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* 未达标空心圆：onSurfaceVariant 40% 1dp 描边圆 */
+.pf-criteria-circle {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(101, 93, 76, 0.4);
+  box-sizing: border-box;
+}
+
+.pf-criteria-label {
+  font-size: 22rpx;
+  line-height: 32rpx;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.pf-criteria-label.met {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.pf-mismatch {
+  margin-top: 8rpx;
+}
+
+/* notice（primary）/error（error）行内提示：居中、上 8dp；同一时间只展示一条（wxml 控制） */
+.pf-sheet-notice {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--color-primary);
+}
+
+.pf-sheet-error {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: #d2503f;
+}
+
+.pf-mismatch.pf-sheet-error {
+  text-align: left;
+  padding: 0 8rpx;
+}
+
+/* 提交胶囊（PressablePillButton 全宽）：primary 实底；disabled 半透明 */
+.pf-sheet-submit {
+  margin-top: 24rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-sheet-submit.disabled {
+  opacity: 0.5;
+}
+
+.pf-spin-light {
+  border-color: rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+}
+
+/* ============ 注销二次确认（居中 AlertDialog 等价） ============ */
+
+.pf-dialog-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-dialog {
+  width: 600rpx;
+  background: var(--card-bg);
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 32rpx;
+  box-sizing: border-box;
+}
+
+/* Warning error 28dp 居中 */
+.pf-dialog-icon {
+  width: 56rpx;
+  height: 56rpx;
+  margin: 0 auto;
+  display: block;
+}
+
+.pf-dialog-title {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 56rpx;
+}
+
+.pf-dialog-text {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 28rpx;
+  line-height: 44rpx;
+  color: var(--text-secondary);
+}
+
+.pf-dialog-btns {
+  margin-top: 32rpx;
+  gap: 24rpx;
+}
+
+.pf-dialog-cancel {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 40rpx;
+  border: 2rpx solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.pf-dialog-confirm {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background: #d2503f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.pf-dialog-confirm.disabled {
+  opacity: 0.6;
+}
+
+/* ---- 安全区深色三段式（tint 底/空心圆描边；primary/tertiary 双轨、secondary/error 同值单轨） ---- */
+@media (prefers-color-scheme: dark) {
+  .pf-sec-btn {
+    background: rgba(77, 169, 137, 0.1);
+  }
+  .pf-sec-icon-box.tint-primary {
+    background: rgba(77, 169, 137, 0.12);
+  }
+  .pf-sec-icon-box.tint-tertiary {
+    background: rgba(127, 168, 200, 0.12);
+  }
+  .pf-criteria-circle {
+    border-color: rgba(184, 178, 166, 0.4);
+  }
+}
+
+.theme-dark .pf-sec-btn {
+  background: rgba(77, 169, 137, 0.1);
+}
+
+.theme-dark .pf-sec-icon-box.tint-primary {
+  background: rgba(77, 169, 137, 0.12);
+}
+
+.theme-dark .pf-sec-icon-box.tint-tertiary {
+  background: rgba(127, 168, 200, 0.12);
+}
+
+.theme-dark .pf-criteria-circle {
+  border-color: rgba(184, 178, 166, 0.4);
+}
+
+.theme-light .pf-sec-btn {
+  background: rgba(31, 122, 92, 0.1);
+}
+
+.theme-light .pf-sec-icon-box.tint-primary {
+  background: rgba(31, 122, 92, 0.12);
+}
+
+.theme-light .pf-sec-icon-box.tint-tertiary {
+  background: rgba(74, 127, 165, 0.12);
+}
+
+.theme-light .pf-criteria-circle {
+  border-color: rgba(101, 93, 76, 0.4);
 }
 
 /* ============ 底部预留（mini-player + 安全区） ============ */

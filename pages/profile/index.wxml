@@ -1,5 +1,6 @@
-<!-- pages/profile/index.wxml — 个人中心主页（阶段 2：骨架 + 用户信息卡 + Tab 行；
-     三个面板随阶段 3/4/5 落地，UI 基准 PersonalCenterScreen.kt） -->
+<!-- pages/profile/index.wxml — 个人中心主页（阶段 2 骨架 + 用户信息卡 + Tab 行；
+     阶段 3 旅程数据 / 阶段 4 里程碑 / 阶段 5 账号与安全（四卡+绑定弹层+注销确认）均落地，
+     UI 基准 PersonalCenterScreen.kt + BindAccountSheets.kt） -->
 <view class="profile-page {{themeClass}}">
 
   <!-- 首载骨架（HeaderCard 加载态：头像圆 + 三行 shimmer，对齐 L313-324） -->
@@ -117,11 +118,269 @@
         </view>
       </view>
 
-      <view wx:elif="{{activeTab === 'milestones'}}" class="pf-panel-inner">
-        <view class="pf-panel-ph">里程碑 · 阶段 4</view>
+      <!-- 里程碑（阶段 4：MilestoneRoadmapCard 路图 + AchievementsCard 成就墙） -->
+      <view wx:elif="{{activeTab === 'milestones'}}" class="pf-panel-inner pf-milestones">
+        <!-- 路图卡（statsLoading → 190dp 整宽骨架；stats 缺失按 km=0 仍渲染卡） -->
+        <view wx:if="{{statsLoading}}" class="pf-ms-skel"></view>
+        <view wx:else class="pf-card pf-ms-card">
+          <view class="row between">
+            <view class="pf-chart-title">远路里程碑</view>
+            <view class="pf-ms-km-pill">{{msKmText}} km</view>
+          </view>
+          <view class="pf-ms-body">
+            <canvas type="2d" id="milestoneChart" class="pf-ms-canvas" style="width: {{chartW}}px; height: {{msH}}px;"></canvas>
+          </view>
+        </view>
+
+        <!-- 成就墙（排序后前 8、4 列两行；emoji 为服务端 icon 直渲） -->
+        <view class="pf-card pf-ach-card">
+          <block wx:if="{{achievementsLoading}}">
+            <view class="pf-ach-skel-title"></view>
+            <view class="pf-ach-grid">
+              <view class="pf-ach-skel-tile" wx:for="{{[1, 2, 3, 4, 5, 6, 7, 8]}}" wx:key="*this"></view>
+            </view>
+          </block>
+          <block wx:else>
+            <view class="row between">
+              <view class="pf-ach-title">远路里程碑 ({{achievements ? achievements.unlockedCount : 0}})</view>
+              <view class="pf-ach-more" bindtap="onAllAchievements">全部查看</view>
+            </view>
+            <view wx:if="{{!achievements || !achievements.items.length}}" class="pf-ach-empty">暂无里程碑数据</view>
+            <view wx:else class="pf-ach-grid">
+              <view
+                wx:for="{{achTiles}}"
+                wx:key="key"
+                class="pf-ach-tile center {{item.unlocked ? 'on' : 'off'}}"
+              >
+                <text class="pf-ach-emoji">{{item.icon}}</text>
+              </view>
+            </view>
+          </block>
+        </view>
       </view>
-      <view wx:else class="pf-panel-inner">
-        <view class="pf-panel-ph">账号与安全 · 阶段 5</view>
+      <!-- 账号与安全（阶段 5：SecuritySection 四卡 + 页内弹层） -->
+      <view wx:else class="pf-panel-inner pf-security">
+        <!-- 手机号卡 -->
+        <view class="pf-card pf-sec-card row">
+          <view class="pf-sec-icon-box center tint-primary">
+            <image class="pf-sec-icon" src="{{dark ? '/assets/icons/smartphone-primary-dark.svg' : '/assets/icons/smartphone-primary.svg'}}" mode="aspectFit" />
+          </view>
+          <view class="flex-1 pf-sec-main">
+            <view class="pf-sec-title">手机号</view>
+            <view wx:if="{{profile && profile.hasPhone}}" class="row pf-sec-verified-row">
+              <text class="pf-sec-value">{{profile.phoneMasked}}</text>
+              <image class="pf-sec-badge-icon" src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle-primary.svg'}}" mode="aspectFit" />
+              <text class="pf-sec-verified">已验证</text>
+            </view>
+            <view wx:else class="row pf-sec-unbound-row">
+              <text class="pf-sec-unbound">未绑定</text>
+              <image class="pf-sec-badge-icon pf-sec-badge-warn" src="/assets/icons/warning.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view wx:if="{{!profile || !profile.hasPhone}}" class="pf-sec-btn" bindtap="onOpenBindPhone">绑定手机号</view>
+        </view>
+
+        <!-- 邮箱卡 -->
+        <view class="pf-card pf-sec-card row">
+          <view class="pf-sec-icon-box center tint-secondary">
+            <image class="pf-sec-icon" src="/assets/icons/email-accent.svg" mode="aspectFit" />
+          </view>
+          <view class="flex-1 pf-sec-main">
+            <view class="pf-sec-title">邮箱</view>
+            <view wx:if="{{profile && profile.hasRealEmail}}" class="row pf-sec-verified-row">
+              <text class="pf-sec-value">{{profile.emailMasked}}</text>
+              <image class="pf-sec-badge-icon" src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle-primary.svg'}}" mode="aspectFit" />
+              <text class="pf-sec-verified">已验证</text>
+            </view>
+            <view wx:else class="row pf-sec-unbound-row">
+              <text class="pf-sec-unbound">未绑定</text>
+              <image class="pf-sec-badge-icon pf-sec-badge-warn" src="/assets/icons/warning.svg" mode="aspectFit" />
+            </view>
+          </view>
+          <view wx:if="{{!profile || !profile.hasRealEmail}}" class="pf-sec-btn" bindtap="onOpenBindEmail">绑定邮箱</view>
+        </view>
+
+        <!-- 登录密码卡（无尾随操作） -->
+        <view class="pf-card pf-sec-card row">
+          <view class="pf-sec-icon-box center tint-tertiary">
+            <image class="pf-sec-icon" src="{{dark ? '/assets/icons/lock-tertiary-dark.svg' : '/assets/icons/lock-tertiary.svg'}}" mode="aspectFit" />
+          </view>
+          <view class="flex-1 pf-sec-main">
+            <view class="pf-sec-title">登录密码</view>
+            <view wx:if="{{profile && profile.passwordSet}}" class="pf-sec-value pf-sec-set">已设置</view>
+            <view wx:else class="row pf-sec-unset-row">
+              <text class="pf-sec-unbound">未设置</text>
+              <text class="pf-sec-unset-note">（绑定邮箱时将同时设置）</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 注销账号卡（危险区：图标/标题同红） -->
+        <view class="pf-card pf-sec-card row">
+          <view class="pf-sec-icon-box center tint-error">
+            <image class="pf-sec-icon" src="/assets/icons/person-remove-error.svg" mode="aspectFit" />
+          </view>
+          <view class="flex-1 pf-sec-main">
+            <view class="pf-sec-title pf-sec-title-err">注销账号</view>
+            <view class="pf-sec-unbound pf-sec-danger-sub">永久删除您的账号及所有相关数据，此操作不可逆。</view>
+          </view>
+          <view class="pf-sec-btn pf-sec-btn-danger" bindtap="onOpenDeleteConfirm">注销账号</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 绑定手机号底部弹层（BindPhoneSheet） ============ -->
+    <view wx:if="{{securitySheet === 'phone'}}" class="pf-sheet-mask" catchtap="onCloseSheet" catch:touchmove="noop">
+      <view class="pf-sheet" catchtap="noop">
+        <view class="pf-sheet-title">绑定手机号</view>
+        <view class="pf-sheet-subtitle">绑定后可用手机号验证码登录</view>
+
+        <view class="pf-field row">
+          <image class="pf-field-icon" src="{{dark ? '/assets/icons/phone-iphone-variant-dark.svg' : '/assets/icons/phone-iphone-variant.svg'}}" mode="aspectFit" />
+          <input
+            class="flex-1 pf-field-input"
+            type="number"
+            maxlength="11"
+            placeholder="请输入11位手机号码"
+            placeholder-class="pf-field-ph"
+            value="{{bindForm.phone}}"
+            disabled="{{bindForm.isSubmitting}}"
+            bindinput="onPhoneInput"
+          />
+        </view>
+        <view class="pf-field row">
+          <image class="pf-field-icon" src="{{dark ? '/assets/icons/password-variant-dark.svg' : '/assets/icons/password-variant.svg'}}" mode="aspectFit" />
+          <input
+            class="flex-1 pf-field-input"
+            type="number"
+            maxlength="6"
+            placeholder="输入6位验证码"
+            placeholder-class="pf-field-ph"
+            value="{{bindForm.code}}"
+            disabled="{{bindForm.isSubmitting}}"
+            bindinput="onCodeInput"
+          />
+          <view wx:if="{{bindForm.countdownSeconds > 0}}" class="pf-code-count">{{bindForm.countdownSeconds}}s</view>
+          <view wx:else class="pf-code-send {{bindUi.canSendCode && !bindForm.isSendingCode ? '' : 'disabled'}}" bindtap="onSendCode">
+            {{bindForm.isSendingCode ? '发送中…' : '获取验证码'}}
+          </view>
+        </view>
+
+        <view wx:if="{{bindForm.notice && !bindForm.error}}" class="pf-sheet-notice">{{bindForm.notice}}</view>
+        <view wx:if="{{bindForm.error}}" class="pf-sheet-error">{{bindForm.error}}</view>
+
+        <view class="pf-sheet-submit {{bindUi.submitEnabled ? '' : 'disabled'}}" bindtap="onSubmitBind">
+          <view wx:if="{{bindForm.isSubmitting}}" class="pf-spin pf-spin-light"></view>
+          <text wx:else>确认绑定</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 绑定邮箱底部弹层（BindEmailSheet：邮箱 + 验证码 + 密码两连 + 强度三项） ============ -->
+    <view wx:if="{{securitySheet === 'email'}}" class="pf-sheet-mask" catchtap="onCloseSheet" catch:touchmove="noop">
+      <view class="pf-sheet" catchtap="noop">
+        <view class="pf-sheet-title">绑定邮箱</view>
+        <view class="pf-sheet-subtitle">绑定后将同时设置登录密码，可用邮箱密码登录</view>
+
+        <view class="pf-field row">
+          <image class="pf-field-icon" src="{{dark ? '/assets/icons/mail-variant-dark.svg' : '/assets/icons/mail-variant.svg'}}" mode="aspectFit" />
+          <input
+            class="flex-1 pf-field-input"
+            type="text"
+            placeholder="请输入邮箱地址"
+            placeholder-class="pf-field-ph"
+            value="{{bindForm.email}}"
+            disabled="{{bindForm.isSubmitting}}"
+            bindinput="onEmailInput"
+          />
+          <view wx:if="{{bindForm.countdownSeconds > 0}}" class="pf-code-count">{{bindForm.countdownSeconds}}s</view>
+          <view wx:else class="pf-code-send {{bindUi.canSendCode && !bindForm.isSendingCode ? '' : 'disabled'}}" bindtap="onSendCode">
+            {{bindForm.isSendingCode ? '发送中…' : '获取验证码'}}
+          </view>
+        </view>
+        <view class="pf-field row">
+          <image class="pf-field-icon" src="{{dark ? '/assets/icons/password-variant-dark.svg' : '/assets/icons/password-variant.svg'}}" mode="aspectFit" />
+          <input
+            class="flex-1 pf-field-input"
+            type="number"
+            maxlength="6"
+            placeholder="6位邮箱验证码"
+            placeholder-class="pf-field-ph"
+            value="{{bindForm.code}}"
+            disabled="{{bindForm.isSubmitting}}"
+            bindinput="onCodeInput"
+          />
+        </view>
+        <view class="pf-field row">
+          <image class="pf-field-icon" src="{{dark ? '/assets/icons/lock-variant-dark.svg' : '/assets/icons/lock-variant.svg'}}" mode="aspectFit" />
+          <input
+            class="flex-1 pf-field-input"
+            password="{{!bindForm.passwordVisible}}"
+            placeholder="设置登录密码"
+            placeholder-class="pf-field-ph"
+            value="{{bindForm.password}}"
+            disabled="{{bindForm.isSubmitting}}"
+            bindinput="onPasswordInput"
+          />
+          <view class="pf-field-eye" catchtap="onTogglePasswordVisible">{{bindForm.passwordVisible ? '隐藏' : '显示'}}</view>
+        </view>
+
+        <!-- 密码强度三项实时指示（达标 primary 对勾 / 未达标空心圆） -->
+        <view class="row pf-criteria">
+          <view class="row pf-criteria-item">
+            <image wx:if="{{bindUi.criteria.length}}" class="pf-criteria-icon" src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle-primary.svg'}}" mode="aspectFit" />
+            <view wx:else class="pf-criteria-circle"></view>
+            <text class="pf-criteria-label {{bindUi.criteria.length ? 'met' : ''}}">8位以上</text>
+          </view>
+          <view class="row pf-criteria-item">
+            <image wx:if="{{bindUi.criteria.hasLetter}}" class="pf-criteria-icon" src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle-primary.svg'}}" mode="aspectFit" />
+            <view wx:else class="pf-criteria-circle"></view>
+            <text class="pf-criteria-label {{bindUi.criteria.hasLetter ? 'met' : ''}}">包含字母</text>
+          </view>
+          <view class="row pf-criteria-item">
+            <image wx:if="{{bindUi.criteria.hasNumber}}" class="pf-criteria-icon" src="{{dark ? '/assets/icons/check-circle-primary-dark.svg' : '/assets/icons/check-circle-primary.svg'}}" mode="aspectFit" />
+            <view wx:else class="pf-criteria-circle"></view>
+            <text class="pf-criteria-label {{bindUi.criteria.hasNumber ? 'met' : ''}}">包含数字</text>
+          </view>
+        </view>
+
+        <view class="pf-field row">
+          <image class="pf-field-icon" src="{{dark ? '/assets/icons/lock-variant-dark.svg' : '/assets/icons/lock-variant.svg'}}" mode="aspectFit" />
+          <input
+            class="flex-1 pf-field-input"
+            password="{{!bindForm.passwordVisible}}"
+            placeholder="确认登录密码"
+            placeholder-class="pf-field-ph"
+            value="{{bindForm.confirmPassword}}"
+            disabled="{{bindForm.isSubmitting}}"
+            bindinput="onConfirmPasswordInput"
+          />
+        </view>
+        <view wx:if="{{bindForm.confirmPassword && !bindUi.confirmMatch}}" class="pf-sheet-error pf-mismatch">两次输入的密码不一致</view>
+
+        <view wx:if="{{bindForm.notice && !bindForm.error}}" class="pf-sheet-notice">{{bindForm.notice}}</view>
+        <view wx:if="{{bindForm.error}}" class="pf-sheet-error">{{bindForm.error}}</view>
+
+        <view class="pf-sheet-submit {{bindUi.submitEnabled ? '' : 'disabled'}}" bindtap="onSubmitBind">
+          <view wx:if="{{bindForm.isSubmitting}}" class="pf-spin pf-spin-light"></view>
+          <text wx:else>确认绑定</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 注销账号二次确认（居中危险弹窗） ============ -->
+    <view wx:if="{{deleteConfirmOpen}}" class="pf-dialog-mask" catchtap="onCloseDeleteConfirm" catch:touchmove="noop">
+      <view class="pf-dialog" catchtap="noop">
+        <image class="pf-dialog-icon" src="/assets/icons/warning.svg" mode="aspectFit" />
+        <view class="pf-dialog-title">确认注销账号？</view>
+        <view class="pf-dialog-text">您的个人资料、学习记录、收藏等所有数据将被永久删除，且无法恢复。请确认您要继续此操作。</view>
+        <view class="row pf-dialog-btns">
+          <view class="pf-dialog-cancel" bindtap="onCloseDeleteConfirm">取消</view>
+          <view class="pf-dialog-confirm {{deletingAccount ? 'disabled' : ''}}" bindtap="onConfirmDelete">
+            <view wx:if="{{deletingAccount}}" class="pf-spin pf-spin-light"></view>
+            <text wx:else>确认注销</text>
+          </view>
+        </view>
       </view>
     </view>
 

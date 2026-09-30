@@ -18,6 +18,20 @@
  */
 const { get, post, delete: del, ApiError } = require('../request');
 
+/**
+ * HTTP 200 但 success:false 的裸响应（assertAction 口径，同 utils/api/auth.js）
+ * → 抛出带后端文案的 Error；绑定/注销链路错误走弹层行内展示或页面自管 toast。
+ */
+function assertAction(body, fallback) {
+  if (body && body.success) return body;
+  const message =
+    (body && ((body.error && String(body.error)) || (body.message && String(body.message)))) ||
+    fallback;
+  const err = new Error(message);
+  err.body = body || null;
+  throw err;
+}
+
 /** GET profile；404 归一为 null（mapProfile(null, userInfo) 合成最小资料） */
 function getProfile() {
   return get('/api/user/profile', undefined, { showError: false }).then(
@@ -90,26 +104,41 @@ function uploadProfileWithAvatar(filePath, fields) {
   });
 }
 
+// ---- 账号与安全写接口：showError:false——错误由页面行内/自管 toast 展示
+// （对齐 Android Result.Error → form.error / VM toast 口径，勿弹全局 toast 双提示） ----
+
 /** 绑定手机验证码（scene=BIND 专用短信模板） */
 function sendBindPhoneCode(phone) {
-  return post('/api/auth/sms/send', { phone: phone, scene: 'BIND' });
+  return post('/api/auth/sms/send', { phone: phone, scene: 'BIND' }, { showError: false }).then(
+    (body) => assertAction(body, '验证码发送失败，请稍后重试')
+  );
 }
 
 function bindPhone(phone, code) {
-  return post('/api/auth/sms/bind', { phone: phone, code: code });
+  return post('/api/auth/sms/bind', { phone: phone, code: code }, { showError: false }).then(
+    (body) => assertAction(body, '绑定失败，请稍后重试')
+  );
 }
 
 function sendBindEmailCode(email) {
-  return post('/api/auth/bind-email/send', { email: email });
+  return post('/api/auth/bind-email/send', { email: email }, { showError: false }).then((body) =>
+    assertAction(body, '验证码发送失败，请稍后重试')
+  );
 }
 
 function bindEmailConfirm(email, code, password) {
-  return post('/api/auth/bind-email/confirm', { email: email, code: code, password: password });
+  return post(
+    '/api/auth/bind-email/confirm',
+    { email: email, code: code, password: password },
+    { showError: false }
+  ).then((body) => assertAction(body, '绑定失败，请稍后重试'));
 }
 
-/** 注销账号（成功后调用方 authStore.logout + navigateBack） */
+/** 注销账号（成功后调用方 authStore.logout + navigateBack；失败 toast 由页面自管） */
 function deleteSelfAccount() {
-  return del('/api/user/self-delete');
+  return del('/api/user/self-delete', undefined, { showError: false }).then((body) =>
+    assertAction(body, '注销失败，请稍后重试')
+  );
 }
 
 module.exports = {

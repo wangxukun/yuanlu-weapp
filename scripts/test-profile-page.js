@@ -1,12 +1,16 @@
 /**
- * scripts/test-profile-page.js — 「个人中心」主页（阶段 2）自动化测试
+ * scripts/test-profile-page.js — 「个人中心」主页（阶段 2-4）自动化测试
  *
  * 在 Node 环境中 mock 微信全局对象（wx / Page / getApp），全链路驱动
  * pages/profile/index.js → utils/api/profile.js → utils/request.js → wx.request：
  * 覆盖登录闸、首载四源并行拉取与 DTO→视图模型映射（mapProfile 展平/404 兜底）、
  * 卡内错误态与重试、Tab 切换、下拉刷新、profileDirty 静默刷新、编辑页跳转、主题接入；
  * 阶段 3：统计三卡视图模型（值/单位/副文案/图标深浅变体/色调类）、canvas 算术定寸、
- * 本周/上周切换（URL 参数/数据替换/幂等）、深浅主题重建图标。
+ * 本周/上周切换（URL 参数/数据替换/幂等）、深浅主题重建图标；
+ * 阶段 4：里程碑路图绘制（虚线/实线裁剪/节点旗标/标签/脉冲 RAF 启停）与
+ * 成就墙数据位（take(8)/解锁排前/计数/全部查看 toast）；
+ * 阶段 5：账号与安全——绑定手机/邮箱弹层（scene:BIND 发码/倒计时/业务失败行内/
+ * 强度三项/两密一致/校验链/乐观回写）与注销链路（DELETE→logout→1.2s navigateBack）。
  *
  * 运行：node scripts/test-profile-page.js
  */
@@ -54,40 +58,79 @@ async function settle(times) {
 }
 
 /** canvas 节点 + 2d 上下文记录桩（fillText/arc 等调用可断言；
- *  scale/moveTo/fillText 坐标也记录——锁「dpr 缩放缺失→内容挤左上角」类回归） */
+ *  scale/moveTo/fillText 坐标也记录——锁「dpr 缩放缺失→内容挤左上角」类回归；
+ *  另记 setLineDash/quadraticCurveTo 与 RAF 启停——锁里程碑虚线/平滑路径/脉冲动画） */
 function mockCanvas() {
-  const calls = { fillText: [], fillTextXY: [], moveTo: [], scale: [], fill: 0, stroke: 0, bezier: 0, arc: 0 };
+  const calls = {
+    fillText: [], fillTextXY: [], moveTo: [], scale: [], fill: 0, stroke: 0,
+    bezier: 0, arc: 0, dash: [], quad: 0, raf: 0, cancelRaf: 0,
+  };
+  let rafCb = null;
   const ctx = {
     setTransform() {}, scale(...args) { calls.scale.push(args); }, clearRect() {},
     measureText: (t) => ({ width: String(t).length * 6 }),
     beginPath() {}, moveTo(x, y) { calls.moveTo.push([x, y]); }, lineTo() {}, closePath() {},
+    quadraticCurveTo() { calls.quad++; },
     bezierCurveTo() { calls.bezier++; },
+    setLineDash(d) { calls.dash.push(d); },
     createLinearGradient: () => ({ addColorStop() {} }),
     fill() { calls.fill++; }, stroke() { calls.stroke++; }, arc() { calls.arc++; },
     fillText: (t, x, y) => { calls.fillText.push(String(t)); calls.fillTextXY.push([x, y]); },
   };
-  return { node: { width: 0, height: 0, getContext: () => ctx }, calls };
+  const node = {
+    width: 0,
+    height: 0,
+    getContext: () => ctx,
+    requestAnimationFrame(cb) { calls.raf++; rafCb = cb; return calls.raf; },
+    cancelAnimationFrame() { calls.cancelRaf++; rafCb = null; },
+  };
+  return {
+    node: node,
+    calls: calls,
+    fireRaf() { if (rafCb) { const cb = rafCb; cb(); } },
+  };
 }
 
-/** 构造页面实例（拷贝 data + 模拟 setData + canvas 挂载模型：
- *  主内容可见（非骨架/未登录）且旅程 Tab 且非 loading 时，节点才在树上——
+/** 构造页面实例（拷贝 data + 模拟 setData（支持 'a.b.c' 路径键，对齐真机语义）+ 双 canvas 挂载模型：
+ *  主内容可见（非骨架/未登录）且对应 Tab 且非该源 loading 时，节点才在树上——
  *  与 wxml 的 wx:if/wx:else 挂载条件一一对应） */
 function makePage() {
   const page = Object.assign({}, pageConfig);
   page.data = JSON.parse(JSON.stringify(pageConfig.data));
-  page.setData = function (patch) { Object.assign(this.data, patch); };
+  page.setData = function (patch) {
+    Object.keys(patch).forEach((k) => {
+      if (k.indexOf('.') > 0) {
+        const parts = k.split('.');
+        let obj = this.data;
+        for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+        obj[parts[parts.length - 1]] = patch[k];
+      } else {
+        this.data[k] = patch[k];
+      }
+    });
+  };
   const chart = mockCanvas();
+  const msChart = mockCanvas();
   page.__chart = chart;
-  page.__chartMounted = function () {
-    return !this.data.isLoading && !this.data.needLogin &&
-      !this.data.activityLoading && this.data.activeTab === 'journey';
+  page.__ms = msChart;
+  const mounted = function (id) {
+    if (id === '#weeklyChart') {
+      return !page.data.isLoading && !page.data.needLogin &&
+        !page.data.activityLoading && page.data.activeTab === 'journey';
+    }
+    if (id === '#milestoneChart') {
+      return !page.data.isLoading && !page.data.needLogin &&
+        !page.data.statsLoading && page.data.activeTab === 'milestones';
+    }
+    return false;
   };
   page.createSelectorQuery = () => ({
-    select() {
+    select(id) {
       return {
         fields() {
           // 真实 API 形状：res[0] = { node, width, height }
-          return { exec(cb) { cb([page.__chartMounted() ? { node: chart.node } : null]); } };
+          const node = id === '#milestoneChart' ? msChart.node : chart.node;
+          return { exec(cb) { cb([mounted(id) ? { node: node } : null]); } };
         },
       };
     },
@@ -198,9 +241,10 @@ function ok(cond, label) {
      cards[1].icon === '/assets/icons/local-fire-department-accent.svg' &&
      cards[2].icon === '/assets/icons/bookmark-tertiary.svg', '浅色图标变体');
 
-  // onReady：canvas 显式算术 px 定寸（375 屏宽 → 内缩 144rpx → 303px；440rpx → 220px）
+  // onReady：canvas 显式算术 px 定寸（375 屏宽 → 内缩 144rpx → 303px；440rpx → 220px；256rpx → 128px）
   page.onReady();
   ok(page.data.chartW === 303 && page.data.chartH === 220, 'onReady 算术定寸 303×220（禁百分比红线）');
+  ok(page.data.msH === 128, '里程碑 canvas 高 256rpx→128px');
   ok(page._dpScale === 1, 'dpScale=屏宽/375');
 
   // 周切换：URL 带 weekOffset=1、数据替换、重复点击无操作
@@ -302,6 +346,184 @@ function ok(cond, label) {
   page.onTab({ currentTarget: { dataset: { key: 'milestones' } } });
   ok(page.data.activeTab === 'milestones', '切到里程碑');
 
+  /* ---------- 4b. 里程碑 Tab（阶段 4） ---------- */
+  console.log('== 里程碑 Tab ==');
+  await new Promise((r) => setTimeout(r, 300)); // 挂载即时（同步桩）+ 保险帧 120ms
+  const ms = page.__ms.calls;
+  ok(ms.fillText.some((t) => t === '起步') && ms.fillText.some((t) => t === '远路'), '节点名称标签（起步…远路）');
+  ok(ms.fillText.some((t) => t === '1.0km') && ms.fillText.some((t) => t === '100.0km'), 'km 档位标签（1.0km…100.0km）');
+  ok(ms.arc >= 5, '五个节点圆绘制');
+  ok(ms.dash.some((d) => Array.isArray(d) && d.length === 2 && d[0] === 0.1 && d[1] === 9),
+    '全程圆点虚线 setLineDash([0.1, 9dp])（dpScale=1）');
+  ok(ms.quad >= 4, '中点法 quadraticCurveTo 平滑路径（4 段）');
+  ok(ms.stroke >= 2, '虚线全程 + 已完成段实线两笔');
+  ok(ms.scale.some((a) => a[0] === 2 && a[1] === 2), '里程碑 canvas 应用 ctx.scale(dpr)（挤左上回归锁）');
+  ok(ms.raf === 0, '满程 km=109 ≥ 100：脉冲不启动（静态一帧）');
+  ok(page.data.msKmText === '109.0', '卡头胶囊 msKmText=109.0');
+  ok(page.data.achievementsLoading === false, '成就源 loading 落定');
+  ok(page.data.achTiles.length === 2 && page.data.achTiles[0].key === 'STREAK_3' &&
+     page.data.achTiles[0].unlocked === true, 'achTiles=排序后前 8（解锁排前）');
+  page.onAllAchievements();
+  ok(toasts[toasts.length - 1] === '完整成就墙 即将上线', '全部查看 → snackbar 同文案 toast');
+
+  // 成就墙 take(8)：10 项（i%3===0 共 4 解锁散布）→ 仅前 8、解锁稳定排前
+  const ACH10 = [];
+  for (let i = 0; i < 10; i++) {
+    ACH10.push({ key: 'K' + i, name: 'n' + i, description: 'd', icon: 'x', unlocked: i % 3 === 0, unlockedAt: null });
+  }
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/user/achievements') >= 0) return respond(opts, 200, ACH10);
+    serveAll(opts);
+  };
+  page.onPullDownRefresh();
+  await settle();
+  ok(page.data.achTiles.length === 8, '成就墙仅取前 8（Android take(8)）');
+  ok(page.data.achievements.unlockedCount === 4, '解锁计数全量（4/10）');
+  ok(page.data.achTiles.slice(0, 4).every((t) => t.unlocked === true) &&
+     page.data.achTiles[4].unlocked === false, '解锁稳定排前、锁定补位');
+
+  // 脉冲点：低里程（5h→25km ∈ (0,100)）→ RAF 启动；onHide/切走 Tab 必须取消
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/user/stats/overview') >= 0) {
+      return respond(opts, 200, { totalHours: 5, streakDays: 1, wordsLearned: 10 });
+    }
+    serveAll(opts);
+  };
+  page.onPullDownRefresh();
+  await settle();
+  await new Promise((r) => setTimeout(r, 60));
+  ok(page.data.stats.totalKm === 25 && page.data.msKmText === '25.0', '低里程 stats 落定（25km）');
+  ok(page.__ms.calls.raf > 0, '0<km<100 启动脉冲 RAF');
+  const arcBeforePulse = page.__ms.calls.arc;
+  page.__ms.fireRaf();
+  ok(page.__ms.calls.arc >= arcBeforePulse + 2, 'RAF 帧重绘脉冲（呼吸圈+实心点）');
+  const cancelBeforeHide = page.__ms.calls.cancelRaf;
+  page.onHide();
+  ok(page.__ms.calls.cancelRaf > cancelBeforeHide, 'onHide 取消脉冲 RAF（后台耗电红线）');
+  const arcAfterHide = page.__ms.calls.arc;
+  page.__ms.fireRaf(); // 旧帧回调（token 已作废）不应再绘制
+  ok(page.__ms.calls.arc === arcAfterHide, '作废 token 后旧帧不再绘制');
+  // 回前台：profileDirty 静默刷新链路重挂路图 → RAF 续跑
+  const rafBeforeShow = page.__ms.calls.raf;
+  page.onShow();
+  await settle();
+  ok(page.__ms.calls.raf > rafBeforeShow, 'onShow 后脉冲动画续跑');
+  const cancelBeforeLeave = page.__ms.calls.cancelRaf;
+  page.onTab({ currentTarget: { dataset: { key: 'security' } } });
+  ok(page.data.activeTab === 'security' && page.__ms.calls.cancelRaf > cancelBeforeLeave,
+    '切走里程碑 Tab 取消脉冲 RAF');
+  requestHandler = serveAll; // 覆盖 handler 仅限本段，防泄漏到后续断言
+
+  /* ---------- 4c. 账号与安全：绑定手机/邮箱弹层（阶段 5） ---------- */
+  console.log('== 账号与安全 · 绑定弹层 ==');
+  ok(page.data.activeTab === 'security', '已在账号与安全 Tab（4b 切走脉冲时落此）');
+  ok(page.data.profile.hasPhone === true && page.data.profile.hasRealEmail === true &&
+     page.data.profile.passwordSet === true, '四卡派生就绪（本账号全绑定态）');
+
+  // 手机弹层：表单重置 + 输入过滤（非数字剔除、限 11 位）
+  page.onOpenBindPhone();
+  ok(page.data.securitySheet === 'phone' && page.data.bindForm.phone === '', '打开手机弹层 + 表单重置');
+  page.onPhoneInput({ detail: { value: '138abc12345678' } });
+  ok(page.data.bindForm.phone === '13812345678', '手机号输入过滤非数字并截 11 位');
+  page.onPhoneInput({ detail: { value: '138' } });
+  ok(page.data.bindUi.canSendCode === false, '手机号无效 → 发码不可用');
+  await page.onSendCode();
+  ok(page.data.bindForm.error === '请输入有效的11位手机号码', '无效手机号发码 → 行内校验文案');
+
+  // 发码成功：请求体 {phone, scene:'BIND'} → notice + 倒计时 60
+  page.onPhoneInput({ detail: { value: '13812348000' } });
+  ok(page.data.bindUi.canSendCode === true, '有效手机号 → 发码可用');
+  calls.request.length = 0;
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/auth/sms/send') >= 0) return respond(opts, 200, { success: true });
+    serveAll(opts);
+  };
+  await page.onSendCode();
+  await settle();
+  const sendReq = calls.request.find((o) => o.url.indexOf('/api/auth/sms/send') >= 0);
+  ok(!!sendReq && sendReq.data.phone === '13812348000' && sendReq.data.scene === 'BIND',
+    '发码请求 {phone, scene:BIND}（勿复用写死 LOGIN 的发码）');
+  ok(page.data.bindForm.notice === '验证码发送成功', '发码成功 notice 文案');
+  ok(page.data.bindForm.countdownSeconds === 60, '倒计时启动 60s');
+  await new Promise((r) => setTimeout(r, 1050));
+  ok(page.data.bindForm.countdownSeconds === 59, '倒计时 1s 递减');
+  page.onCloseSheet();
+  ok(page.data.securitySheet === '' && page.data.bindForm.countdownSeconds === 0, '关弹层清倒计时');
+
+  // 业务失败（HTTP 200 + success:false）→ 行内 error，不弹全局 toast
+  page.onOpenBindPhone();
+  page.onPhoneInput({ detail: { value: '13800000000' } });
+  const toastCountBefore = toasts.length;
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/auth/sms/send') >= 0) {
+      return respond(opts, 200, { success: false, message: '发送太频繁' });
+    }
+    serveAll(opts);
+  };
+  await page.onSendCode();
+  await settle();
+  ok(page.data.bindForm.error === '发送太频繁' && page.data.bindForm.countdownSeconds === 0,
+    '发码业务失败 → 行内 error（assertAction 口径）');
+  ok(toasts.length === toastCountBefore, '业务失败不弹全局 toast（showError:false）');
+
+  // 提交绑定手机：校验链 → 成功乐观回写 + 关弹层 + toast
+  page.onCodeInput({ detail: { value: '12' } });
+  ok(page.data.bindUi.submitEnabled === false, 'code<6 提交不可用');
+  await page.onSubmitBind();
+  ok(page.data.bindForm.error === '请输入6位验证码', 'code 不足 → 行内文案');
+  page.onCodeInput({ detail: { value: '123456' } });
+  ok(page.data.bindUi.submitEnabled === true, '表单齐备 → 提交可用');
+  calls.request.length = 0;
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/auth/sms/bind') >= 0) return respond(opts, 200, { success: true });
+    serveAll(opts);
+  };
+  await page.onSubmitBind();
+  await settle();
+  const bindReq = calls.request.find((o) => o.url.indexOf('/api/auth/sms/bind') >= 0);
+  ok(!!bindReq && bindReq.data.phone === '13800000000' && bindReq.data.code === '123456', 'sms/bind 请求体');
+  ok(page.data.securitySheet === '' && page.data.bindForm.phone === '', '成功关弹层 + 表单重置');
+  ok(page.data.profile.phone === '13800000000' && page.data.profile.phoneMasked === '138****0000' &&
+     page.data.profile.hasPhone === true, '乐观回写 phone/脱敏/hasPhone（不整页重拉）');
+  ok(toasts[toasts.length - 1] === '绑定成功', 'toast 绑定成功');
+
+  // 邮箱弹层：trim / 强度三项实时 / 两密一致 / 校验链 / 回写 passwordSet
+  console.log('== 账号与安全 · 绑定邮箱 ==');
+  page.onOpenBindEmail();
+  ok(page.data.securitySheet === 'email', '打开邮箱弹层');
+  page.onEmailInput({ detail: { value: ' wxk@example.com ' } });
+  ok(page.data.bindForm.email === 'wxk@example.com', '邮箱输入 trim');
+  ok(page.data.bindUi.canSendCode === true, '合法邮箱 → 发码可用');
+  page.onPasswordInput({ detail: { value: 'abc' } });
+  ok(page.data.bindUi.criteria.length === false && page.data.bindUi.criteria.hasLetter === true &&
+     page.data.bindUi.criteria.hasNumber === false && page.data.bindUi.criteria.allMet === false,
+    '强度三项实时（abc：仅字母）');
+  page.onPasswordInput({ detail: { value: 'abcd1234' } });
+  ok(page.data.bindUi.criteria.allMet === true, 'abcd1234 三项全满足');
+  page.onConfirmPasswordInput({ detail: { value: 'abcd123' } });
+  ok(page.data.bindUi.confirmMatch === false && page.data.bindUi.submitEnabled === false, '两密不一致 → 不可提交');
+  await page.onSubmitBind();
+  ok(page.data.bindForm.error === '请输入6位邮箱验证码', '校验链：code 空先行文案');
+  page.onCodeInput({ detail: { value: '654321' } });
+  ok(page.data.bindUi.submitEnabled === false, '两密不一致仍不可提交');
+  page.onConfirmPasswordInput({ detail: { value: 'abcd1234' } });
+  ok(page.data.bindUi.confirmMatch === true && page.data.bindUi.submitEnabled === true, '两密一致 → 可提交');
+  calls.request.length = 0;
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/auth/bind-email/confirm') >= 0) return respond(opts, 200, { success: true });
+    serveAll(opts);
+  };
+  await page.onSubmitBind();
+  await settle();
+  const emReq = calls.request.find((o) => o.url.indexOf('bind-email/confirm') >= 0);
+  ok(!!emReq && emReq.data.email === 'wxk@example.com' && emReq.data.code === '654321' &&
+     emReq.data.password === 'abcd1234', 'bind-email/confirm 请求体（email+code+password）');
+  ok(page.data.profile.email === 'wxk@example.com' && page.data.profile.emailMasked === 'w**@example.com' &&
+     page.data.profile.hasRealEmail === true && page.data.profile.passwordSet === true,
+    '乐观回写 email/脱敏/hasRealEmail/passwordSet（绑定即设密码）');
+  ok(toasts[toasts.length - 1] === '邮箱绑定成功', 'toast 邮箱绑定成功');
+  requestHandler = serveAll;
+
   /* ---------- 5. 编辑资料跳转 ---------- */
   page.onOpenEdit();
   ok(navigations[navigations.length - 1] === '/pages/profile/edit', '编辑资料 → /pages/profile/edit');
@@ -345,6 +567,45 @@ function ok(cond, label) {
   page.onRetry();
   await settle();
   ok(page.data.profile && page.data.profile.displayName === '远路漫漫', '点击重试恢复资料');
+
+  /* ---------- 9. 注销账号（阶段 5：二次确认 → DELETE → logout → 1.2s navigateBack） ---------- */
+  console.log('== 注销账号 ==');
+  // 失败分支：业务失败 → toast 后端文案 + 弹窗复位
+  page = makePage();
+  page.onLoad();
+  page.onShow();
+  await settle();
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/user/self-delete') >= 0) {
+      return respond(opts, 200, { success: false, message: '服务繁忙' });
+    }
+    serveAll(opts);
+  };
+  page.onOpenDeleteConfirm();
+  ok(page.data.deleteConfirmOpen === true, '打开注销二次确认弹窗');
+  await page.onConfirmDelete();
+  await settle();
+  ok(page.data.deletingAccount === false && page.data.deleteConfirmOpen === false, '注销失败复位弹窗与旗标');
+  ok(toasts[toasts.length - 1] === '服务繁忙', '失败 toast 后端文案（自管，非全局）');
+
+  // 成功分支：DELETE → authStore.logout + accountDeleted + toast + 1.2s 后 navigateBack
+  requestHandler = (opts) => {
+    if (opts.url.indexOf('/api/user/self-delete') >= 0) {
+      return respond(opts, 200, { success: true, message: 'ok' });
+    }
+    serveAll(opts);
+  };
+  page.onOpenDeleteConfirm();
+  await page.onConfirmDelete();
+  await settle();
+  const delReq = calls.request.find((o) => o.url.indexOf('/api/user/self-delete') >= 0);
+  ok(!!delReq && delReq.method === 'DELETE', 'DELETE /api/user/self-delete 发出');
+  ok(page.data.accountDeleted === true && page.data.deleteConfirmOpen === false, '注销成功态（弹窗已关）');
+  ok(authStore.getState().isLoggedIn === false, 'authStore.logout 清会话（回 mine 游客态）');
+  ok(toasts[toasts.length - 1] === '账号已成功注销', 'toast 账号已成功注销');
+  await new Promise((r) => setTimeout(r, 1300));
+  ok(navigations[navigations.length - 1] === '__back__', '约 1.2s 后 navigateBack（对齐 Android delay(1200)+onBack）');
+  requestHandler = serveAll;
 
   /* ---------- 收尾 ---------- */
   console.log('\n========== 个人中心主页测试：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

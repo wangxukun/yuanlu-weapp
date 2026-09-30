@@ -2,7 +2,10 @@
  * pages/profile/index.js — 「个人中心」主页
  *
  * UI 复刻 Android PersonalCenterScreen.kt（阶段 2 = 骨架 + 用户信息卡 + Tab 行；
- * 阶段 3 = 旅程数据 Tab：统计三卡 + 周活动面积图；里程碑/账号与安全随阶段 4/5）：
+ * 阶段 3 = 旅程数据 Tab：统计三卡 + 周活动面积图；阶段 4 = 里程碑 Tab：远路里程碑
+ * Canvas 路图（圆点虚线全程 + 已完成段按进度截取 + 冲线三角旗 + 进度脉冲点 RAF）
+ * + 成就墙网格（排序 take(8)、emoji 直渲）；阶段 5 = 账号与安全 Tab：四卡 +
+ * 绑定手机/邮箱底部弹层（发码倒计时/密码强度三项/乐观回写）+ 注销二次确认）：
  *   - 顶部系统导航栏「个人中心」+ 下拉刷新（对齐 PullToRefreshBox）
  *   - HeaderCard：行布局 88dp 白描边头像 + 昵称/远行客徽章(secondary 橙)/两行签名/
  *     加入日期与国家元信息/整宽描边「编辑资料」钮 → pages/profile/edit
@@ -40,6 +43,32 @@ const CHART_COLORS = {
   dark: { primary: '#4da989', label: 'rgba(168, 162, 158, 0.75)' },
 };
 
+/** 里程碑路图配色（MilestoneStrip L870-875：outline/surface/70%/45% 标签派生；secondary 深浅同值） */
+const MS_COLORS = {
+  light: {
+    primary: '#1f7a5c',
+    secondary: '#d98a17',
+    outline: '#e3ddcf',
+    surface: '#ffffff',
+    labelDim: 'rgba(87, 83, 78, 0.7)',
+    labelFaint: 'rgba(87, 83, 78, 0.45)',
+  },
+  dark: {
+    primary: '#4da989',
+    secondary: '#d98a17',
+    outline: '#38332a',
+    surface: '#1e1b16',
+    labelDim: 'rgba(168, 162, 158, 0.7)',
+    labelFaint: 'rgba(168, 162, 158, 0.45)',
+  },
+};
+
+/** hex → rgba（脉冲圈 primary 半透明，milestonePulsePoint.alpha） */
+function rgbaFromHex(hex, alpha) {
+  const v = parseInt(String(hex).replace('#', ''), 16);
+  return 'rgba(' + ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + alpha + ')';
+}
+
 Page({
   data: {
     themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
@@ -61,8 +90,35 @@ Page({
     weekly: [],
     chartW: 0, // canvas 显式算术 px（onReady 下发，真机红线）
     chartH: 0,
-    // ---- 阶段 4 数据位（已并行拉取缓存） ----
-    achievements: null,
+    // ---- 里程碑 Tab（阶段 4） ----
+    msH: 0, // 路图 canvas 高（256rpx 换算 px，onReady 下发）
+    msKmText: '0.0', // 卡头胶囊 formatKm(totalKm)（stats 缺失按 0）
+    achievementsLoading: false,
+    achievements: null, // { items, unlockedCount }（mapAchievements）
+    achTiles: [], // 排序后前 8（页面展示口径，Android take(8)）
+    // ---- 账号与安全（阶段 5；SecurityFormState 等价，WXML 零方法调用） ----
+    securitySheet: '', // '' | 'phone' | 'email'（页内底部弹层）
+    bindForm: {
+      phone: '',
+      email: '',
+      code: '',
+      password: '',
+      confirmPassword: '',
+      passwordVisible: false,
+      isSendingCode: false,
+      isSubmitting: false,
+      countdownSeconds: 0,
+      notice: '',
+      error: '',
+    },
+    bindUi: {
+      criteria: { length: false, hasLetter: false, hasNumber: false, allMet: false },
+      confirmMatch: false,
+      canSendCode: false,
+      submitEnabled: false,
+    },
+    deleteConfirmOpen: false,
+    deletingAccount: false,
   },
 
   onLoad() {
@@ -81,6 +137,7 @@ Page({
       // 水平内缩 = 页 32×2 + 卡 40×2 = 144rpx
       chartW: Math.round((ww * (750 - 144)) / 750),
       chartH: Math.round((440 * ww) / 750),
+      msH: Math.round((256 * ww) / 750), // 里程碑 canvas 128dp
     });
   },
 
@@ -97,6 +154,7 @@ Page({
         this.setData({ statCards: this.buildStatCards(this.data.stats) });
       }
       this.requestChartDraw();
+      if (this.data.activeTab === 'milestones') this.requestMilestoneDraw();
     }
 
     // 登录闸：入口是 mine 页已登录的用户信息卡，此为守门态
@@ -112,7 +170,20 @@ Page({
     } else if (getApp().globalData.profileDirty) {
       getApp().globalData.profileDirty = false;
       this.fetchAll({ silent: true });
+    } else if (this.data.activeTab === 'milestones' && this.data.stats) {
+      // onHide 已停脉冲动画：回前台续跑（数据在，仅重挂绘制）
+      this.requestMilestoneDraw();
     }
+  },
+
+  /** 后台/卸载必须停脉冲 RAF（后台耗电 + 回显重影，任务清单 T7.3 红线） */
+  onHide() {
+    this.stopMilestoneAnim();
+  },
+
+  onUnload() {
+    this.stopMilestoneAnim();
+    this.stopCountdown();
   },
 
   onPullDownRefresh() {
@@ -134,6 +205,7 @@ Page({
         loadError: '',
         statsLoading: true,
         activityLoading: true,
+        achievementsLoading: true,
       });
     }
 
@@ -158,10 +230,13 @@ Page({
             stats: stats,
             statsLoading: false,
             statCards: stats ? this.buildStatCards(stats) : [],
+            msKmText: stats ? stats.kmText : '0.0',
           });
+          if (this.data.activeTab === 'milestones') this.requestMilestoneDraw();
         })
         .catch(() => {
-          this.setData({ stats: null, statsLoading: false, statCards: [] });
+          this.setData({ stats: null, statsLoading: false, statCards: [], msKmText: '0.0' });
+          if (this.data.activeTab === 'milestones') this.requestMilestoneDraw();
         }),
       api
         .getWeeklyActivity(this.data.weekOffset)
@@ -173,8 +248,15 @@ Page({
         }),
       api
         .getAchievements()
-        .then((r) => this.setData({ achievements: core.mapAchievements(r) }))
-        .catch(() => {}),
+        .then((r) => {
+          const ach = core.mapAchievements(r);
+          this.setData({
+            achievements: ach,
+            achTiles: ach.items.slice(0, 8), // Android take(8)，4 列两行
+            achievementsLoading: false,
+          });
+        })
+        .catch(() => this.setData({ achievementsLoading: false })),
     ];
 
     await Promise.all([profileTask, ...sideTasks]);
@@ -185,6 +267,7 @@ Page({
       // profile 落定，彼时 requestChartDraw 查不到尚未挂载的节点，必须在此补触发
       this.setData({ isLoading: false });
       this.requestChartDraw();
+      if (this.data.activeTab === 'milestones') this.requestMilestoneDraw();
     }
   },
 
@@ -368,14 +451,197 @@ Page({
     });
   },
 
+  // ==================== 里程碑路图（MilestoneStrip L866-993） ====================
+
+  /** 触发路图重绘（token 作废旧循环 + 停旧脉冲；挂载重试 120ms×8 + 保险帧同周图） */
+  requestMilestoneDraw() {
+    this._msToken = (this._msToken || 0) + 1;
+    this.stopMilestoneRaf();
+    this.tryMilestoneDraw(this._msToken, 0);
+  },
+
+  tryMilestoneDraw(token, attempt) {
+    if (!this._msToken || token !== this._msToken) return;
+    if (!this.data.chartW || !this.data.msH) return;
+    const query = this.createSelectorQuery();
+    query
+      .select('#milestoneChart')
+      .fields({ node: true, size: true })
+      .exec((res) => {
+        if (!this._msToken || token !== this._msToken) return;
+        const entry = res && res[0];
+        if (!entry || !entry.node) {
+          if (attempt >= 0 && attempt < 8) {
+            setTimeout(() => this.tryMilestoneDraw(token, attempt + 1), 120);
+          }
+          return;
+        }
+        this.drawMilestoneChart(entry.node, this.data.stats);
+        if (attempt >= 0) {
+          setTimeout(() => this.tryMilestoneDraw(token, -1), 120); // 真机首绘保险帧
+        }
+      });
+  },
+
+  /** 停脉冲动画并作废在途绘制/重试（onHide/onUnload/切走 Tab） */
+  stopMilestoneAnim() {
+    this._msToken = (this._msToken || 0) + 1;
+    this.stopMilestoneRaf();
+  },
+
+  stopMilestoneRaf() {
+    if (this._msRafId != null && this._msCanvas && this._msCanvas.cancelAnimationFrame) {
+      try {
+        this._msCanvas.cancelAnimationFrame(this._msRafId);
+      } catch (err) {
+        /* 节点已销毁（页面卸载竞态）——忽略 */
+      }
+    }
+    this._msRafId = null;
+  },
+
+  /**
+   * 里程碑路图 canvas 2d：全程圆点虚线（outline）+ 已完成段 primary 实线
+   * （quadMidPath 采样折线按 progressRatio 截取，PathMeasure+dash 裁剪等价）+
+   * 节点（达成实心+secondary 冲线三角旗 / 未达成空心）+ 双侧标签 + 进度脉冲点
+   * （0<km<全程 时 canvas.requestAnimationFrame 2s 线性循环，token 作废即停）。
+   */
+  drawMilestoneChart(canvas, stats) {
+    this.stopMilestoneRaf();
+    this._msCanvas = canvas;
+    const W = this.data.chartW;
+    const H = this.data.msH;
+    const dpr = wx.getSystemInfoSync().pixelRatio || 2;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    const ctx = canvas.getContext('2d');
+    const mode = theme.getState().effective === 'dark' ? 'dark' : 'light';
+    const colors = MS_COLORS[mode];
+    const ds = this._dpScale || W / 375;
+    const geo = core.milestoneGeometry(W, H, ds);
+    const km = stats ? stats.totalKm : 0;
+    const reached = core.milestoneReached(km);
+    const kmTexts = core.milestoneKmTexts();
+    const ratio = core.milestoneProgress(km);
+    const smooth = core.quadMidPath(geo.xs, geo.ys);
+    const sampled = core.sampleQuadPath(smooth, 48); // 供长度测量与截取
+    const done = ratio > 0 ? core.clipPolyline(sampled, ratio) : [];
+
+    const render = function (pulsePoint) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // 缓冲区为设备像素、几何为逻辑像素——先 scale 再画（真机挤左上坑）
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // 全程圆点虚线（outline 2.5dp 圆端；0.1 长度 + 9dp 间隔，圆端帽成点）
+      if (smooth.start) {
+        ctx.beginPath();
+        ctx.moveTo(smooth.start.x, smooth.start.y);
+        smooth.quads.forEach(function (q) {
+          ctx.quadraticCurveTo(q.cx, q.cy, q.x, q.y);
+        });
+        ctx.lineTo(smooth.end.x, smooth.end.y);
+        ctx.setLineDash(geo.dash);
+        ctx.strokeStyle = colors.outline;
+        ctx.lineWidth = geo.strokeWidth;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // 已完成段实线（primary，按进度截取）
+      if (done.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(done[0].x, done[0].y);
+        for (let i = 1; i < done.length; i++) ctx.lineTo(done[i].x, done[i].y);
+        ctx.strokeStyle = colors.primary;
+        ctx.lineWidth = geo.strokeWidth;
+        ctx.stroke();
+      }
+
+      // 节点 + 冲线旗 + 标签（名称在下、km 在上）
+      ctx.textAlign = 'center';
+      core.MILESTONES.forEach(function (m, i) {
+        const x = geo.xs[i];
+        const y = geo.ys[i];
+        ctx.setLineDash([]);
+        if (reached[i]) {
+          ctx.beginPath();
+          ctx.arc(x, y, geo.nodeRadius, 0, Math.PI * 2);
+          ctx.fillStyle = colors.primary;
+          ctx.fill();
+          const fp = core.milestoneFlagPoints(x, y, geo);
+          ctx.beginPath();
+          ctx.moveTo(fp[0].x, fp[0].y);
+          for (let k = 1; k < fp.length; k++) ctx.lineTo(fp[k].x, fp[k].y);
+          ctx.closePath();
+          ctx.fillStyle = colors.secondary;
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, geo.nodeRadius, 0, Math.PI * 2);
+          ctx.fillStyle = colors.surface;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(x, y, geo.nodeRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = colors.outline;
+          ctx.lineWidth = geo.hollowStroke;
+          ctx.stroke();
+        }
+        // 名称（节点下 y+r+6dp）：达成 primary SemiBold 10sp / 未达成 70%
+        ctx.textBaseline = 'top';
+        ctx.font = (reached[i] ? '600 ' : '') + 10 * ds + 'px sans-serif';
+        ctx.fillStyle = reached[i] ? colors.primary : colors.labelDim;
+        ctx.fillText(m.name, x, y + geo.nodeRadius + geo.labelBelow);
+        // km（上方 y-r-15dp / y-r-7dp，bottom 基线等价 Kotlin 减文字高）：达成 secondary / 未达成 45%
+        ctx.textBaseline = 'bottom';
+        ctx.font = (reached[i] ? '500 ' : '') + 9 * ds + 'px sans-serif';
+        ctx.fillStyle = reached[i] ? colors.secondary : colors.labelFaint;
+        ctx.fillText(kmTexts[i], x, y - geo.nodeRadius - (reached[i] ? geo.kmAboveReached : geo.kmAboveLocked));
+      });
+
+      // 当前进度脉冲点（呼吸圈 + 实心 4dp）
+      if (pulsePoint) {
+        ctx.beginPath();
+        ctx.arc(pulsePoint.x, pulsePoint.y, pulsePoint.radius, 0, Math.PI * 2);
+        ctx.fillStyle = rgbaFromHex(colors.primary, pulsePoint.alpha);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(pulsePoint.x, pulsePoint.y, pulsePoint.dotRadius, 0, Math.PI * 2);
+        ctx.fillStyle = colors.primary;
+        ctx.fill();
+      }
+    };
+
+    render(null);
+
+    // 脉冲动画：仅 0 < km < 全程 启动（满程/零里程静态一帧）；token 作废即停
+    if (km > 0 && km < core.MILESTONE_TOTAL_KM && canvas.requestAnimationFrame) {
+      const token = this._msToken;
+      const started = Date.now();
+      const self = this;
+      const frame = function () {
+        if (!self._msToken || token !== self._msToken) return;
+        const p = ((Date.now() - started) % 2000) / 2000;
+        render(core.milestonePulsePoint(km, geo, p));
+        self._msRafId = canvas.requestAnimationFrame(frame);
+      };
+      this._msRafId = canvas.requestAnimationFrame(frame);
+    }
+  },
+
   // ==================== 交互 ====================
 
-  /** Tab 切换（本地态，不重拉；面板 wx:if 重建触发进出场动画；旅程页重挂 canvas） */
+  /** Tab 切换（本地态，不重拉；面板 wx:if 重建触发进出场动画；canvas 挂载态随 Tab 重建） */
   onTab(e) {
     const key = e.currentTarget.dataset.key;
     if (!key || key === this.data.activeTab) return;
+    const leaving = this.data.activeTab;
     this.setData({ activeTab: key });
+    if (leaving === 'milestones') this.stopMilestoneAnim(); // 脉冲随画布卸载必须停
     if (key === 'journey') this.requestChartDraw();
+    if (key === 'milestones') this.requestMilestoneDraw();
   },
 
   /** 编辑资料 → 全屏编辑页（阶段 6 实现） */
@@ -386,6 +652,274 @@ Page({
   /** 卡内错误态重试（对齐 HeaderCard onRetry） */
   onRetry() {
     this.fetchAll({ showLoading: true });
+  },
+
+  /** 全部查看 → snackbar 同文案 toast（Android 不建独立页，成就墙规划即此一格） */
+  onAllAchievements() {
+    wx.showToast({ title: '完整成就墙 即将上线', icon: 'none' });
+  },
+
+  // ==================== 账号与安全（SecuritySection + BindAccountSheets + 注销，阶段 5） ====================
+
+  /** 弹层/遮罩 catchtap 占位（catchtap 空串不生效坑，须实名 handler） */
+  noop() {},
+
+  /** 绑定派生重算（强度三项/两密一致/发码与提交可用性——WXML 零方法调用红线） */
+  recomputeBindDerived() {
+    const f = this.data.bindForm;
+    const c = core.passwordCriteria(f.password);
+    const criteria = {
+      length: c.length,
+      hasLetter: c.hasLetter,
+      hasNumber: c.hasNumber,
+      allMet: c.length && c.hasLetter && c.hasNumber,
+    };
+    const confirmMatch = f.confirmPassword.length > 0 && f.password === f.confirmPassword;
+    const sheet = this.data.securitySheet;
+    let submitEnabled = false;
+    if (sheet === 'phone') {
+      submitEnabled = !f.isSubmitting && f.phone.length === 11 && f.code.length === 6;
+    } else if (sheet === 'email') {
+      submitEnabled = !f.isSubmitting && f.code.length === 6 && criteria.allMet && confirmMatch;
+    }
+    this.setData({
+      bindUi: {
+        criteria: criteria,
+        confirmMatch: confirmMatch,
+        canSendCode: sheet === 'phone'
+          ? core.validateBindPhone(f.phone) == null
+          : core.validateBindEmail(f.email) == null,
+        submitEnabled: submitEnabled,
+      },
+    });
+  },
+
+  /** 重置绑定表单（开弹层/提交成功后，SecurityFormState() 等价） */
+  resetBindForm() {
+    this.stopCountdown();
+    this.setData({
+      bindForm: {
+        phone: '',
+        email: '',
+        code: '',
+        password: '',
+        confirmPassword: '',
+        passwordVisible: false,
+        isSendingCode: false,
+        isSubmitting: false,
+        countdownSeconds: 0,
+        notice: '',
+        error: '',
+      },
+    });
+    this.recomputeBindDerived();
+  },
+
+  onOpenBindPhone() {
+    this.resetBindForm();
+    this.setData({ securitySheet: 'phone' });
+    this.recomputeBindDerived(); // sheet 落定后重算（canSendCode 分派依赖它）
+  },
+
+  onOpenBindEmail() {
+    this.resetBindForm();
+    this.setData({ securitySheet: 'email' });
+    this.recomputeBindDerived();
+  },
+
+  onCloseSheet() {
+    if (this.data.bindForm.isSubmitting) return; // 提交中不允许关闭（VM 同口径）
+    this.setData({ securitySheet: '' });
+    // 对齐 VM closeSecuritySheet：停倒计时 + 整表单重置（SecurityFormState()）
+    this.resetBindForm();
+  },
+
+  /** 手机号输入：过滤非数字、截 11 位、清 error（VM onPhoneChange 口径） */
+  onPhoneInput(e) {
+    const v = String((e.detail || {}).value || '').replace(/\D/g, '').slice(0, 11);
+    this.setData({ 'bindForm.phone': v, 'bindForm.error': '' });
+    this.recomputeBindDerived();
+  },
+
+  /** 邮箱输入：trim（VM 口径） */
+  onEmailInput(e) {
+    const v = String((e.detail || {}).value || '').trim();
+    this.setData({ 'bindForm.email': v, 'bindForm.error': '' });
+    this.recomputeBindDerived();
+  },
+
+  /** 验证码输入：过滤非数字、截 6 位 */
+  onCodeInput(e) {
+    const v = String((e.detail || {}).value || '').replace(/\D/g, '').slice(0, 6);
+    this.setData({ 'bindForm.code': v, 'bindForm.error': '' });
+    this.recomputeBindDerived();
+  },
+
+  onPasswordInput(e) {
+    this.setData({ 'bindForm.password': String((e.detail || {}).value || ''), 'bindForm.error': '' });
+    this.recomputeBindDerived();
+  },
+
+  onConfirmPasswordInput(e) {
+    this.setData({ 'bindForm.confirmPassword': String((e.detail || {}).value || ''), 'bindForm.error': '' });
+    this.recomputeBindDerived();
+  },
+
+  onTogglePasswordVisible() {
+    this.setData({ 'bindForm.passwordVisible': !this.data.bindForm.passwordVisible });
+  },
+
+  /** 60s 发码倒计时（时间戳驱动，真机后台冻结回前台不跳变累计误差） */
+  startCountdown() {
+    this.stopCountdown();
+    this._countdownEnd = Date.now() + 60000;
+    this.setData({ 'bindForm.countdownSeconds': 60 });
+    this._countdownTimer = setInterval(() => {
+      const remaining = Math.ceil((this._countdownEnd - Date.now()) / 1000);
+      if (remaining <= 0) {
+        this.stopCountdown();
+        this.setData({ 'bindForm.countdownSeconds': 0 });
+      } else {
+        this.setData({ 'bindForm.countdownSeconds': remaining });
+      }
+    }, 1000);
+  },
+
+  stopCountdown() {
+    if (this._countdownTimer) {
+      clearInterval(this._countdownTimer);
+      this._countdownTimer = null;
+    }
+  },
+
+  /** 网络类失败文案对齐 Android Result.NetworkError */
+  netOrMessage(err, fallback) {
+    if (err && err.statusCode === 0) return '网络连接失败，请重试';
+    return (err && err.message) || fallback;
+  },
+
+  /** 发送验证码（手机 scene=BIND / 邮箱 bind-email/send；成功 notice + 倒计时） */
+  async onSendCode() {
+    const f = this.data.bindForm;
+    if (f.isSendingCode || f.countdownSeconds > 0) return;
+    const isPhone = this.data.securitySheet === 'phone';
+    const invalid = isPhone ? core.validateBindPhone(f.phone) : core.validateBindEmail(f.email);
+    if (invalid) {
+      this.setData({ 'bindForm.error': invalid });
+      return;
+    }
+    this.setData({ 'bindForm.isSendingCode': true, 'bindForm.error': '', 'bindForm.notice': '' });
+    try {
+      if (isPhone) {
+        await api.sendBindPhoneCode(f.phone);
+        this.setData({ 'bindForm.isSendingCode': false, 'bindForm.notice': '验证码发送成功' });
+      } else {
+        await api.sendBindEmailCode(f.email);
+        this.setData({
+          'bindForm.isSendingCode': false,
+          'bindForm.notice': '验证码已发送，请检查您的邮箱',
+        });
+      }
+      this.startCountdown();
+    } catch (err) {
+      this.setData({
+        'bindForm.isSendingCode': false,
+        'bindForm.error': this.netOrMessage(err, '验证码发送失败，请稍后重试'),
+      });
+    }
+  },
+
+  /** 提交绑定（校验链文案照抄 VM；成功乐观回写 profile 不整页重拉——JWT 旧值口径） */
+  async onSubmitBind() {
+    const f = this.data.bindForm;
+    if (f.isSubmitting) return;
+    const isPhone = this.data.securitySheet === 'phone';
+    if (isPhone) {
+      const invalid = core.validateBindPhone(f.phone);
+      if (invalid) {
+        this.setData({ 'bindForm.error': invalid });
+        return;
+      }
+      if (f.code.length !== 6) {
+        this.setData({ 'bindForm.error': '请输入6位验证码' });
+        return;
+      }
+    } else {
+      const invalid = core.validateBindEmail(f.email);
+      if (invalid) {
+        this.setData({ 'bindForm.error': invalid });
+        return;
+      }
+      if (f.code.length !== 6) {
+        this.setData({ 'bindForm.error': '请输入6位邮箱验证码' });
+        return;
+      }
+      if (!this.data.bindUi.criteria.allMet) {
+        this.setData({ 'bindForm.error': '密码未达到强度要求' });
+        return;
+      }
+      if (!this.data.bindUi.confirmMatch) {
+        this.setData({ 'bindForm.error': '两次输入的密码不一致' });
+        return;
+      }
+    }
+    this.setData({ 'bindForm.isSubmitting': true, 'bindForm.error': '', 'bindForm.notice': '' });
+    try {
+      const old = this.data.profile || {};
+      let patch;
+      if (isPhone) {
+        await api.bindPhone(f.phone, f.code);
+        // 乐观回写：phone + 脱敏重算 + hasPhone（JWT 签发于绑定前，重拉反而丢失）
+        patch = { phone: f.phone, phoneMasked: core.maskPhone(f.phone), hasPhone: true };
+        wx.showToast({ title: '绑定成功', icon: 'none' });
+      } else {
+        await api.bindEmailConfirm(f.email, f.code, f.password);
+        patch = {
+          email: f.email,
+          emailMasked: core.maskEmail(f.email),
+          hasRealEmail: true,
+          passwordSet: true, // 绑定邮箱同时设置登录密码
+        };
+        wx.showToast({ title: '邮箱绑定成功', icon: 'none' });
+      }
+      this.stopCountdown();
+      this.setData({ securitySheet: '', profile: Object.assign({}, old, patch) });
+      this.resetBindForm();
+    } catch (err) {
+      this.setData({
+        'bindForm.isSubmitting': false,
+        'bindForm.error': this.netOrMessage(err, '绑定失败，请稍后重试'),
+      });
+    }
+  },
+
+  // ---- 注销（DeleteAccountConfirmDialog + VM deleteAccount） ----
+
+  onOpenDeleteConfirm() {
+    this.setData({ deleteConfirmOpen: true });
+  },
+
+  /** 注销请求进行中不允许关闭（防重复提交） */
+  onCloseDeleteConfirm() {
+    if (this.data.deletingAccount) return;
+    this.setData({ deleteConfirmOpen: false });
+  },
+
+  /** 确认注销：DELETE → logout → toast → 约 1.2s 后 navigateBack 回 mine 游客态 */
+  async onConfirmDelete() {
+    if (this.data.deletingAccount) return;
+    this.setData({ deletingAccount: true });
+    try {
+      await api.deleteSelfAccount();
+      authStore.logout();
+      this.stopCountdown();
+      this.setData({ deletingAccount: false, deleteConfirmOpen: false, accountDeleted: true });
+      wx.showToast({ title: '账号已成功注销', icon: 'none' });
+      setTimeout(() => wx.navigateBack(), 1200);
+    } catch (err) {
+      this.setData({ deletingAccount: false, deleteConfirmOpen: false });
+      wx.showToast({ title: this.netOrMessage(err, '注销失败，请稍后重试'), icon: 'none' });
+    }
   },
 
   /** 未登录守门态 → 登录页 */
