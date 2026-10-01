@@ -1,5 +1,5 @@
 <view class="mine-container pb-page-bottom-with-player {{themeClass}}">
-  <!-- 头部身份卡片 -->
+  <!-- 头部身份卡片（Android UserCard 同款） -->
   <view class="card profile-card row tap-scale" bindtap="{{isLoggedIn ? 'onProfile' : 'onLogin'}}">
     <view class="avatar-wrap center">
       <image wx:if="{{isLoggedIn && userInfo.avatarUrl}}" class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill" />
@@ -33,63 +33,119 @@
     <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
   </view>
 
-  <!-- 数据轨迹宫格（登录可见） -->
   <block wx:if="{{isLoggedIn}}">
-    <view class="card grid-card mt-4">
-      <view class="grid-container row">
-        <navigator wx:for="{{gridEntries}}" wx:key="name" url="{{item.url}}" class="grid-item col center flex-1 tap-scale">
-          <!-- 对齐 yuanlu Web 端 GRID_ENTRIES 的 Lucide 图标 -->
-          <view class="grid-icon-wrap center mb-2">
-            <image class="grid-icon" src="{{item.icon}}" mode="aspectFit" />
-          </view>
-          <text class="t-mini text-bold text-secondary">{{item.name}}</text>
-        </navigator>
+    <!-- 学习成果数据看板（1×4：收听分钟/掌握生词/收藏句子/连续打卡） -->
+    <view class="card stats-card mt-4 row">
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.listenMinutes}}</text>
+          <text class="stat-unit">m</text>
+        </view>
+        <text class="stat-label">收听分钟</text>
       </view>
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.wordsLearned}}</text>
+        </view>
+        <text class="stat-label">掌握生词</text>
+      </view>
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.savedSentences}}</text>
+        </view>
+        <text class="stat-label">收藏句子</text>
+      </view>
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.streakDays}}</text>
+          <text class="stat-unit">天</text>
+        </view>
+        <text class="stat-label">连续打卡</text>
+      </view>
+    </view>
+
+    <!-- 学习与记录（Android ProfileScreen MenuCard：仅登录可见） -->
+    <view class="card menu-card mt-4">
+      <text class="menu-title">学习与记录</text>
+      <navigator url="/pages/library/paths/index" class="menu-item row center-v tap-scale">
+        <view class="menu-icon-box menu-icon-box--primary center">
+          <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/school-primary-dark.svg' : '/assets/icons/school-primary.svg'}}" />
+        </view>
+        <text class="menu-label flex-1">学习路径</text>
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </navigator>
+      <navigator url="/pages/library/history/index" class="menu-item row center-v tap-scale">
+        <view class="menu-icon-box menu-icon-box--accent center">
+          <image class="menu-icon" mode="aspectFit" src="/assets/icons/history-accent.svg" />
+        </view>
+        <text class="menu-label flex-1">收听历史</text>
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </navigator>
+      <navigator url="/pages/library/favorites/index" class="menu-item row center-v tap-scale">
+        <view class="menu-icon-box menu-icon-box--accent-deep center">
+          <image class="menu-icon" mode="aspectFit" src="/assets/icons/bookmark-accent-deep.svg" />
+        </view>
+        <text class="menu-label flex-1">我的收藏</text>
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </navigator>
     </view>
   </block>
 
-  <!-- 系统管理列表 -->
-  <view class="card list-card mt-4">
-    <!-- 管理员控制台入口（LayoutDashboard · error-500，对齐 Web mine 页）；/pages/admin 未建，点击提示即将上线 -->
-    <view wx:if="{{isLoggedIn && userInfo.role === 'ADMIN'}}" class="list-item row between tap-scale border-bottom" bindtap="onAdminConsole">
-      <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/computer-error.svg" mode="aspectFit" />
-        <text class="t-body text-bold text-error">控制台</text>
+  <!-- 订阅与系统设置（Android ProfileScreen MenuCard；未登录仅剩外观/帮助两项；项间无分隔线对齐源码） -->
+  <view class="card menu-card mt-4">
+    <text class="menu-title">订阅与系统设置</text>
+
+    <!-- 我的订阅（Android comingSoon 口径；订阅页未建，toast 占位） -->
+    <view wx:if="{{isLoggedIn}}" class="menu-item row center-v tap-scale" bindtap="onSubscribe">
+      <view class="menu-icon-box menu-icon-box--accent center">
+        <image class="menu-icon" mode="aspectFit" src="/assets/icons/credit-card-accent.svg" />
       </view>
-      <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      <text class="menu-label flex-1">我的订阅</text>
+      <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </view>
 
-    <!-- 外观设置（Palette · base-content/60） -->
-    <view class="list-item row between tap-scale border-bottom" bindtap="onAppearance">
-      <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/contrast-ink.svg" mode="aspectFit" />
-        <text class="t-body text-bold">外观设置</text>
+    <!-- 管理员控制台入口（Computer · error，对齐 Web mine 页）；小程序端未建管理后台 -->
+    <block wx:if="{{isLoggedIn && userInfo.role === 'ADMIN'}}">
+      <view class="menu-item row center-v tap-scale" bindtap="onAdminConsole">
+        <view class="menu-icon-box menu-icon-box--error center">
+          <image class="menu-icon" mode="aspectFit" src="/assets/icons/computer-error.svg" />
+        </view>
+        <text class="menu-label flex-1">控制台</text>
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
       </view>
-      <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+    </block>
+
+    <!-- 外观设置（Contrast · tertiary，右侧尾值 = 当前模式，Android trailing 同款） -->
+    <view class="menu-item row center-v tap-scale" bindtap="onAppearance">
+      <view class="menu-icon-box menu-icon-box--tertiary center">
+        <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/contrast-tertiary-dark.svg' : '/assets/icons/contrast-tertiary.svg'}}" />
+      </view>
+      <text class="menu-label flex-1">外观设置</text>
+      <text class="menu-trailing">{{themeLabel}}</text>
+      <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </view>
 
-    <!-- 消息通知（Notifications · ink，对齐 Web NotificationBell 入口） -->
-    <view class="list-item row between tap-scale border-bottom" bindtap="onNotifications">
-      <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/notifications-ink.svg" mode="aspectFit" />
-        <text class="t-body text-bold">消息通知</text>
-      </view>
-      <view class="row center-v">
-        <!-- 未读数角标（对齐 Web HomeNotificationBell：error 底白字，>99 封顶 99+） -->
-        <view wx:if="{{isLoggedIn && unreadCount > 0}}" class="unread-badge center">
+    <!-- 消息通知（Notifications · primary，未读数角标随 onShow 静默刷新） -->
+    <block wx:if="{{isLoggedIn}}">
+      <view class="menu-item row center-v tap-scale" bindtap="onNotifications">
+        <view class="menu-icon-box menu-icon-box--primary center">
+          <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/notifications-primary-dark.svg' : '/assets/icons/notifications-primary.svg'}}" />
+        </view>
+        <text class="menu-label flex-1">消息通知</text>
+        <view wx:if="{{unreadCount > 0}}" class="unread-badge center">
           <text class="unread-badge-text">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
         </view>
-        <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
       </view>
-    </view>
+    </block>
 
-    <!-- 帮助与支持（CircleHelp · base-content/60） -->
-    <navigator url="/pages/contact/index" class="list-item row between tap-scale">
-      <view class="row center-v">
-        <image class="list-icon-img mr-3" src="/assets/icons/help-outline-ink.svg" mode="aspectFit" />
-        <text class="t-body text-bold">帮助与支持</text>
+    <!-- 帮助与支持（HelpOutline · tertiary） -->
+    <navigator url="/pages/contact/index" class="menu-item row center-v tap-scale">
+      <view class="menu-icon-box menu-icon-box--tertiary center">
+        <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/help-outline-tertiary-dark.svg' : '/assets/icons/help-outline-tertiary.svg'}}" />
       </view>
-      <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      <text class="menu-label flex-1">帮助与支持</text>
+      <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </navigator>
   </view>
 

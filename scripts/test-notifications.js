@@ -627,12 +627,43 @@ function bodies(method, p) {
     assert(WXML_MINE.indexOf("unreadCount > 99 ? '99+' : unreadCount") >= 0 &&
       WXML_MINE.indexOf('unread-badge') >= 0,
       '未读角标 99+ 封顶绑定');
-    assert(WXML_MINE.indexOf('notifications-ink.svg') >= 0, '入口 Material 图标引用');
+    assert(WXML_MINE.indexOf('notifications-primary.svg') >= 0 &&
+      WXML_MINE.indexOf('notifications-primary-dark.svg') >= 0,
+      '入口 Material 图标引用（Android primary 着色，深浅双变体）');
+
+    // 分组列表重构（2026-10-01）：两组区块标题 + 完整菜单序 + 需求红线
+    assert(WXML_MINE.indexOf('menu-title">学习与记录') >= 0 &&
+      WXML_MINE.indexOf('menu-title">订阅与系统设置') >= 0,
+      'Android 分组卡双区块标题（订阅与系统设置）');
+    assert(WXML_MINE.indexOf('menu-divider') < 0,
+      '需求红线：分组卡菜单项之间无分隔线（对齐 Android MenuRow 无 divider）');
+    const iStudy = WXML_MINE.indexOf('学习与记录');
+    const iPaths = WXML_MINE.indexOf('学习路径');
+    const iHistory = WXML_MINE.indexOf('收听历史');
+    const iFav = WXML_MINE.indexOf('我的收藏');
+    assert(iStudy >= 0 && iPaths > iStudy && iHistory > iPaths && iFav > iHistory,
+      '学习与记录组内序：学习路径 → 收听历史 → 我的收藏');
+    const iAccount = WXML_MINE.indexOf('订阅与系统设置');
+    const iSub = WXML_MINE.indexOf('我的订阅');
+    const iConsole = WXML_MINE.indexOf('控制台');
+    assert(iAccount >= 0 && iSub > iAccount && iConsole > iSub && iAppearance > iConsole,
+      '订阅与系统设置组内序：我的订阅 → 控制台 → 外观设置');
+    assert(WXML_MINE.indexOf("wx:if=\"{{isLoggedIn && userInfo.role === 'ADMIN'}}\"") >= 0 &&
+      WXML_MINE.indexOf('onAdminConsole') >= 0,
+      '控制台仍为管理员条件渲染 + toast 处理器');
+    assert(WXML_MINE.indexOf('发音弱项本') < 0 && WXML_MINE.indexOf('>个人中心<') < 0,
+      '需求红线：我的页不含「发音弱项本」「个人中心」菜单项');
+    assert(WXML_MINE.indexOf('{{themeLabel}}') >= 0, '外观设置尾值绑定（跟随系统/浅色/深色）');
+    ['stats.listenMinutes', 'stats.wordsLearned', 'stats.savedSentences', 'stats.streakDays']
+      .forEach((k) => assert(WXML_MINE.indexOf('{{' + k + '}}') >= 0, '学习成果四宫格绑定 ' + k));
 
     assert(fs.existsSync(path.join(__dirname, '../assets/icons/notifications-ink.svg')),
-      'notifications-ink.svg 资产在盘');
+      'notifications-ink.svg 资产在盘（通知页空态沿用）');
     const ledger = fs.readFileSync(path.join(__dirname, '../Android-Meterial.md'), 'utf8');
     assert(ledger.indexOf('notifications-ink.svg') >= 0, '图标台账已登记');
+    assert(ledger.indexOf('notifications-primary(-dark).svg') >= 0 &&
+      ledger.indexOf('bookmark-accent-deep.svg') >= 0,
+      '图标台账已登记分组列表批（notifications-primary / bookmark-accent-deep）');
     assert(fs.readFileSync(path.join(__dirname, '../app.json'), 'utf8')
       .indexOf('pages/notifications/index') >= 0, 'app.json 已注册通知页');
   }

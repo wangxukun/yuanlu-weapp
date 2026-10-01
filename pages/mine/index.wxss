@@ -5,9 +5,10 @@
   box-sizing: border-box;
 }
 
+/* Android ProfileScreen 全卡 RoundedCornerShape(24dp) 统一 48rpx */
 .card {
   background-color: var(--card-bg);
-  border-radius: var(--r-xl);
+  border-radius: 48rpx;
   box-shadow: var(--e1);
 }
 
@@ -82,52 +83,113 @@
   color: var(--text-tertiary);
 }
 
-/* ============ 数据轨迹宫格 ============ */
-.grid-card {
-  padding: 32rpx 16rpx;
+/* ============ 学习成果数据看板（1×4） ============ */
+.stats-card {
+  padding: 36rpx 8rpx 32rpx;
 }
 
-.grid-container {
-  justify-content: space-around;
+.stat {
+  min-width: 0;
 }
 
-.grid-item {
-  padding: 16rpx;
+.stat-value-row {
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.grid-icon-wrap {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: var(--r-lg);
+.stat-num {
+  font-size: 38rpx;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
 }
 
-.grid-icon {
-  width: 40rpx;
-  height: 40rpx;
+.stat-unit {
+  margin-left: 2rpx;
+  margin-bottom: 4rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-primary);
 }
 
-/* ============ 系统管理列表 ============ */
-.list-card {
-  overflow: hidden; /* 防止子项 border 超出圆角 */
+.stat-label {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.2;
+  color: var(--text-secondary);
 }
 
-.list-item {
-  padding: 40rpx;
+/* ============ 分组菜单卡（Android MenuCard/MenuRow 复刻） ============ */
+/* MenuCard：Surface(surface, r24dp) → Column padding vertical 8dp */
+.menu-card {
+  padding: 16rpx 0;
 }
 
-.border-bottom {
-  border-bottom: 2rpx solid var(--border-color);
+/* 区块标题：labelMedium 12sp/Medium + onSurfaceVariant，padding h20dp v6dp */
+.menu-title {
+  display: block;
+  padding: 12rpx 40rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
-.list-icon {
-  font-size: 36rpx;
-  opacity: 0.8;
+/* MenuRow：Row padding h20dp v12dp + verticalAlignment.CenterVertically */
+.menu-item {
+  padding: 24rpx 40rpx;
 }
 
-/* 系统管理列表功能图标（对齐 Web lucide w-5 h-5 = 20dp，strokeWidth 1.75） */
-.list-icon-img {
-  width: 40rpx;
-  height: 40rpx;
+/* 图标容器：34dp Box + tint 12% + RoundedCornerShape(10dp) */
+.menu-icon-box {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 20rpx;
+  flex-shrink: 0;
+}
+
+.menu-icon {
+  width: 38rpx;  /* Icon 19dp */
+  height: 38rpx;
+}
+
+/* 标题：bodyLarge 16sp + onSurface，Spacer 14dp */
+.menu-label {
+  margin-left: 28rpx;
+  font-size: 32rpx;
+  color: var(--text-primary);
+}
+
+/* 尾值（外观设置当前模式）：bodySmall 12sp + onSurfaceVariant */
+.menu-trailing {
+  margin-right: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* 行尾箭头：KeyboardArrowRight 24dp + onSurfaceVariant 40% */
+.menu-chevron {
+  width: 48rpx;
+  height: 48rpx;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+/* tint 12% 底色角色（浅色轨默认值；primary/tertiary 深色换深款原色） */
+.menu-icon-box--primary {
+  background: rgba(31, 122, 92, 0.12);
+}
+.menu-icon-box--accent {
+  background: rgba(217, 138, 23, 0.12);
+}
+.menu-icon-box--accent-deep {
+  background: rgba(185, 111, 15, 0.12);
+}
+.menu-icon-box--tertiary {
+  background: rgba(74, 127, 165, 0.12);
+}
+.menu-icon-box--error {
+  background: rgba(210, 80, 63, 0.12);
 }
 
 /* ============ 退出登录 ============ */
@@ -161,6 +223,32 @@
   font-weight: 700;
   color: #ffffff;
   line-height: 1;
+}
+
+/* ---- 深色三段式（媒体查询轨 + 类轨全量重声明；primary/tertiary 换 Color.kt 深款原色） ---- */
+@media (prefers-color-scheme: dark) {
+  .menu-icon-box--primary {
+    background: rgba(77, 169, 137, 0.12);
+  }
+  .menu-icon-box--tertiary {
+    background: rgba(127, 168, 200, 0.12);
+  }
+}
+
+.theme-dark .menu-icon-box--primary {
+  background: rgba(77, 169, 137, 0.12);
+}
+
+.theme-dark .menu-icon-box--tertiary {
+  background: rgba(127, 168, 200, 0.12);
+}
+
+.theme-light .menu-icon-box--primary {
+  background: rgba(31, 122, 92, 0.12);
+}
+
+.theme-light .menu-icon-box--tertiary {
+  background: rgba(74, 127, 165, 0.12);
 }
 
 /* 间距工具 */

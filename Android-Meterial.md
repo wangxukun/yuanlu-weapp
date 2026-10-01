@@ -7,7 +7,8 @@
 > 本清单为 2026-09-27 全量走查的终态台账：全项目 210 处图标引用、252 个图标文件 →
 > 223 个文件（T4.5 批次 +7〔leaderboard-primary 随「最近得分」退役删除〕、Web 口径恢复批 +3）
 > → **235 个（2026-09-28 学习路径批 +12，见第四节）** → **276 个（2026-09-29 个人中心批 +38，见第八节；
-> 较上批记账 235 实有 238——git 跟踪 238，历史批 3 个零头未记账，本批一并校准）**，**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
+> 较上批记账 235 实有 238——git 跟踪 238，历史批 3 个零头未记账，本批一并校准）**
+> → **290 个（2026-10-01 我的页分组列表重构批 +11/−6，见第九节）**，**lucide 图标已 100% 替换**（125 处 SVG 换字形/改名 + 12 处 PNG 重绘 +
 > 1 处重定向去重），退役旧文件 129 个已删除，`npm test` 35 套件全绿。
 > PNG 重绘覆盖：tabBar 4 Tab ×2 态（8 张）+ 我的页宫格 3 张（school/history/bookmark/
 > credit-card 中 history/bookmark/credit-card 沿用文件名）+ 头像 person.png + 激活态 person-active.png。
@@ -26,21 +27,21 @@
 > weapp 底栏为 Web 端结构（主页/发现/复习/我的），Android 为 首页/发现/生词本/我的；
 > 图标字形按 Android 同名 Tab 一一对应，复习 Tab 取 Android 生词本 Feature 图标 MenuBook。
 
-## 二、我的页菜单（pages/mine，对照 Android ProfileScreen.kt）
+## 二、我的页菜单（pages/mine，对照 Android ProfileScreen.kt；2026-10-01 重构为分组列表，见第九节）
 
 | 菜单项 | Android（ProfileScreen.kt 原值） | Material 图标 | weapp 文件 | 状态 |
 |--------|--------------------------------|--------------|-----------|------|
-| 学习路径 | `Icons.Filled.School`（primary） | `school` | `school.png` 64px #1f7a5c | ✅ 已替换（lucide route → School） |
-| 收听历史 | `Icons.Filled.History`（secondary） | `history` | `history.png` 64px #d88916 | ✅ 已替换（lucide history → History） |
-| 我的收藏 | `Icons.Filled.Bookmark`（#B96F0F） | `bookmark` | `bookmark.png` 64px #d88916 | ✅ 已替换（lucide bookmark → Bookmark） |
-| 我的订阅 | `Icons.Filled.CreditCard`（secondary） | `credit_card` | `credit-card.png` 64px #d88916 | ✅ 已替换（lucide credit-card → CreditCard） |
+| 学习路径 | `Icons.Filled.School`（primary） | `school` | `school-primary(-dark).svg` | ✅ 分组列表批（宫格 PNG 退役） |
+| 收听历史 | `Icons.Filled.History`（secondary） | `history` | `history-accent.svg` | ✅ 分组列表批（宫格 PNG 退役） |
+| 我的收藏 | `Icons.Filled.Bookmark`（#B96F0F） | `bookmark` | `bookmark-accent-deep.svg` | ✅ 分组列表批（宫格 PNG 退役；**新后缀 `-accent-deep`=Android 字面值 #b96f0f**，区别于 amber #f59e0b 系） |
+| 我的订阅 | `Icons.Filled.CreditCard`（secondary） | `credit_card` | `credit-card-accent.svg` | ✅ 分组列表批（宫格 PNG 退役） |
 | 控制台（管理员） | `Icons.Filled.Computer`（error） | `computer` | `computer-error.svg` | ✅ 已替换（lucide layout-dashboard → Computer） |
-| 外观设置 | `Icons.Filled.Contrast` | `contrast` | `contrast-ink.svg` | ✅ 已替换（lucide palette → **Contrast，Android 口径**） |
-| 帮助与支持 | `Icons.AutoMirrored.Filled.HelpOutline`（tertiary） | `help_outline` | `help-outline-ink.svg` | ✅ 已替换（lucide circle-help → HelpOutline） |
+| 外观设置 | `Icons.Filled.Contrast`（tertiary） | `contrast` | `contrast-tertiary(-dark).svg` | ✅ 分组列表批（contrast-ink 退役；行尾带模式尾值） |
+| 帮助与支持 | `Icons.AutoMirrored.Filled.HelpOutline`（tertiary） | `help_outline` | `help-outline-tertiary(-dark).svg` | ✅ 分组列表批（help-outline-ink 退役） |
 | 个人中心（头像占位） | `Icons.Filled.Person` / `AccountCircle` | `person` | `person.png` 81px #a69d89 | ✅ 已替换（lucide user → Person） |
-| 行尾箭头 | `Icons.AutoMirrored.Filled.KeyboardArrowRight` | `keyboard_arrow_right` | `keyboard-arrow-right-tertiary(-dark).svg` | ✅ 已替换（原为文字「〉」hack） |
-| 发音弱项本 | Android 菜单项 `Icons.Filled.Mic`（tertiary） | `mic` | 复习 Tab 内 pron-list 页头 `mic-tertiary(-dark).svg` | ✅ 已是 Material（历史批次） |
-| 消息通知 | Android 菜单项 `Icons.Filled.Notifications` | `notifications` | `notifications-ink.svg` #767471 | ✅ 已烘焙（消息通知模块 2026-10-01 落地；v1 命中，全幅矩形过滤通过；深浅同值单变体对齐 help-outline-ink 口径） |
+| 行尾箭头 | `Icons.AutoMirrored.Filled.KeyboardArrowRight` | `keyboard_arrow_right` | `keyboard-arrow-right-tertiary(-dark).svg`（菜单行 opacity .4 = onSurfaceVariant 40%） | ✅ 已替换（原为文字「〉」hack） |
+| 发音弱项本 | Android 菜单项 `Icons.Filled.Mic`（tertiary） | `mic` | 复习 Tab 内 pron-list 页头 `mic-tertiary(-dark).svg`（**weapp 我的页按需求不含此项**） | ✅ 已是 Material（历史批次） |
+| 消息通知 | Android 菜单项 `Icons.Filled.Notifications`（primary） | `notifications` | `notifications-primary(-dark).svg`（菜单行）+ `notifications-ink.svg` #767471（通知页空态） | ✅ 分组列表批换 primary 着色；ink 款保留供通知页空态 |
 
 ## 三、复习中心三 Tab（pages/review/index.js）
 
@@ -402,3 +403,30 @@
 | 四宫格「目标达成」 | `EventAvailable` | event-available-primary(-dark).svg | |
 | 四宫格「连续打卡」 | `LocalFireDepartment` | local-fire-department-primary(-dark).svg | 绿款；accent 橙款既有 |
 | 四宫格「新收生词」 | `Bookmark` | bookmark-primary(-dark).svg | 绿款；tertiary 蓝款既有 |
+
+## 九、我的页分组列表重构批（2026-10-01，+11/−6）
+
+> 复刻源 = yuanlu-android `feature/profile/ProfileScreen.kt` MenuCard/MenuRow：
+> 全卡 r24dp=48rpx、卡内 labelMedium 区块标题、34dp 圆角方形（r10dp）tint 12% 图标底 +
+> 19dp 着色图标、bodyLarge 标题、外观设置尾值（跟随系统/浅色/深色）、onSurfaceVariant 40% 行尾箭头。
+> weapp 结构按需求裁剪：「学习与记录」不含发音弱项本、第二卡（Android 原题「账户与系统设置」，
+> weapp 改题「**订阅与系统设置**」）不含个人中心项（个人资料仍走头部用户卡点击），
+> 另插学习成果 1×4 数据看板（无图标，纯数值）；**项间无分隔线**（MenuRow 源码本无 divider，
+> 初版按需求加细线，后按用户指令取消回归源码口径）。
+> 烘焙驱动 `scripts/tmp-mine-bake-icons.py`（取源逻辑同第七节，直连失败回退 Clash 7891）。
+
+| 菜单项 | Material 图标 | 文件（色） | 备注 |
+|--------|--------------|-----------|------|
+| 学习路径 | `School` | school-primary(-dark).svg | #1f7a5c/#4da989 |
+| 收听历史 | `History` | history-accent.svg | #d98a17 深浅同值 |
+| 我的收藏 | `Bookmark` | bookmark-accent-deep.svg | **新后缀 `-accent-deep`=#b96f0f**（Android Color(0xFFB96F0F) 字面值；区别于 amber #f59e0b/#D97706 系），深浅同值 |
+| 我的订阅 | `CreditCard` | credit-card-accent.svg | #d98a17 |
+| 外观设置 | `Contrast` | contrast-tertiary(-dark).svg | #4a7fa5/#7fa8c8 |
+| 消息通知 | `Notifications` | notifications-primary(-dark).svg | #1f7a5c/#4da989；通知页空态仍用 notifications-ink.svg |
+| 帮助与支持 | `HelpOutline` | help-outline-tertiary(-dark).svg | #4a7fa5/#7fa8c8 |
+| 控制台 | `Computer` | computer-error.svg（复用） | #d2503f |
+
+> 新增缓存源 2 个：contrast / notifications（school/history/bookmark/credit_card/help_outline
+> 缓存既有）；全部 v1 命中，全幅矩形过滤通过。
+> 退役 6 个：school.png / history.png / bookmark.png / credit-card.png（旧宫格）+
+> contrast-ink.svg / help-outline-ink.svg（旧系统列表）。
