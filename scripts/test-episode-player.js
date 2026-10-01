@@ -1171,19 +1171,20 @@ const RELATED = [
     dmState.cached.add('ep1');
     fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
 
-    // ① PC 端（windows）：五项菜单，保存项在发送与删除之间
+    // ① PC 端（windows）：四项菜单——发送项隐藏（shareFileMessage PC 实测不支持）、保存项前移
     global.wx.canIUse = (api) => api === 'saveFileToDisk';
     global.wx.getSystemInfoSync = () => ({ platform: 'windows' });
     dmState.sheets.length = 0;
     page.onDownloadAudio();
     assert(
       dmState.sheets.length === 1 &&
-        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '发送给好友', '保存到电脑', '删除离线缓存']),
-      '⑭ PC 端（windows）→ 五项菜单（保存到电脑插在发送与删除之间）',
+        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '保存到电脑', '删除离线缓存']) &&
+        dmState.sheets[0].itemList.indexOf('发送给好友') === -1,
+      '⑭ PC 端（windows）→ 四项菜单（发送给好友隐藏，保存到电脑为唯一导出通道）',
     );
 
-    // ② tapIndex 3 → saveFileToDisk（缓存路径）+ 成功 toast
-    dmState.sheetResult = 3;
+    // ② tapIndex 2（保存到电脑）→ saveFileToDisk（缓存路径）+ 成功 toast
+    dmState.sheetResult = 2;
     diskCalls.length = 0;
     toasts14.length = 0;
     page.onDownloadAudio();
@@ -1200,14 +1201,14 @@ const RELATED = [
     assert(toasts14.indexOf('保存失败，请稍后重试') !== -1, '⑭ 保存失败 → toast');
     diskFail = null;
 
-    // ④ 删除项仍为末项（tapIndex 4）
-    dmState.sheetResult = 4;
+    // ④ 删除项仍为末项（PC 菜单四项 → tapIndex 3）
+    dmState.sheetResult = 3;
     dmState.removes.length = 0;
     page.onDownloadAudio();
     await tick();
-    assert(dmState.removes.indexOf('ep1') !== -1 && page.data.audioDlState === 'idle', '⑭ PC 菜单删除项 = 末项（tapIndex 4）');
+    assert(dmState.removes.indexOf('ep1') !== -1 && page.data.audioDlState === 'idle', '⑭ PC 菜单删除项 = 末项（tapIndex 3）');
 
-    // ⑤ 移动端（ios）：canIUse 真但 platform 手机 → 四项无保存项（双保险防误报）
+    // ⑤ 移动端（ios）：发送项在、保存项无（saveFileToDisk 手机端不支持，双保险防误报）
     dmState.cached.add('ep1');
     fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
     global.wx.getSystemInfoSync = () => ({ platform: 'ios' });
@@ -1215,17 +1216,20 @@ const RELATED = [
     dmState.sheets.length = 0;
     page.onDownloadAudio();
     assert(
-      dmState.sheets.length === 1 && dmState.sheets[0].itemList.length === 4 &&
-        dmState.sheets[0].itemList.indexOf('保存到电脑') === -1,
-      '⑭ 移动端（canIUse 真但 platform=ios）→ 四项无保存项（platform 双保险）',
+      dmState.sheets.length === 1 &&
+        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '发送给好友', '删除离线缓存']),
+      '⑭ 移动端（ios）→ 四项（发送给好友在、保存到电脑无，platform 双保险）',
     );
 
-    // ⑥ canIUse 假（mac 变体对照）
+    // ⑥ canIUse 假 + mac：双导出通道全关 → 三项
     global.wx.canIUse = () => false;
     global.wx.getSystemInfoSync = () => ({ platform: 'mac' });
     dmState.sheets.length = 0;
     page.onDownloadAudio();
-    assert(dmState.sheets[0].itemList.length === 4, '⑭ canIUse 假 → 四项（canIUse 为第一道闸）');
+    assert(
+      JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '删除离线缓存']),
+      '⑭ mac + canIUse 假 → 三项（双通道全关）',
+    );
 
     // ⑦ 未缓存兜底：补下后保存
     global.wx.canIUse = (api) => api === 'saveFileToDisk';

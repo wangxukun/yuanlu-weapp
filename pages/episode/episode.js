@@ -377,26 +377,35 @@ Page({
       });
   },
 
-  /** 已下载态管理菜单（T3.3 UI 决策：action sheet；T4.1 增「发送给好友」，T4.2 PC 端增「保存到电脑」） */
+  /**
+   * 已下载态管理菜单（T3.3 UI 决策：action sheet）。
+   * 导出通道按平台化（2026-10-01 双端实测定型）：
+   *   手机端（ios/android）→「发送给好友」（shareFileMessage）；
+   *   PC 端（windows/mac）→「保存到电脑」（saveFileToDisk）——shareFileMessage
+   *   在 PC 端小程序实测不支持（canIUse 误报真，调用 fail），故 PC 隐藏发送项。
+   * 动态项用菜单文案映射动作，避免 tapIndex 硬编码错位。
+   */
   _showAudioDlSheet() {
     const episodeid = this.data.episodeid;
     const canDisk = this._canSaveToDisk();
-    const items = ['播放', '重新下载', '发送给好友'];
+    const canShare = this._canShareFile();
+    const items = ['播放', '重新下载'];
+    if (canShare) items.push('发送给好友');
     if (canDisk) items.push('保存到电脑');
     items.push('删除离线缓存');
     wx.showActionSheet({
       itemList: items,
       success: (res) => {
-        const idx = res.tapIndex;
-        if (idx === 0) {
+        const action = items[res.tapIndex];
+        if (action === '播放') {
           this.onStartListening();
-        } else if (idx === 1) {
+        } else if (action === '重新下载') {
           // 缓存命中会短路 download，须先删再下
           downloadManager.remove(episodeid);
           this._downloadAudio();
-        } else if (idx === 2) {
+        } else if (action === '发送给好友') {
           this._shareAudio();
-        } else if (canDisk && idx === 3) {
+        } else if (action === '保存到电脑') {
           this._saveAudioToDisk();
         } else {
           // 删除离线缓存（末项）
@@ -405,6 +414,21 @@ Page({
         }
       },
     });
+  },
+
+  /**
+   * shareFileMessage 可用性（T4.1 平台闸，2026-10-01 修正）：手机端（ios/android）可用，
+   * PC 端（windows/mac）实测不支持——体验版实测 fail（canIUse 误报真，与 saveFileToDisk
+   * 在手机端的误报互为镜像），故 PC 隐藏发送项只留保存到电脑。
+   * 平台信息缺失/异常时保守显示（手机是主力通道，且失败分支已有 toast 兜底）。
+   */
+  _canShareFile() {
+    try {
+      const info = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
+      return info.platform !== 'windows' && info.platform !== 'mac';
+    } catch (e) {
+      return true;
+    }
   },
 
   /**
