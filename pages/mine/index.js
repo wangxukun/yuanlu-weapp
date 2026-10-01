@@ -58,6 +58,11 @@ Page({
     wx.navigateTo({ url: '/pages/profile/index' });
   },
 
+  /** 控制台（仅管理员入口可见）：小程序端未建管理后台，占位提示 */
+  onAdminConsole() {
+    wx.showToast({ title: '控制台功能即将上线', icon: 'none' });
+  },
+
   /** 外观设置 */
   /**
    * 外观设置（对齐 Web next-themes 三模式）：ActionSheet 三选一，
