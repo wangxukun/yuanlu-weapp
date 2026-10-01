@@ -377,24 +377,123 @@ Page({
       });
   },
 
-  /** 已下载态管理菜单（T3.3 UI 决策：action sheet，Android Material 风格） */
+  /** 已下载态管理菜单（T3.3 UI 决策：action sheet；T4.1 增「发送给好友」，T4.2 PC 端增「保存到电脑」） */
   _showAudioDlSheet() {
     const episodeid = this.data.episodeid;
+    const canDisk = this._canSaveToDisk();
+    const items = ['播放', '重新下载', '发送给好友'];
+    if (canDisk) items.push('保存到电脑');
+    items.push('删除离线缓存');
     wx.showActionSheet({
-      itemList: ['播放', '重新下载', '删除离线缓存'],
+      itemList: items,
       success: (res) => {
-        if (res.tapIndex === 0) {
+        const idx = res.tapIndex;
+        if (idx === 0) {
           this.onStartListening();
-        } else if (res.tapIndex === 1) {
+        } else if (idx === 1) {
           // 缓存命中会短路 download，须先删再下
           downloadManager.remove(episodeid);
           this._downloadAudio();
-        } else if (res.tapIndex === 2) {
+        } else if (idx === 2) {
+          this._shareAudio();
+        } else if (canDisk && idx === 3) {
+          this._saveAudioToDisk();
+        } else {
+          // 删除离线缓存（末项）
           downloadManager.remove(episodeid); // removed 事件驱动回 idle
           wx.showToast({ title: '已删除离线缓存', icon: 'none' });
         }
       },
     });
+  },
+
+  /**
+   * saveFileToDisk 可用性（T4.2）：仅 PC 端微信。canIUse 对「已定义但仅 PC 可用」
+   * 的 API 在手机上可能误报真，叠加 platform（windows/mac）双保险；任何异常视为不可用。
+   */
+  _canSaveToDisk() {
+    try {
+      if (!wx.canIUse || !wx.canIUse('saveFileToDisk')) return false;
+      const info = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
+      return info.platform === 'windows' || info.platform === 'mac';
+    } catch (e) {
+      return false;
+    }
+  },
+
+  /**
+   * 保存音频到电脑磁盘（T4.2，仅 PC 端微信；菜单项由 _canSaveToDisk 控制）。
+   * 无 10MB 分享限制（saveFileToDisk 是大文件的导出通道）；未缓存先静默补下
+   * （与 _shareAudio 同兜底）；取消保存静默不算失败。
+   */
+  _saveAudioToDisk() {
+    const episode = this.data.episode;
+    const episodeid = this.data.episodeid;
+    if (!episode || !episodeid) return;
+
+    const save = (filePath) => {
+      wx.saveFileToDisk({
+        filePath,
+        success: () => wx.showToast({ title: '已保存到电脑', icon: 'none' }),
+        fail: (err) => {
+          const msg = (err && err.errMsg) || '';
+          if (msg.indexOf('cancel') === -1) {
+            wx.showToast({ title: '保存失败，请稍后重试', icon: 'none' });
+          }
+        },
+      });
+    };
+
+    const cached = downloadManager.getCachedPath(episodeid);
+    if (cached) {
+      save(cached);
+      return;
+    }
+    wx.showToast({ title: '正在准备文件...', icon: 'none' });
+    downloadManager.download(episode)
+      .then(save)
+      .catch((err) => wx.showToast({ title: (err && err.message) || '文件准备失败', icon: 'none' }));
+  },
+
+  /**
+   * 音频文件导出发送（T4.1）：取离线缓存文件 → wx.shareFileMessage 发给聊天
+   * （好友/文件传输助手由系统分享面板选择）。单文件 ≤10MB 硬限（官方 API 限制，
+   * 附录 B 第 1 条：25 分钟级整集会超限），超限降级文案不发；
+   * 未缓存先经 download-manager 静默补下（菜单打开瞬间被 LRU 驱逐的极端兜底）；
+   * 取消分享（errMsg 含 cancel）不算失败不提示。
+   */
+  _shareAudio() {
+    const episode = this.data.episode;
+    const episodeid = this.data.episodeid;
+    if (!episode || !episodeid) return;
+
+    const share = (filePath) => {
+      const entry = downloadManager.getEntry(episodeid) || {};
+      if ((entry.size || 0) > 10 * 1024 * 1024) {
+        return wx.showToast({ title: '文件较大，暂不支持直接发送', icon: 'none' });
+      }
+      const ext = (filePath.split('.').pop() || 'm4a').toLowerCase();
+      wx.shareFileMessage({
+        filePath,
+        fileName: `${episode.title || '远路播客'}.${ext}`,
+        fail: (err) => {
+          const msg = (err && err.errMsg) || '';
+          if (msg.indexOf('cancel') === -1) {
+            wx.showToast({ title: '发送失败，请稍后重试', icon: 'none' });
+          }
+        },
+      });
+    };
+
+    const cached = downloadManager.getCachedPath(episodeid);
+    if (cached) {
+      share(cached);
+      return;
+    }
+    wx.showToast({ title: '正在准备文件...', icon: 'none' });
+    downloadManager.download(episode)
+      .then(share)
+      .catch((err) => wx.showToast({ title: (err && err.message) || '文件准备失败', icon: 'none' }));
   },
 
   /** 离线缓存事件 → 本页按钮三态（他集事件忽略；cleared 全局收敛） */

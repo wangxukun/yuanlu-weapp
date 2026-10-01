@@ -206,6 +206,11 @@ function touch(episodeid) {
   }
 }
 
+/** 索引条目查询（size/title 等元数据；存在性校验走 getCachedPath。T4.1 分享 10MB 限速用） */
+function getEntry(episodeid) {
+  return loadIndex()[episodeid] || null;
+}
+
 /** 删除单集缓存（文件 + 索引） */
 function remove(episodeid) {
   const idx = loadIndex();
@@ -311,6 +316,7 @@ function setUsageLimit(bytes) {
 module.exports = {
   download,
   getCachedPath,
+  getEntry,
   remove,
   clearAll,
   getUsage,

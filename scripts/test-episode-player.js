@@ -65,6 +65,7 @@ global.wx = {
   showShareMenu: () => {},
   setNavigationBarTitle: () => {},
   showActionSheet: () => {},
+  shareFileMessage: () => {},
   getBackgroundAudioManager: () => bgm,
   request: (opts) => {
     calls.request.push(opts);
@@ -77,7 +78,7 @@ global.Page = (cfg) => (global.__episodeCfg = cfg);
 /* ==================== download-manager 桩（T3.3 页面逻辑测试） ====================
  * 模块本体（真实 fs/downloadFile 语义）由 scripts/test-download-manager.js 42 断言全覆盖；
  * 此处注入 require.cache 桩隔离页面逻辑：事件广播/缓存集/失败模式可控。 */
-const dmState = { cached: new Set(), mode: 'ok', dlCalls: [], removes: [], touches: [], sheets: [], sheetResult: null, subs: [], resolveSlow: null };
+const dmState = { cached: new Set(), mode: 'ok', dlCalls: [], removes: [], touches: [], sheets: [], sheetResult: null, subs: [], resolveSlow: null, entrySize: null };
 const fakeDm = {
   AUDIO_DIR: 'wxfile://usr/audio',
   download(ep) {
@@ -101,6 +102,13 @@ const fakeDm = {
     return Promise.resolve(`wxfile://usr/audio/${ep.episodeid}.m4a`);
   },
   getCachedPath: (id) => (dmState.cached.has(id) ? `wxfile://usr/audio/${id}.m4a` : null),
+  getEntry: (id) => (dmState.cached.has(id)
+    ? {
+        path: `wxfile://usr/audio/${id}.m4a`,
+        size: dmState.entrySize !== null ? dmState.entrySize : 5 * 1024 * 1024,
+        title: 'Episode One',
+      }
+    : null),
   remove(id) {
     dmState.removes.push(id);
     dmState.cached.delete(id);
@@ -826,17 +834,17 @@ const RELATED = [
     assert(toasts11.indexOf('已可离线播放') !== -1, '⑪ 完成提示 toast');
     dmState.mode = 'ok';
 
-    // ② 已下载点击 → 三项管理菜单
+    // ② 已下载点击 → 四项管理菜单（T4.1 增「发送给好友」）
     dmState.sheets.length = 0;
     page.onDownloadAudio();
     assert(
       dmState.sheets.length === 1 &&
-        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '删除离线缓存']),
-      '⑪ 已下载点击 → action sheet 三项（播放/重新下载/删除离线缓存）',
+        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '发送给好友', '删除离线缓存']),
+      '⑪ 已下载点击 → action sheet 四项（播放/重新下载/发送给好友/删除离线缓存）',
     );
 
     // ③ 删除离线缓存
-    dmState.sheetResult = 2;
+    dmState.sheetResult = 3;
     dmState.removes.length = 0;
     toasts11.length = 0;
     page.onDownloadAudio();
@@ -993,6 +1001,249 @@ const RELATED = [
     );
 
     audioManager.close();
+    dmState.cached.clear();
+  }
+
+  section('十三、音频分享导出（DOWNLOAD-TASK T4.1）');
+  {
+    const authStore = require(path.join(__dirname, '../store/authStore')); // 单例延续
+    dmState.cached.clear();
+    dmState.entrySize = null;
+    dmState.mode = 'ok';
+    dmState.sheets.length = 0;
+    dmState.sheetResult = null;
+    dmState.dlCalls.length = 0;
+
+    const shareCalls = [];
+    let shareFail = null; // null 成功 | { errMsg }
+    const rawShare = global.wx.shareFileMessage;
+    global.wx.shareFileMessage = (o) => {
+      shareCalls.push(o);
+      if (shareFail) o.fail && o.fail(shareFail);
+      else o.success && o.success({});
+    };
+    const rawSheet13 = global.wx.showActionSheet; // 十一节末已还原为基桩，本节重新挂录音器
+    global.wx.showActionSheet = (o) => {
+      dmState.sheets.push(o);
+      if (dmState.sheetResult !== null) o.success({ tapIndex: dmState.sheetResult });
+    };
+    const toasts13 = [];
+    const rawToast13 = global.wx.showToast;
+    global.wx.showToast = (o) => toasts13.push(o.title);
+
+    let statusRole = 'PREMIUM';
+    const baseRoutes13 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        opts.success({ statusCode: 200, data: { role: statusRole } });
+        return;
+      }
+      baseRoutes13(opts);
+    };
+
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1' });
+    await tick();
+    await tick();
+    global.wx.setStorageSync('token', 'tk-share');
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-share' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === true, '⑬ 会员态收敛');
+
+    // ① 菜单「发送给好友」→ shareFileMessage（缓存路径 + 标题.ext 文件名）
+    dmState.cached.add('ep1');
+    fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
+    dmState.sheetResult = 2;
+    shareCalls.length = 0;
+    page.onDownloadAudio();
+    assert(
+      shareCalls.length === 1 &&
+        shareCalls[0].filePath === 'wxfile://usr/audio/ep1.m4a' &&
+        shareCalls[0].fileName === 'Episode One.m4a',
+      '⑬ 发送给好友 → shareFileMessage(filePath=缓存路径, fileName=标题.m4a)',
+    );
+
+    // ② 超 10MB 硬限 → 降级文案不发起
+    dmState.entrySize = 11 * 1024 * 1024;
+    shareCalls.length = 0;
+    toasts13.length = 0;
+    page.onDownloadAudio();
+    assert(
+      shareCalls.length === 0 && toasts13.indexOf('文件较大，暂不支持直接发送') !== -1,
+      '⑬ 超 10MB（官方硬限）→ 降级文案，不发起分享',
+    );
+    dmState.entrySize = null;
+
+    // ③ 取消分享 → 静默不算失败
+    shareFail = { errMsg: 'shareFileMessage:fail cancel' };
+    toasts13.length = 0;
+    page.onDownloadAudio();
+    assert(shareCalls.length === 1 && toasts13.length === 0, '⑬ 用户取消 → 静默（不算失败）');
+
+    // ④ 分享失败（非取消）→ toast
+    shareFail = { errMsg: 'shareFileMessage:fail file size exceeds limit' };
+    toasts13.length = 0;
+    page.onDownloadAudio();
+    assert(toasts13.indexOf('发送失败，请稍后重试') !== -1, '⑬ 分享失败（非取消）→ 发送失败 toast');
+    shareFail = null;
+
+    // ⑤ 未缓存兜底：静默补下后分享（菜单打开瞬间被 LRU 驱逐的极端路径）
+    dmState.cached.clear();
+    fakeDm._emit({ type: 'removed', episodeid: 'ep1' });
+    dmState.dlCalls.length = 0;
+    shareCalls.length = 0;
+    toasts13.length = 0;
+    page._shareAudio();
+    await tick();
+    await tick();
+    assert(dmState.dlCalls.length === 1 && shareCalls.length === 1, '⑬ 未缓存 → 先补下再分享（download-manager 兜底）');
+    assert(toasts13.indexOf('正在准备文件...') !== -1, '⑬ 补下前置提示');
+
+    global.wx.shareFileMessage = rawShare;
+    global.wx.showActionSheet = rawSheet13;
+    global.wx.showToast = rawToast13;
+    dmState.cached.clear();
+  }
+
+  section('十四、PC 端保存到电脑（DOWNLOAD-TASK T4.2）');
+  {
+    const authStore = require(path.join(__dirname, '../store/authStore')); // 单例延续
+    dmState.cached.clear();
+    dmState.mode = 'ok';
+    dmState.sheets.length = 0;
+    dmState.sheetResult = null;
+    dmState.dlCalls.length = 0;
+
+    const diskCalls = [];
+    let diskFail = null; // null 成功 | { errMsg }
+    const rawDisk = global.wx.saveFileToDisk;
+    global.wx.saveFileToDisk = (o) => {
+      diskCalls.push(o);
+      if (diskFail) o.fail && o.fail(diskFail);
+      else o.success && o.success({});
+    };
+    const rawCanIUse = global.wx.canIUse;
+    const rawSysInfo = global.wx.getSystemInfoSync;
+    const rawSheet14 = global.wx.showActionSheet;
+    global.wx.showActionSheet = (o) => {
+      dmState.sheets.push(o);
+      if (dmState.sheetResult !== null) o.success({ tapIndex: dmState.sheetResult });
+    };
+    const toasts14 = [];
+    const rawToast14 = global.wx.showToast;
+    global.wx.showToast = (o) => toasts14.push(o.title);
+
+    let statusRole = 'PREMIUM';
+    const baseRoutes14 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        opts.success({ statusCode: 200, data: { role: statusRole } });
+        return;
+      }
+      baseRoutes14(opts);
+    };
+
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1' });
+    await tick();
+    await tick();
+    global.wx.setStorageSync('token', 'tk-disk');
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-disk' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    dmState.cached.add('ep1');
+    fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
+
+    // ① PC 端（windows）：五项菜单，保存项在发送与删除之间
+    global.wx.canIUse = (api) => api === 'saveFileToDisk';
+    global.wx.getSystemInfoSync = () => ({ platform: 'windows' });
+    dmState.sheets.length = 0;
+    page.onDownloadAudio();
+    assert(
+      dmState.sheets.length === 1 &&
+        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '发送给好友', '保存到电脑', '删除离线缓存']),
+      '⑭ PC 端（windows）→ 五项菜单（保存到电脑插在发送与删除之间）',
+    );
+
+    // ② tapIndex 3 → saveFileToDisk（缓存路径）+ 成功 toast
+    dmState.sheetResult = 3;
+    diskCalls.length = 0;
+    toasts14.length = 0;
+    page.onDownloadAudio();
+    assert(diskCalls.length === 1 && diskCalls[0].filePath === 'wxfile://usr/audio/ep1.m4a', '⑭ 保存到电脑 → saveFileToDisk(filePath=缓存路径)');
+    assert(toasts14.indexOf('已保存到电脑') !== -1, '⑭ 保存成功 toast');
+
+    // ③ 取消静默 / 失败 toast
+    diskFail = { errMsg: 'saveFileToDisk:fail cancel' };
+    toasts14.length = 0;
+    page.onDownloadAudio();
+    assert(toasts14.length === 0, '⑭ 取消保存 → 静默');
+    diskFail = { errMsg: 'saveFileToDisk:fail' };
+    page.onDownloadAudio();
+    assert(toasts14.indexOf('保存失败，请稍后重试') !== -1, '⑭ 保存失败 → toast');
+    diskFail = null;
+
+    // ④ 删除项仍为末项（tapIndex 4）
+    dmState.sheetResult = 4;
+    dmState.removes.length = 0;
+    page.onDownloadAudio();
+    await tick();
+    assert(dmState.removes.indexOf('ep1') !== -1 && page.data.audioDlState === 'idle', '⑭ PC 菜单删除项 = 末项（tapIndex 4）');
+
+    // ⑤ 移动端（ios）：canIUse 真但 platform 手机 → 四项无保存项（双保险防误报）
+    dmState.cached.add('ep1');
+    fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
+    global.wx.getSystemInfoSync = () => ({ platform: 'ios' });
+    dmState.sheetResult = null; // 本用例只验菜单构成，不触发选择
+    dmState.sheets.length = 0;
+    page.onDownloadAudio();
+    assert(
+      dmState.sheets.length === 1 && dmState.sheets[0].itemList.length === 4 &&
+        dmState.sheets[0].itemList.indexOf('保存到电脑') === -1,
+      '⑭ 移动端（canIUse 真但 platform=ios）→ 四项无保存项（platform 双保险）',
+    );
+
+    // ⑥ canIUse 假（mac 变体对照）
+    global.wx.canIUse = () => false;
+    global.wx.getSystemInfoSync = () => ({ platform: 'mac' });
+    dmState.sheets.length = 0;
+    page.onDownloadAudio();
+    assert(dmState.sheets[0].itemList.length === 4, '⑭ canIUse 假 → 四项（canIUse 为第一道闸）');
+
+    // ⑦ 未缓存兜底：补下后保存
+    global.wx.canIUse = (api) => api === 'saveFileToDisk';
+    global.wx.getSystemInfoSync = () => ({ platform: 'windows' });
+    dmState.cached.clear();
+    fakeDm._emit({ type: 'removed', episodeid: 'ep1' });
+    dmState.dlCalls.length = 0;
+    diskCalls.length = 0;
+    page._saveAudioToDisk();
+    await tick();
+    await tick();
+    assert(dmState.dlCalls.length === 1 && diskCalls.length === 1, '⑭ 未缓存 → 先补下再保存（与分享同兜底）');
+
+    global.wx.saveFileToDisk = rawDisk;
+    global.wx.canIUse = rawCanIUse;
+    global.wx.getSystemInfoSync = rawSysInfo;
+    global.wx.showActionSheet = rawSheet14;
+    global.wx.showToast = rawToast14;
     dmState.cached.clear();
   }
 
