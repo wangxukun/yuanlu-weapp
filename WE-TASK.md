@@ -9,8 +9,8 @@
   - 状态管理：自研轻量 Store（`store/core.js` 发布-订阅基类），实例有 `authStore` / `playerStore` / `membershipStore`。
   - 网络请求：`utils/request.js` 唯一出口（get/post/put/delete + Bearer token 自动注入 + 401 清 token），`BASE_URL` 由 `utils/config.js` 按 envVersion 自动切换。
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
-  - 测试：`npm test` 31 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook 208 / recorder 34 / eval-card 71 / deck 57 / shadowing 35 / **pron-core 79 + speech-profile-card 98 + diagnostic-report-card 83 + pron-list 74** / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter，共 1786 断言）。
-- **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），WE-TASK 仅保留汇总行，避免双头跟踪。
+  - 测试：`npm test` 42 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook / recorder / eval-card / deck / shadowing / pron-core / speech-profile-card / diagnostic-report-card / pron-list / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter / **transcript-preview 54 + download-manager 42**（下载模块新增）+ history / paths / profile×4 / learning-report / notifications，共约 2954 断言〔2026-10-01 口径〕）。
+- **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），个人中心在 PROFILE-TASK.md，音频/文稿下载在 DOWNLOAD-TASK.md（均本地工作文档不入库），WE-TASK 仅保留汇总行，避免双头跟踪。
 - **图标政策（2026-09-27 用户指令，长期有效）**：今后所有图标**必须使用 Android Material 图标**（参照 yuanlu-android `Icons.Filled.*`，源 = gstatic materialicons 24px）；lucide 已全量退役（125 SVG 换装 + 11 PNG 重绘 + 129 旧文件删除），全量台账与烘焙规范见根目录 [Android-Meterial.md](./Android-Meterial.md)。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略
@@ -85,6 +85,13 @@
 - [ ] 3.E.1 订阅页 `pages/subscription/index`（premium-modal 全部 10 场景 CTA 仍是「即将上线」占位；Web 端 `/subscription` 会员权益对比 + 价格档位复刻）。
 - [ ] 3.E.2 微信虚拟支付接入（合规红线：微信内必须走虚拟支付，爱发电必被拒；个人主体可开通；微信外 H5 暂留爱发电看数据）。
 - [ ] 3.E.3 类目与主体规划（拟用 工具-信息查询；长期迁个体工商户，见记忆「上线合规与虚拟支付」）。
+
+#### 模块 F：音频/文稿下载与离线缓存（✅ 全部完成，2026-10-01；详细清单见本地 DOWNLOAD-TASK.md，五阶段 + 5 提交链）
+- [x] 3.F.1 下载门禁（773e2d2）：premium-modal 补 `episode_audio_download` 场景（Web 逐字）；episode 页接入 membershipStore（`_syncMembership`，不自调订阅接口）；音频/文稿按钮三态门禁（未登录 toast / 非会员弹窗或预览 / 会员直进）；非会员文稿预览弹层 `components/transcript-preview`（PDF 纸张复刻 + 场景卡拦截，CTA/埋点/文案与 premium-modal 单源，经用户两轮指令改版定制）。
+- [x] 3.F.2 文稿 PDF（9951bf9）：`_downloadTranscriptPdf`（wx.downloadFile 手动注入 Bearer——不走 request.js 出口；恒 A5；openDocument showMenu；statusCode 映射后端文案逐字；401 对齐 request.js 清 token 口径；isGeneratingPdf 防抖 + 转圈态）+ `TRANSCRIPT_PDF_DOWNLOAD` 全漏斗埋点（start/success/fail_*，后端白名单已部署，探针 204）。
+- [x] 3.F.3 音频离线缓存（a5e2bda）：`utils/download-manager.js`（签名直链免鉴权头 → downloadFile 10min 显式超时 → `USER_DATA_PATH/audio/{id}.{ext}` 落盘 ext 兜底 m4a；重试 1 次/并发去重/进度事件；LRU 180MB 驱逐线（时钟=lastPlayedAt‖savedAt，预检+落盘双点，keepId 永不驱逐）；索引读穿透 + 脏自愈）；详情页按钮三态（idle/百分比/downloaded + action sheet 播放/重下/删除）；**audioManager 本地优先播放**（命中即播本地零网络 + touch 刷 LRU，惰性 require 兼容旧测试桩）；mine 页「离线缓存」管理行（容量尾值/确认清空/cleared 事件联动按钮复位）。
+- [x] 3.F.4 分享导出双通道（4f07b89 + fd82fd5）：手机端 `shareFileMessage` 发送好友（≤10MB 官方硬限降级文案；25 分钟级整集 ≈11.7MB 会命中）；PC 端 `saveFileToDisk` 保存到电脑（无大小限）；**平台闸互斥**——两 API 在对侧平台 canIUse 均误报真，菜单按 platform 通道化（手机显发送项 / PC 显保存项）；取消静默/未缓存先静默补下。
+- [x] 3.F.5 合规收尾：downloadFile 合法域名备案（wxkzd.com + wxkzd.oss-cn-beijing.aliyuncs.com）；后端三处配套已部署（transcript-preview requireAuth Bearer / track 白名单 / track Bearer 归因）；T5.3 全链路真机回归用户确认通过（含 PC shareFileMessage 不支持的反馈修复 fd82fd5）。**离线能力口径（用户拍板）：「在线到达 → 断网可播」**——断网冷启动受制微信包缓存（平台层）、断网进未加载详情页无数据，均不在能力范围；离线缓存列表页（本地索引进接点播）备选不做。
 
 ### 阶段四：测试与多端适配（未开始）
 - [ ] 4.1 真机调试与鉴权全链路走查（登录/登出/token 过期/游客引导态）。
