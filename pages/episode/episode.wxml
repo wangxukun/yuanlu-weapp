@@ -212,8 +212,11 @@
     </block>
   </scroll-view>
 
-  <!-- 词典/翻译配额超限时的会员转化弹窗（对齐 Web openPremiumModal("dictionary_quota")） -->
-  <premium-modal visible="{{showPremiumModal}}" source="dictionary_quota" bind:close="onPremiumModalClose" />
+  <!-- 非会员文稿预览弹层（T1.4：PDF 纸张复刻 + 会员拦截卡，复刻 Web TranscriptPreviewModal） -->
+  <transcript-preview visible="{{showTranscriptPreview}}" preview="{{transcriptPreview}}" episode="{{episode}}" bind:close="onTranscriptPreviewClose" bind:cta="onTranscriptPreviewCta" />
+
+  <!-- 会员转化弹窗：场景源动态切换（词典配额 dictionary_quota / 下载门禁 episode_audio_download，T1.3） -->
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumModalClose" />
 
   <!-- 跨页迷你播放条：无播放会话时整条不渲染 -->
   <mini-player />

@@ -3,6 +3,7 @@ const { get, post, delete: requestDelete } = require('../../utils/request');
 const authStore = require('../../store/authStore');
 const audioManager = require('../../utils/audioManager');
 const audioBus = require('../../utils/audio-bus');
+const membershipStore = require('../../store/membershipStore');
 
 Page({
   data: {
@@ -43,6 +44,10 @@ Page({
     
     // Auth state for interactions
     isLoggedIn: false,
+
+    // 会员态（DOWNLOAD-TASK T1.2）：membershipStore 唯一事实来源，
+    // 下载/文稿门禁分流（T1.3）与后续阶段共用
+    isPremium: false,
     
     // Translated notes
     translatedDesc: null,
@@ -52,6 +57,12 @@ Page({
 
     // 词典/翻译配额超限时的会员转化弹窗（对齐 Web openPremiumModal("dictionary_quota")）
     showPremiumModal: false,
+    // 弹窗场景源（T1.3：下载门禁复用弹窗，episode_audio_download；词典配额默认场景）
+    premiumSource: 'dictionary_quota',
+
+    // 非会员文稿预览弹层（T1.4：对齐 Web 非会员点文稿 = 预览 5 句 + 拦截卡转化）
+    showTranscriptPreview: false,
+    transcriptPreview: null,
   },
 
   onShow() {
@@ -59,6 +70,8 @@ Page({
       const __t = theme.getState();
       this.setData({ themeClass: __t.rootClass, dark: __t.effective === 'dark' });
       theme.applyChrome();
+      // 会员态重同步（订阅购买返回/登录登出换页返回时收敛）
+      this._syncMembership();
   },
 
   onLoad(query) {
@@ -89,6 +102,7 @@ Page({
     // 页面可能带着既有播放会话进入（迷你条跳转/返回），先同步一次快照
     this.syncPlayerState(audioManager.getState());
 
+    this._syncMembership();
     this.fetchData();
   },
 
@@ -103,6 +117,20 @@ Page({
 
   onPullDownRefresh() {
     this.fetchData().then(() => wx.stopPullDownRefresh());
+  },
+
+  /**
+   * 会员态同步（DOWNLOAD-TASK T1.2）：membershipStore 是唯一事实来源，
+   * 本页不自调订阅状态接口（ai-deep-dive 旧做法不复制）。
+   * role 展示缓存可能滞后（纯移动端付费用户 role 仍是 USER），
+   * ensureFresh 权威校正后收敛；登出/换号由 store→authStore 联动复位，
+   * onShow 重入时重新同步。
+   */
+  _syncMembership() {
+    membershipStore.ensureFresh().then(() => {
+      const { isPremium } = membershipStore.getState();
+      if (isPremium !== this.data.isPremium) this.setData({ isPremium });
+    });
   },
 
   /** 单例回退换集刷新（utils/route.singletonNavigateTo 回退/命中本页实例时
@@ -294,18 +322,61 @@ Page({
     wx.navigateTo({ url: '/pages/speech-eval/index?id=' + this.data.episodeid });
   },
 
+  /** 音频下载门禁（T1.3，对齐 Web handleDownloadAudio :144-185）：
+   *  未登录 → toast（不跳页）；非会员 → premium-modal episode_audio_download；
+   *  会员 → 阶段 3 落地前保留占位 toast。会员态本地先行（T1.2），零 403 兜底。 */
   onDownloadAudio() {
     if (!this.data.isLoggedIn) {
       return wx.showToast({ title: '音频下载仅对会员开放', icon: 'none' });
     }
+    if (!this.data.isPremium) {
+      this.setData({ showPremiumModal: true, premiumSource: 'episode_audio_download' });
+      return;
+    }
     wx.showToast({ title: '音频下载功能即将上线', icon: 'none' });
   },
 
+  /** 文稿下载门禁（T1.4，对齐 Web handleDownloadTranscript :187-252）：
+   *  未登录 → toast；非会员 → 预览弹层（非直接弹会员窗，Web 同源）；
+   *  会员 → 阶段 2 落地前保留占位 toast。 */
   onTranscript() {
     if (!this.data.isLoggedIn) {
       return wx.showToast({ title: '文稿下载仅对会员开放', icon: 'none' });
     }
+    if (!this.data.isPremium) {
+      this._openTranscriptPreview();
+      return;
+    }
     wx.showToast({ title: '文稿弹层功能开发中', icon: 'none' });
+  },
+
+  /**
+   * 拉取非会员文稿预览并开弹层（对齐 Web 非会员分支：GET transcript-preview
+   * 失败静默、弹层照开走「暂无预览数据」空态，不阻断转化路径）
+   */
+  _openTranscriptPreview() {
+    get(`/api/episode/transcript-preview?episodeid=${this.data.episodeid}`, null, { showError: false })
+      .catch(() => null)
+      .then((body) => {
+        this.setData({
+          transcriptPreview: (body && body.data) || null,
+          showTranscriptPreview: true,
+        });
+      });
+  },
+
+  onTranscriptPreviewClose() {
+    this.setData({ showTranscriptPreview: false });
+  },
+
+  /** 预览弹层拦截卡 CTA：Web 关预览跳 /auth/subscribe；小程序订阅页未建，
+   *  关预览 → 拉起 premium-modal 同场景（episode_audio_download）承接转化 */
+  onTranscriptPreviewCta() {
+    this.setData({
+      showTranscriptPreview: false,
+      showPremiumModal: true,
+      premiumSource: 'episode_audio_download',
+    });
   },
 
   onShare() {
@@ -361,7 +432,7 @@ Page({
             icon: 'none',
             duration: 2500,
           });
-          this.setData({ showPremiumModal: true });
+          this.setData({ showPremiumModal: true, premiumSource: 'dictionary_quota' });
         } else {
           // 401「登录已过期」等已由 request 层全局提示，这里兜底其余网络/服务错误
           wx.showToast({ title: (err && err.message) || '翻译请求出错', icon: 'none' });

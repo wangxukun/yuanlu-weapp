@@ -1,0 +1,305 @@
+/* components/transcript-preview — 非会员文稿预览弹层（复刻 Web TranscriptPreviewModal）
+   色板取自 yuanlu tailwind.config.mjs：primary-600 #1F7A5C / primary-50 #EDF7F2 /
+   primary-950 #0A241B / accent-500 #D98A17 / ink-200 #E3DDCF / ink-300 #CFC7B4 / ink-700 #4A4436；
+   纸张为 PDF 复刻恒白（Web bg-white 固定），不随主题（容器先例：premium-modal 自包含浅卡） */
+
+.tp-mask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 15, 20, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 弹层内容超高可滚（Web 弹窗内容在小屏溢出由页面滚动兜底，小程序用 scroll-view 等价） */
+.tp-scroll {
+  width: 600rpx;
+  max-height: 85vh;
+}
+
+.tp-card {
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 24rpx;
+  border: 2rpx solid #e3ddcf;
+  padding: 48rpx 48rpx 40rpx;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.2);
+}
+
+.tp-close {
+  position: absolute;
+  right: 24rpx;
+  top: 24rpx;
+  padding: 16rpx;
+  border-radius: 24rpx;
+  opacity: 0.4;
+  z-index: 2;
+}
+.tp-close-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 徽标：远青浅底 + 星芒 */
+.tp-badge {
+  align-self: flex-start;
+  background-color: #edf7f2;
+  border-radius: 999rpx;
+  padding: 8rpx 24rpx;
+  margin-bottom: 32rpx;
+}
+.tp-badge-icon {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 8rpx;
+}
+.tp-badge-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #1f7a5c;
+}
+
+/* ── PDF 纸张复刻 ── */
+.tp-paper-wrap {
+  position: relative;
+  border-radius: 24rpx;
+  overflow: hidden;
+  margin-bottom: 48rpx;
+  border: 2rpx solid #e3ddcf;
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.08);
+}
+.tp-paper {
+  position: relative;
+  width: 100%;
+  height: 474rpx; /* 宽 504rpx × 595比560（Web aspectRatio 595 / 560） */
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 15rpx 9.4% 42rpx; /* Web pt 3per px 9.4per pb 8.3per */
+  box-sizing: border-box;
+}
+
+/* 页眉 */
+.tp-p-header {
+  margin-bottom: 8rpx;
+}
+.tp-p-brand {
+  font-size: 18rpx;
+  font-weight: 500;
+  color: #003366;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tp-p-ai {
+  font-size: 14rpx;
+  font-weight: 500;
+  color: #666666;
+  margin-left: 16rpx;
+}
+.tp-p-divider {
+  height: 1rpx;
+  background-color: #cfc7b4;
+  margin-bottom: 24rpx;
+}
+
+/* 标题块 + 封面 */
+.tp-p-titleblock {
+  margin-bottom: 8rpx;
+}
+.tp-p-titlecol {
+  flex: 1;
+  min-width: 0;
+  margin-right: 16rpx;
+}
+.tp-p-podcast {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #212121;
+  line-height: 1.35;
+}
+.tp-p-ep {
+  font-size: 19rpx;
+  font-weight: 600;
+  color: #003366;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.tp-p-cover {
+  width: 112rpx;
+  height: 63rpx;
+  border-radius: 8rpx;
+}
+.tp-p-divider-dark {
+  height: 2rpx;
+  background-color: #4a4436;
+  margin: 12rpx 0;
+}
+
+/* 双语句块 */
+.tp-p-body {
+  flex: 1;
+  margin-top: 8rpx;
+  overflow: hidden;
+}
+.tp-p-sub + .tp-p-sub {
+  margin-top: 20rpx;
+}
+.tp-p-en {
+  display: block;
+  font-size: 19rpx;
+  line-height: 1.625;
+  color: #000000;
+  font-family: Roboto, 'Times New Roman', serif;
+}
+.tp-p-cn {
+  display: block;
+  font-size: 16rpx;
+  line-height: 1.625;
+  color: rgba(0, 0, 0, 0.75);
+  margin-top: 4rpx;
+}
+.tp-p-empty {
+  height: 100%;
+}
+.tp-p-empty-text {
+  font-size: 19rpx;
+  color: #999999;
+}
+
+/* 页脚 */
+.tp-p-footer {
+  margin-top: auto;
+  padding-top: 8rpx;
+}
+.tp-p-footer-divider {
+  height: 1rpx;
+  background-color: #cfc7b4;
+  margin-bottom: 8rpx;
+}
+.tp-p-footer-text {
+  font-size: 13rpx;
+  color: #666666;
+}
+
+/* 底部渐隐遮罩（高 2比5，向白色卡片底渐隐） */
+.tp-paper-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40%;
+  background: linear-gradient(to top, #ffffff 15%, rgba(255, 255, 255, 0.85) 55%, rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+/* ── 会员拦截卡 ── */
+.tp-intercept {
+  background: linear-gradient(to right, rgba(46, 143, 111, 0.05), rgba(217, 138, 23, 0.05));
+  border: 2rpx solid rgba(46, 143, 111, 0.1);
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx;
+}
+.tp-crown {
+  width: 80rpx;
+  height: 80rpx;
+  background-color: #1f7a5c;
+  border-radius: 32rpx;
+  box-shadow: 0 8rpx 20rpx rgba(46, 143, 111, 0.3);
+  margin-bottom: 32rpx;
+}
+.tp-crown-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+.tp-int-title {
+  font-size: 36rpx;
+  font-weight: 900;
+  color: #0a241b;
+  margin-bottom: 24rpx;
+}
+.tp-int-desc {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: rgba(74, 68, 54, 0.75);
+  line-height: 1.625;
+  text-align: center;
+  padding: 0 16rpx;
+}
+.tp-int-btns {
+  margin-top: 32rpx;
+}
+.tp-int-cta {
+  height: 88rpx;
+  border-radius: 24rpx;
+  background-color: #1f7a5c;
+  box-shadow: 0 8rpx 24rpx rgba(31, 122, 92, 0.25);
+}
+.tp-int-cta-text {
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+.tp-int-later {
+  height: 88rpx;
+}
+.tp-int-later-text {
+  color: rgba(74, 68, 54, 0.5);
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+/* 动效（Web animate-pulse 等价） */
+@keyframes tp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.tp-pulse {
+  animation: tp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 通用 */
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  flex-direction: row;
+}
+.between {
+  justify-content: space-between;
+}
+.align-center {
+  align-items: center;
+}
+.align-baseline {
+  align-items: baseline;
+}
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tap-scale {
+  transition: transform 0.15s ease;
+}
+.tap-scale:active {
+  transform: scale(0.96);
+}

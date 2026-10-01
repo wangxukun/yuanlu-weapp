@@ -1,0 +1,79 @@
+<view class="tp-mask" wx:if="{{visible}}" catchtap="onClose" catch:touchmove="noop">
+  <scroll-view class="tp-scroll" scroll-y catchtap="noop">
+    <view class="tp-card">
+      <!-- 关闭钮（Web：absolute right-6 top-6） -->
+      <view class="tp-close center tap-scale" bindtap="onClose">
+        <image class="tp-close-icon" src="/assets/icons/close.svg"></image>
+      </view>
+
+      <!-- 徽标：✦ 文稿预览 -->
+      <view class="tp-badge row">
+        <image class="tp-badge-icon tp-pulse" src="/assets/icons/auto-awesome.svg"></image>
+        <text class="tp-badge-text">文稿预览</text>
+      </view>
+
+      <!-- ── PDF 纸张复刻（恒白纸，不随主题） ── -->
+      <view class="tp-paper-wrap">
+        <view class="tp-paper">
+          <!-- 页眉 -->
+          <view class="tp-p-header row between align-baseline">
+            <text class="tp-p-brand ellipsis">远路播客 | {{podcastTitle}}</text>
+            <text class="tp-p-ai flex-shrink-0">AI翻译 仅供参考</text>
+          </view>
+          <view class="tp-p-divider"></view>
+
+          <!-- 标题块 + 封面 -->
+          <view class="tp-p-titleblock row">
+            <view class="tp-p-titlecol col">
+              <text class="tp-p-podcast">{{podcastTitle}}</text>
+              <text class="tp-p-ep">{{episodeTitle}}</text>
+            </view>
+            <image wx:if="{{coverUrl}}" class="tp-p-cover flex-shrink-0" src="{{coverUrl}}" mode="aspectFill"></image>
+          </view>
+          <view class="tp-p-divider-dark"></view>
+
+          <!-- 双语句块（接口最多 5 句） -->
+          <view class="tp-p-body col">
+            <block wx:if="{{subtitles.length > 0}}">
+              <view class="tp-p-sub" wx:for="{{subtitles}}" wx:key="index">
+                <text class="tp-p-en">{{item.textEn}}</text>
+                <text class="tp-p-cn">{{item.textCn}}</text>
+              </view>
+            </block>
+            <view wx:else class="tp-p-empty center">
+              <text class="tp-p-empty-text">暂无预览数据</text>
+            </view>
+          </view>
+
+          <!-- 页脚 -->
+          <view class="tp-p-footer">
+            <view class="tp-p-footer-divider"></view>
+            <view class="row between">
+              <text class="tp-p-footer-text">远路播客    wxkzd.com</text>
+              <text class="tp-p-footer-text">共{{pageCount}}页，第 1 页</text>
+            </view>
+          </view>
+        </view>
+        <!-- 底部渐隐遮罩（Web：h-2/5 gradient to base-100） -->
+        <view class="tp-paper-fade"></view>
+      </view>
+
+      <!-- ── 会员拦截卡（文案与 Web 逐字一致） ── -->
+      <view class="tp-intercept col align-center">
+        <view class="tp-crown center tp-pulse">
+          <image class="tp-crown-icon" src="/assets/icons/workspace-premium-white.svg"></image>
+        </view>
+        <text class="tp-int-title">这里是会员专享内容</text>
+        <text class="tp-int-desc">为了支持网站长期高质量运转，此内容仅向赞助会员开放。如果您喜欢这里的内容，欢迎加入我们的会员社区，享受专属权益。</text>
+        <view class="tp-int-btns col">
+          <view class="tp-int-cta center tap-scale" bindtap="onCta">
+            <text class="tp-int-cta-text">去看看赞助方案</text>
+          </view>
+          <view class="tp-int-later center tap-scale" bindtap="onClose">
+            <text class="tp-int-later-text">暂不需要</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

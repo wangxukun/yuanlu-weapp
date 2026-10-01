@@ -2,7 +2,7 @@
  * scripts/test-premium-modal.js — premium-modal 场景化文案与埋点单测（Node 环境，mock wx + Component）
  *
  * 验证目标（REVIEW-TASK.md T0.3，文案单一数据源 yuanlu/premium-modal-scenarios.ts）：
- *   A. 9 个复习场景 + episode_deep_dive 文案/权益/价格锚点/CTA 解析
+ *   A. 9 个复习场景 + episode_deep_dive + episode_audio_download（下载门禁，T1.1）文案/权益/价格锚点/CTA 解析
  *   B. {var} 占位符插值（pronunciation_locked 的 totalErrors / worstPhoneme、review_eval_quota 的 avgScore/streak）
  *   C. 占位符缺值回退 *Fallback；未知 source 回退 DEFAULT_SCENARIO
  *   D. 打开瞬间上报 PREMIUM_MODAL_OPEN（POST /api/track，静默通道）；同开不重报；关闭复位后可再报
@@ -86,6 +86,21 @@ assert(modal.data.scenario.cta === '解锁完整诊断', 'A diagnostic_report CT
 fire(modal, false, 'episode_deep_dive', null);
 assert(modal.data.scenario.title === 'AI 精讲这集播客', 'A episode_deep_dive 保持不变（剧集页兼容）');
 
+// A2 下载门禁场景（DOWNLOAD-TASK T1.1）：文案与 Web premium-modal-scenarios.ts:272-283 逐字一致
+fire(modal, false, 'episode_audio_download', null);
+s = modal.data.scenario;
+assert(s.title === '音频与文稿下载是会员专属', 'A episode_audio_download 标题逐字');
+assert(s.description === '把整集播客装进口袋，离线精听不受网络限制。', 'A episode_audio_download 正文逐字（全角标点）');
+assert(
+  s.benefits.length === 3 &&
+    s.benefits[0] === '音频无限下载' &&
+    s.benefits[1] === '文稿 PDF 下载' &&
+    s.benefits[2] === '离线精听',
+  'A episode_audio_download 权益 3 项逐字',
+);
+assert(s.priceAnchor === '¥5/7天起 · 低至 ¥0.46/天', 'A episode_audio_download 双价格锚点');
+assert(s.cta === '解锁下载', 'A episode_audio_download CTA');
+
 // —— 场景 B：占位符插值 ——
 fire(modal, true, 'pronunciation_locked', { totalErrors: 7, worstPhoneme: 'θ' });
 s = modal.data.scenario;
@@ -132,6 +147,16 @@ assert(req.url.endsWith('/api/track') && req.method === 'POST', 'D POST /api/tra
 assert(
   req.data.eventType === 'PREMIUM_MODAL_OPEN' && req.data.source === 'vocabulary_daily',
   'D 载荷 {eventType, source}',
+);
+
+// D2 下载门禁场景埋点：source 透传 episode_audio_download（T1.1 验收红线）
+fire(guestModal, false, 'episode_audio_download', null);
+fire(guestModal, true, 'episode_audio_download', null);
+const downloadReq = trackRequests[trackRequests.length - 1];
+assert(
+  downloadReq.data.eventType === 'PREMIUM_MODAL_OPEN' &&
+    downloadReq.data.source === 'episode_audio_download',
+  'D 下载场景埋点携带 episode_audio_download source',
 );
 
 // —— 场景 E：鉴权头注入 ——

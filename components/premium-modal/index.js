@@ -4,7 +4,7 @@
  * 使用：<premium-modal visible="{{show}}" source="vocabulary_total" vars="{{ { totalErrors: 7 } }}" bind:close="onModalClose" />
  *
  * 场景文案逐字移植自 yuanlu/components/subscription/premium-modal-scenarios.ts（单一数据源），
- * 复习模块 9 个 source + episode_deep_dive；价格锚点按 lib/afdian-plans.ts 计算：
+ * 覆盖复习 / 学习报表 / 学习路径 / 剧集页（精讲、音频文稿下载门禁）等场景；价格锚点按 lib/afdian-plans.ts 计算：
  * 周卡 ¥5/7天起、年卡 168/365 低至 ¥0.46/天。
  *
  * 占位符规则与 Web 一致：{var} 由 vars 属性传入，任一占位符缺值回退 *Fallback 文案，
@@ -119,6 +119,14 @@ const SCENARIOS = {
     benefits: ['难点词汇预扫 + 长难句拆解', '本集跟读句推荐', '理解测验即时检验'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '解锁 AI 精讲',
+  },
+  /* 剧集侧权益·音频/文稿下载门禁（DOWNLOAD-TASK T1.1，源 :272-283 逐字） */
+  episode_audio_download: {
+    title: '音频与文稿下载是会员专属',
+    description: '把整集播客装进口袋，离线精听不受网络限制。',
+    benefits: ['音频无限下载', '文稿 PDF 下载', '离线精听'],
+    priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
+    cta: '解锁下载',
   },
 
   /* ---- 学习路径模块（文案逐字移植 Web premium-modal-scenarios.ts） ---- */

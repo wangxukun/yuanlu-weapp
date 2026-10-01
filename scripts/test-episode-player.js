@@ -288,6 +288,240 @@ const RELATED = [
     audioManager.close();
   }
 
+  section('七、membership 会员态接线（DOWNLOAD-TASK T1.2）');
+  {
+    // 静态红线：episode 页统一走 membershipStore，不自调订阅状态接口
+    const pageSrc = fs.readFileSync(path.join(__dirname, '../pages/episode/episode.js'), 'utf8');
+    assert(pageSrc.includes("require('../../store/membershipStore')"), 'episode 页接入 membershipStore（唯一事实来源）');
+    assert(!pageSrc.includes("'/api/user/subscription/status'"), 'episode 页不自调订阅状态接口（ai-deep-dive 旧做法不复制）');
+
+    const authStore = require(path.join(__dirname, '../store/authStore'));
+    const membershipStore = require(path.join(__dirname, '../store/membershipStore'));
+    let statusCalls = 0;
+    const baseRoutes = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        statusCalls += 1;
+        opts.success({ statusCode: 200, data: { role: 'PREMIUM' } });
+        return;
+      }
+      baseRoutes(opts);
+    };
+
+    // 未登录：isPremium 恒 false，且不发起权威校正请求
+    const guestPage = createPage(pageConfig);
+    guestPage.onLoad({ id: 'ep1' });
+    await tick();
+    await tick();
+    assert(guestPage.data.isPremium === false, '未登录 → isPremium=false');
+    assert(statusCalls === 0, '未登录不发起 subscription/status（ensureFresh 登录前置短路）');
+
+    // 纯移动端付费用户：本地 role 展示缓存滞后 USER，经 membershipStore 权威校正收敛 PREMIUM
+    membershipStore.init(); // 生产由 app.js onLaunch 调用（订阅 authStore 联动）
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-premium' });
+    await tick(); // deriveLocal 乐观判定（USER→false）+ 后台 ensureFresh 发起校正
+    guestPage.onShow(); // 页面侧同步（onLoad/onShow 双挂点）
+    await tick();
+    await tick();
+    await tick();
+    assert(guestPage.data.isPremium === true, 'role 滞后 USER 的付费用户 → ensureFresh 权威校正收敛 isPremium=true');
+    assert(statusCalls >= 1, '校正经 membershipStore 发起（页面不绕过事实来源）');
+
+    // 登出联动：store 复位（authStore→deriveLocal），onShow 重入同步回 false
+    authStore.setState({ isLoggedIn: false, userInfo: null, token: '' });
+    await tick();
+    guestPage.onShow();
+    await tick();
+    assert(guestPage.data.isPremium === false, '登出 → isPremium 复位 false（onShow 重同步）');
+  }
+
+  section('八、下载门禁三态分流（DOWNLOAD-TASK T1.3）');
+  {
+    const authStore = require(path.join(__dirname, '../store/authStore')); // 单例：状态延续七节
+
+    // 静态接线：premium-modal 场景源改为动态绑定（下载门禁与词典配额共用弹窗）
+    const wxml = fs.readFileSync(path.join(__dirname, '../pages/episode/episode.wxml'), 'utf8');
+    assert(wxml.includes('source="{{premiumSource}}"'), 'WXML premium-modal source 动态绑定 premiumSource');
+
+    // toast 记录器
+    const toasts = [];
+    const rawShowToast = global.wx.showToast;
+    global.wx.showToast = (o) => toasts.push(o.title);
+
+    // subscription/status 角色可变（七节固定 PREMIUM，本节按用例切换）
+    let statusRole = 'USER';
+    const baseRoutes2 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+      '/api/dictionary/youdao': { statusCode: 403, data: { code: 'DICTIONARY_QUOTA_EXCEEDED', message: '今日免费词典查询已用完' } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        opts.success({ statusCode: 200, data: { role: statusRole } });
+        return;
+      }
+      baseRoutes2(opts);
+    };
+
+    // ① 未登录：toast 不跳页、不开弹窗（Web useEpisodeSummarize 口径）
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1' });
+    await tick();
+    await tick();
+    toasts.length = 0;
+    page.onDownloadAudio();
+    page.onTranscript();
+    assert(toasts[0] === '音频下载仅对会员开放' && toasts[1] === '文稿下载仅对会员开放', '① 未登录 → 音频/文稿各弹会员限定 toast（Web 文案逐字）');
+    assert(page.data.showPremiumModal === false, '① 未登录不拉起会员弹窗');
+
+    // ② 非会员（登录 + 权威校正 USER）：premium-modal + episode_audio_download 场景
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-user' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === false, '② 非会员态收敛（校正 USER）');
+    toasts.length = 0;
+    page.onDownloadAudio();
+    assert(page.data.showPremiumModal === true && page.data.premiumSource === 'episode_audio_download', '② 非会员点音频 → 弹窗开启 + 场景 episode_audio_download（埋点 source）');
+    page.onPremiumModalClose();
+    assert(page.data.showPremiumModal === false, '② 弹窗关闭复位');
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(page.data.showTranscriptPreview === true && page.data.showPremiumModal === false, '② 非会员点文稿 → 预览弹层承接（T1.4，非直接弹会员窗，Web 口径）');
+    page.onTranscriptPreviewClose();
+
+    // ③ 词典配额路径回归：source 复位 dictionary_quota，不被下载场景残留污染
+    page.onPremiumModalClose();
+    await page.translateText('hello');
+    await tick();
+    assert(page.data.showPremiumModal === true && page.data.premiumSource === 'dictionary_quota', '③ 词典配额超限 → 弹窗场景复位 dictionary_quota（不残留下载场景）');
+
+    // ④ 会员：占位 toast 不弹窗（阶段 2/3 落地前的既定占位）
+    page.onPremiumModalClose();
+    statusRole = 'PREMIUM';
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-member' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === true, '④ 会员态收敛（role 滞后 USER + 订阅表 PREMIUM）');
+    toasts.length = 0;
+    page.onDownloadAudio();
+    page.onTranscript();
+    assert(toasts[0] === '音频下载功能即将上线' && toasts[1] === '文稿弹层功能开发中', '④ 会员 → 两按钮占位 toast（阶段 2/3 替换为真实实现）');
+    assert(page.data.showPremiumModal === false, '④ 会员不触发会员弹窗（本地会员态先行，服务端 403 兜底零触发）');
+
+    global.wx.showToast = rawShowToast;
+  }
+
+  section('九、非会员文稿预览全链路（DOWNLOAD-TASK T1.4）');
+  {
+    const authStore = require(path.join(__dirname, '../store/authStore')); // 单例延续
+    let statusRole = 'USER';
+    let previewMode = 'ok';
+    const previewCalls = [];
+    const PREVIEW_BODY = {
+      success: true,
+      data: {
+        podcastTitle: 'Test Podcast',
+        episodeTitle: 'Episode One',
+        coverUrl: 'https://oss/cover1',
+        subtitles: [
+          { textEn: 'Hello world.', textCn: '[SPEAKER_1]: 你好，世界。' },
+          { textEn: 'Second line.', textCn: '[SPEAKER_2]: 第二行。' },
+        ],
+        totalSubtitles: 20,
+      },
+    };
+    const baseRoutes3 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        opts.success({ statusCode: 200, data: { role: statusRole } });
+        return;
+      }
+      if (opts.url.includes('/api/episode/transcript-preview')) {
+        previewCalls.push(opts);
+        opts.success(
+          previewMode === 'fail'
+            ? { statusCode: 500, data: { success: false } }
+            : { statusCode: 200, data: PREVIEW_BODY },
+        );
+        return;
+      }
+      baseRoutes3(opts);
+    };
+
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1' }); // 未登录进入
+    await tick();
+    await tick();
+    statusRole = 'USER';
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-user' });
+    global.wx.setStorageSync('token', 'tk-user'); // 真实登录两处同步：store + storage（请求层读 storage 注 Bearer）
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === false, '⑨ 非会员态收敛（校正 USER）');
+
+    previewCalls.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(previewCalls.length === 1, '⑨ 非会员点文稿 → 拉取 transcript-preview（一次）');
+    assert(previewCalls[0].header.Authorization === 'Bearer tk-user', '⑨ 请求携带 Bearer（配合后端 requireAuth 兼容）');
+    assert(page.data.showTranscriptPreview === true && page.data.showPremiumModal === false, '⑨ 预览弹层开启且不弹会员窗');
+    const pv = page.data.transcriptPreview;
+    assert(pv && pv.totalSubtitles === 20 && pv.subtitles.length === 2, '⑨ 预览数据透传（2 句 + total 20，组件内做映射/剥离/页数）');
+
+    page.onTranscriptPreviewCta();
+    assert(
+      page.data.showTranscriptPreview === false &&
+        page.data.showPremiumModal === true &&
+        page.data.premiumSource === 'episode_audio_download',
+      '⑨ 拦截卡 CTA → 预览关 + 会员弹窗同场景（Web 跳订阅页的 weapp 等价承接）',
+    );
+    page.onPremiumModalClose();
+    assert(page.data.showTranscriptPreview === false && page.data.showPremiumModal === false, '⑨ 关闭复位');
+
+    previewMode = 'fail';
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(page.data.showTranscriptPreview === true && page.data.transcriptPreview === null, '⑨ 接口失败 → 弹层照开走空态（Web 静默降级口径）');
+    page.onTranscriptPreviewClose();
+
+    statusRole = 'PREMIUM';
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-member' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === true, '⑨ 会员态收敛');
+    previewCalls.length = 0;
+    page.onTranscript();
+    await tick();
+    assert(previewCalls.length === 0 && page.data.showTranscriptPreview === false, '⑨ 会员点文稿 → 不拉预览（占位保留，阶段 2 接管）');
+  }
+
   /* ==================== 汇总 ==================== */
 
   console.log(`\n========== 剧集页播放测试：${passed} 通过 / ${failed} 失败 ==========`);
