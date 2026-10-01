@@ -709,6 +709,12 @@ const WXML_REVIEW = fs.readFileSync(
       .includes('<quota-card\n        wx:if="{{stats.total > 0 && !isPremium}}"'),
       '空态与会员/管理员均隐藏配额卡（stats.total===0 空仪表盘口径；isPremium=PREMIUM|ADMIN 无限额度不渲染 PRO 卡）');
     assert(WXML_NOTEBOOK.includes('premiumTitle="PRO 无限收藏 · 已收 {{stats.total}} 词"'), 'PRO 态文案逐字');
+    // 配额卡与「学习中/已掌握」筛选栏粘连修复红线：宿主节点块级化 + 24rpx 下边距
+    //（组件 host 默认 inline 纵向 margin 失效；不选 .vn-controls 加 margin-top——会员隐藏
+    //  配额卡后前块已带 mb24，叠加会成 48rpx 双倍距）
+    const nbCssQuota = fs.readFileSync('components/review/vocab-notebook/index.wxss', 'utf8');
+    assert(/^quota-card \{\s*display: block;\s*margin-bottom: 24rpx;/m.test(nbCssQuota.replace(/\r\n/g, '\n')),
+      'quota-card 宿主块级化 + margin-bottom 24rpx（与 vn-stats/banner/allclear 块距同源）');
     assert(WXML_NOTEBOOK.includes('<premium-modal'), 'notebook：premium-modal 挂载（TTS 配额墙）');
     assert(WXML_NOTEBOOK.includes('根据遗忘曲线'), '复习横幅文案');
     assert(WXML_NOTEBOOK.includes('暂无收藏生词'), '全局空态文案');

@@ -194,6 +194,15 @@
   text-align: center;
 }
 
+/* ── 配额卡宿主节点：自定义组件 host 默认 inline、纵向 margin 失效 → 块级化
+   + 下边距，与 vn-stats/vn-banner/vn-allclear 的 24rpx 块距同源（与「学习中/已掌握」
+   筛选栏粘连修复；会员隐藏时整卡不渲染零副作用——句子本同场景走 .sn-panel
+   自带 margin-top 先例，此处前块已带 mb 故不重复加 mt 叠成双倍距） ── */
+quota-card {
+  display: block;
+  margin-bottom: 24rpx;
+}
+
 /* ── 全局空态 ── */
 .vn-empty {
   align-items: center;
