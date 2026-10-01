@@ -778,6 +778,7 @@ async function driveAttach(opts) {
     WXML.includes('dailyLabel="今日复习评测"'), 'quota-card 挂载 + 双栏标题逐字');
   assert(WXML.includes('premiumTitle="PRO 无限收藏 · 已收 {{stats.sentenceCount}} 句"') &&
     WXML.includes('premiumSubtitle="容量不设限，复习评测也不限次"'), 'PRO 无限态文案逐字');
+  assert(WXML.includes('wx:if="{{!isPremium}}"'), '会员/管理员隐藏配额卡（isPremium=PREMIUM|ADMIN 无限额度不渲染 PRO 卡）');
   assert(WXML.includes('primaryLimit="{{sentenceLimit}}"') &&
     WXML.includes('dailyLimit="{{evalQuota.limit}}"'), '双栏 limit 绑定（30 / 动态日池）');
   assert(WXML.includes('卡片复习已就绪'), '横幅标题逐字');

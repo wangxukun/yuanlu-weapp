@@ -58,8 +58,11 @@
           </view>
         </view>
 
-        <!-- ══ 3. 配额双栏卡（Web QuotaStatusCard 复用；文案由 quotaTexts 拼装）══ -->
+        <!-- ══ 3. 配额双栏卡（Web QuotaStatusCard 复用；文案由 quotaTexts 拼装；
+             会员/管理员（isPremium = PREMIUM|ADMIN，membershipStore 权威口径）已是
+             无限额度，PRO 卡对其无信息量 → 整卡隐藏）══ -->
         <quota-card
+          wx:if="{{!isPremium}}"
           isPremium="{{isPremium}}"
           premiumTitle="PRO 无限收藏 · 已收 {{stats.sentenceCount}} 句"
           premiumSubtitle="容量不设限，复习评测也不限次"

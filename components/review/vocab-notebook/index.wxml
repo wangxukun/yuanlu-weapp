@@ -56,9 +56,11 @@
         </view>
       </block>
 
-      <!-- ══ 3. 配额双栏卡（全局空态隐藏，避免全 0 空仪表盘——与统计三格同口径） ══ -->
+      <!-- ══ 3. 配额双栏卡（全局空态隐藏，避免全 0 空仪表盘——与统计三格同口径；
+           会员/管理员（isPremium = PREMIUM|ADMIN，membershipStore 权威口径）已是
+           无限额度，PRO 卡对其无信息量 → 整卡隐藏） ══ -->
       <quota-card
-        wx:if="{{stats.total > 0}}"
+        wx:if="{{stats.total > 0 && !isPremium}}"
         isPremium="{{isPremium}}"
         premiumTitle="PRO 无限收藏 · 已收 {{stats.total}} 词"
         premiumSubtitle="容量不设限，每日新增也不限"

@@ -191,9 +191,14 @@ function fireObserver(inst, key, value) {
 
 /* ==================== 用例数据 ==================== */
 
-const NOW = new Date('2026-09-23T04:00:00.000Z'); // 12:00 北京时间
-const PAST = '2026-09-20T00:00:00.000Z'; // 已到期
-const FUTURE = '2026-10-01T00:00:00.000Z'; // 未到期
+const NOW = new Date('2026-09-23T04:00:00.000Z'); // 12:00 北京时间（todayAddedCount 纯逻辑参考钟，与固定 addedDate 夹具配套）
+const PAST = '2026-09-20T00:00:00.000Z'; // 已到期（久远固定值，永不翻转）
+// isDue/deriveStats/buildDueQueue/decorateItem 走真实时钟——「未到期」夹具必须相对
+// now 动态构造，硬编码未来日期会在跨天后翻转为到期（test-srs.js 同款坑，先例见
+// WE-TASK 3.A.8「未来日期」改动态构造）。
+const FUTURE_DATE = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+const FUTURE = FUTURE_DATE.toISOString(); // 未到期（now + 7 天）
+const FUTURE_MD = FUTURE_DATE.getMonth() + 1 + '/' + FUTURE_DATE.getDate(); // formatDate 本地时区 M/D 期望值
 
 function makeItem(id, extra) {
   return Object.assign(
@@ -375,7 +380,7 @@ const WXML_REVIEW = fs.readFileSync(
   {
     const d = vocabCore.decorateItem(RICH);
     assert(d.due === false && d.mastered === false, 'RICH：未到期未掌握');
-    assert(d.dateText === '10/1', 'RICH：日期徽章 = formatDate');
+    assert(d.dateText === FUTURE_MD, 'RICH：日期徽章 = formatDate');
     assert(d.defText === '有弹性的；能快速恢复的', 'defText：definitions[0].meaning_cn 优先');
     assert(d.phonetic === '/rɪˈzɪliənt/', 'phonetic：us 优先');
     assert(d.playUrl === 'https://dict/us-resilient.mp3', 'playUrl：audio_urls.us 优先');
@@ -701,8 +706,8 @@ const WXML_REVIEW = fs.readFileSync(
   {
     assert(WXML_NOTEBOOK.includes('<quota-card'), 'notebook：quota-card 配额卡挂载');
     assert(WXML_NOTEBOOK.replace(/\r\n/g, '\n')
-      .includes('<quota-card\n        wx:if="{{stats.total > 0}}"'),
-      '空态隐藏配额卡（stats.total===0 不渲染「生词本容量/今日收藏生词」，与统计三格同口径）');
+      .includes('<quota-card\n        wx:if="{{stats.total > 0 && !isPremium}}"'),
+      '空态与会员/管理员均隐藏配额卡（stats.total===0 空仪表盘口径；isPremium=PREMIUM|ADMIN 无限额度不渲染 PRO 卡）');
     assert(WXML_NOTEBOOK.includes('premiumTitle="PRO 无限收藏 · 已收 {{stats.total}} 词"'), 'PRO 态文案逐字');
     assert(WXML_NOTEBOOK.includes('<premium-modal'), 'notebook：premium-modal 挂载（TTS 配额墙）');
     assert(WXML_NOTEBOOK.includes('根据遗忘曲线'), '复习横幅文案');
