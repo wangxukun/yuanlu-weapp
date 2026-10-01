@@ -406,21 +406,36 @@ const RELATED = [
     await tick();
     assert(page.data.showPremiumModal === true && page.data.premiumSource === 'dictionary_quota', '③ 词典配额超限 → 弹窗场景复位 dictionary_quota（不残留下载场景）');
 
-    // ④ 会员：占位 toast 不弹窗（阶段 2/3 落地前的既定占位）
+    // ④ 会员：音频占位保留（阶段 3 替换）；文稿已接真实 PDF 链路（T2.1，详测见第十节）
     page.onPremiumModalClose();
     statusRole = 'PREMIUM';
     authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-member' });
+    global.wx.setStorageSync('token', 'tk-member');
     await tick();
     page.onShow();
     await tick();
     await tick();
     await tick();
     assert(page.data.isPremium === true, '④ 会员态收敛（role 滞后 USER + 订阅表 PREMIUM）');
+    let dlCalled8 = false;
+    const rawDl8 = global.wx.downloadFile;
+    const rawOd8 = global.wx.openDocument;
+    global.wx.downloadFile = (opts) => {
+      dlCalled8 = true;
+      opts.success && opts.success({ statusCode: 200, tempFilePath: 'wxfile://tp8.pdf' });
+      opts.complete && opts.complete();
+    };
+    global.wx.openDocument = () => {};
     toasts.length = 0;
     page.onDownloadAudio();
     page.onTranscript();
-    assert(toasts[0] === '音频下载功能即将上线' && toasts[1] === '文稿弹层功能开发中', '④ 会员 → 两按钮占位 toast（阶段 2/3 替换为真实实现）');
+    await tick();
+    await tick();
+    assert(toasts[0] === '音频下载功能即将上线', '④ 会员点音频 → 占位 toast 保留（阶段 3 替换为离线缓存）');
+    assert(dlCalled8 === true, '④ 会员点文稿 → 直进 PDF 下载链路（占位已退役）');
     assert(page.data.showPremiumModal === false, '④ 会员不触发会员弹窗（本地会员态先行，服务端 403 兜底零触发）');
+    global.wx.downloadFile = rawDl8;
+    global.wx.openDocument = rawOd8;
 
     global.wx.showToast = rawShowToast;
   }
@@ -491,15 +506,12 @@ const RELATED = [
     const pv = page.data.transcriptPreview;
     assert(pv && pv.totalSubtitles === 20 && pv.subtitles.length === 2, '⑨ 预览数据透传（2 句 + total 20，组件内做映射/剥离/页数）');
 
-    page.onTranscriptPreviewCta();
-    assert(
-      page.data.showTranscriptPreview === false &&
-        page.data.showPremiumModal === true &&
-        page.data.premiumSource === 'episode_audio_download',
-      '⑨ 拦截卡 CTA → 预览关 + 会员弹窗同场景（Web 跳订阅页的 weapp 等价承接）',
-    );
-    page.onPremiumModalClose();
+    page.onTranscriptPreviewClose();
     assert(page.data.showTranscriptPreview === false && page.data.showPremiumModal === false, '⑨ 关闭复位');
+    // CTA 行为已内置组件（关弹层 + 占位 toast + PREMIUM_MODAL_OPEN 埋点，premium-modal.onCta 同款），
+    // 页面不再做 premium-modal 二次弹窗接线
+    const epSrc = fs.readFileSync(path.join(__dirname, '../pages/episode/episode.js'), 'utf8');
+    assert(!epSrc.includes('onTranscriptPreviewCta'), '⑦⑨ CTA 承接内置组件（页面无二次弹窗接线）');
 
     previewMode = 'fail';
     page.onTranscript();
@@ -510,16 +522,185 @@ const RELATED = [
 
     statusRole = 'PREMIUM';
     authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-member' });
+    global.wx.setStorageSync('token', 'tk-member');
     await tick();
     page.onShow();
     await tick();
     await tick();
     await tick();
     assert(page.data.isPremium === true, '⑨ 会员态收敛');
+    let dlCalled9 = false;
+    global.wx.downloadFile = (opts) => {
+      dlCalled9 = true;
+      opts.success && opts.success({ statusCode: 200, tempFilePath: 'wxfile://tp9.pdf' });
+      opts.complete && opts.complete();
+    };
+    global.wx.openDocument = () => {};
     previewCalls.length = 0;
     page.onTranscript();
     await tick();
-    assert(previewCalls.length === 0 && page.data.showTranscriptPreview === false, '⑨ 会员点文稿 → 不拉预览（占位保留，阶段 2 接管）');
+    await tick();
+    assert(
+      previewCalls.length === 0 && page.data.showTranscriptPreview === false && dlCalled9 === true,
+      '⑨ 会员点文稿 → 不拉预览，直进 PDF 链路（T2.1）',
+    );
+    global.wx.downloadFile = undefined;
+    global.wx.openDocument = undefined;
+  }
+
+  section('十、会员文稿 PDF 下载与打开（DOWNLOAD-TASK T2.1）');
+  {
+    const authStore = require(path.join(__dirname, '../store/authStore')); // 单例延续
+    const { BASE_URL } = require(path.join(__dirname, '../utils/config'));
+
+    // wx.downloadFile / wx.openDocument mock（harness 原无，本节挂载用后还原）
+    const dl = { calls: [], status: 200, netfail: false, openfail: false, hang: false };
+    const docs = [];
+    const toasts2 = [];
+    const rawDownloadFile = global.wx.downloadFile;
+    const rawOpenDocument = global.wx.openDocument;
+    const rawToast2 = global.wx.showToast;
+    global.wx.downloadFile = (opts) => {
+      dl.calls.push(opts);
+      if (dl.hang) return; // 挂起不回调（防抖用例）
+      if (dl.netfail) {
+        opts.fail && opts.fail({ errMsg: 'downloadFile:fail' });
+        opts.complete && opts.complete();
+        return;
+      }
+      opts.success && opts.success({ statusCode: dl.status, tempFilePath: `wxfile://tmp-t${dl.status}.pdf` });
+      opts.complete && opts.complete();
+    };
+    global.wx.openDocument = (opts) => {
+      docs.push(opts);
+      if (dl.openfail) opts.fail && opts.fail({ errMsg: 'openDocument:fail' });
+      else opts.success && opts.success({});
+    };
+    global.wx.showToast = (o) => toasts2.push(o.title);
+
+    let statusRole = 'PREMIUM';
+    const trackPosts = [];
+    const baseRoutes4 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        opts.success({ statusCode: 200, data: { role: statusRole } });
+        return;
+      }
+      if (opts.url.includes('/api/track')) {
+        trackPosts.push(opts.data);
+        opts.success({ statusCode: 204 });
+        return;
+      }
+      baseRoutes4(opts);
+    };
+
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1' });
+    await tick();
+    await tick();
+    global.wx.setStorageSync('token', 'tk-pdf');
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-pdf' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === true, '⑩ 会员态收敛');
+
+    // 正常链路：downloadFile → openDocument
+    dl.calls.length = 0; docs.length = 0; toasts2.length = 0; trackPosts.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(dl.calls.length === 1, '⑩ 会员点文稿 → downloadFile 一次');
+    assert(
+      dl.calls[0].url === `${BASE_URL}/api/episode/transcript-pdf?episodeid=ep1&format=A5`,
+      '⑩ URL = BASE_URL + transcript-pdf + 恒 A5（Web 手机口径）',
+    );
+    assert(dl.calls[0].header.Authorization === 'Bearer tk-pdf', '⑩ 鉴权接口手动携带 Bearer（downloadFile 不走 request.js）');
+    assert(
+      docs.length === 1 && docs[0].fileType === 'pdf' && docs[0].showMenu === true && docs[0].filePath === 'wxfile://tmp-t200.pdf',
+      '⑩ openDocument pdf + showMenu（右上角转发/保存入口）',
+    );
+    assert(toasts2.indexOf('正在生成文稿 PDF，请稍候...') !== -1, '⑩ 生成中 toast（Web 文案逐字）');
+    assert(toasts2.indexOf('文稿已打开') !== -1, '⑩ 打开成功 toast（小程序语境定稿「文稿已打开」，附录 A 注意栏）');
+    assert(page.data.isGeneratingPdf === false, '⑩ 在途标记复位');
+    const tStart = trackPosts.find((t) => t.eventType === 'TRANSCRIPT_PDF_DOWNLOAD' && t.source === 'start');
+    const tSuccess = trackPosts.find((t) => t.eventType === 'TRANSCRIPT_PDF_DOWNLOAD' && t.source === 'success');
+    assert(!!tStart && tStart.metadata.episodeid === 'ep1', '⑩ 埋点 start（metadata 带 episodeid）');
+    assert(!!tSuccess && tSuccess.metadata.episodeid === 'ep1', '⑩ 埋点 success（下载漏斗闭环）');
+
+    // 404：后端文案
+    dl.status = 404; toasts2.length = 0; docs.length = 0; trackPosts.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(toasts2[toasts2.length - 1] === '未找到字幕数据，无法生成文稿' && docs.length === 0, '⑩ 404 → 未找到字幕数据（后端 route 文案逐字），不打开');
+    assert(trackPosts.some((t) => t.eventType === 'TRANSCRIPT_PDF_DOWNLOAD' && t.source === 'fail_404'), '⑩ 埋点 fail_404');
+
+    // 403：权限兜底
+    dl.status = 403; toasts2.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(toasts2[toasts2.length - 1] === '权限不足，需要高级会员权限', '⑩ 403 → 权限不足，需要高级会员权限（服务端兜底文案）');
+
+    // 5xx：Web 兜底文案
+    dl.status = 500; toasts2.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(toasts2[toasts2.length - 1] === '文稿生成失败', '⑩ 5xx → 文稿生成失败（Web 兜底文案）');
+
+    // 网络失败
+    dl.status = 200; dl.netfail = true; toasts2.length = 0; trackPosts.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(toasts2[toasts2.length - 1] === '文稿下载失败，请稍后重试', '⑩ 网络失败 → 文稿下载失败，请稍后重试（Web 文案逐字）');
+    assert(trackPosts.some((t) => t.eventType === 'TRANSCRIPT_PDF_DOWNLOAD' && t.source === 'fail_network'), '⑩ 埋点 fail_network');
+    dl.netfail = false;
+
+    // 在途双击防抖
+    dl.hang = true; dl.calls.length = 0;
+    page.onTranscript();
+    page.onTranscript();
+    assert(dl.calls.length === 1, '⑩ 在途双击防抖（isGeneratingPdf 把门，不重复下载）');
+    dl.calls[0].complete && dl.calls[0].complete(); // 手动结束挂起请求复位标记
+    dl.hang = false;
+    assert(page.data.isGeneratingPdf === false, '⑩ 防抖复位');
+
+    // 401：对齐 request.js 全局口径（清 token + 重登提示）
+    global.wx.setStorageSync('token', 'tk-pdf');
+    dl.status = 401; toasts2.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(toasts2.indexOf('登录已过期，请重新登录') !== -1, '⑩ 401 → 重登提示（对齐 request.js 全局口径）');
+    assert(global.wx.getStorageSync('token') === '', '⑩ 401 → 本地 token 已清除');
+
+    // openDocument 失败兜底
+    dl.status = 200; dl.openfail = true; toasts2.length = 0; docs.length = 0; trackPosts.length = 0;
+    page.onTranscript();
+    await tick();
+    await tick();
+    assert(docs.length === 1 && toasts2[toasts2.length - 1] === '文稿打开失败', '⑩ openDocument 失败 → 文稿打开失败兜底');
+    assert(trackPosts.some((t) => t.eventType === 'TRANSCRIPT_PDF_DOWNLOAD' && t.source === 'fail_open'), '⑩ 埋点 fail_open');
+
+    // 转圈态静态接线（T2.2：对齐 Web isGeneratingPdf ? Loader2 : FileDown + disabled:opacity-50）
+    const wxml10 = fs.readFileSync(path.join(__dirname, '../pages/episode/episode.wxml'), 'utf8');
+    assert(wxml10.includes('wx:if="{{isGeneratingPdf}}"') && wxml10.includes('loading-spinner-sm'), '⑩ 文稿按钮生成中 → loading-spinner-sm 替换图标（Web Loader2 转圈等价）');
+    assert(wxml10.includes('opacity: {{isGeneratingPdf ? 0.5 : 1}}'), '⑩ 生成中按钮半透明置灰（Web disabled:opacity-50 等价）');
+
+    // 还原 mock
+    global.wx.downloadFile = rawDownloadFile;
+    global.wx.openDocument = rawOpenDocument;
+    global.wx.showToast = rawToast2;
   }
 
   /* ==================== 汇总 ==================== */

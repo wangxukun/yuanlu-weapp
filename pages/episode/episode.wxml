@@ -95,8 +95,9 @@
         <view class="action-box center col tap-scale" bindtap="onDownloadAudio">
           <image class="icon-sm text-secondary" src="/assets/icons/download.svg"></image>
         </view>
-        <view class="action-box center col tap-scale" bindtap="onTranscript">
-          <image class="icon-sm text-secondary" src="/assets/icons/description.svg"></image>
+        <view class="action-box center col tap-scale" bindtap="onTranscript" style="opacity: {{isGeneratingPdf ? 0.5 : 1}};">
+          <view class="loading-spinner-sm" wx:if="{{isGeneratingPdf}}"></view>
+          <image class="icon-sm text-secondary" src="/assets/icons/description.svg" wx:else></image>
         </view>
         <view class="action-box center col tap-scale" bindtap="onToggleFavorite" style="opacity: {{isFavoriteBusy ? 0.5 : 1}};">
           <image class="icon-sm" src="{{isFavorited ? '/assets/icons/bookmark.svg' : '/assets/icons/bookmark-border.svg'}}"></image>
@@ -212,8 +213,8 @@
     </block>
   </scroll-view>
 
-  <!-- 非会员文稿预览弹层（T1.4：PDF 纸张复刻 + 会员拦截卡，复刻 Web TranscriptPreviewModal） -->
-  <transcript-preview visible="{{showTranscriptPreview}}" preview="{{transcriptPreview}}" episode="{{episode}}" bind:close="onTranscriptPreviewClose" bind:cta="onTranscriptPreviewCta" />
+  <!-- 非会员文稿预览弹层（T1.4：PDF 纸张复刻 + premium-modal 场景拦截卡，CTA 行为组件内置） -->
+  <transcript-preview visible="{{showTranscriptPreview}}" preview="{{transcriptPreview}}" episode="{{episode}}" bind:close="onTranscriptPreviewClose" />
 
   <!-- 会员转化弹窗：场景源动态切换（词典配额 dictionary_quota / 下载门禁 episode_audio_download，T1.3） -->
   <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumModalClose" />

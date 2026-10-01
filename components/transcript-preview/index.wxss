@@ -1,7 +1,11 @@
 /* components/transcript-preview — 非会员文稿预览弹层（复刻 Web TranscriptPreviewModal）
    色板取自 yuanlu tailwind.config.mjs：primary-600 #1F7A5C / primary-50 #EDF7F2 /
    primary-950 #0A241B / accent-500 #D98A17 / ink-200 #E3DDCF / ink-300 #CFC7B4 / ink-700 #4A4436；
-   纸张为 PDF 复刻恒白（Web bg-white 固定），不随主题（容器先例：premium-modal 自包含浅卡） */
+   纸张为 PDF 复刻恒白（Web bg-white 固定），不随主题（容器先例：premium-modal 自包含浅卡）；
+   下半拦截卡 = premium-modal 场景卡原样复用（2026-10-01 用户指令改版）：
+   pm-* 类经 @import 引入保证视觉零漂移，数据/埋点/CTA 逻辑单源见 index.js */
+
+@import "../premium-modal/index.wxss";
 
 .tp-mask {
   position: fixed;
@@ -195,61 +199,10 @@
   pointer-events: none;
 }
 
-/* ── 会员拦截卡 ── */
+/* ── 会员拦截卡：pm-* 类全部来自上方 @import（premium-modal 场景卡原样），
+      此处仅保留占位容器类，便于 WXML 语义分节 ── */
 .tp-intercept {
-  background: linear-gradient(to right, rgba(46, 143, 111, 0.05), rgba(217, 138, 23, 0.05));
-  border: 2rpx solid rgba(46, 143, 111, 0.1);
-  border-radius: 32rpx;
-  padding: 48rpx 40rpx;
-}
-.tp-crown {
-  width: 80rpx;
-  height: 80rpx;
-  background-color: #1f7a5c;
-  border-radius: 32rpx;
-  box-shadow: 0 8rpx 20rpx rgba(46, 143, 111, 0.3);
-  margin-bottom: 32rpx;
-}
-.tp-crown-icon {
-  width: 40rpx;
-  height: 40rpx;
-}
-.tp-int-title {
-  font-size: 36rpx;
-  font-weight: 900;
-  color: #0a241b;
-  margin-bottom: 24rpx;
-}
-.tp-int-desc {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: rgba(74, 68, 54, 0.75);
-  line-height: 1.625;
-  text-align: center;
-  padding: 0 16rpx;
-}
-.tp-int-btns {
-  margin-top: 32rpx;
-}
-.tp-int-cta {
-  height: 88rpx;
-  border-radius: 24rpx;
-  background-color: #1f7a5c;
-  box-shadow: 0 8rpx 24rpx rgba(31, 122, 92, 0.25);
-}
-.tp-int-cta-text {
-  color: #ffffff;
-  font-size: 24rpx;
-  font-weight: 700;
-  letter-spacing: 2rpx;
-}
-.tp-int-later {
-  height: 88rpx;
-}
-.tp-int-later-text {
-  color: rgba(74, 68, 54, 0.5);
-  font-size: 24rpx;
-  font-weight: 700;
+  display: block;
 }
 
 /* 动效（Web animate-pulse 等价） */

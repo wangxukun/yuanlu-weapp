@@ -241,3 +241,9 @@ Component({
     },
   },
 });
+
+/**
+ * 场景数据单源导出：供同源场景消费方复用（transcript-preview 拦截卡
+ * 直接取 episode_audio_download 场景，与弹窗本体同数据同改）。
+ */
+module.exports.getScenario = (source) => SCENARIOS[source] || DEFAULT_SCENARIO;

@@ -1,13 +1,17 @@
 /**
- * scripts/test-transcript-preview.js — 非会员文稿预览弹层单测（Node 环境，mock Component）
+ * scripts/test-transcript-preview.js — 非会员文稿预览弹层单测（Node 环境，mock wx + Component）
  *
- * 验证目标（DOWNLOAD-TASK T1.4，复刻源 yuanlu TranscriptPreviewModal.tsx）：
+ * 验证目标（DOWNLOAD-TASK T1.4，复刻源 yuanlu TranscriptPreviewModal.tsx；
+ * 拦截卡 2026-10-01 改版 = premium-modal episode_audio_download 场景卡）：
  *   A. preview 数据映射：podcastTitle/episodeTitle/coverUrl/subtitles/页数公式
  *   B. 兜底链：preview 为 null 时回退 episode 字段（Web ?: 链逐级对齐）
  *   C. 页数公式：max(1, 1 + ceil(max(0, total - 8) / 12))
  *   D. 说话人标记剥离：[SPEAKER_n]: 前缀清除（与 Web replace 同式）
- *   E. 事件：close / cta 透传（页面拉起 premium-modal 的接线依据）
- *   F. WXML 静态：与 Web 逐字文案关键串
+ *   E. 事件：close 透传；CTA 内置（关弹层 + 占位 toast，不再由页面二次弹会员窗）
+ *   F. WXML/WXSS 静态：与 Web 逐字文案关键串 + pm-* 场景卡结构与 @import 单源
+ *   G. 拦截卡数据：episode_audio_download 场景基线的文稿专属裁剪（标题/去描述/权益仅文稿行），
+ *      priceAnchor/cta 仍单源跟随场景，premium-modal 弹窗本体不受影响
+ *   H. 触墙埋点红线：打开瞬间 PREMIUM_MODAL_OPEN(episode_audio_download)，同开不重报、关复位可再报
  *
  * 运行：node scripts/test-transcript-preview.js
  */
@@ -15,7 +19,25 @@
 const fs = require('fs');
 const path = require('path');
 
-global.wx = {}; // 组件不触 wx API，占位防 require 链异常
+const toasts = [];
+const trackRequests = [];
+
+global.wx = {
+  getStorageSync() {
+    return '';
+  },
+  setStorageSync() {},
+  getAccountInfoSync() {
+    return { miniProgram: { envVersion: 'develop' } };
+  },
+  showToast(o) {
+    toasts.push(o.title);
+  },
+  request(opts) {
+    trackRequests.push(opts);
+    opts.success && opts.success({ statusCode: 204 });
+  },
+};
 
 let componentDef = null;
 global.Component = (cfg) => {
@@ -23,6 +45,8 @@ global.Component = (cfg) => {
 };
 
 require('../components/transcript-preview');
+// 注：transcript-preview 顶部 require premium-modal（取 getScenario 单源），
+// 其 Component() 先注册后被覆盖，最终 componentDef 为被测组件本体
 
 let failed = 0;
 let passed = 0;
@@ -52,6 +76,9 @@ function makeInstance() {
 }
 function fire(inst, preview, episode) {
   componentDef.observers['preview, episode'].call(inst, preview, episode);
+}
+function fireVisible(inst, visible) {
+  componentDef.observers.visible.call(inst, visible);
 }
 
 // —— A. preview 数据映射 ——
@@ -101,13 +128,53 @@ cases.forEach(([total, expect]) => {
 fire(modal, { subtitles: [], totalSubtitles: 5 }, null);
 assert(modal.data.subtitles.length === 0 && modal.data.pageCount === 1, 'D 空字幕 → 空态（暂无预览数据）');
 
-// —— E. 事件透传 ——
+// —— E. 事件与内置 CTA ——
 modal.events.length = 0;
 modal.onClose();
+assert(modal.events[0] === 'close', 'E close 事件透传');
+toasts.length = 0;
 modal.onCta();
-assert(modal.events[0] === 'close' && modal.events[1] === 'cta', 'E close/cta 事件透传（页面接线依据）');
+assert(modal.events[1] === 'close', 'E CTA → 关弹层（close 事件，对齐 premium-modal.onCta）');
+assert(toasts[0] === '订阅功能即将上线', 'E CTA → 占位 toast（订阅页落地后同步切真路由）');
 
-// —— F. WXML 静态文案（与 Web 逐字） ——
+// —— G. 拦截卡数据（场景基线的文稿专属裁剪，用户指令 2026-10-01 精减） ——
+const itc = modal.data.intercept;
+assert(itc.title === '文稿下载是会员专属', 'G 拦截卡标题改为文稿语境');
+assert(itc.description === '', 'G 拦截卡描述已去除（空串 + WXML 条件渲染）');
+assert(
+  Array.isArray(itc.benefits) && itc.benefits.length === 1 && itc.benefits[0] === '文稿 PDF 下载',
+  'G 拦截卡权益仅剩「文稿 PDF 下载」一行',
+);
+assert(
+  itc.benefits.indexOf('音频无限下载') === -1 && itc.benefits.indexOf('离线精听') === -1,
+  'G 音频无限下载/离线精听两行已去除',
+);
+const { getScenario } = require('../components/premium-modal/index');
+const baseScenario = getScenario('episode_audio_download');
+assert(itc.priceAnchor === baseScenario.priceAnchor && itc.priceAnchor === '¥5/7天起 · 低至 ¥0.46/天', 'G 价格锚点仍单源跟随场景');
+assert(itc.cta === baseScenario.cta && itc.cta === '解锁下载', 'G CTA 仍单源跟随场景');
+// premium-modal 弹窗本体不受裁剪影响（音频按钮触墙仍是完整场景卡）
+assert(baseScenario.title === '音频与文稿下载是会员专属' && baseScenario.benefits.length === 3, 'G premium-modal 场景本体不受影响');
+
+// —— H. 触墙埋点红线（打开瞬间上报/同开不重报/关复位可再报） ——
+trackRequests.length = 0;
+const trkModal = makeInstance();
+fireVisible(trkModal, false);
+assert(trackRequests.length === 0, 'H 关闭态不埋点');
+fireVisible(trkModal, true);
+assert(trackRequests.length === 1, 'H 打开瞬间上报一次');
+fireVisible(trkModal, true);
+assert(trackRequests.length === 1, 'H 同开不重复上报');
+fireVisible(trkModal, false);
+fireVisible(trkModal, true);
+assert(trackRequests.length === 2, 'H 关闭复位后再次打开可再报');
+const trk = trackRequests[1];
+assert(
+  trk.data.eventType === 'PREMIUM_MODAL_OPEN' && trk.data.source === 'episode_audio_download',
+  'H 载荷 {eventType: PREMIUM_MODAL_OPEN, source: episode_audio_download}',
+);
+
+// —— F. WXML/WXSS 静态（逐字文案 + 场景卡结构 + 样式单源） ——
 const wxml = fs.readFileSync(path.join(__dirname, '../components/transcript-preview/index.wxml'), 'utf8');
 [
   '文稿预览',
@@ -115,11 +182,19 @@ const wxml = fs.readFileSync(path.join(__dirname, '../components/transcript-prev
   '暂无预览数据',
   '远路播客    wxkzd.com',
   '共{{pageCount}}页，第 1 页',
-  '这里是会员专享内容',
-  '为了支持网站长期高质量运转，此内容仅向赞助会员开放。如果您喜欢这里的内容，欢迎加入我们的会员社区，享受专属权益。',
-  '去看看赞助方案',
-  '暂不需要',
+  '{{intercept.title}}',
+  'wx:if="{{intercept.description}}"',
+  'wx:for="{{intercept.benefits}}"',
+  '{{intercept.priceAnchor}}',
+  '{{intercept.cta}}',
+  '暂不开通',
+  'pm-icon-circle',
+  'pm-benefit-row',
+  'pm-cta',
 ].forEach((frag) => assert(wxml.includes(frag), `F WXML 含 ${frag}`));
+const wxss = fs.readFileSync(path.join(__dirname, '../components/transcript-preview/index.wxss'), 'utf8');
+assert(wxss.includes('@import "../premium-modal/index.wxss"'), 'F WXSS @import premium-modal（拦截卡样式单源零漂移）');
+assert(!wxss.includes('.tp-crown') && !wxss.includes('.tp-int-cta'), 'F 旧版拦截卡样式已退役');
 
 console.log('----------------------------------------');
 if (failed === 0) {

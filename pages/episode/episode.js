@@ -1,5 +1,7 @@
 const theme = require('../../utils/theme');
 const { get, post, delete: requestDelete } = require('../../utils/request');
+const { BASE_URL } = require('../../utils/config');
+const { trackEvent } = require('../../utils/track');
 const authStore = require('../../store/authStore');
 const audioManager = require('../../utils/audioManager');
 const audioBus = require('../../utils/audio-bus');
@@ -63,6 +65,9 @@ Page({
     // 非会员文稿预览弹层（T1.4：对齐 Web 非会员点文稿 = 预览 5 句 + 拦截卡转化）
     showTranscriptPreview: false,
     transcriptPreview: null,
+
+    // 会员文稿 PDF 在途标记（T2.1：在途双击防抖；T2.2 补按钮视觉态）
+    isGeneratingPdf: false,
   },
 
   onShow() {
@@ -338,7 +343,7 @@ Page({
 
   /** 文稿下载门禁（T1.4，对齐 Web handleDownloadTranscript :187-252）：
    *  未登录 → toast；非会员 → 预览弹层（非直接弹会员窗，Web 同源）；
-   *  会员 → 阶段 2 落地前保留占位 toast。 */
+   *  会员 → PDF 下载与打开（T2.1）。 */
   onTranscript() {
     if (!this.data.isLoggedIn) {
       return wx.showToast({ title: '文稿下载仅对会员开放', icon: 'none' });
@@ -347,7 +352,64 @@ Page({
       this._openTranscriptPreview();
       return;
     }
-    wx.showToast({ title: '文稿弹层功能开发中', icon: 'none' });
+    this._downloadTranscriptPdf();
+  },
+
+  /**
+   * 会员文稿 PDF 下载与打开（T2.1，对齐 Web handleDownloadTranscript 会员分支 :216-241）。
+   * transcript-pdf 是鉴权接口，wx.downloadFile 不走 request.js 出口 → 手动注入 Bearer；
+   * 恒 A5（Web 以 innerWidth<768 判手机，小程序恒手机口径）；成功 → openDocument
+   * （showMenu 开右上角转发/保存，iOS 可存「文件」App）。
+   * 非 2xx 的错误体是 JSON 流、downloadFile 不便解析，按 statusCode 映射后端
+   * route 既有文案（与 Web 展示的服务端 error 逐字一致）；401 对齐 request.js
+   * 全局口径（清 token + 重登提示）。
+   */
+  _downloadTranscriptPdf() {
+    if (this.data.isGeneratingPdf) return; // 在途双击防抖
+    this.setData({ isGeneratingPdf: true });
+    wx.showToast({ title: '正在生成文稿 PDF，请稍候...', icon: 'none' });
+    trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'start', { episodeid: this.data.episodeid });
+
+    const token = authStore.getState().token || wx.getStorageSync('token') || '';
+    wx.downloadFile({
+      url: `${BASE_URL}/api/episode/transcript-pdf?episodeid=${this.data.episodeid}&format=A5`,
+      header: { Authorization: `Bearer ${token}` },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'success', { episodeid: this.data.episodeid });
+          wx.openDocument({
+            filePath: res.tempFilePath,
+            fileType: 'pdf',
+            showMenu: true,
+            success: () => wx.showToast({ title: '文稿已打开', icon: 'none' }),
+            fail: () => {
+              trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'fail_open', { episodeid: this.data.episodeid });
+              wx.showToast({ title: '文稿打开失败', icon: 'none' });
+            },
+          });
+        } else if (res.statusCode === 401) {
+          trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'fail_401', { episodeid: this.data.episodeid });
+          wx.removeStorageSync('token');
+          wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
+        } else if (res.statusCode === 403) {
+          trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'fail_403', { episodeid: this.data.episodeid });
+          wx.showToast({ title: '权限不足，需要高级会员权限', icon: 'none' });
+        } else if (res.statusCode === 404) {
+          trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'fail_404', { episodeid: this.data.episodeid });
+          wx.showToast({ title: '未找到字幕数据，无法生成文稿', icon: 'none' });
+        } else {
+          trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'fail_server', { episodeid: this.data.episodeid });
+          wx.showToast({ title: '文稿生成失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        trackEvent('TRANSCRIPT_PDF_DOWNLOAD', 'fail_network', { episodeid: this.data.episodeid });
+        wx.showToast({ title: '文稿下载失败，请稍后重试', icon: 'none' });
+      },
+      complete: () => {
+        this.setData({ isGeneratingPdf: false });
+      },
+    });
   },
 
   /**
@@ -367,16 +429,6 @@ Page({
 
   onTranscriptPreviewClose() {
     this.setData({ showTranscriptPreview: false });
-  },
-
-  /** 预览弹层拦截卡 CTA：Web 关预览跳 /auth/subscribe；小程序订阅页未建，
-   *  关预览 → 拉起 premium-modal 同场景（episode_audio_download）承接转化 */
-  onTranscriptPreviewCta() {
-    this.setData({
-      showTranscriptPreview: false,
-      showPremiumModal: true,
-      premiumSource: 'episode_audio_download',
-    });
   },
 
   onShare() {

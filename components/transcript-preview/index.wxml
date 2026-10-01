@@ -58,20 +58,30 @@
         <view class="tp-paper-fade"></view>
       </view>
 
-      <!-- ── 会员拦截卡（文案与 Web 逐字一致） ── -->
-      <view class="tp-intercept col align-center">
-        <view class="tp-crown center tp-pulse">
-          <image class="tp-crown-icon" src="/assets/icons/workspace-premium-white.svg"></image>
+      <!-- ── 会员拦截卡（premium-modal episode_audio_download 场景卡，样式 @import 复用 pm-* 类，数据单源 getScenario） ── -->
+      <view class="tp-intercept">
+        <view class="pm-header center col">
+          <view class="pm-icon-circle center">
+            <image class="pm-icon" src="/assets/icons/auto-awesome.svg"></image>
+          </view>
+          <text class="pm-title">{{intercept.title}}</text>
+          <text class="pm-desc" wx:if="{{intercept.description}}">{{intercept.description}}</text>
         </view>
-        <text class="tp-int-title">这里是会员专享内容</text>
-        <text class="tp-int-desc">为了支持网站长期高质量运转，此内容仅向赞助会员开放。如果您喜欢这里的内容，欢迎加入我们的会员社区，享受专属权益。</text>
-        <view class="tp-int-btns col">
-          <view class="tp-int-cta center tap-scale" bindtap="onCta">
-            <text class="tp-int-cta-text">去看看赞助方案</text>
+
+        <view class="pm-benefits col">
+          <view class="pm-benefit-row row" wx:for="{{intercept.benefits}}" wx:key="*this">
+            <image class="pm-benefit-icon" src="/assets/icons/check-circle.svg"></image>
+            <text class="pm-benefit-text">{{item}}</text>
           </view>
-          <view class="tp-int-later center tap-scale" bindtap="onClose">
-            <text class="tp-int-later-text">暂不需要</text>
-          </view>
+        </view>
+
+        <text class="pm-price">{{intercept.priceAnchor}}</text>
+
+        <view class="pm-cta center tap-scale" bindtap="onCta">
+          <text class="pm-cta-text">{{intercept.cta}}</text>
+        </view>
+        <view class="pm-later center" bindtap="onClose">
+          <text class="pm-later-text">暂不开通</text>
         </view>
       </view>
     </view>

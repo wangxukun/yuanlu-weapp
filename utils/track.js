@@ -7,7 +7,8 @@
  * - 任何失败静默吞掉（对齐 Web fetch().catch(() => {})）
  *
  * eventType 白名单由后端 CONVERSION_EVENT_TYPES 执法
- * （当前客户端使用：PREMIUM_MODAL_OPEN / TRIAL_REACHED）。
+ * （当前客户端使用：PREMIUM_MODAL_OPEN / TRIAL_REACHED / TRANSCRIPT_PDF_DOWNLOAD——
+ *  后者 source: start 发起 / success 成功 / fail_* 各失败分支，T2.2）。
  */
 const { BASE_URL } = require('./config');
 
