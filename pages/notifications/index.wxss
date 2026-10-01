@@ -1,0 +1,374 @@
+/**
+ * pages/notifications/index.wxss — 消息通知
+ *
+ * 复刻 Web 端 NotificationsClient.tsx + NotificationBell.tsx 组合：
+ *   - 通知卡：bg-base-100 + rounded-xl(24rpx) + 1px base-200 描边（=--card-bg/
+ *     --border-color 令牌），行间 divide-y 细分隔；
+ *   - 类型 Tab：激活 primary 实底胶囊（primary-600 + primary-content），
+ *     未激活 base-content 70%（=--text-secondary）；横向滚动六段；
+ *   - 操作行：「N 条未读」primary-50 底胶囊 + 「全部已读」primary 文字钮
+ *     （对齐 NotificationBell 面板头）；
+ *   - 通知行：未读 primary 5% 底色 / 已读 75% 透明（Web 同款双态）；第一行
+ *     类型徽章（daisy badge 语义色映射项目令牌，浅色 12% 底）+ 相对时间 +
+ *     未读 error 红点 8rpx；
+ *   - 空态：notifications-ink 图标 128rpx 40% 透明 + 「暂无(此类)通知记录」。
+ *
+ * 徽章色为页面局部变量三段式声明（媒体查询平类 + .theme-dark/.theme-light
+ * 全量重声明——组件双轨规范）；正文其余色走全局令牌自动双态。
+ * 顶部导航（返回 + 标题）由原生导航栏提供。
+ */
+
+.notif-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 32rpx 0;
+  background: var(--page-bg);
+
+  /* ===== 徽章语义色（浅色默认；daisy badge → 项目令牌映射） ===== */
+  --nb-info-c: #4a7fa5;
+  --nb-info-bg: rgba(74, 127, 165, 0.12);
+  --nb-update-c: #3c6989;
+  --nb-update-bg: rgba(60, 105, 137, 0.12);
+  --nb-like-c: #d98a17;
+  --nb-like-bg: rgba(217, 138, 23, 0.12);
+  --nb-study-c: #b96f0f;
+  --nb-study-bg: rgba(185, 111, 15, 0.12);
+  --nb-success-c: #2e8f6f;
+  --nb-success-bg: rgba(46, 143, 111, 0.12);
+  --nb-primary-c: #1f7a5c;
+  --nb-primary-bg: rgba(31, 122, 92, 0.12);
+  --nb-neutral-c: #857c68;
+  --nb-neutral-bg: rgba(133, 124, 104, 0.14);
+  --nrow-unread-bg: rgba(31, 122, 92, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .notif-page {
+    --nb-info-c: #8db3cf;
+    --nb-info-bg: rgba(74, 127, 165, 0.2);
+    --nb-update-c: #6393b6;
+    --nb-update-bg: rgba(60, 105, 137, 0.2);
+    --nb-like-c: #ecb35e;
+    --nb-like-bg: rgba(217, 138, 23, 0.18);
+    --nb-study-c: #e59d2e;
+    --nb-study-bg: rgba(185, 111, 15, 0.18);
+    --nb-success-c: #7dc5a8;
+    --nb-success-bg: rgba(46, 143, 111, 0.18);
+    --nb-primary-c: #4da989;
+    --nb-primary-bg: rgba(77, 169, 137, 0.18);
+    --nb-neutral-c: #a8a29e;
+    --nb-neutral-bg: rgba(168, 162, 158, 0.16);
+    --nrow-unread-bg: rgba(77, 169, 137, 0.08);
+  }
+}
+
+/* 手动深色（根类由 theme.rootClass() 下发；与媒体查询块全量同值） */
+.notif-page.theme-dark {
+  --nb-info-c: #8db3cf;
+  --nb-info-bg: rgba(74, 127, 165, 0.2);
+  --nb-update-c: #6393b6;
+  --nb-update-bg: rgba(60, 105, 137, 0.2);
+  --nb-like-c: #ecb35e;
+  --nb-like-bg: rgba(217, 138, 23, 0.18);
+  --nb-study-c: #e59d2e;
+  --nb-study-bg: rgba(185, 111, 15, 0.18);
+  --nb-success-c: #7dc5a8;
+  --nb-success-bg: rgba(46, 143, 111, 0.18);
+  --nb-primary-c: #4da989;
+  --nb-primary-bg: rgba(77, 169, 137, 0.18);
+  --nb-neutral-c: #a8a29e;
+  --nb-neutral-bg: rgba(168, 162, 158, 0.16);
+  --nrow-unread-bg: rgba(77, 169, 137, 0.08);
+}
+
+/* 手动浅色（覆盖系统深色） */
+.notif-page.theme-light {
+  --nb-info-c: #4a7fa5;
+  --nb-info-bg: rgba(74, 127, 165, 0.12);
+  --nb-update-c: #3c6989;
+  --nb-update-bg: rgba(60, 105, 137, 0.12);
+  --nb-like-c: #d98a17;
+  --nb-like-bg: rgba(217, 138, 23, 0.12);
+  --nb-study-c: #b96f0f;
+  --nb-study-bg: rgba(185, 111, 15, 0.12);
+  --nb-success-c: #2e8f6f;
+  --nb-success-bg: rgba(46, 143, 111, 0.12);
+  --nb-primary-c: #1f7a5c;
+  --nb-primary-bg: rgba(31, 122, 92, 0.12);
+  --nb-neutral-c: #857c68;
+  --nb-neutral-bg: rgba(133, 124, 104, 0.14);
+  --nrow-unread-bg: rgba(31, 122, 92, 0.05);
+}
+
+/* ==================== 状态盒（加载 / 错误 / 未登录） ==================== */
+
+.state-box {
+  padding: 160rpx 48rpx;
+}
+
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 6rpx solid var(--ink-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: notif-spin 0.8s linear infinite;
+}
+
+.loading-spinner--sm {
+  width: 48rpx;
+  height: 48rpx;
+  border-width: 5rpx;
+}
+
+@keyframes notif-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-text {
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.state-btn {
+  margin-top: 32rpx;
+  padding: 18rpx 72rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* ==================== 操作行（未读胶囊 + 全部已读） ==================== */
+
+.notif-head {
+  padding: 8rpx 8rpx 24rpx;
+}
+
+.notif-head--end {
+  justify-content: flex-end;
+}
+
+.notif-unread-pill {
+  padding: 6rpx 20rpx;
+  border-radius: var(--r-full);
+  background: var(--primary-50);
+  color: var(--color-primary);
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.notif-markall {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 8rpx 8rpx; /* 扩大点击热区 */
+}
+
+.notif-markall--busy {
+  opacity: 0.5;
+}
+
+/* ==================== 通知卡容器（Web rounded-xl 整卡） ==================== */
+
+.ncard {
+  background: var(--card-bg);
+  border: 2rpx solid var(--border-color);
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+/* ==================== 六段类型 Tab ==================== */
+
+.ntabs-scroll {
+  width: 100%;
+}
+
+.ntabs {
+  display: flex;
+  padding: 16rpx 24rpx;
+  border-bottom: 2rpx solid var(--border-color);
+  min-width: max-content;
+}
+
+.ntab {
+  flex-shrink: 0;
+  padding: 14rpx 32rpx;
+  margin-right: 8rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  border-radius: 16rpx;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.ntab--on {
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-weight: 600;
+}
+
+/* ==================== 空态 ==================== */
+
+.nempty {
+  padding: 120rpx 48rpx;
+}
+
+.nempty-icon {
+  width: 128rpx;
+  height: 128rpx;
+  opacity: 0.4;
+  margin-bottom: 24rpx;
+}
+
+.nempty-text {
+  font-size: 28rpx;
+  color: var(--text-tertiary);
+}
+
+.nempty-hint {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+/* ==================== 通知行 ==================== */
+
+.nrow {
+  padding: 32rpx;
+  border-bottom: 2rpx solid var(--card-fade-line);
+}
+
+.nrow:last-child {
+  border-bottom: none;
+}
+
+.nrow--unread {
+  background: var(--nrow-unread-bg);
+}
+
+.nrow--read {
+  opacity: 0.75;
+}
+
+.nrow-body {
+  min-width: 0;
+}
+
+.nrow-meta {
+  align-items: center;
+}
+
+/* 类型徽章（对齐 daisy badge-sm：小字加粗 + 语义色浅底） */
+.nbadge {
+  padding: 2rpx 16rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.nbadge--info {
+  background: var(--nb-info-bg);
+}
+.nbadge--info .nbadge-text {
+  color: var(--nb-info-c);
+}
+
+.nbadge--update {
+  background: var(--nb-update-bg);
+}
+.nbadge--update .nbadge-text {
+  color: var(--nb-update-c);
+}
+
+.nbadge--like {
+  background: var(--nb-like-bg);
+}
+.nbadge--like .nbadge-text {
+  color: var(--nb-like-c);
+}
+
+.nbadge--study {
+  background: var(--nb-study-bg);
+}
+.nbadge--study .nbadge-text {
+  color: var(--nb-study-c);
+}
+
+.nbadge--success {
+  background: var(--nb-success-bg);
+}
+.nbadge--success .nbadge-text {
+  color: var(--nb-success-c);
+}
+
+.nbadge--primary {
+  background: var(--nb-primary-bg);
+}
+.nbadge--primary .nbadge-text {
+  color: var(--nb-primary-c);
+}
+
+.nbadge--neutral {
+  background: var(--nb-neutral-bg);
+}
+.nbadge--neutral .nbadge-text {
+  color: var(--nb-neutral-c);
+}
+
+.nbadge-text {
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.nrow-time {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+
+/* 未读红点（Web：w-2 h-2 error-500） */
+.nrow-dot {
+  width: 16rpx;
+  height: 16rpx;
+  margin-left: 16rpx;
+  border-radius: 50%;
+  background: var(--color-error);
+  flex-shrink: 0;
+}
+
+/* 正文（Web text-base font-medium leading-relaxed） */
+.nrow-text {
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.nrow-text--link {
+  font-weight: 600;
+}
+
+/* ==================== 底部（扩窗加载 / 到底） ==================== */
+
+.notif-footer {
+  display: flex;
+  justify-content: center;
+  padding: 32rpx 0 0;
+}
+
+.notif-footer-text {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+}
+
+.notif-footer-space {
+  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+}

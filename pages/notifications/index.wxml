@@ -1,0 +1,98 @@
+<!-- pages/notifications/index.wxml — 消息通知
+  复刻 Web 端 NotificationsClient.tsx：六段类型 Tab（客户端过滤，激活 primary 实底
+  胶囊）→ 操作行（左「N 条未读」胶囊 / 右「全部已读」，组合对齐 Web NotificationBell
+  面板头）→ 通知行卡（类型徽章 + 相对时间 + 未读红点 / 正文 / 未读底色已读降透明）；
+  移动端适配：复选框批量删改长按删除，targetUrl 可映射则整行点击跳转。
+  顶部返回 + 标题由原生导航栏提供（navigationBarTitleText: 消息通知）。 -->
+
+<view class="notif-page {{themeClass}}">
+
+  <!-- ===== 加载态 ===== -->
+  <view wx:if="{{isLoading}}" class="state-box col center">
+    <view class="loading-spinner" />
+    <text class="state-text">正在加载通知…</text>
+  </view>
+
+  <!-- ===== 错误 / 未登录态 ===== -->
+  <view wx:elif="{{needLogin || error}}" class="state-box col center">
+    <text class="state-text">{{needLogin ? '登录后即可查看消息通知' : error}}</text>
+    <view
+      class="state-btn center tap-scale"
+      bindtap="{{needLogin ? 'onGoLogin' : 'onRetry'}}"
+    >{{needLogin ? '去登录' : '重试'}}</view>
+  </view>
+
+  <!-- ===== 内容区 ===== -->
+  <block wx:else>
+
+    <!-- 操作行：未读数胶囊 + 一键全部已读（Web NotificationBell 面板头组合） -->
+    <view class="notif-head row {{unreadCount > 0 ? 'between' : 'notif-head--end'}}">
+      <view wx:if="{{unreadCount > 0}}" class="notif-unread-pill">
+        <text>{{unreadCount}} 条未读</text>
+      </view>
+      <view
+        class="notif-markall {{markingAll ? 'notif-markall--busy' : ''}}"
+        bindtap="onMarkAll"
+      >全部已读</view>
+    </view>
+
+    <!-- 通知卡容器（Web：bg-base-100 rounded-xl border-base-200 整卡） -->
+    <view class="ncard">
+
+      <!-- 六段类型 Tab（横向滚动，对齐 TABS 顺序与文案） -->
+      <scroll-view class="ntabs-scroll" scroll-x enable-flex>
+        <view class="ntabs row">
+          <view
+            wx:for="{{tabs}}"
+            wx:key="id"
+            class="ntab {{tab === item.id ? 'ntab--on' : ''}}"
+            bindtap="onSelectTab"
+            data-id="{{item.id}}"
+          >{{item.label}}</view>
+        </view>
+      </scroll-view>
+
+      <!-- 空态（对齐 Web：Bell 大图标 40% + 「暂无(此类)通知记录」） -->
+      <view wx:if="{{items.length === 0}}" class="nempty col center">
+        <image class="nempty-icon" mode="aspectFit" src="/assets/icons/notifications-ink.svg" />
+        <text class="nempty-text">暂无{{tab === 'ALL' ? '' : '此类'}}通知记录</text>
+        <text class="nempty-hint">长按通知可删除</text>
+      </view>
+
+      <!-- 通知行（未读=primary 5% 底色，已读=75% 透明度，Web divide-y 分隔） -->
+      <view
+        wx:for="{{items}}"
+        wx:key="id"
+        class="nrow {{item.isRead ? 'nrow--read' : 'nrow--unread'}}"
+        bindtap="onItemTap"
+        bindlongpress="onLongPressItem"
+        data-id="{{item.id}}"
+      >
+        <view class="nrow-body col">
+          <!-- 第一行：类型徽章 + 相对时间 + 未读红点 -->
+          <view class="nrow-meta row">
+            <view class="nbadge nbadge--{{item.badge}}">
+              <text class="nbadge-text">{{item.typeLabel}}</text>
+            </view>
+            <text wx:if="{{item.timeText}}" class="nrow-time">{{item.timeText}}</text>
+            <view wx:if="{{!item.isRead}}" class="nrow-dot" />
+          </view>
+          <!-- 第二行：通知正文（Web font-medium，可跳转项点击进目标页） -->
+          <text class="nrow-text {{item.target ? 'nrow-text--link' : ''}}">{{item.text}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部：扩窗加载（客户端分页） / 到底 -->
+    <view class="notif-footer center">
+      <view wx:if="{{isLoadingMore}}" class="loading-spinner loading-spinner--sm" />
+      <text wx:elif="{{endReached && items.length > 0}}" class="notif-footer-text">已经到底了</text>
+    </view>
+
+    <!-- 底部留白以防被播放条遮挡 -->
+    <view class="notif-footer-space" />
+  </block>
+</view>
+
+<!-- 跨页迷你播放条（3.B.3）：无播放会话时整条不渲染 -->
+<mini-player />

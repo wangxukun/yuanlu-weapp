@@ -8,6 +8,8 @@ const authStore = require("./store/authStore");
 const membershipStore = require("./store/membershipStore");
 // 播放状态镜像 store：require 即激活订阅（audioManager 事件 → 跨页面可订阅，见 3.B.2）
 const playerStore = require("./store/playerStore");
+// 「我的」Tab 未读红点服务：登录态联动 + 切回小程序刷新（见 utils/notification-badge.js）
+const notificationBadge = require("./utils/notification-badge");
 
 App({
   globalData: {
@@ -36,15 +38,25 @@ App({
 
     // 5. 收听时长心跳（打卡数据源）：音频播放状态经 audioManager 联动上报
     listeningReporter.start();
+
+    // 6. 未读红点：订阅登录态变化（登录→后台拉取；登出→清点）
+    notificationBadge.init();
   },
 
   onShow() {
     audioManager.onAppShow();
     // 外观：回前台重申 chrome（手动模式覆盖系统态的 tabBar/导航栏色）
     theme.applyChrome();
+    // 未读消息：回前台刷新「我的」Tab 红点（登录守卫在服务内，未登录零请求态收敛）
+    notificationBadge.syncUnreadBadge().catch(() => {});
+    // 前台 60s 轮询（Web notification-store 同款）：停在前台浏览时管理员发新通知，
+    // 红点最多 1 分钟内点亮，无需切 Tab/切后台才触发
+    notificationBadge.startPolling();
   },
 
   onHide() {
     audioManager.onAppHide();
+    // 退后台停轮询（后台计时器本就被挂起，停表防空转）
+    notificationBadge.stopPolling();
   },
 });

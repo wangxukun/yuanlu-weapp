@@ -22,6 +22,7 @@
     "pages/intensive-listening/index",
     "pages/speech-eval/index",
     "pages/contact/index",
+    "pages/notifications/index",
     "pages/profile/index",
     "pages/profile/edit",
     "pages/profile/learning-report/index"

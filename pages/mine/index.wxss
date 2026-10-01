@@ -142,6 +142,27 @@
   opacity: 0.5; /* 对齐原文字箭头的视觉重量 */
 }
 
+/* 消息通知未读数角标（对齐 Web HomeNotificationBell：error 底白字圆角胶囊，
+   min-w 18px + ring；深浅色同值红底，ring 取当前卡底色） */
+.unread-badge {
+  min-width: 36rpx;
+  height: 36rpx;
+  padding: 0 8rpx;
+  margin-right: 16rpx;
+  border-radius: var(--r-full);
+  background: var(--color-error);
+  border: 4rpx solid var(--card-bg);
+  box-sizing: content-box;
+  box-shadow: 0 2rpx 8rpx rgba(210, 80, 63, 0.35);
+}
+
+.unread-badge-text {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
 /* 间距工具 */
 .mt-1 { margin-top: 8rpx; }
 .mt-2 { margin-top: 16rpx; }

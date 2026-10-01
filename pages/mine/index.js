@@ -1,5 +1,6 @@
 const authStore = require('../../store/authStore');
 const theme = require('../../utils/theme');
+const notificationBadge = require('../../utils/notification-badge');
 
 Page({
   data: {
@@ -7,6 +8,7 @@ Page({
     userInfo: null,
     themeClass: '',
     dark: false,
+    unreadCount: 0,
     // 数据轨迹宫格（对齐 Web GRID_ENTRIES）
     gridEntries: [
       { name: '学习路径', url: '/pages/library/paths/index', icon: '/assets/icons/school.png' },
@@ -25,6 +27,7 @@ Page({
 
   onShow() {
     this.syncStoreData();
+    this.syncUnreadCount();
     // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
     this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark' });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
@@ -42,10 +45,28 @@ Page({
 
   syncStoreData() {
     const state = authStore.getState();
-    this.setData({
+    const patch = {
       isLoggedIn: state.isLoggedIn,
       userInfo: state.userInfo
-    });
+    };
+    // 登出即清角标（登录态拉取在 syncUnreadCount）
+    if (!state.isLoggedIn) patch.unreadCount = 0;
+    this.setData(patch);
+  },
+
+  /**
+   * 未读数角标：经 Tab 红点服务取数（登录守卫/静默失败在服务内）——一次请求
+   * 同时供本页菜单角标与「我的」Tab 红点；从通知页返回时 onShow 自动刷新。
+   */
+  syncUnreadCount() {
+    notificationBadge.syncUnreadBadge().then((n) => {
+      this.setData({ unreadCount: n });
+    }).catch(() => { /* 静默：角标失败保持旧值 */ });
+  },
+
+  /** 消息通知（未读角标随 onShow 静默刷新） */
+  onNotifications() {
+    wx.navigateTo({ url: '/pages/notifications/index' });
   },
 
   /** 未登录：去登录页 */

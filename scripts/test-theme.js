@@ -30,6 +30,10 @@ global.wx = {
   onThemeChange(fn) { themeChangeHandler = fn; },
   setTabBarStyle(o) { chromeCalls.tabStyles.push(o); },
   setNavigationBarColor(o) { chromeCalls.navColors.push(o); },
+  // 未读红点服务（mine 页 onShow 经通知模块触发；未登录态仅触碰 tabBar 红点 API）
+  showTabBarRedDot() {},
+  hideTabBarRedDot() {},
+  request() {},
   showActionSheet(o) { actionSheet = o; },
   showToast(o) { toasts.push(o.title); },
 };

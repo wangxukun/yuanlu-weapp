@@ -68,6 +68,21 @@
       <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
     </view>
 
+    <!-- 消息通知（Notifications · ink，对齐 Web NotificationBell 入口） -->
+    <view class="list-item row between tap-scale border-bottom" bindtap="onNotifications">
+      <view class="row center-v">
+        <image class="list-icon-img mr-3" src="/assets/icons/notifications-ink.svg" mode="aspectFit" />
+        <text class="t-body text-bold">消息通知</text>
+      </view>
+      <view class="row center-v">
+        <!-- 未读数角标（对齐 Web HomeNotificationBell：error 底白字，>99 封顶 99+） -->
+        <view wx:if="{{isLoggedIn && unreadCount > 0}}" class="unread-badge center">
+          <text class="unread-badge-text">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
+        </view>
+        <image class="chevron-right-img" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </view>
+    </view>
+
     <!-- 帮助与支持（CircleHelp · base-content/60） -->
     <navigator url="/pages/contact/index" class="list-item row between tap-scale">
       <view class="row center-v">

@@ -40,7 +40,7 @@
 | 个人中心（头像占位） | `Icons.Filled.Person` / `AccountCircle` | `person` | `person.png` 81px #a69d89 | ✅ 已替换（lucide user → Person） |
 | 行尾箭头 | `Icons.AutoMirrored.Filled.KeyboardArrowRight` | `keyboard_arrow_right` | `keyboard-arrow-right-tertiary(-dark).svg` | ✅ 已替换（原为文字「〉」hack） |
 | 发音弱项本 | Android 菜单项 `Icons.Filled.Mic`（tertiary） | `mic` | 复习 Tab 内 pron-list 页头 `mic-tertiary(-dark).svg` | ✅ 已是 Material（历史批次） |
-| 消息通知 | Android 菜单项 `Icons.Filled.Notifications` | — | weapp 无此功能页 | ⛔ 不适用（落地时按 `notifications` 烘焙） |
+| 消息通知 | Android 菜单项 `Icons.Filled.Notifications` | `notifications` | `notifications-ink.svg` #767471 | ✅ 已烘焙（消息通知模块 2026-10-01 落地；v1 命中，全幅矩形过滤通过；深浅同值单变体对齐 help-outline-ink 口径） |
 
 ## 三、复习中心三 Tab（pages/review/index.js）
 
