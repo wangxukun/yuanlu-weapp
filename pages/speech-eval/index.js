@@ -49,6 +49,7 @@ Page({
     episodeTitle: '',
     audioUrl: '',
     isTrialMode: false,
+    quotaLocked: false, // 评测日池耗尽且非会员：录音面渲染锁定引导卡（eval-card locked 同口径）
 
     // 句子游标与派生态
     index: 0,
@@ -250,6 +251,7 @@ Page({
         if (toastMsg) wx.showToast({ title: toastMsg, icon: 'none' });
         this._fetchVocabSet();
         this._fetchSaveState(); // 书签态回填（eval-card 同款收藏钮）
+        this._preflightQuota(); // 评测日池预检：入口即知余量，耗尽即锁定录音面
       })
       .catch((err) => {
         this.setData({ loading: false, loadError: (err && err.message) || '练习数据加载失败' });
@@ -272,6 +274,45 @@ Page({
         if (this.data.tokens.length) this._renderTokens();
       })
       .catch(() => {});
+  },
+
+  /**
+   * 评测日池预检（闯关页 _preflightQuota 同口径）：入口即知余量，普通用户
+   * 耗尽即锁定录音面（渲染「解锁无限评测」引导卡）；预检失败不置锁——评测
+   * 403 时自会永久置锁兜底。scenario=learn（本页属剧集学习流；后端统一日池，
+   * scenario 仅作画像维度）。
+   */
+  _preflightQuota() {
+    if (!authStore.getState().isLoggedIn) return;
+    this._fetchQuota();
+  },
+
+  /** 拉取日池余量并归一（预检与每次评测后刷新共用） */
+  _fetchQuota() {
+    get('/api/speech/quota?scenario=learn', null, { showError: false })
+      .then((body) => {
+        if (body && body.success && body.data) this._applyQuota(body.data);
+      })
+      .catch(() => {}); // 静默：余量刷新失败不干扰练习
+  },
+
+  /**
+   * 配额状态归一（Web refreshQuota：remaining/isPremium/exhausted 三字段），
+   * 双向均需证据——置锁要求耗尽证据（exhausted=true 或 remaining=0），解锁
+   * 要求可用证据（isPremium 或 remaining>0）；空回包/缺字段保持现态不翻转
+   * （勿因残缺回包把已锁态误开）。跨天回访余量恢复、已购会员均随回包解锁。
+   */
+  _applyQuota(q) {
+    const src = q || {};
+    const isPremium = src.isPremium === true;
+    const hasRemaining = typeof src.remaining === 'number' && src.remaining > 0;
+    const exhausted =
+      src.exhausted === true ||
+      (typeof src.remaining === 'number' && src.remaining <= 0);
+    let quotaLocked = this.data.quotaLocked;
+    if (isPremium || hasRemaining) quotaLocked = false;
+    else if (exhausted) quotaLocked = true;
+    if (quotaLocked !== this.data.quotaLocked) this.setData({ quotaLocked });
   },
 
   // ==================== 派生态同步 ====================
@@ -536,6 +577,11 @@ Page({
   },
 
   async onToggleRecording() {
+    // 配额锁定兜底（空闲面的按钮已被锁定卡替换，此处防余量回包竞态）
+    if (this.data.quotaLocked) {
+      this.setData({ showPremiumModal: true, premiumSource: 'review_eval_quota' });
+      return;
+    }
     const phase = this.data.phase;
     if (phase === 'evaluating') return;
     if (phase === 'recording') {
@@ -672,6 +718,7 @@ Page({
         this._renderTokens();
         this._syncDerived();
         this._maybeAutoAdvance(evaluated.overallScore);
+        this._fetchQuota(); // 评测后刷新日池：第 5 次用完即置锁，回空闲面渲染锁定卡
       })
       .catch((err) => {
         const cur = this._subs[this.data.index];
@@ -680,9 +727,10 @@ Page({
         }
         const body = err && err.body;
         if (err && err.statusCode === 403) {
-          // 配额墙：后端 message 携带升级文案（月池/日池共用 403 口径）
+          // 配额墙：后端 message 携带升级文案（月池/日池共用 403 口径）；
+          // 永久置锁（本会话内空闲面不再渲染录音钮，eval-card 同口径）
           wx.showToast({ title: (body && body.message) || '今日免费评测次数已用完', icon: 'none', duration: 2500 });
-          this.setData({ showPremiumModal: true, premiumSource: 'review_eval_quota' });
+          this.setData({ quotaLocked: true, showPremiumModal: true, premiumSource: 'review_eval_quota' });
         } else {
           wx.showToast({ title: (err && err.message) || '评测失败，请重试', icon: 'none' });
         }
@@ -1276,6 +1324,11 @@ Page({
     if (!w) return;
     if (w.score >= 85 || !w.phonemes.length) return;
     this.setData({ selectedWordIndex: this.data.selectedWordIndex === index ? null : index });
+  },
+
+  /** 锁定卡解锁 CTA → 会员转化弹窗（订阅页未建〔模块 E〕，premium-modal 现行出口） */
+  onUnlockEval() {
+    this.setData({ showPremiumModal: true, premiumSource: 'review_eval_quota' });
   },
 
   onPremiumClose() {

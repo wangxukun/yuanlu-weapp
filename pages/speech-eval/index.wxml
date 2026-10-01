@@ -112,8 +112,24 @@
 
           <!-- 录音面 -->
           <view wx:if="{{phase !== 'result'}}" class="se-face-anim col se-face-anim--front">
+            <!-- 配额锁定态：橙虚线圆锁 + ∞ CTA（eval-card ec-lock 同款复刻，
+                 置于分支首位——空闲且耗尽时取代绿色录音钮，评测中/录音中互斥） -->
+            <block wx:if="{{quotaLocked && phase === 'idle'}}">
+              <view class="se-idle-gap"></view>
+              <view class="se-lock-circle center">
+                <image class="se-lock-ic" src="/assets/icons/lock.svg" />
+              </view>
+              <text class="se-lock-title">今日免费跟读评测已用完</text>
+              <text class="se-lock-sub">升级会员解锁无限评测，把每个弱音磨到满分</text>
+              <view class="se-lock-cta row center tap-scale" bindtap="onUnlockEval">
+                <image class="se-lock-cta-ic" src="/assets/icons/all-inclusive-accent.svg" />
+                <text>解锁无限评测</text>
+              </view>
+              <view class="se-idle-gap"></view>
+            </block>
+
             <!-- 评测中：绿色弧线旋转 + 文案 -->
-            <block wx:if="{{phase === 'evaluating'}}">
+            <block wx:elif="{{phase === 'evaluating'}}">
               <view class="se-eval-gap"></view>
               <view class="se-arc-spin"></view>
               <text class="se-phase-text">评测中…</text>

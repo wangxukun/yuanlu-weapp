@@ -610,8 +610,120 @@ async function runPlaybackSims() {
   }
 }
 
+/**
+ * 页面级：评测日池锁定（免费额度用完 → 录音钮 ⇄ 锁定引导卡条件隔离）。
+ * 复用 ensurePageLoaded 的 Page 配置，方法级驱动——不重复 onLoad 音频链路，
+ * 直接调 _preflightQuota/_applyQuota/onToggleRecording/onUnlockEval。
+ */
+async function runQuotaLockTests() {
+  console.log('');
+  console.log('== 配额锁定（免费额度用完 ⇄ 锁定引导卡） ==');
+
+  const fs = require('fs');
+  const path = require('path');
+  const rawPage = ensurePageLoaded();
+  const authStore = require('../store/authStore.js');
+
+  const reqCalls = [];
+  let quotaResp = { statusCode: 200, data: { success: true, data: { scenario: 'learn', used: 5, limit: 5, remaining: 0, exhausted: true, isPremium: false } } };
+  global.wx.request = (opt) => {
+    reqCalls.push(opt);
+    if (opt.url.indexOf('/api/speech/quota') >= 0) {
+      setTimeout(() => opt.success(quotaResp), 5);
+      return;
+    }
+    setTimeout(() => opt.success({ statusCode: 200, data: { success: true, data: [] } }), 5);
+  };
+
+  const build = () => {
+    const store = Object.assign({}, rawPage.data);
+    return Object.assign(Object.create(rawPage), {
+      setData(p) { Object.assign(store, p); },
+      data: store,
+    });
+  };
+  const tick = async (n) => {
+    for (let i = 0; i < (n || 8); i += 1) await Promise.resolve();
+  };
+  // 路由桩回包走真实 setTimeout（宏任务），微任务 tick 等不到——配额断言前先睡一拍
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms || 25));
+
+  // ---- _applyQuota 三字段归一（Web refreshQuota 口径） ----
+  let page = build();
+  page._applyQuota({ isPremium: false, remaining: 0, exhausted: true });
+  ok(page.data.quotaLocked === true, '归一：普通用户 remaining=0 → 置锁（情景 B）');
+  page._applyQuota({ isPremium: false, remaining: 2, exhausted: false });
+  ok(page.data.quotaLocked === false, '归一：有余量 → 解锁（跨天回访恢复）');
+  page._applyQuota({ isPremium: true, remaining: 0, exhausted: true });
+  ok(page.data.quotaLocked === false, '归一：会员 remaining=0 → 不锁（情景 A）');
+  page._applyQuota({ isPremium: false, remaining: 3 });
+  ok(page.data.quotaLocked === false, '归一：仅 remaining>0 无 exhausted 字段 → 不锁');
+  page._applyQuota({ isPremium: false, remaining: 0 });
+  ok(page.data.quotaLocked === true, '归一：exhausted 缺失但 remaining=0 → 置锁');
+  page._applyQuota({});
+  ok(page.data.quotaLocked === true, '归一：空回包无证据不翻转（勿因空对象误解锁）');
+
+  // ---- 预检：登录守卫 + scenario=learn + 回包应用 ----
+  authStore.setState({ isLoggedIn: false, token: '', userInfo: null });
+  reqCalls.length = 0;
+  page = build();
+  page._preflightQuota();
+  await tick();
+  ok(reqCalls.length === 0, '预检：未登录零请求');
+
+  authStore.setState({ isLoggedIn: true, token: 'T', userInfo: null });
+  reqCalls.length = 0;
+  page._preflightQuota();
+  await sleep();
+  const quotaCall = reqCalls.find((r) => r.url.indexOf('/api/speech/quota') >= 0);
+  ok(!!quotaCall && quotaCall.url.indexOf('scenario=learn') >= 0,
+    '预检：GET /api/speech/quota?scenario=learn（统一日池，scenario 仅画像维度）');
+  ok(page.data.quotaLocked === true, '预检：第 5 次已用完 → 入口即置锁');
+
+  // ---- 预检失败：静默不置锁（评测 403 兜底置锁，闯关页同口径） ----
+  quotaResp = { statusCode: 500, data: { error: 'x' } };
+  page = build();
+  page._preflightQuota();
+  await sleep();
+  ok(page.data.quotaLocked === false, '预检失败：静默不置锁');
+
+  // ---- 锁定态交互：录音钮守卫 + 解锁 CTA → premium-modal ----
+  quotaResp = { statusCode: 200, data: { success: true, data: { remaining: 0, exhausted: true, isPremium: false } } };
+  page = build();
+  page._applyQuota({ isPremium: false, remaining: 0, exhausted: true });
+  await page.onToggleRecording();
+  ok(page.data.showPremiumModal === true && page.data.premiumSource === 'review_eval_quota',
+    '锁定态点录音 → 会员弹窗（review_eval_quota）而非启动录音');
+  ok(page.data.phase === 'idle', '锁定态不进录音相位');
+
+  page.onUnlockEval();
+  ok(page.data.showPremiumModal === true && page.data.premiumSource === 'review_eval_quota',
+    '解锁 CTA → premium-modal（订阅页未建〔模块 E〕，现行转化出口）');
+
+  // ---- WXML / JS 结构红线 ----
+  const WXML = fs.readFileSync(path.join(__dirname, '../pages/speech-eval/index.wxml'), 'utf8');
+  const PAGE_JS = fs.readFileSync(path.join(__dirname, '../pages/speech-eval/index.js'), 'utf8');
+  const iLock = WXML.indexOf('wx:if="{{quotaLocked && phase === \'idle\'}}"');
+  const iEval = WXML.indexOf('wx:elif="{{phase === \'evaluating\'}}"');
+  const iMic = WXML.indexOf('se-rec-mic-ic');
+  ok(iLock >= 0 && iEval > iLock && iMic > iLock,
+    'WXML 分支链：锁定态优先（绿色录音钮被 wx:if/wx:elif 链条件隔离）');
+  ok(WXML.indexOf('今日免费跟读评测已用完') >= 0 &&
+    WXML.indexOf('升级会员解锁无限评测，把每个弱音磨到满分') >= 0 &&
+    WXML.indexOf('>解锁无限评测</text>') >= 0,
+    '锁定卡文案逐字（eval-card 同源）');
+  ok(WXML.indexOf('all-inclusive-accent.svg') >= 0 && WXML.indexOf('se-lock-circle') >= 0,
+    '∞ 图标 + 虚线圆锁结构（既有资产复用，零新增烘焙）');
+  ok(PAGE_JS.indexOf('quotaLocked: true, showPremiumModal') >= 0,
+    '评测 403 分支：置锁 + 弹窗（eval-card 永久置锁同口径）');
+  const iAdv = PAGE_JS.indexOf('this._maybeAutoAdvance(evaluated.overallScore);');
+  ok(iAdv >= 0 && PAGE_JS.indexOf('this._fetchQuota();', iAdv) >= 0,
+    '评测成功后刷新日池（第 5 次用完即置锁，无需再撞一次 403）');
+}
+
 runRecordEvalSim()
   .then(() => runPlaybackSims())
+  .then(() => runQuotaLockTests())
   .then(() => {
     console.log('');
     console.log('语音评测 core：' + passed + ' 通过，' + failed + ' 失败');

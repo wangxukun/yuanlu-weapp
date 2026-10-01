@@ -400,6 +400,46 @@
   height: 24rpx; /* 12dp */
 }
 
+/* ---- 配额锁定态（橙虚线圆锁 + ∞ CTA；eval-card ec-lock 同款，色值走
+     --se-secondary-* 局部变量浅深两套自动双态） ---- */
+.se-lock-circle {
+  width: 176rpx; /* 88dp（与录音钮同径） */
+  height: 176rpx;
+  border-radius: 50%;
+  border: 6rpx dashed var(--se-secondary-50);
+  background: var(--se-secondary-10);
+}
+.se-lock-ic {
+  width: 68rpx;
+  height: 68rpx;
+}
+.se-lock-title {
+  margin-top: 24rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--se-on-surface);
+}
+.se-lock-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--se-on-surface-var);
+}
+.se-lock-cta {
+  margin-top: 28rpx;
+  gap: 12rpx;
+  padding: 20rpx 44rpx;
+  border-radius: var(--r-full);
+  background: var(--se-secondary-10);
+  border: 2rpx solid var(--se-secondary-30);
+  color: var(--se-secondary);
+  font-size: 28rpx;
+  font-weight: 700;
+}
+.se-lock-cta-ic {
+  width: 36rpx;
+  height: 36rpx;
+}
+
 /* ============ 结果区 ============ */
 .se-result {
   width: 100%;
