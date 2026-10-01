@@ -12,7 +12,8 @@
  *   4. 断点续播与进度双端同步（utils/progress-reporter）：
  *      本地 3s 节流缓存 + 远端 15s 周期/暂停即报（PATCH 的 POST 别名）、
  *      onPlay 首帧安全 seek 续播（≤30s / 距尾 15s 从头）、完播清进度；
- *   5. 预留播放量计数、收听时长心跳等业务钩子（阶段二填充）。
+ *   5. 预留播放量计数、收听时长心跳等业务钩子（阶段二填充）；
+ *   6. 离线缓存本地优先（T3.4）：playEpisode 命中 download-manager 缓存直接播本地文件。
  *
  * 使用注意：
  *   - 后台音频实例必须设置 title（iOS 后台播放的硬性要求），由 playEpisode 内部保证；
@@ -23,6 +24,20 @@
 const { get, post } = require("./request");
 const progress = require("./progress-reporter");
 const listeningReporter = require("./listening-reporter");
+
+// 离线缓存（T3.4）惰性引用：避免模块加载期依赖 download-manager 的 wx.env/fs
+// （自动化测试桩可能缺失，require 失败/查询异常一律回退远端链路，绝不阻断播放）
+let downloadManagerRef = null;
+function cachedLocalPath(episodeid) {
+  try {
+    if (!downloadManagerRef) downloadManagerRef = require("./download-manager");
+    const p = downloadManagerRef.getCachedPath(episodeid);
+    if (p && downloadManagerRef.touch) downloadManagerRef.touch(episodeid); // 命中即刷 LRU 时钟
+    return p || null;
+  } catch (e) {
+    return null;
+  }
+}
 
 // 播放模式：不循环 → 列表循环 → 单曲循环 → 随机（对应 Web 端 cyclePlayMode）
 const PLAY_MODES = ["none", "all", "one"];
@@ -237,7 +252,11 @@ async function playEpisode(episode, context) {
   state.isLoading = true;
   state.isIntensiveMode = !!(context && context.intensive);
 
-  let audioUrl = episode.audioUrl;
+  // 本地优先（T3.4）：离线缓存命中直接播本地文件（免签名、飞行模式可播），
+  // 命中同时刷新 LRU 时钟；未命中走原链路（episode.audioUrl → subtitles 解析签名直链）。
+  // 断点续播/进度上报与 src 来源无关（progress-reporter 只看 episodeid），链路不动。
+  const localPath = cachedLocalPath(episode.episodeid);
+  let audioUrl = localPath || episode.audioUrl;
   if (!audioUrl) {
     // TODO(阶段二)：解析签名直链并缓存（getEpisodeSubtitlesData 同款缓存策略）
     const body = await get(

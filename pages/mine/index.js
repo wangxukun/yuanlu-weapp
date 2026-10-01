@@ -4,6 +4,16 @@ const notificationBadge = require('../../utils/notification-badge');
 const { get } = require('../../utils/request');
 const profileApi = require('../../utils/api/profile');
 const profileCore = require('../../utils/profile-core');
+const downloadManager = require('../../utils/download-manager');
+
+/** 离线缓存容量格式化（DOWNLOAD-TASK T3.5）：B/KB/MB/GB 一位小数 */
+function formatCacheSize(bytes) {
+  const b = Number(bytes) || 0;
+  if (b >= 1024 * 1024 * 1024) return (b / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  if (b >= 1024 * 1024) return (b / (1024 * 1024)).toFixed(1) + ' MB';
+  if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+  return b + ' B';
+}
 
 Page({
   data: {
@@ -13,6 +23,7 @@ Page({
     dark: false,
     unreadCount: 0,
     themeLabel: '跟随系统', // 外观设置行尾值（Android trailing：跟随系统/浅色/深色）
+    cacheLabel: '空', // 离线缓存行尾值（T3.5：已用容量/空）
     // 学习成果四宫格（overview 三字段 + 句子收藏列表计数）
     stats: {
       listenMinutes: 0,
@@ -36,6 +47,7 @@ Page({
     this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark', themeLabel: theme.MODE_LABELS[theme.getMode()] });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
     this._loadStats();
+    this._refreshCacheUsage(); // 离线缓存尾值（T3.5：清空/下载后切回本 tab 收敛）
   },
 
   onUnload() {
@@ -95,6 +107,32 @@ Page({
   /** 消息通知（未读角标随 onShow 静默刷新） */
   onNotifications() {
     wx.navigateTo({ url: '/pages/notifications/index' });
+  },
+
+  /** 离线缓存尾值刷新（DOWNLOAD-TASK T3.5） */
+  _refreshCacheUsage() {
+    const { bytes, count } = downloadManager.getUsage();
+    this.setData({ cacheLabel: count > 0 ? formatCacheSize(bytes) : '空' });
+  },
+
+  /** 清空离线缓存（T3.5）：空缓存直接提示；有缓存先确认再 clearAll（剧集页按钮态经 cleared 事件联动复位） */
+  onClearCache() {
+    const { bytes, count } = downloadManager.getUsage();
+    if (!count) {
+      return wx.showToast({ title: '暂无离线缓存', icon: 'none' });
+    }
+    wx.showModal({
+      title: '清空离线缓存',
+      content: `将删除 ${count} 集离线音频（约 ${formatCacheSize(bytes)}），删除后可重新下载。`,
+      confirmText: '清空',
+      confirmColor: '#d2503f',
+      success: (res) => {
+        if (!res.confirm) return;
+        downloadManager.clearAll();
+        this._refreshCacheUsage();
+        wx.showToast({ title: '已清空离线缓存', icon: 'none' });
+      },
+    });
   },
 
   /** 未登录：去登录页 */

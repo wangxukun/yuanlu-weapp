@@ -621,9 +621,16 @@ function bodies(method, p) {
 
     const iAppearance = WXML_MINE.indexOf('外观设置');
     const iNotif = WXML_MINE.indexOf('消息通知');
+    const iCache = WXML_MINE.indexOf('离线缓存');
     const iHelp = WXML_MINE.indexOf('帮助与支持');
     assert(iAppearance >= 0 && iNotif > iAppearance && iHelp > iNotif,
       'mine 菜单插入位置：外观设置 → 消息通知 → 帮助与支持');
+    assert(iCache > iNotif && iCache < iHelp && WXML_MINE.indexOf('{{cacheLabel}}') >= 0 &&
+      WXML_MINE.indexOf('onClearCache') >= 0,
+      '离线缓存行（T3.5）：消息通知 → 离线缓存 → 帮助与支持，尾值 cacheLabel 绑定');
+    assert(WXML_MINE.indexOf('download-primary.svg') >= 0 &&
+      WXML_MINE.indexOf('download-primary-dark.svg') >= 0,
+      '离线缓存 Material 图标深浅双变体（download 着色，台账第十节）');
     assert(WXML_MINE.indexOf("unreadCount > 99 ? '99+' : unreadCount") >= 0 &&
       WXML_MINE.indexOf('unread-badge') >= 0,
       '未读角标 99+ 封顶绑定');
@@ -893,6 +900,57 @@ function bodies(method, p) {
   }
 
   /* ==================== 汇总 ==================== */
+
+  section('十七、离线缓存管理入口（DOWNLOAD-TASK T3.5）');
+  {
+    resetMock();
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
+    requestHandler = routeAwareHandler({
+      '/api/notification/list': { statusCode: 200, data: { unreadCount: 0, notifications: [] } },
+    });
+    // 索引直注入（读穿透口径，storage 即事实）：2 集 = 5MB + 512KB
+    storage.set('download_index', {
+      epA: { path: 'wxfile://usr/audio/epA.m4a', size: 5 * 1024 * 1024, savedAt: 1, lastPlayedAt: 0, title: 'A' },
+      epB: { path: 'wxfile://usr/audio/epB.m4a', size: 512 * 1024, savedAt: 2, lastPlayedAt: 0, title: 'B' },
+    });
+    const page = makePage(mineConfig, { unsubscribeAuth: null });
+    page.onLoad();
+    page.onShow();
+    await tick();
+    assert(page.data.cacheLabel === '5.5 MB', '尾值容量展示（5MB+512KB → 5.5 MB）');
+
+    page.onClearCache();
+    assert(
+      modalCalls.length === 1 &&
+        modalCalls[0].content.indexOf('2 集') !== -1 &&
+        modalCalls[0].content.indexOf('5.5 MB') !== -1,
+      '确认弹窗含集数与容量',
+    );
+    assert(
+      storage.get('download_index') && Object.keys(storage.get('download_index')).length === 0,
+      '确认后索引清空（clearAll）',
+    );
+    assert(page.data.cacheLabel === '空', '清空后尾值复位「空」');
+    assert(toasts.indexOf('已清空离线缓存') !== -1, '清空提示 toast');
+
+    // 空缓存 → 直接提示不弹窗
+    modalCalls.length = 0;
+    toasts.length = 0;
+    page.onClearCache();
+    assert(modalCalls.length === 0 && toasts.indexOf('暂无离线缓存') !== -1, '空缓存 → 提示不弹窗');
+
+    // 取消分支 + KB 级格式
+    storage.set('download_index', {
+      epC: { path: 'wxfile://usr/audio/epC.m4a', size: 1024, savedAt: 3, lastPlayedAt: 0, title: 'C' },
+    });
+    page._refreshCacheUsage();
+    assert(page.data.cacheLabel === '1.0 KB', 'KB 级容量格式（一位小数）');
+    modalConfirm = false;
+    page.onClearCache();
+    assert(!!storage.get('download_index').epC, '取消 → 索引保留');
+    assert(page.data.cacheLabel === '1.0 KB', '取消后尾值不变');
+    modalConfirm = true;
+  }
 
   console.log('\n========== 消息通知测试：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
   if (failed > 0) {

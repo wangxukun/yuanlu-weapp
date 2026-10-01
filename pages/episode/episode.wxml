@@ -93,7 +93,9 @@
       <!-- Secondary Actions -->
       <view class="actions-secondary px-4 mt-3 row">
         <view class="action-box center col tap-scale" bindtap="onDownloadAudio">
-          <image class="icon-sm text-secondary" src="/assets/icons/download.svg"></image>
+          <text wx:if="{{audioDlState === 'downloading'}}" class="dl-progress-text">{{audioDlProgress}}%</text>
+          <image wx:elif="{{audioDlState === 'downloaded'}}" class="icon-sm text-secondary" src="/assets/icons/download-done.svg"></image>
+          <image wx:else class="icon-sm text-secondary" src="/assets/icons/download.svg"></image>
         </view>
         <view class="action-box center col tap-scale" bindtap="onTranscript" style="opacity: {{isGeneratingPdf ? 0.5 : 1}};">
           <view class="loading-spinner-sm" wx:if="{{isGeneratingPdf}}"></view>

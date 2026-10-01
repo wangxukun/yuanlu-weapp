@@ -244,3 +244,13 @@
 .mb-5 { margin-bottom: 48rpx; }
 
 .ellipsis-3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; text-overflow: ellipsis; }
+
+/* 音频离线缓存下载进度（T3.3 三态：downloading 百分比文本 / downloaded download-done 图标 / idle download 图标） */
+.dl-progress-text {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #64748b; /* 与 download.svg、download-done.svg 的 text-secondary 同色 */
+  min-width: 44rpx;
+  text-align: center;
+  line-height: 1;
+}

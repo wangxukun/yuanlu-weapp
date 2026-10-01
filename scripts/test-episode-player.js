@@ -64,6 +64,7 @@ global.wx = {
   stopPullDownRefresh: () => {},
   showShareMenu: () => {},
   setNavigationBarTitle: () => {},
+  showActionSheet: () => {},
   getBackgroundAudioManager: () => bgm,
   request: (opts) => {
     calls.request.push(opts);
@@ -72,6 +73,61 @@ global.wx = {
 };
 
 global.Page = (cfg) => (global.__episodeCfg = cfg);
+
+/* ==================== download-manager 桩（T3.3 页面逻辑测试） ====================
+ * 模块本体（真实 fs/downloadFile 语义）由 scripts/test-download-manager.js 42 断言全覆盖；
+ * 此处注入 require.cache 桩隔离页面逻辑：事件广播/缓存集/失败模式可控。 */
+const dmState = { cached: new Set(), mode: 'ok', dlCalls: [], removes: [], touches: [], sheets: [], sheetResult: null, subs: [], resolveSlow: null };
+const fakeDm = {
+  AUDIO_DIR: 'wxfile://usr/audio',
+  download(ep) {
+    dmState.dlCalls.push(ep.episodeid);
+    if (dmState.mode === 'fail') {
+      fakeDm._emit({ type: 'error', episodeid: ep.episodeid, error: '下载失败（HTTP 403）' });
+      return Promise.reject(new Error('下载失败（HTTP 403）'));
+    }
+    if (dmState.mode === 'slow') {
+      // 挂起下载：留出 progress 事件注入窗口，由用例 resolveSlow() 释放
+      return new Promise((resolve) => {
+        dmState.resolveSlow = () => {
+          dmState.cached.add(ep.episodeid);
+          fakeDm._emit({ type: 'downloaded', episodeid: ep.episodeid, path: `wxfile://usr/audio/${ep.episodeid}.m4a` });
+          resolve(`wxfile://usr/audio/${ep.episodeid}.m4a`);
+        };
+      });
+    }
+    dmState.cached.add(ep.episodeid);
+    fakeDm._emit({ type: 'downloaded', episodeid: ep.episodeid, path: `wxfile://usr/audio/${ep.episodeid}.m4a` });
+    return Promise.resolve(`wxfile://usr/audio/${ep.episodeid}.m4a`);
+  },
+  getCachedPath: (id) => (dmState.cached.has(id) ? `wxfile://usr/audio/${id}.m4a` : null),
+  remove(id) {
+    dmState.removes.push(id);
+    dmState.cached.delete(id);
+    fakeDm._emit({ type: 'removed', episodeid: id });
+  },
+  touch(id) {
+    dmState.touches.push(id);
+  },
+  getUsage: () => ({ bytes: 0, count: dmState.cached.size }),
+  clearAll: () => {
+    dmState.cached.clear();
+    fakeDm._emit({ type: 'cleared' });
+  },
+  subscribe(cb) {
+    dmState.subs.push(cb);
+    return () => {
+      dmState.subs = dmState.subs.filter((x) => x !== cb);
+    };
+  },
+  _emit(e) {
+    dmState.subs.slice().forEach((cb) => cb(e));
+  },
+};
+{
+  const dmPath = require.resolve(path.join(__dirname, '../utils/download-manager'));
+  require.cache[dmPath] = { id: dmPath, filename: dmPath, loaded: true, exports: fakeDm };
+}
 
 function routeAwareHandler(routes) {
   return (opts) => {
@@ -427,13 +483,19 @@ const RELATED = [
     };
     global.wx.openDocument = () => {};
     toasts.length = 0;
+    dmState.cached.clear();
+    dmState.dlCalls.length = 0;
     page.onDownloadAudio();
+    await tick();
+    await tick();
+    assert(dmState.dlCalls.indexOf('ep1') !== -1, '④ 会员点音频 → 直进离线缓存链路（占位已退役，T3.3）');
+    assert(page.data.audioDlState === 'downloaded', '④ downloaded 事件 → 按钮收敛已下载态');
     page.onTranscript();
     await tick();
     await tick();
-    assert(toasts[0] === '音频下载功能即将上线', '④ 会员点音频 → 占位 toast 保留（阶段 3 替换为离线缓存）');
     assert(dlCalled8 === true, '④ 会员点文稿 → 直进 PDF 下载链路（占位已退役）');
     assert(page.data.showPremiumModal === false, '④ 会员不触发会员弹窗（本地会员态先行，服务端 403 兜底零触发）');
+    dmState.cached.clear();
     global.wx.downloadFile = rawDl8;
     global.wx.openDocument = rawOd8;
 
@@ -701,6 +763,237 @@ const RELATED = [
     global.wx.downloadFile = rawDownloadFile;
     global.wx.openDocument = rawOpenDocument;
     global.wx.showToast = rawToast2;
+  }
+
+  section('十一、音频离线缓存三态 UI（DOWNLOAD-TASK T3.3）');
+  {
+    const authStore = require(path.join(__dirname, '../store/authStore')); // 单例延续
+    dmState.cached.clear();
+    dmState.dlCalls.length = 0;
+    dmState.removes.length = 0;
+    dmState.sheets.length = 0;
+    dmState.sheetResult = null;
+    dmState.mode = 'ok';
+    const rawSheet = global.wx.showActionSheet;
+    global.wx.showActionSheet = (o) => {
+      dmState.sheets.push(o);
+      if (dmState.sheetResult !== null) o.success({ tapIndex: dmState.sheetResult });
+    };
+    const toasts11 = [];
+    const rawToast11 = global.wx.showToast;
+    global.wx.showToast = (o) => toasts11.push(o.title);
+
+    let statusRole = 'PREMIUM';
+    const baseRoutes11 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: EPISODE },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [EPISODE] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/user/subscription/status')) {
+        opts.success({ statusCode: 200, data: { role: statusRole } });
+        return;
+      }
+      baseRoutes11(opts);
+    };
+
+    const page = createPage(pageConfig);
+    page.onLoad({ id: 'ep1' });
+    await tick();
+    await tick();
+    global.wx.setStorageSync('token', 'tk-audio');
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-audio' });
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === true, '⑪ 会员态收敛');
+    assert(page.data.audioDlState === 'idle', '⑪ 无缓存初始 idle');
+
+    // ① idle → downloading（含 progress 事件）→ downloaded
+    dmState.mode = 'slow';
+    page.onDownloadAudio();
+    assert(page.data.audioDlState === 'downloading' && page.data.audioDlProgress === 0, '⑪ 发起即置 downloading（乐观态）');
+    fakeDm._emit({ type: 'progress', episodeid: 'ep1', progress: 37 });
+    assert(page.data.audioDlState === 'downloading' && page.data.audioDlProgress === 37, '⑪ progress 事件驱动进度');
+    toasts11.length = 0;
+    dmState.resolveSlow();
+    await tick();
+    await tick();
+    assert(page.data.audioDlState === 'downloaded', '⑪ downloaded 事件收敛');
+    assert(toasts11.indexOf('已可离线播放') !== -1, '⑪ 完成提示 toast');
+    dmState.mode = 'ok';
+
+    // ② 已下载点击 → 三项管理菜单
+    dmState.sheets.length = 0;
+    page.onDownloadAudio();
+    assert(
+      dmState.sheets.length === 1 &&
+        JSON.stringify(dmState.sheets[0].itemList) === JSON.stringify(['播放', '重新下载', '删除离线缓存']),
+      '⑪ 已下载点击 → action sheet 三项（播放/重新下载/删除离线缓存）',
+    );
+
+    // ③ 删除离线缓存
+    dmState.sheetResult = 2;
+    dmState.removes.length = 0;
+    toasts11.length = 0;
+    page.onDownloadAudio();
+    await tick();
+    assert(dmState.removes.indexOf('ep1') !== -1 && page.data.audioDlState === 'idle', '⑪ 删除 → removed 事件收敛 idle');
+    assert(toasts11.indexOf('已删除离线缓存') !== -1, '⑪ 删除提示 toast');
+
+    // ④ 重新下载（先删后下，防缓存命中短路）
+    dmState.cached.add('ep1');
+    fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
+    const dlBefore = dmState.dlCalls.length;
+    const rmBefore = dmState.removes.length;
+    dmState.sheetResult = 1;
+    page.onDownloadAudio();
+    await tick();
+    await tick();
+    assert(dmState.removes.length === rmBefore + 1 && dmState.dlCalls.length === dlBefore + 1, '⑪ 重新下载 = 先删后下（防缓存短路）');
+    assert(page.data.audioDlState === 'downloaded', '⑪ 重下完成收敛 downloaded');
+
+    // ⑤ 播放（action sheet → onStartListening 链；④ 重下后缓存命中 → T3.4 本地优先播本地文件）
+    audioManager.close();
+    dmState.sheetResult = 0;
+    page.onDownloadAudio();
+    await tick();
+    assert(
+      audioManager.getState().hasEpisode === true &&
+        audioManager.getState().currentEpisode.episodeid === 'ep1' &&
+        bgmCalls.src === 'wxfile://usr/audio/ep1.m4a',
+      '⑪ 播放 → 起播本集且缓存命中走本地路径（T3.4 本地优先经 action sheet 链路生效）',
+    );
+    audioManager.close();
+
+    // ⑥ 失败：error 事件收敛 + dm 文案 toast
+    dmState.cached.delete('ep1');
+    fakeDm._emit({ type: 'removed', episodeid: 'ep1' });
+    dmState.mode = 'fail';
+    toasts11.length = 0;
+    page.onDownloadAudio();
+    await tick();
+    await tick();
+    assert(page.data.audioDlState === 'idle', '⑪ 失败 → error 事件收敛 idle');
+    assert(toasts11.indexOf('下载失败（HTTP 403）') !== -1, '⑪ 失败 toast 透传 download-manager 文案');
+    dmState.mode = 'ok';
+
+    // ⑦ onShow 同步 + downloading 保护
+    dmState.cached.add('ep1');
+    page.onShow();
+    assert(page.data.audioDlState === 'downloaded', '⑦⑪ onShow 命中缓存 → downloaded');
+    dmState.cached.delete('ep1');
+    page.onShow();
+    assert(page.data.audioDlState === 'idle', '⑦⑪ onShow 缓存消失 → idle');
+    dmState.mode = 'slow';
+    page.onDownloadAudio();
+    page.onShow();
+    assert(page.data.audioDlState === 'downloading', '⑦⑪ 下载中 onShow 不被误清');
+    dmState.resolveSlow();
+    await tick();
+    dmState.mode = 'ok';
+
+    // ⑧ 他集事件忽略 / cleared 全局收敛
+    const st8 = page.data.audioDlState;
+    const pg8 = page.data.audioDlProgress;
+    fakeDm._emit({ type: 'progress', episodeid: 'epOther', progress: 88 });
+    assert(page.data.audioDlState === st8 && page.data.audioDlProgress === pg8, '⑧⑪ 他集事件不影响本页');
+    // cleared 生产时序：clearAll 先清缓存集再广播（此处同步模拟该时序）
+    dmState.cached.clear();
+    fakeDm._emit({ type: 'cleared' });
+    assert(page.data.audioDlState === 'idle', '⑧⑪ cleared 全局事件 → 收敛 idle');
+
+    // ⑨ 门禁优先：非会员即使已缓存 → 弹会员窗，不进管理菜单不下载
+    statusRole = 'USER';
+    authStore.setState({ isLoggedIn: true, userInfo: { role: 'USER' }, token: 'tk-user2' });
+    global.wx.setStorageSync('token', 'tk-user2');
+    await tick();
+    page.onShow();
+    await tick();
+    await tick();
+    await tick();
+    assert(page.data.isPremium === false, '⑨⑪ 非会员态收敛');
+    dmState.cached.add('ep1');
+    fakeDm._emit({ type: 'downloaded', episodeid: 'ep1' });
+    dmState.sheets.length = 0;
+    dmState.dlCalls.length = 0;
+    page.onDownloadAudio();
+    assert(
+      page.data.showPremiumModal === true && dmState.sheets.length === 0 && dmState.dlCalls.length === 0,
+      '⑨⑪ 非会员已缓存 → 门禁优先弹会员窗（不进菜单/不下载）',
+    );
+    page.onPremiumModalClose();
+
+    // ⑩ WXML 三态静态接线
+    const wxml11 = fs.readFileSync(path.join(__dirname, '../pages/episode/episode.wxml'), 'utf8');
+    assert(
+      wxml11.includes("wx:if=\"{{audioDlState === 'downloading'}}\"") && wxml11.includes('{{audioDlProgress}}%'),
+      '⑩⑪ WXML downloading 态百分比文本',
+    );
+    assert(
+      wxml11.includes("wx:elif=\"{{audioDlState === 'downloaded'}}\"") && wxml11.includes('download-done.svg'),
+      '⑩⑪ WXML downloaded 态 download-done 图标（Material，台账第十节）',
+    );
+
+    global.wx.showActionSheet = rawSheet;
+    global.wx.showToast = rawToast11;
+    dmState.cached.clear();
+  }
+
+  section('十二、播放本地优先（DOWNLOAD-TASK T3.4）');
+  {
+    audioManager.close();
+    dmState.cached.clear();
+    dmState.touches.length = 0;
+    let subtitlesResolved = 0;
+    const baseRoutes12 = routeAwareHandler({
+      '/api/episode/detail': { statusCode: 200, data: { ...EPISODE, audioUrl: null } },
+      '/api/episode/list-by-podcastid': { statusCode: 200, data: { data: { episodes: [] } } },
+      '/api/comment/list': { statusCode: 200, data: [] },
+      '/api/episode/favorite/find-unique': { statusCode: 200, data: { success: false } },
+      '/api/episode/subtitles': { statusCode: 200, data: { audioUrl: 'https://oss/resolved12.m4a' } },
+    });
+    requestHandler = (opts) => {
+      if (opts.url.includes('/api/episode/subtitles')) subtitlesResolved += 1;
+      baseRoutes12(opts);
+    };
+
+    // ① 无缓存对照：无 audioUrl → 解析签名直链（原链路不变）
+    audioManager.playEpisode({ ...EPISODE, episodeid: 'epN1', audioUrl: null }, { playlist: [] });
+    await tick();
+    await tick();
+    assert(bgmCalls.src === 'https://oss/resolved12.m4a' && subtitlesResolved === 1, '⑫ 无缓存 → 原 subtitles 解析链路不变');
+
+    // ② 缓存命中：即使 episode 自带远端直链也优先本地，且 touch 刷新 LRU
+    audioManager.close();
+    dmState.cached.add('epN2');
+    dmState.touches.length = 0;
+    audioManager.playEpisode({ ...EPISODE, episodeid: 'epN2', audioUrl: 'https://oss/remote12.m4a' }, { playlist: [] });
+    await tick();
+    assert(bgmCalls.src === 'wxfile://usr/audio/epN2.m4a', '⑫ 命中缓存 → bgm.src 本地路径（优先于远端直链，免签名）');
+    assert(dmState.touches.indexOf('epN2') !== -1, '⑫ 播放命中 → touch 刷新 LRU 时钟');
+
+    // ③ 命中且无 audioUrl：零解析请求（飞行模式可播的关键——不发任何网络）
+    audioManager.close();
+    const resolvedBefore = subtitlesResolved;
+    dmState.cached.add('epN3');
+    audioManager.playEpisode({ ...EPISODE, episodeid: 'epN3', audioUrl: null }, { playlist: [] });
+    await tick();
+    await tick();
+    assert(bgmCalls.src === 'wxfile://usr/audio/epN3.m4a' && subtitlesResolved === resolvedBefore, '⑫ 命中且无直链 → 零网络请求（离线播放成立）');
+
+    // ④ 播放会话元数据/进度链路不受 src 来源影响（currentEpisode/hasEpisode 正常）
+    assert(
+      audioManager.getState().currentEpisode && audioManager.getState().currentEpisode.episodeid === 'epN3' &&
+        audioManager.getState().hasEpisode === true,
+      '⑫ 播放会话建立（progress-reporter 只看 episodeid，与 src 来源无关）',
+    );
+
+    audioManager.close();
+    dmState.cached.clear();
   }
 
   /* ==================== 汇总 ==================== */

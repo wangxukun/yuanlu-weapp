@@ -6,6 +6,7 @@ const authStore = require('../../store/authStore');
 const audioManager = require('../../utils/audioManager');
 const audioBus = require('../../utils/audio-bus');
 const membershipStore = require('../../store/membershipStore');
+const downloadManager = require('../../utils/download-manager');
 
 Page({
   data: {
@@ -68,6 +69,10 @@ Page({
 
     // 会员文稿 PDF 在途标记（T2.1：在途双击防抖；T2.2 补按钮视觉态）
     isGeneratingPdf: false,
+
+    // 音频离线缓存按钮三态（T3.3）：idle 未下载 / downloading 进度 / downloaded 已缓存
+    audioDlState: 'idle',
+    audioDlProgress: 0,
   },
 
   onShow() {
@@ -77,6 +82,8 @@ Page({
       theme.applyChrome();
       // 会员态重同步（订阅购买返回/登录登出换页返回时收敛）
       this._syncMembership();
+      // 离线缓存态重同步（LRU 驱逐/其他页面删除后收敛；下载中态不被冲掉）
+      this._syncDlState();
   },
 
   onLoad(query) {
@@ -107,12 +114,21 @@ Page({
     // 页面可能带着既有播放会话进入（迷你条跳转/返回），先同步一次快照
     this.syncPlayerState(audioManager.getState());
 
+    // 离线缓存事件订阅（T3.3：progress/downloaded/error/removed/cleared 驱动按钮三态；
+    // 他集事件忽略，LRU 驱逐本集或全局清空即时收敛）
+    this._onDlEvent = (e) => this._handleDlEvent(e);
+    this._unsubDl = downloadManager.subscribe(this._onDlEvent);
+
     this._syncMembership();
     this.fetchData();
   },
 
   onUnload() {
     if (this.unsubscribeAuth) this.unsubscribeAuth();
+    if (this._unsubDl) {
+      this._unsubDl();
+      this._unsubDl = null;
+    }
     if (this._onPlayerEvent) {
       ['play', 'pause', 'stop', 'ended', 'waiting', 'episodeChange', 'modeChange', 'seek', 'error'].forEach(
         (evt) => audioManager.off(evt, this._onPlayerEvent)
@@ -157,6 +173,8 @@ Page({
       this.setData({ episode, isLoading: false });
       // 剧集到达后重算「本集在播」态（播放会话可能早于详情加载建立）
       this.syncPlayerState(audioManager.getState());
+      // 单例回退换集（singletonReload）后缓存态跟随新 episodeid 收敛
+      this._syncDlState();
 
       // 2. Fetch Related Episodes（就绪后处理精听深链自动起播）
       if (episode && episode.podcastid) {
@@ -329,7 +347,7 @@ Page({
 
   /** 音频下载门禁（T1.3，对齐 Web handleDownloadAudio :144-185）：
    *  未登录 → toast（不跳页）；非会员 → premium-modal episode_audio_download；
-   *  会员 → 阶段 3 落地前保留占位 toast。会员态本地先行（T1.2），零 403 兜底。 */
+   *  会员 → 离线缓存三态分流（T3.3）：idle 发起 / downloading 在途 / downloaded 管理菜单。 */
   onDownloadAudio() {
     if (!this.data.isLoggedIn) {
       return wx.showToast({ title: '音频下载仅对会员开放', icon: 'none' });
@@ -338,7 +356,77 @@ Page({
       this.setData({ showPremiumModal: true, premiumSource: 'episode_audio_download' });
       return;
     }
-    wx.showToast({ title: '音频下载功能即将上线', icon: 'none' });
+    if (this.data.audioDlState === 'downloaded') {
+      this._showAudioDlSheet();
+      return;
+    }
+    if (this.data.audioDlState === 'downloading') return; // 在途（dm 并发去重兜底）
+    this._downloadAudio();
+  },
+
+  /** 发起离线缓存下载（状态由 download-manager 事件流驱动） */
+  _downloadAudio() {
+    const episode = this.data.episode;
+    if (!episode || !episode.episodeid) return;
+    this.setData({ audioDlState: 'downloading', audioDlProgress: 0 });
+    downloadManager.download(episode)
+      .then(() => wx.showToast({ title: '已可离线播放', icon: 'none' }))
+      .catch((err) => {
+        // 状态复位由 error 事件统一驱动，这里只提示
+        wx.showToast({ title: (err && err.message) || '下载失败，请稍后重试', icon: 'none' });
+      });
+  },
+
+  /** 已下载态管理菜单（T3.3 UI 决策：action sheet，Android Material 风格） */
+  _showAudioDlSheet() {
+    const episodeid = this.data.episodeid;
+    wx.showActionSheet({
+      itemList: ['播放', '重新下载', '删除离线缓存'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.onStartListening();
+        } else if (res.tapIndex === 1) {
+          // 缓存命中会短路 download，须先删再下
+          downloadManager.remove(episodeid);
+          this._downloadAudio();
+        } else if (res.tapIndex === 2) {
+          downloadManager.remove(episodeid); // removed 事件驱动回 idle
+          wx.showToast({ title: '已删除离线缓存', icon: 'none' });
+        }
+      },
+    });
+  },
+
+  /** 离线缓存事件 → 本页按钮三态（他集事件忽略；cleared 全局收敛） */
+  _handleDlEvent(e) {
+    if (e.type === 'cleared') {
+      this._syncDlState();
+      return;
+    }
+    if (!e.episodeid || e.episodeid !== this.data.episodeid) return;
+    if (e.type === 'progress') {
+      this.setData({ audioDlState: 'downloading', audioDlProgress: Math.round(e.progress) || 0 });
+    } else if (e.type === 'retry') {
+      this.setData({ audioDlState: 'downloading' });
+    } else if (e.type === 'downloaded') {
+      this.setData({ audioDlState: 'downloaded', audioDlProgress: 100 });
+    } else if (e.type === 'error' || e.type === 'removed') {
+      // 失败/被删（LRU/其他页面）：按缓存实况收敛
+      this.setData({ audioDlState: this._cachedDlState() });
+    }
+  },
+
+  _cachedDlState() {
+    return downloadManager.getCachedPath(this.data.episodeid) ? 'downloaded' : 'idle';
+  },
+
+  /** 缓存态同步（onShow/fetchData）：下载中态不被误清 */
+  _syncDlState() {
+    if (downloadManager.getCachedPath(this.data.episodeid)) {
+      if (this.data.audioDlState !== 'downloaded') this.setData({ audioDlState: 'downloaded' });
+    } else if (this.data.audioDlState !== 'downloading') {
+      this.setData({ audioDlState: 'idle', audioDlProgress: 0 });
+    }
   },
 
   /** 文稿下载门禁（T1.4，对齐 Web handleDownloadTranscript :187-252）：

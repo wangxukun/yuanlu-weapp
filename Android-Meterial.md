@@ -430,3 +430,15 @@
 > 缓存既有）；全部 v1 命中，全幅矩形过滤通过。
 > 退役 6 个：school.png / history.png / bookmark.png / credit-card.png（旧宫格）+
 > contrast-ink.svg / help-outline-ink.svg（旧系统列表）。
+
+## 十、下载模块批（2026-10-01，DOWNLOAD-TASK T3.3，+1）
+
+> 音频离线缓存「已下载」态图标。gstatic 直连/Clash 代理均失败，字形路径取
+> MUI DownloadDone（material-icons 官方 React 版，与 Google 源同字形）双源交叉确认；
+> 下划线 + 对勾几何自检通过；无全幅矩形路径（老式绝对坐标字形，同 download.svg 家族）。
+
+| 用途 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 剧集页音频按钮「已下载」态 | `download_done` | download-done.svg | #64748b（与 download.svg text-secondary 同色，深浅同值） |
+| 剧集页音频按钮「已下载」态 | `download_done` | download-done.svg | #64748b（与 download.svg text-secondary 同色，深浅同值） |
+| 我的页「离线缓存」行（T3.5） | `download`（复用已烘焙字形） | download-primary(-dark).svg | #1f7a5c/#4da989（本地重着色，非新烘焙） |
