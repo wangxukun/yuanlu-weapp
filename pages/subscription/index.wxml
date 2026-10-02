@@ -13,6 +13,14 @@
       </view>
     </view>
 
+    <!-- 支付处理中胶囊（T5.2：弱成功后轮询收敛期；超时交后端兜底查单） -->
+    <view wx:if="{{payPending}}" class="pay-pending-row">
+      <view class="pay-pending-pill">
+        <view class="pay-pending-spinner"></view>
+        <text class="pay-pending-text">支付处理中，正在确认入账…</text>
+      </view>
+    </view>
+
     <!-- 游客态横幅（T1.3：Web 游客区块复刻，文案按虚拟支付口径改写） -->
     <view wx:if="{{guest}}" class="guest-banner">
       <view class="guest-title-row">

@@ -1,4 +1,5 @@
 const authStore = require('../../store/authStore');
+const membershipStore = require('../../store/membershipStore');
 const theme = require('../../utils/theme');
 const notificationBadge = require('../../utils/notification-badge');
 const { get } = require('../../utils/request');
@@ -19,6 +20,11 @@ Page({
   data: {
     isLoggedIn: false,
     userInfo: null,
+    // 用户卡角色角标（预计算，WXML 零方法调用）：ADMIN 优先；非管理员以
+    // membershipStore 权威校正为准（checked && isPremium）——DB role 只是
+    // 展示缓存，纯小程序付费后不会自动翻，订阅页胶囊同口径（附录 C）。
+    roleBadgeText: '普通用户',
+    roleBadgeClass: 'normal',
     themeClass: '',
     dark: false,
     unreadCount: 0,
@@ -38,11 +44,17 @@ Page({
     this.unsubscribeAuth = authStore.subscribe(() => {
       this.syncStoreData();
     });
+    // 会员态权威校正回调（付费后切回本 tab 角标即时收敛）
+    this.unsubscribeMembership = membershipStore.subscribe(() => {
+      this.syncStoreData();
+    });
   },
 
   onShow() {
     this.syncStoreData();
     this.syncUnreadCount();
+    // 会员权威校正（TTL 内命中缓存）：回包后订阅回调刷角色角标
+    membershipStore.ensureFresh();
     // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
     this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark', themeLabel: theme.MODE_LABELS[theme.getMode()] });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
@@ -54,6 +66,9 @@ Page({
     if (this.unsubscribeAuth) {
       this.unsubscribeAuth();
     }
+    if (this.unsubscribeMembership) {
+      this.unsubscribeMembership();
+    }
   },
 
   onStoreChange() {
@@ -62,9 +77,23 @@ Page({
 
   syncStoreData() {
     const state = authStore.getState();
+    const membership = membershipStore.getState();
+    // 角色角标派生：ADMIN 直通（本地展示缓存仅此一处可信——管理员不靠订阅）；
+    // 其余以订阅表权威校正为准，过期会员缓存 role=PREMIUM 也不会误报
+    let roleBadgeText = '普通用户';
+    let roleBadgeClass = 'normal';
+    if (state.userInfo && state.userInfo.role === 'ADMIN') {
+      roleBadgeText = '管理员';
+      roleBadgeClass = 'admin';
+    } else if (membership.checked && membership.isPremium) {
+      roleBadgeText = '高级会员';
+      roleBadgeClass = 'premium';
+    }
     const patch = {
       isLoggedIn: state.isLoggedIn,
-      userInfo: state.userInfo
+      userInfo: state.userInfo,
+      roleBadgeText,
+      roleBadgeClass
     };
     // 登出即清角标（登录态拉取在 syncUnreadCount）
     if (!state.isLoggedIn) patch.unreadCount = 0;

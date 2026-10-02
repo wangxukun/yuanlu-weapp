@@ -9,8 +9,8 @@
   - 状态管理：自研轻量 Store（`store/core.js` 发布-订阅基类），实例有 `authStore` / `playerStore` / `membershipStore`。
   - 网络请求：`utils/request.js` 唯一出口（get/post/put/delete + Bearer token 自动注入 + 401 清 token），`BASE_URL` 由 `utils/config.js` 按 envVersion 自动切换。
   - 会员/配额底座：`membershipStore`（订阅表校正）+ `premium-modal`（10 场景）+ `utils/track.js` 静默埋点 + `components/common/quota-card`。
-  - 测试：`npm test` 42 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook / recorder / eval-card / deck / shadowing / pron-core / speech-profile-card / diagnostic-report-card / pron-list / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter / **transcript-preview 54 + download-manager 42**（下载模块新增）+ history / paths / profile×4 / learning-report / notifications，共约 2954 断言〔2026-10-01 口径〕）。
-- **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），个人中心在 PROFILE-TASK.md，音频/文稿下载在 DOWNLOAD-TASK.md（均本地工作文档不入库），WE-TASK 仅保留汇总行，避免双头跟踪。
+  - 测试：`npm test` 44 套件全绿（membership / home-guest / premium-modal / quota-card / srs / audio-tts / login / favorites / search / channels / discover-tags / episode-player / player-store / mini-player / intensive-listening / vocab-notebook / sentence-notebook / recorder / eval-card / deck / shadowing / pron-core / speech-profile-card / diagnostic-report-card / pron-list / ai-deep-dive / speech-eval / progress-reporter / contact / theme / listening-reporter / transcript-preview / download-manager（下载模块）+ history / paths / profile×4 / learning-report / notifications + **subscription 97 + wxpay 76**（订阅/虚拟支付模块新增），共约 3150 断言〔2026-10-03 口径〕）。
+- **姊妹清单**：「复习」Tab 的详细复刻清单在 [REVIEW-TASK.md](./REVIEW-TASK.md)（19 Task + 权限映射表 + API 对照表），个人中心在 PROFILE-TASK.md，音频/文稿下载在 DOWNLOAD-TASK.md，订阅+虚拟支付在 SUBSCRIBE-TASK.md（均本地工作文档不入库），WE-TASK 仅保留汇总行，避免双头跟踪。
 - **图标政策（2026-09-27 用户指令，长期有效）**：今后所有图标**必须使用 Android Material 图标**（参照 yuanlu-android `Icons.Filled.*`，源 = gstatic materialicons 24px）；lucide 已全量退役（125 SVG 换装 + 11 PNG 重绘 + 129 旧文件删除），全量台账与烘焙规范见根目录 [Android-Meterial.md](./Android-Meterial.md)。
 
 ## 2. 小程序复刻难点与跨端差异抹平策略
@@ -81,10 +81,10 @@
 - [ ] 3.D.5 我的订阅页 `pages/library/subscribe/index`（mine 宫格死链入口之三；与订阅/虚拟支付排期联动）。
 - [x] 3.D.6 ~~个人资料编辑页 `pages/profile/index`（mine 头部点击跳转，当前死链；头像/昵称编辑）~~ → **已解决（4317ea7..67eb2cb 个人中心模块阶段 0-6）**：`pages/profile/index`（三 Tab：旅程数据/里程碑/账号与安全）+ `pages/profile/edit` 全屏编辑页（头像居中裁剪 512 上传/昵称/签名/水平/三目标滑杆）；微信头像昵称填写能力未采用——头像走自建 OSS 裁剪上传链（对齐 Android 口径）。
 
-#### 模块 E：订阅与支付转化（新增，未开始）
-- [ ] 3.E.1 订阅页 `pages/subscription/index`（premium-modal 全部 10 场景 CTA 仍是「即将上线」占位；Web 端 `/subscription` 会员权益对比 + 价格档位复刻）。
-- [ ] 3.E.2 微信虚拟支付接入（合规红线：微信内必须走虚拟支付，爱发电必被拒；个人主体可开通；微信外 H5 暂留爱发电看数据）。
-- [ ] 3.E.3 类目与主体规划（拟用 工具-信息查询；长期迁个体工商户，见记忆「上线合规与虚拟支付」）。
+#### 模块 E：订阅与支付转化（✅ 全部完成，2026-10-03 真机完整闭环用户确认通过；详细清单见本地 SUBSCRIBE-TASK.md，六阶段，提交链 c4161e3/494aeb2 + 本批）
+- [x] 3.E.1 订阅页 `pages/subscription/index`（Web subscribe-client.tsx 复刻：四档位卡+日均价锚点+buyQuantity 步进器+三态[游客横幅/会员胶囊/默认]+协议全文弹层[微信虚拟支付口径改写]；premium-modal 15 场景 CTA + mine 我的订阅行 + transcript-preview 拦截卡 CTA 全量真路由，source 透传归因）。
+- [x] 3.E.2 微信虚拟支付接入（道具直购 short_series_goods；`utils/wxpay.js` 三级版本闸[ iOS 8.0.68/基础库 2.19.2/API 存在]+pay() 全链路[闸→wx.login→bind 即签即用→下单→requestVirtualPayment **扁平调用结构**]+fail 分类[取消静默/限额兜底/已知码查表]+**回调丢失 90s unknown 兜底**；订阅页支付处理中胶囊+pollSettlement 轮询收敛[2s×8]；漏斗三事件埋点 SUBSCRIBE_PAGE_VIEW/ORDER_CREATE/PAY_SUCCESS[收敛为准]；后端域 yuanlu feat/android-app：下单/发货推送[通用消息推送页+echostr 握手+双轨验签]/兜底查单 reconcile[生产 cron */5 已上线]/admin 微信订单面板；**T5.4 真机验收：支付→推送→发货→秒级收敛→胶囊/角标刷新完整闭环，2026-10-03 用户确认通过**；联调过程修复 mine 角标权威校正/admin role 口径三连/用户接口安全收紧[yuanlu 仓]）。
+- [x] 3.E.3 类目与主体规划（**已解除**：类目=工具>信息查询，虚拟支付开通审核+签约实证放行无需调整——开通审核即执法点；长期迁个体工商户维持既有规划，见记忆「上线合规与虚拟支付」）。
 
 #### 模块 F：音频/文稿下载与离线缓存（✅ 全部完成，2026-10-01；详细清单见本地 DOWNLOAD-TASK.md，五阶段 + 5 提交链）
 - [x] 3.F.1 下载门禁（773e2d2）：premium-modal 补 `episode_audio_download` 场景（Web 逐字）；episode 页接入 membershipStore（`_syncMembership`，不自调订阅接口）；音频/文稿按钮三态门禁（未登录 toast / 非会员弹窗或预览 / 会员直进）；非会员文稿预览弹层 `components/transcript-preview`（PDF 纸张复刻 + 场景卡拦截，CTA/埋点/文案与 premium-modal 单源，经用户两轮指令改版定制）。
@@ -105,6 +105,6 @@
 - [ ] 5.2 `utils/config.js` dev `BASE_URL` 当前临时指向生产 `https://www.wxkzd.com`（commit cad6670，便于真机预览联调），联调完切回 `localhost:3000`。
 - [ ] 5.3 mine 页 3 个死链宫格入口在对应页面建成前做隐藏或「敬请期待」降级，避免线上点击报错。
 - [ ] 5.4 「外观设置」当前仅 toast 占位（"小程序暂不支持主题切换"），确认产品口径后转正式任务或移除入口。
-- [ ] 5.5 premium-modal CTA 全量占位 → 随 3.E.1 订阅页接线（含 `source` 透传归因）。
+- [x] 5.5 ~~premium-modal CTA 全量占位~~ → 已随 3.E.1 全量接线（15 场景+mine+transcript-preview，`source` 透传归因，SCENARIO_KEYS 单源导出把门）。
 - [x] 5.6 ~~发现页频道死链~~ → **已解决（3.A.9 + 3.A.10）**：`pages/channel/all`（全部频道）与 `pages/channel/index`（频道详情）均已建成注册，发现页「查看更多」与频道卡入口全链路激活。
 - [x] 5.7 发现页「分类标签」筛选失效（2026-09-21 修复）：根因是标签行数据源 `/api/tag/list` 为标签全库（课程/语法型），与播客实际挂的标签交集≈0（线上实测 20 个仅 1 个命中），点 19/20 个标签过滤恒空——Android `FilterChip` 同款失效（Web 发现页本无此模块）。修复：标签行改由 `/api/podcast/list` 播客 tags 派生（按命中数降序，线上派生 41 个、每个必命中），并修复区头标题恒显 `tags[0].name` 的小 bug（改 `selectedTagName` 维护）。单测 `scripts/test-discover-tags.js`（15 断言，含线上数据回放）。

@@ -11,7 +11,9 @@
  *   五、三态互斥：游客横幅 / 会员胶囊三文案（ADMIN·到期日·长期有效）/
  *      未开通默认；会员胶囊仅权威校正（checked）后展示；
  *   六、membershipStore expiryDate 回写与换号清空；
- *   七、订阅按钮分流：游客→auth 页，已登录→占位 toast；
+ *   七、订阅按钮分流：游客→auth 页，已登录→支付全链路（T3.3 绑定前置 +
+ *      T5.1 下单/requestVirtualPayment 拉起 + T5.2 支付中态与轮询收敛，占位
+ *      toast 退役）；
  *   八、WXML 零方法调用红线扫描 + app.json 注册。
  *
  * 运行：node scripts/test-subscription.js（或 npm test）
@@ -26,6 +28,29 @@ let wxLoginMode = 'ok'; // 'ok' | 'fail' | 'nocode'
 const loginCalls = [];
 const bindRequests = [];
 let bindOk = true;
+// ---- T5.1 支付链路 mock：下单接口 + requestVirtualPayment + 版本闸画像 ----
+const orderRequests = [];
+const payCalls = [];
+let payRespond = { type: 'success' }; // { type: 'success' } | { type: 'fail', res }
+let sysProfile = { platform: 'devtools', wxVersion: '8.0.90', sdkVersion: '3.7.12' };
+// ---- T5.2 收敛轮询 mock：status 请求计数（轮询节流断言用） ----
+const statusRequests = [];
+// ---- T5.3 埋点 mock：/api/track 捕获（漏斗三事件断言用） ----
+const trackRequests = [];
+
+/** 与真机 wx.compareVersion 同语义（数值段逐位比较） */
+function compareVersion(v1, v2) {
+  const a = String(v1).split('.');
+  const b = String(v2).split('.');
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const x = parseInt(a[i] || '0', 10);
+    const y = parseInt(b[i] || '0', 10);
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
 
 global.wx = {
   _storage: {},
@@ -40,6 +65,16 @@ global.wx = {
   },
   getAccountInfoSync() {
     return { miniProgram: { envVersion: 'develop' } };
+  },
+  getAppBaseInfo() {
+    return { version: sysProfile.wxVersion, SDKVersion: sysProfile.sdkVersion };
+  },
+  getDeviceInfo() {
+    return { platform: sysProfile.platform };
+  },
+  compareVersion,
+  canIUse() {
+    return true;
   },
   showToast(opts) {
     toastCalls.push(opts);
@@ -56,7 +91,23 @@ global.wx = {
     const code = wxLoginMode === 'nocode' ? '' : 'mock-js-code';
     opts.success && opts.success({ code });
   },
+  requestVirtualPayment(opts) {
+    payCalls.push(opts);
+    queueMicrotask(() => {
+      if (payRespond.type === 'silent') return; // 回调丢失模拟（T5.4 真机实测形态）
+      if (payRespond.type === 'success') {
+        opts.success && opts.success({});
+      } else {
+        opts.fail && opts.fail(payRespond.res);
+      }
+    });
+  },
   request(opts) {
+    if (opts.url.includes('/api/track')) {
+      trackRequests.push(opts);
+      opts.success({ statusCode: 204, data: '' });
+      return;
+    }
     if (opts.url.includes('/api/user/wx/bind')) {
       bindRequests.push(opts);
       if (bindOk) {
@@ -66,7 +117,24 @@ global.wx = {
       }
       return;
     }
+    if (opts.url.includes('/api/wxpay/order')) {
+      orderRequests.push(opts);
+      opts.success({
+        statusCode: 200,
+        data: {
+          success: true,
+          data: {
+            signData: 'SIGN_RAW_{\"offerId\":\"offer-1\"}',
+            paySig: 'paysig-hex64',
+            signature: 'signature-hex64',
+            outTradeNo: 'YR20261002000000abc123',
+          },
+        },
+      });
+      return;
+    }
     if (opts.url.includes('/api/user/subscription/status')) {
+      statusRequests.push(opts);
       opts.success({ statusCode: nextResponse.statusCode, data: nextResponse.data });
       return;
     }
@@ -83,6 +151,7 @@ global.Page = (cfg) => {
 const fs = require('fs');
 const path = require('path');
 const plansCore = require('../utils/plans');
+const wxpay = require('../utils/wxpay');
 require('../pages/subscription/index');
 const authStore = require('../store/authStore');
 const membershipStore = require('../store/membershipStore');
@@ -245,31 +314,48 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
 
   // ==================== 六、（expiryDate 回写已并入五） ====================
 
-  // ==================== 七、购买前置绑定链路（T3.3） ====================
-  console.log('━━━ 七、绑定链路/失败分支/回流 ━━━');
+  // ==================== 七、购买链路（T3.3 绑定前置 + T5.1 支付拉起） ====================
+  console.log('━━━ 七、绑定链路/支付拉起/失败分支/回流 ━━━');
   const settle = () => new Promise((r) => setTimeout(r, 0));
+  const subEvt = (key) => ({ currentTarget: { dataset: { key } } });
   const p3 = makePage();
+  p3._pollSleepFn = async () => {}; // 成功路径进入轮询时零真实等待（T5.2）
   p3.setData({ guest: true });
   toastCalls.length = 0;
   navigateCalls.length = 0;
-  p3.onSubscribe();
+  p3.onSubscribe(subEvt('WEEKLY'));
   assert(navigateCalls.length === 1 && navigateCalls[0].url === '/pages/auth/index', '游客点订阅 → auth 页');
-  assert(toastCalls.length === 0 && loginCalls.length === 0, '游客点订阅不触发绑定链路');
+  assert(toastCalls.length === 0 && loginCalls.length === 0, '游客点订阅不触发购买链路');
+  assert(trackRequests.length === 0, '游客点订阅不报 ORDER_CREATE');
   p3.onGoLogin();
   assert(navigateCalls.length === 2 && navigateCalls[1].url === '/pages/auth/index', '游客横幅按钮 → auth 页');
 
   // 登录回流：source 留存本页（订阅页在栈内，navigateBack 即回，source 不丢）
   const p3s = makePage();
+  trackRequests.length = 0;
   pageDef.onLoad.call(p3s, { source: 'episode_deep_dive' });
   assert(p3s.data.source === 'episode_deep_dive', '登录回流保 source（onLoad 留存）');
+  assert(
+    trackRequests.length === 1 && trackRequests[0].data.eventType === 'SUBSCRIBE_PAGE_VIEW' &&
+      trackRequests[0].data.source === 'episode_deep_dive',
+    'onLoad → SUBSCRIBE_PAGE_VIEW（source 归因透传，T5.3 漏斗首事件）',
+  );
+  trackRequests.length = 0;
+  pageDef.onLoad.call(makePage(), {});
+  assert(
+    trackRequests.length === 1 && trackRequests[0].data.source === 'unknown',
+    '无 source 进入 → SUBSCRIBE_PAGE_VIEW 兜底 unknown（PREMIUM_MODAL_OPEN 同口径）',
+  );
 
-  // 已登录 + bind 成功 → 占位支付 toast（支付链路阶段 5 接入）
+  // 已登录 + bind 成功 → 下单 + 拉起 requestVirtualPayment（T5.1，占位 toast 退役）
   p3.setData({ guest: false });
   loginCalls.length = 0;
   bindRequests.length = 0;
+  orderRequests.length = 0;
+  payCalls.length = 0;
   toastCalls.length = 0;
   bindOk = true;
-  p3.onSubscribe();
+  p3.onSubscribe(subEvt('WEEKLY'));
   await settle();
   assert(loginCalls.length === 1, '已登录点订阅 → wx.login 恰一次');
   assert(
@@ -278,30 +364,192 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
     'bind 请求携带一次性 code',
   );
   assert(
-    toastCalls.length === 1 && toastCalls[0].title === '支付功能即将上线',
-    'bind 成功 → 支付占位 toast（T5.1 接支付）',
+    orderRequests.length === 1 && orderRequests[0].data.planKey === 'WEEKLY' &&
+      orderRequests[0].data.buyQuantity === 1,
+    'bind 成功 → 下单（档位 key + 份数，金额分后端 SKU 表定价）',
   );
+  assert(
+    payCalls.length === 1 && payCalls[0].signData === 'SIGN_RAW_{\"offerId\":\"offer-1\"}' &&
+      payCalls[0].mode === 'short_series_goods' && payCalls[0].paySig === 'paysig-hex64',
+    '下单成功 → 拉起 requestVirtualPayment（扁平结构，signData 原串透传）',
+  );
+  assert(
+    toastCalls.some((t) => t.title === '支付成功，正在确认入账'),
+    'success 回调弱提示（不可信口径）',
+  );
+  assert(!toastCalls.some((t) => t.title === '支付功能即将上线'), '占位 toast 退役红线（T5.1）');
   assert(p3._purchasing === false, '购买流程退出后防重入锁复位');
 
-  // bind 4xx（REJECT_OWNER 文案）→ 全局 toast 后端文案，不进支付占位
+  // 步进器份数 → 下单 buyQuantity 透传（按钮 dataset.key 与卡内 qty 联动）
+  p3.onQtyChange(evt('YEARLY', 1));
+  p3.onQtyChange(evt('YEARLY', 1));
+  loginCalls.length = 0;
+  bindRequests.length = 0;
+  orderRequests.length = 0;
+  payCalls.length = 0;
+  toastCalls.length = 0;
+  p3.onSubscribe(subEvt('YEARLY'));
+  await settle();
+  assert(
+    orderRequests.length === 1 && orderRequests[0].data.planKey === 'YEARLY' &&
+      orderRequests[0].data.buyQuantity === 3,
+    '年卡 3 份 → 下单 { planKey: YEARLY, buyQuantity: 3 }',
+  );
+
+  // ---- T5.2 支付中态与结果收敛 ----
+  // 收敛成功：弱成功 → payPending 置位（sleep 桩内观察）→ 第 2 次轮询翻 PREMIUM
+  // → 成功 toast + ensureFresh(true) 权威刷新（胶囊经 store 订阅自动更新）
+  nextResponse = { statusCode: 200, data: { role: 'USER', expiryDate: null } };
+  await membershipStore.ensureFresh(true);
+  const p5 = makePage();
+  p5.syncAuthState();
+  let pendingSeen = false;
+  p5._pollSleepFn = async () => {
+    pendingSeen = pendingSeen || p5.data.payPending === true;
+    nextResponse = { statusCode: 200, data: { role: 'PREMIUM', expiryDate: '2026年10月9日' } };
+  };
+  statusRequests.length = 0;
+  toastCalls.length = 0;
+  trackRequests.length = 0;
+  p5.onSubscribe(subEvt('WEEKLY'));
+  await settle();
+  assert(pendingSeen, '轮询期 payPending 态置位（支付处理中横幅展示）');
+  assert(p5.data.payPending === false, '收敛后支付中态复位');
+  assert(toastCalls.some((t) => t.title === '支付成功，会员已激活'), '收敛成功 toast（两态其一）');
+  assert(
+    trackRequests.some((t) => t.data.eventType === 'ORDER_CREATE' && t.data.source === 'WEEKLY' &&
+      t.data.metadata.outTradeNo === 'YR20261002000000abc123' && t.data.metadata.buyQuantity === 1),
+    '漏斗中段：ORDER_CREATE（wxpay 咽喉点,source=planKey）',
+  );
+  assert(
+    trackRequests.some((t) => t.data.eventType === 'PAY_SUCCESS' && t.data.source === 'WEEKLY' &&
+      t.data.metadata.outTradeNo === 'YR20261002000000abc123' && t.data.metadata.buyQuantity === 1),
+    '漏斗末段：PAY_SUCCESS 以后端发货收敛为准上报（success 回调不可信）',
+  );
+  assert(
+    membershipStore.getState().expiryDate === '2026年10月9日',
+    '收敛 = ensureFresh(true) 权威刷新（附录 C：不信本地 role）',
+  );
+  p5.syncAuthState();
+  assert(
+    p5.data.memberBadgeText === '您的高级会员有效期至：2026年10月9日',
+    '成功态：会员胶囊到期日刷新（store 订阅联动）',
+  );
+  assert(statusRequests.length === 2, '轮询恰 2 次 status（首次立即 + 翻态后收敛）');
+  assert(p5._purchasing === false, '收敛后防重入锁复位');
+
+  // 超时：状态恒不变 → 恰 maxAttempts 次轮询后「订单处理中」（兜底查单保证最终一致）
+  nextResponse = { statusCode: 200, data: { role: 'USER', expiryDate: null } };
+  await membershipStore.ensureFresh(true);
+  statusRequests.length = 0;
+  toastCalls.length = 0;
+  trackRequests.length = 0;
+  const sleepCount = { n: 0 };
+  p5._pollSleepFn = async () => { sleepCount.n += 1; };
+  p5.onSubscribe(subEvt('WEEKLY'));
+  await settle();
+  assert(
+    statusRequests.length === wxpay.SETTLE_POLL_MAX_ATTEMPTS,
+    `超时终止条件：恰 ${wxpay.SETTLE_POLL_MAX_ATTEMPTS} 次轮询`,
+  );
+  assert(sleepCount.n === wxpay.SETTLE_POLL_MAX_ATTEMPTS - 1, '节流：间隔次数 = 尝试数 - 1');
+  assert(
+    trackRequests.some((t) => t.data.eventType === 'ORDER_CREATE') &&
+      !trackRequests.some((t) => t.data.eventType === 'PAY_SUCCESS'),
+    '超时未收敛不报 PAY_SUCCESS（发货未确认,兜底查单口径）',
+  );
+  assert(
+    toastCalls.some((t) => t.title === '订单处理中，稍后在我的订阅查看'),
+    '超时提示（订单处理中,稍后在我的订阅查看）',
+  );
+  assert(!toastCalls.some((t) => t.title === '支付成功，会员已激活'), '超时不得报成功');
+  assert(p5.data.payPending === false && p5._purchasing === false, '超时后支付中态与锁均复位');
+  p5.onUnload();
+
+  // ---- T5.4 真机首单实测缺陷修复：回调丢失兜底（真付后 success/fail 均未回调→无反馈） ----
+  nextResponse = { statusCode: 200, data: { role: 'USER', expiryDate: null } };
+  await membershipStore.ensureFresh(true);
+  const p6 = makePage();
+  p6.syncAuthState();
+  p6._payCallbackTimeoutMs = 5; // 兜底窗压缩到 5ms（运行时缺省 90s）
+  p6._pollSleepFn = async () => {
+    nextResponse = { statusCode: 200, data: { role: 'PREMIUM', expiryDate: '2026年10月16日' } };
+  };
+  payRespond = { type: 'silent' };
+  statusRequests.length = 0;
+  toastCalls.length = 0;
+  trackRequests.length = 0;
+  p6.onSubscribe(subEvt('WEEKLY'));
+  await settle();
+  assert(p6.data.payPending === true, '拉起即置横幅：回调丢失静默窗内保持「支付处理中」');
+  await new Promise((resolve) => setTimeout(resolve, 25)); // 兜底窗 5ms + 轮询链
+  await settle();
+  assert(p6.data.payPending === false, 'unknown → 轮询收敛后横幅复位');
+  assert(
+    toastCalls.some((t) => t.title === '支付成功，会员已激活'),
+    '回调丢失仍以收敛为准报成功（发货以服务端为准）',
+  );
+  assert(
+    trackRequests.some((t) => t.data.eventType === 'PAY_SUCCESS'),
+    'PAY_SUCCESS 漏斗末事件不受回调丢失影响',
+  );
+  assert(p6._purchasing === false, '兜底路径防重入锁复位（promise 必定 settle 红线）');
+  // 购买在途 onShow 强制权威刷新（Web 切回补查同款；须绕过 TTL 缓存）
+  p6._purchasing = true;
+  statusRequests.length = 0;
+  p6.onShow();
+  await settle();
+  assert(statusRequests.length === 1, '购买在途 onShow → ensureFresh(true) 绕过 TTL 强刷');
+  p6._purchasing = false;
+  p6.onUnload();
+  payRespond = { type: 'success' };
+
+  // 支付取消 → 静默退出，防重入锁复位（pay 永不 reject 口径）
+  payRespond = { type: 'fail', res: { errCode: -2, errMsg: 'requestVirtualPayment:fail cancel' } };
+  loginCalls.length = 0;
+  bindRequests.length = 0;
+  orderRequests.length = 0;
+  payCalls.length = 0;
+  toastCalls.length = 0;
+  statusRequests.length = 0;
+  trackRequests.length = 0;
+  p3.onSubscribe(subEvt('WEEKLY'));
+  await settle();
+  assert(p3._purchasing === false, '支付取消后防重入锁复位（finally 口径）');
+  assert(!toastCalls.some((t) => t.title.includes('支付')), '用户取消静默（无任何支付 toast）');
+  assert(statusRequests.length === 0, '取消不进入收敛轮询（无 status 请求）');
+  assert(p3.data.payPending === false, '取消后支付中态复位（拉起即置位、取消即清）');
+  assert(
+    trackRequests.some((t) => t.data.eventType === 'ORDER_CREATE') &&
+      !trackRequests.some((t) => t.data.eventType === 'PAY_SUCCESS'),
+    '取消漏斗口径：ORDER_CREATE 已报（订单已落库）+ 无 PAY_SUCCESS',
+  );
+  payRespond = { type: 'success' };
+
+  // bind 4xx（REJECT_OWNER 文案）→ 全局 toast 后端文案，不下单不拉起支付
   bindOk = false;
   loginCalls.length = 0;
+  bindRequests.length = 0;
+  orderRequests.length = 0;
+  payCalls.length = 0;
   toastCalls.length = 0;
-  p3.onSubscribe();
+  trackRequests.length = 0;
+  p3.onSubscribe(subEvt('WEEKLY'));
   await settle();
-  assert(loginCalls.length === 1 && bindRequests.length === 2, '失败分支仍走完 login+bind');
+  assert(loginCalls.length === 1 && bindRequests.length === 1, '失败分支仍走完 login+bind');
   assert(
     toastCalls.some((t) => t.title === '该微信号已绑定其他账号'),
     'bind 4xx → 全局 toast 后端文案（一号多绑口径）',
   );
-  assert(!toastCalls.some((t) => t.title === '支付功能即将上线'), '绑定失败不进支付占位');
+  assert(orderRequests.length === 0 && payCalls.length === 0, '绑定失败不下单不拉起支付');
+  assert(trackRequests.length === 0, '绑定失败不报 ORDER_CREATE（漏斗只进到达用户）');
 
   // wx.login fail → 本地 toast
   wxLoginMode = 'fail';
   loginCalls.length = 0;
   bindRequests.length = 0;
   toastCalls.length = 0;
-  p3.onSubscribe();
+  p3.onSubscribe(subEvt('WEEKLY'));
   await settle();
   assert(bindRequests.length === 0, 'wx.login 失败不发 bind 请求');
   assert(toastCalls.some((t) => t.title === '微信登录失败，请稍后重试'), 'wx.login 失败 → 本地 toast');
@@ -309,7 +557,7 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
   // wx.login 成功但无 code → 同失败分支
   wxLoginMode = 'nocode';
   toastCalls.length = 0;
-  p3.onSubscribe();
+  p3.onSubscribe(subEvt('WEEKLY'));
   await settle();
   assert(bindRequests.length === 0 && toastCalls.some((t) => t.title === '微信登录失败，请稍后重试'), '空 code 视同登录失败');
   wxLoginMode = 'ok';
@@ -322,6 +570,11 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
   const methodCalls = mustaches.filter((m) => /[A-Za-z_$][\w$]*\s*\(/.test(m));
   assert(methodCalls.length === 0, 'WXML 零方法调用（展示态全预计算）');
   assert(wxml.includes("{{guest ? '登录后订阅' : '一键订阅'}}"), '按钮文案随登录态分流');
+  assert(
+    wxml.includes('class="pay-pending-row"') && wxml.includes('{{payPending}}') &&
+      wxml.includes('pay-pending-spinner') && wxml.includes('支付处理中，正在确认入账'),
+    '支付处理中胶囊结构（T5.2：横幅+CSS spinner+文案）',
+  );
   const appJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../app.json'), 'utf8'));
   assert(appJson.pages.includes('pages/subscription/index'), 'app.json 已注册订阅页');
   // 标题口径（2026-10-02 用户走查）：导航栏「我的订阅」，页内无「赞助方案」大标题

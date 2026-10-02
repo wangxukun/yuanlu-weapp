@@ -13,14 +13,10 @@
       <block wx:if="{{isLoggedIn}}">
         <text class="t-h2 text-bold ellipsis">{{userInfo.nickname || userInfo.email || 'User'}}</text>
         <view class="row mt-1">
-          <view wx:if="{{userInfo.role === 'ADMIN'}}" class="role-badge admin">
-            <text class="badge-text">管理员</text>
-          </view>
-          <view wx:elif="{{userInfo.role === 'PREMIUM'}}" class="role-badge premium">
-            <text class="badge-text">高级会员</text>
-          </view>
-          <view wx:else class="role-badge normal">
-            <text class="badge-text">普通用户</text>
+          <!-- 角色角标（JS 预计算：ADMIN 直通/其余以 membershipStore 权威校正为准，
+               DB role 只是展示缓存不直绑——订阅页胶囊同口径） -->
+          <view class="role-badge {{roleBadgeClass}}">
+            <text class="badge-text">{{roleBadgeText}}</text>
           </view>
         </view>
         <text class="t-caption text-secondary mt-1 ellipsis" wx:if="{{userInfo.email}}">{{userInfo.email}}</text>

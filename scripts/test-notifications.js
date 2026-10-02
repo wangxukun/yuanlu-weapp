@@ -658,6 +658,13 @@ function bodies(method, p) {
     assert(WXML_MINE.indexOf("wx:if=\"{{isLoggedIn && userInfo.role === 'ADMIN'}}\"") >= 0 &&
       WXML_MINE.indexOf('onAdminConsole') >= 0,
       '控制台仍为管理员条件渲染 + toast 处理器');
+    // 角色角标权威校正派生（T5.4 真机联调 2026-10-02：纯小程序付费后 DB role
+    // 不自动翻，卡片不得直绑展示缓存三分支）
+    assert(WXML_MINE.indexOf('class="role-badge {{roleBadgeClass}}"') >= 0 &&
+      WXML_MINE.indexOf('{{roleBadgeText}}') >= 0,
+      '角色角标绑定 JS 预计算字段（WXML 零方法调用）');
+    assert(WXML_MINE.indexOf("userInfo.role === 'PREMIUM'") < 0,
+      '红线：用户卡不直绑展示缓存 role=PREMIUM 分支（过期会员会误报）');
     assert(WXML_MINE.indexOf('发音弱项本') < 0 && WXML_MINE.indexOf('>个人中心<') < 0,
       '需求红线：我的页不含「发音弱项本」「个人中心」菜单项');
     assert(WXML_MINE.indexOf('{{themeLabel}}') >= 0, '外观设置尾值绑定（跟随系统/浅色/深色）');
@@ -965,6 +972,49 @@ function bodies(method, p) {
     );
     assert(navigations.length === 1, '单次跳转无重复压栈');
     assert(toasts.length === 0, '占位 toast「订阅功能即将上线」已退役');
+  }
+
+  section('十九、用户卡角色角标（T5.4 真机联调：权威校正口径）');
+  {
+    resetMock();
+    const membershipStore = require(path.join(__dirname, '../store/membershipStore.js'));
+    const page = makePage(mineConfig, { unsubscribeAuth: null, unsubscribeMembership: null });
+    page.onLoad();
+
+    // 场景1（真机缺陷本体）：DB role=USER（纯小程序付费后不自动翻）+
+    // 订阅表权威校正 PREMIUM → 高级会员
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
+    membershipStore.setState({ isPremium: true, role: 'PREMIUM', checked: true, expiryDate: '2026年10月9日' });
+    page.syncStoreData();
+    assert(page.data.roleBadgeText === '高级会员' && page.data.roleBadgeClass === 'premium',
+      'USER 缓存 + 权威校正 PREMIUM → 高级会员（真机「普通用户」误显修复）');
+
+    // 场景2：过期会员（DB role 仍 PREMIUM 的陈旧缓存）权威已失效 → 普通用户
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'PREMIUM' } });
+    membershipStore.setState({ isPremium: false, role: 'USER', checked: true, expiryDate: null });
+    page.syncStoreData();
+    assert(page.data.roleBadgeText === '普通用户' && page.data.roleBadgeClass === 'normal',
+      '陈旧 PREMIUM 缓存 + 权威过期 → 普通用户（反向不误报）');
+
+    // 场景3：ADMIN 直通（本地缓存仅此一处可信——管理员不靠订阅）
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'ADMIN' } });
+    page.syncStoreData();
+    assert(page.data.roleBadgeText === '管理员' && page.data.roleBadgeClass === 'admin',
+      'ADMIN 直通 → 管理员');
+
+    // 场景4：乐观期（未权威校正）保守显示
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
+    membershipStore.setState({ isPremium: false, role: 'USER', checked: false, expiryDate: null });
+    page.syncStoreData();
+    assert(page.data.roleBadgeText === '普通用户',
+      '乐观期（未校正）不误报高级会员');
+
+    // 场景5：membershipStore 订阅通道——付费收敛后切回 mine 即时刷新角标
+    membershipStore.setState({ isPremium: true, role: 'PREMIUM', checked: true, expiryDate: '2026年10月9日' });
+    await tick();
+    assert(page.data.roleBadgeText === '高级会员',
+      'store 订阅回调即时刷角标（订阅页付费收敛 → 切回 mine 生效）');
+    page.onUnload();
   }
 
   console.log('\n========== 消息通知测试：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

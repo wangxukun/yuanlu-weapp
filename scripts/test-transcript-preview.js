@@ -21,6 +21,7 @@ const path = require('path');
 
 const toasts = [];
 const trackRequests = [];
+const navigations = [];
 
 global.wx = {
   getStorageSync() {
@@ -32,6 +33,9 @@ global.wx = {
   },
   showToast(o) {
     toasts.push(o.title);
+  },
+  navigateTo(o) {
+    navigations.push(o.url);
   },
   request(opts) {
     trackRequests.push(opts);
@@ -132,10 +136,15 @@ assert(modal.data.subtitles.length === 0 && modal.data.pageCount === 1, 'D 空�
 modal.events.length = 0;
 modal.onClose();
 assert(modal.events[0] === 'close', 'E close 事件透传');
-toasts.length = 0;
+navigations.length = 0;
 modal.onCta();
 assert(modal.events[1] === 'close', 'E CTA → 关弹层（close 事件，对齐 premium-modal.onCta）');
-assert(toasts[0] === '订阅功能即将上线', 'E CTA → 占位 toast（订阅页落地后同步切真路由）');
+assert(
+  navigations.length === 1 &&
+    navigations[0] === '/pages/subscription/index?source=episode_audio_download',
+  'E CTA → 跳订阅页真路由（T2.1 同款,source=场景键;2026-10-02 真机走查补齐本组件漏网接线）',
+);
+assert(toasts.length === 0, 'E CTA → 占位 toast 退役红线');
 
 // —— G. 拦截卡数据（场景基线的文稿专属裁剪，用户指令 2026-10-01 精减） ——
 const itc = modal.data.intercept;

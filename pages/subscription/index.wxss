@@ -63,6 +63,45 @@
   color: #e59d2e;
 }
 
+/* ===== 支付处理中胶囊（T5.2；两态同值口径与 member-pill 同法：半透明 primary 底） ===== */
+.pay-pending-row {
+  text-align: center;
+  margin-bottom: 64rpx;
+}
+
+.pay-pending-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 8rpx 24rpx;
+  border-radius: var(--r-full);
+  background: rgba(31, 122, 92, 0.1);
+  border: 1rpx solid rgba(31, 122, 92, 0.3);
+}
+
+.pay-pending-spinner {
+  width: 26rpx;
+  height: 26rpx;
+  flex-shrink: 0;
+  border: 4rpx solid var(--primary-500);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: sub-spin 1s linear infinite;
+}
+
+.pay-pending-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #4da989;
+}
+
+/* 独立命名 keyframes（页面 wxss 作用域内自持定义；不沿袭 episode 页引用未定义 spin 的既有隐患） */
+@keyframes sub-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ===== 游客态横幅（Web :426-451 移动端竖排居中口径） ===== */
 .guest-banner {
   display: flex;

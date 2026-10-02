@@ -7,8 +7,12 @@
  * - 任何失败静默吞掉（对齐 Web fetch().catch(() => {})）
  *
  * eventType 白名单由后端 CONVERSION_EVENT_TYPES 执法
- * （当前客户端使用：PREMIUM_MODAL_OPEN / TRIAL_REACHED / TRANSCRIPT_PDF_DOWNLOAD——
- *  后者 source: start 发起 / success 成功 / fail_* 各失败分支，T2.2）。
+ * （当前客户端使用：PREMIUM_MODAL_OPEN / TRIAL_REACHED / TRANSCRIPT_PDF_DOWNLOAD
+ *  （source: start 发起 / success 成功 / fail_* 各失败分支，T2.2）/
+ *  订阅漏斗三事件（SUBSCRIBE-TASK T5.3）：SUBSCRIBE_PAGE_VIEW（source=归因
+ *  场景，缺省 unknown）/ ORDER_CREATE（source=planKey，metadata={outTradeNo,
+ *  buyQuantity}）/ PAY_SUCCESS（source=planKey，以后端发货收敛为准上报，
+ *  success 回调不可信不作依据））。
  */
 const { BASE_URL } = require('./config');
 
