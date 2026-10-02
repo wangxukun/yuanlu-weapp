@@ -206,6 +206,8 @@
 | `workspace-premium-amber.svg` | `workspace_premium` | #D97706（amber-600） | 闯关配额胶囊预警皇冠 13dp | ✅ gstatic 拉取官方 path |
 | `workspace-premium-amber-dark.svg` | `workspace_premium` | #FBBF24（amber-400） | 同上深色态 | ✅ 同字形换色 |
 | `workspace-premium-white.svg` | `workspace_premium` | #ffffff | 「下一关 · 解锁 PRO」末钮 16dp | ✅ 同字形换色 |
+| `help-outline-accent.svg` | `help_outline` | #b96f0f（accent-600） | 订阅页游客横幅标题图标 14dp | ✅ 同字形换色（help-outline-primary 复制改 fill） |
+| `help-outline-accent-dark.svg` | `help_outline` | #e59d2e（accent-400） | 同上深色态 | ✅ 同字形换色 |
 
 > 烘焙脚本 `scripts/tmp-material-bake-t45.py`（版本回退 fetch + 本地缓存 + 全幅矩形
 > 过滤 + 存量字形换色；金银铜色值 = Android `RankGold/RankSilver/RankBronze` 原值）。

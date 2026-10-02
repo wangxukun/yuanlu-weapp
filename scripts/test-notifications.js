@@ -952,6 +952,21 @@ function bodies(method, p) {
     modalConfirm = true;
   }
 
+  section('十八、我的订阅真路由（SUBSCRIBE-TASK T2.2）');
+  {
+    resetMock();
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
+    const page = makePage(mineConfig, { unsubscribeAuth: null });
+    page.onLoad();
+    page.onSubscribe();
+    assert(
+      navigations[navigations.length - 1] === '/pages/subscription/index?source=mine_subscription',
+      '我的订阅行 → 订阅页（source=mine_subscription 归因）',
+    );
+    assert(navigations.length === 1, '单次跳转无重复压栈');
+    assert(toasts.length === 0, '占位 toast「订阅功能即将上线」已退役');
+  }
+
   console.log('\n========== 消息通知测试：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
   if (failed > 0) {
     console.log('✗ ' + failed + ' 项失败：');

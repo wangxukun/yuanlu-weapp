@@ -145,9 +145,13 @@ Page({
     wx.navigateTo({ url: '/pages/profile/index' });
   },
 
-  /** 我的订阅（Android comingSoon 口径）：订阅页未建（模块 E），toast 占位 */
+  /**
+   * 我的订阅：进订阅页（模块 E 已建，SUBSCRIBE-TASK T2.2 真路由；source 供
+   * 订阅页埋点归因）。行仅登录态可见（Android 分组口径：未登录仅剩外观/帮助
+   * 两项），游客购买入口 = premium-modal CTA → 订阅页游客横幅 → auth 页闭环。
+   */
   onSubscribe() {
-    wx.showToast({ title: '订阅功能即将上线', icon: 'none' });
+    wx.navigateTo({ url: '/pages/subscription/index?source=mine_subscription' });
   },
 
   /** 控制台（仅管理员入口可见）：小程序端未建管理后台，占位提示 */

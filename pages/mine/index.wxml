@@ -95,7 +95,7 @@
   <view class="card menu-card mt-4">
     <text class="menu-title">订阅与系统设置</text>
 
-    <!-- 我的订阅（Android comingSoon 口径；订阅页未建，toast 占位） -->
+    <!-- 我的订阅（模块 E 订阅页真路由，T2.2；仅登录态可见=Android 分组口径） -->
     <view wx:if="{{isLoggedIn}}" class="menu-item row center-v tap-scale" bindtap="onSubscribe">
       <view class="menu-icon-box menu-icon-box--accent center">
         <image class="menu-icon" mode="aspectFit" src="/assets/icons/credit-card-accent.svg" />

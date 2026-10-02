@@ -30,6 +30,10 @@ class MembershipStore extends Store {
       isPremium: false, // 是否享有 PRO 权益（ADMIN 或有效订阅）
       role: '',         // 派生角色：USER / PREMIUM / ADMIN（'' = 未登录）
       checked: false,   // 是否已完成一次 subscription/status 权威校正
+      // [订阅页 T1.3] 权威校正回传的中文格式化到期日（如「2026年10月2日」；
+      // null = 无有效订阅或接口未回）。仅 checked 后可信——乐观态不展示，
+      // 避免本地 role 缓存把过期会员误报为「长期有效」。
+      expiryDate: null,
     });
     this._pending = null;       // 在途校正请求（并发去重）
     this._checkedAt = 0;        // 上次校正成功的时间戳（TTL 用）
@@ -58,14 +62,21 @@ class MembershipStore extends Store {
       this._pending = null;
       this._checkedAt = 0;
       this._correctedToken = '';
-      this.setState({ isPremium: false, role: '', checked: false });
+      this.setState({ isPremium: false, role: '', checked: false, expiryDate: null });
       return;
     }
     if (this.state.checked && this._correctedToken === token) return;
 
     const role = (userInfo && userInfo.role) || 'USER';
     this._checkedAt = 0; // 身份变化后下次 ensureFresh 重新权威校正
-    this.setState({ isPremium: role === 'PREMIUM' || role === 'ADMIN', role });
+    // 新身份到期日未知，清空乐观残留；checked 随身份失效（旧校正结论属于
+    // 旧 token，避免换号缝隙把过期会员误报为已权威校正）
+    this.setState({
+      isPremium: role === 'PREMIUM' || role === 'ADMIN',
+      role,
+      checked: false,
+      expiryDate: null,
+    });
     // 后台静默校正（对齐 ai-deep-dive syncAuthState → refreshMembership）
     this.ensureFresh();
   }
@@ -105,6 +116,7 @@ class MembershipStore extends Store {
             isPremium: res.role === 'PREMIUM' || res.role === 'ADMIN',
             role: res.role,
             checked: true,
+            expiryDate: res.expiryDate || null,
           });
           this._checkedAt = Date.now();
           this._correctedToken = reqToken;

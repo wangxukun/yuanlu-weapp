@@ -235,9 +235,13 @@ Component({
     },
     noop() {},
     onCta() {
-      // TODO: 订阅页落地后改为 wx.navigateTo({ url: '/pages/subscription/index?source=' + this.data.source })
+      // 订阅页真路由（SUBSCRIBE-TASK T2.1）：source 透传供订阅页埋点归因
+      // （PREMIUM_MODAL_OPEN 场景 → 购买漏斗衔接，T5.3 SUBSCRIBE_PAGE_VIEW）；
+      // 兜底 unknown 与 PREMIUM_MODAL_OPEN 上报口径一致
       this.onClose();
-      wx.showToast({ title: '订阅功能即将上线', icon: 'none' });
+      wx.navigateTo({
+        url: '/pages/subscription/index?source=' + (this.data.source || 'unknown'),
+      });
     },
   },
 });
@@ -245,5 +249,7 @@ Component({
 /**
  * 场景数据单源导出：供同源场景消费方复用（transcript-preview 拦截卡
  * 直接取 episode_audio_download 场景，与弹窗本体同数据同改）。
+ * SCENARIO_KEYS 供测试遍历全部场景（CTA 接线一致性断言，增删场景自动同步）。
  */
 module.exports.getScenario = (source) => SCENARIOS[source] || DEFAULT_SCENARIO;
+module.exports.SCENARIO_KEYS = Object.keys(SCENARIOS);

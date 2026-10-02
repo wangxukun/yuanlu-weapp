@@ -12,6 +12,8 @@
  */
 
 const trackRequests = [];
+const navigateCalls = [];
+const toastCalls = [];
 
 global.wx = {
   _storage: {},
@@ -27,7 +29,12 @@ global.wx = {
   getAccountInfoSync() {
     return { miniProgram: { envVersion: 'develop' } };
   },
-  showToast() {},
+  showToast(opts) {
+    toastCalls.push(opts.title);
+  },
+  navigateTo(opts) {
+    navigateCalls.push(opts.url);
+  },
   request(opts) {
     trackRequests.push(opts);
     opts.success && opts.success({ statusCode: 204 });
@@ -58,7 +65,10 @@ function makeInstance() {
     setData(patch) {
       Object.assign(this.data, patch);
     },
-    triggerEvent() {},
+    events: [],
+    triggerEvent(name) {
+      this.events.push(name);
+    },
   };
   Object.assign(inst, componentDef.methods);
   return inst;
@@ -169,6 +179,36 @@ assert(authedReq.header.Authorization === 'Bearer tk-1', 'E 有 token 注入 Bea
 assert(
   authedReq.header['content-type'] === 'application/json',
   'E content-type json',
+);
+
+// —— 场景 F：CTA 真路由（SUBSCRIBE-TASK T2.1）——
+// 全场景一致性：任一场景 CTA 都应 close + 进订阅页并透传 source（购买漏斗归因）
+const { SCENARIO_KEYS } = require('../components/premium-modal');
+assert(SCENARIO_KEYS.length === 15, 'F 场景数 15（增删场景此处同步锚点）');
+navigateCalls.length = 0;
+toastCalls.length = 0;
+let allRouted = true;
+for (const key of SCENARIO_KEYS) {
+  const m = makeInstance();
+  m.data.source = key; // properties 并入 data（真机语义）
+  m.onCta();
+  const expectUrl = '/pages/subscription/index?source=' + key;
+  const got = navigateCalls[navigateCalls.length - 1];
+  const closed = m.events.indexOf('close') >= 0;
+  if (got !== expectUrl || !closed) {
+    allRouted = false;
+    console.error('  场景 ' + key + ' → ' + got + ' close=' + closed);
+  }
+}
+assert(allRouted, 'F 全部 15 场景 CTA 一致：close + 订阅页?source=场景key');
+assert(navigateCalls.length === SCENARIO_KEYS.length, 'F 每场景恰一次跳转');
+assert(toastCalls.length === 0, 'F 占位 toast「订阅功能即将上线」已退役');
+// properties 缺省兜底：source 空 → unknown（与 PREMIUM_MODAL_OPEN 上报口径一致）
+const fallback = makeInstance();
+fallback.onCta();
+assert(
+  navigateCalls[navigateCalls.length - 1] === '/pages/subscription/index?source=unknown',
+  'F source 缺省兜底 unknown',
 );
 
 console.log('----------------------------------------');

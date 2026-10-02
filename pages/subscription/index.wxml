@@ -1,0 +1,131 @@
+<!-- pages/subscription/index.wxml — 我的订阅（Web subscribe-client.tsx 复刻；页面标题由原生导航栏提供，页内无大标题） -->
+<view class="sub-page {{themeClass}}">
+  <view class="sub-container">
+
+    <!-- 会员态胶囊（T1.3；居中包裹行，无胶囊时该行整体不渲染） -->
+    <view wx:if="{{memberBadgeText}}" class="member-pill-row">
+      <view class="member-pill">
+        <image
+          class="member-crown"
+          src="{{dark ? '/assets/icons/workspace-premium-amber-dark.svg' : '/assets/icons/workspace-premium-amber.svg'}}"
+        />
+        <text class="member-pill-text">{{memberBadgeText}}</text>
+      </view>
+    </view>
+
+    <!-- 游客态横幅（T1.3：Web 游客区块复刻，文案按虚拟支付口径改写） -->
+    <view wx:if="{{guest}}" class="guest-banner">
+      <view class="guest-title-row">
+        <image
+          class="guest-help-icon"
+          src="{{dark ? '/assets/icons/help-outline-accent-dark.svg' : '/assets/icons/help-outline-accent.svg'}}"
+        />
+        <text class="guest-title">未检测到用户登录信息</text>
+      </view>
+      <view class="guest-desc">目前您还是游客状态。登录后即可购买会员，支付成功后时长将自动入账到当前账号，无需填写任何留言标识。</view>
+      <view class="guest-btn tap-scale" bindtap="onGoLogin">立即登录/注册账号</view>
+    </view>
+
+    <!-- 四档位卡（utils/plans.js 单源，文案逐字复刻） -->
+    <view class="plans-list">
+      <view
+        wx:for="{{plans}}"
+        wx:key="key"
+        class="plan-card {{item.popular ? 'plan-popular' : ''}}"
+      >
+        <view wx:if="{{item.popular}}" class="pop-badge">MOST POPULAR</view>
+
+        <view class="plan-head">
+          <view class="days-pill {{item.badgeHot ? 'days-pill-hot' : ''}}">{{item.badgeText}}</view>
+          <view class="price-block">
+            <view class="price-main">¥{{item.price}}</view>
+            <view class="price-daily">≈¥{{item.dailyPrice}}/天<text wx:if="{{item.showSaving}}" class="price-saving"> · 较周卡省 {{item.savingsVsWeekly}}%</text></view>
+          </view>
+        </view>
+
+        <view class="plan-name">{{item.name}}</view>
+        <view class="plan-desc">{{item.desc}}</view>
+
+        <view class="plan-features">
+          <view wx:for="{{item.features}}" wx:for-item="feat" wx:key="index" class="feat-row">
+            <text class="feat-dot">•</text>
+            <text class="feat-text">{{feat}}</text>
+          </view>
+        </view>
+
+        <view class="plan-footer">
+          <view class="qty-row">
+            <text class="qty-label">购买数量</text>
+            <view class="stepper">
+              <view
+                class="step-btn {{item.canDec ? '' : 'step-disabled'}}"
+                data-key="{{item.key}}"
+                data-delta="-1"
+                bindtap="onQtyChange"
+              >−</view>
+              <view class="qty-value">{{item.qty}}</view>
+              <view
+                class="step-btn {{item.canInc ? '' : 'step-disabled'}}"
+                data-key="{{item.key}}"
+                data-delta="1"
+                bindtap="onQtyChange"
+              >+</view>
+            </view>
+          </view>
+          <view class="qty-summary">共 {{item.totalDays}} 天 · 合计 ¥{{item.totalPrice}}</view>
+
+          <view
+            class="subscribe-btn {{item.popular ? 'subscribe-btn-popular' : ''}} tap-scale"
+            data-key="{{item.key}}"
+            bindtap="onSubscribe"
+          >{{guest ? '登录后订阅' : '一键订阅'}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 协议说明（Web 有外链，小程序按 auth 页用户协议模式改为页内弹层入口） -->
+    <view class="sub-agreement">
+      <text class="sub-agreement-plain" user-select>订阅即代表您知晓并接受</text>
+      <text class="sub-agreement-link" user-select catchtap="onOpenAgreement">《会员订阅服务协议》</text>
+      <text class="sub-agreement-plain" user-select>，感谢您的善意支持。</text>
+    </view>
+
+  </view>
+</view>
+
+<!-- ===== 协议全文弹层（结构/样式/开关逻辑复刻 auth 页用户协议弹层，对齐 AgreementDialog.kt 口径） ===== -->
+<view wx:if="{{agreementDoc}}" class="agreement-dialog">
+  <view class="agreement-dialog__header">
+    <text class="agreement-dialog__nav-title">{{agreementDoc.title}}</text>
+  </view>
+  <scroll-view scroll-y class="agreement-dialog__body" enhanced show-scrollbar="{{false}}">
+    <view class="agreement-dialog__content">
+      <text class="doc-title">{{agreementDoc.title}}</text>
+      <text class="doc-updated">{{agreementDoc.lastUpdated}}</text>
+      <block wx:for="{{agreementDoc.blocks}}" wx:key="index" wx:for-item="block">
+        <text wx:if="{{block.type === 'heading'}}" class="doc-heading">{{block.text}}</text>
+        <text wx:elif="{{block.type === 'paragraph'}}" class="doc-paragraph" user-select>{{block.text}}</text>
+        <block wx:elif="{{block.type === 'bullets'}}">
+          <text
+            wx:for="{{block.items}}"
+            wx:key="*this"
+            wx:for-item="item"
+            class="doc-paragraph"
+            user-select
+          >•  {{item}}</text>
+        </block>
+        <block wx:elif="{{block.type === 'numbered'}}">
+          <text
+            wx:for="{{block.items}}"
+            wx:key="*this"
+            wx:for-item="item"
+            wx:for-index="idx"
+            class="doc-paragraph"
+            user-select
+          >{{idx + 1}}. {{item}}</text>
+        </block>
+      </block>
+      <button class="doc-close tap-scale" bindtap="onCloseAgreement">关闭页面</button>
+    </view>
+  </scroll-view>
+</view>

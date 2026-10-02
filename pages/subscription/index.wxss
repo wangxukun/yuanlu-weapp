@@ -1,0 +1,465 @@
+/**
+ * pages/subscription/index.wxss — 我的订阅订阅页
+ *
+ * 复刻 Web 端 subscribe-client.tsx 档位卡视觉：
+ *   - 普通卡：白底（card-bg）+ 1px 边框；推荐卡（年卡）：accent-50 底 +
+ *     2px accent-500 边框 + MOST POPULAR 悬浮徽章（骑卡顶边框）；
+ *   - 天数徽章 pill：中性灰（ink-100 底 ink-500 字）；月卡特例 accent 加粗
+ *     （浅 accent-200 底 accent-700 字；深 accent-950 半透底 accent-400 字，
+ *     该组色不在全局翻转表内，页面局部变量三段式声明）；
+ *   - 价格区：48rpx black 主价 + 20rpx 日均价（年卡附「较周卡省 N%」
+ *     accent 色）；权益列表 bullet 用 accent 圆点；
+ *   - 数量步进器与「共 N 天 · 合计 ¥N」为 weapp 特有（buyQuantity 语义）。
+ *
+ * 徽章特例色外，其余色走全局令牌自动双态；页面根节点挂 themeClass
+ * （utils/theme.js rootClass 下发）承接手动浅色、深色覆盖。
+ */
+
+.sub-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--page-bg);
+
+  /* ===== 月卡徽章特例色（浅色默认） ===== */
+  --sub-hot-pill-bg: #f4d09a;
+  --sub-hot-pill-c: #96580d;
+
+  /* ===== 游客横幅特例色（浅色默认；accent 二百与九百档不在全局翻转表） ===== */
+  --sub-guest-border: #f4d09a;
+  --sub-guest-title-c: #2e1d07;
+  --sub-guest-desc-c: rgba(78, 46, 11, 0.85);
+}
+
+.sub-container {
+  padding: 96rpx 32rpx 64rpx;
+}
+
+/* ===== 会员态胶囊（页面标题由原生导航栏「我的订阅」提供，页内无大标题） ===== */
+.member-pill-row {
+  text-align: center;
+  margin-bottom: 64rpx;
+}
+
+/* 会员胶囊（Web :309-318：accent 五分之一底 + 三成边 + accent-400 字，两态同值） */
+.member-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 24rpx;
+  border-radius: var(--r-full);
+  background: rgba(217, 138, 23, 0.2);
+  border: 1rpx solid rgba(217, 138, 23, 0.3);
+}
+
+.member-crown {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.member-pill-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #e59d2e;
+}
+
+/* ===== 游客态横幅（Web :426-451 移动端竖排居中口径） ===== */
+.guest-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 64rpx;
+  padding: 40rpx;
+  border-radius: 24rpx;
+  background: var(--accent-50);
+  border: 1rpx solid var(--sub-guest-border);
+  box-shadow: var(--e1);
+}
+
+.guest-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.guest-help-icon {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.guest-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--sub-guest-title-c);
+}
+
+.guest-desc {
+  font-size: 24rpx;
+  line-height: 1.7;
+  text-align: center;
+  color: var(--sub-guest-desc-c);
+}
+
+.guest-btn {
+  padding: 16rpx 32rpx;
+  border-radius: 24rpx;
+  background: #b96f0f;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+/* ===== 档位卡列表（移动端单列，对齐 Web 手机端 grid-cols-1） ===== */
+.plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 48rpx;
+}
+
+.plan-card {
+  position: relative;
+  box-sizing: border-box;
+  padding: 48rpx;
+  border-radius: 32rpx;
+  background: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--e1);
+}
+
+.plan-popular {
+  background: var(--accent-50);
+  border: 4rpx solid var(--accent-500);
+}
+
+/* MOST POPULAR 悬浮徽章：骑在卡顶边框上（Web absolute top-0 right-6 上移一半） */
+.pop-badge {
+  position: absolute;
+  top: 0;
+  right: 48rpx;
+  transform: translateY(-50%);
+  padding: 8rpx 24rpx;
+  border-radius: var(--r-full);
+  background: var(--accent-500);
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 900;
+  letter-spacing: 2rpx;
+  z-index: 1;
+}
+
+/* ===== 卡头：天数徽章 + 价格块 ===== */
+.plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 48rpx;
+}
+
+.days-pill {
+  padding: 8rpx 16rpx;
+  border-radius: var(--r-sm);
+  font-size: 20rpx;
+  font-weight: 700;
+  background: var(--ink-100);
+  color: var(--ink-500);
+}
+
+.days-pill-hot {
+  font-weight: 700;
+  background: var(--sub-hot-pill-bg);
+  color: var(--sub-hot-pill-c);
+}
+
+.price-block {
+  text-align: right;
+}
+
+.price-main {
+  font-size: 48rpx;
+  font-weight: 900;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.price-daily {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.price-saving {
+  color: var(--accent-500);
+}
+
+/* ===== 档位名 / 描述 / 权益列表 ===== */
+.plan-name {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.plan-desc {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-bottom: 24rpx;
+}
+
+.plan-features {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.feat-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+}
+
+.feat-dot {
+  color: var(--accent-500);
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+.feat-text {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+
+/* ===== 卡底：数量步进器 + 合计 + 订阅按钮（weapp 特有区） ===== */
+.plan-footer {
+  margin-top: 48rpx;
+  padding-top: 32rpx;
+  border-top: 1rpx solid var(--border-color);
+}
+
+.qty-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.qty-label {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+}
+
+.step-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+  border: 1rpx solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.step-disabled {
+  opacity: 0.35;
+}
+
+.qty-value {
+  min-width: 88rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.qty-summary {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+}
+
+.subscribe-btn {
+  margin-top: 24rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+  font-size: 28rpx;
+  font-weight: 700;
+  background: var(--ink-100);
+  color: var(--ink-800);
+}
+
+.subscribe-btn-popular {
+  background: var(--accent-500);
+  color: #ffffff;
+}
+
+/* ===== 协议说明（入口链接参照 auth 页 agreement-link 模式） ===== */
+.sub-agreement {
+  margin-top: 48rpx;
+  text-align: center;
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+}
+
+.sub-agreement-plain {
+  color: var(--text-tertiary);
+}
+
+/* 品牌主题色链接（auth 页 .agreement-link 同款值） */
+.sub-agreement-link {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* ============================================================
+ * 协议全文弹层（样式复刻 auth 页 agreement-dialog 系列，
+ * 对齐 AgreementDialog.kt：全屏覆盖 + 分块排版 + 关闭按钮；
+ * 全部走全局令牌自动双态）
+ * ========================================================== */
+.agreement-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-modal);
+  background: var(--page-bg);
+  display: flex;
+  flex-direction: column;
+  animation: dialog-in 0.2s ease;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(24rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.agreement-dialog__header {
+  flex-shrink: 0;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 32rpx;
+  border-bottom: 1rpx solid var(--border-color);
+  background: var(--page-bg);
+}
+
+.agreement-dialog__nav-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 绝对定位撑满剩余高度，规避 scroll-view 高度塌陷 */
+.agreement-dialog__body {
+  position: absolute;
+  top: 96rpx;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.agreement-dialog__content {
+  padding: 40rpx 48rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.doc-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 800; /* ExtraBold */
+  color: var(--color-primary);
+}
+
+.doc-updated {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+}
+
+.doc-heading {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.doc-paragraph {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: var(--text-primary);
+  opacity: 0.9;
+}
+
+.doc-close {
+  width: 100%;
+  height: 96rpx;
+  margin-top: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  padding: 0;
+}
+
+/* 去除 button 默认边框 */
+.doc-close::after {
+  border: none;
+}
+
+/* ============================================================
+ * 特例色三轨：媒体查询平类 + theme-dark、theme-light
+ * 全量重声明（月卡徽章与游客横幅的 accent 档不在全局翻转表，须手动双态）
+ * ========================================================== */
+@media (prefers-color-scheme: dark) {
+  .sub-page {
+    --sub-hot-pill-bg: rgba(46, 29, 7, 0.5);
+    --sub-hot-pill-c: #e59d2e;
+    --sub-guest-border: rgba(78, 46, 11, 0.3);
+    --sub-guest-title-c: #f4d09a;
+    --sub-guest-desc-c: rgba(236, 179, 94, 0.8);
+  }
+}
+
+.sub-page.theme-dark {
+  --sub-hot-pill-bg: rgba(46, 29, 7, 0.5);
+  --sub-hot-pill-c: #e59d2e;
+  --sub-guest-border: rgba(78, 46, 11, 0.3);
+  --sub-guest-title-c: #f4d09a;
+  --sub-guest-desc-c: rgba(236, 179, 94, 0.8);
+}
+
+.sub-page.theme-light {
+  --sub-hot-pill-bg: #f4d09a;
+  --sub-hot-pill-c: #96580d;
+  --sub-guest-border: #f4d09a;
+  --sub-guest-title-c: #2e1d07;
+  --sub-guest-desc-c: rgba(78, 46, 11, 0.85);
+}

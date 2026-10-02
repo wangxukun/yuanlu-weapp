@@ -25,7 +25,8 @@
     "pages/notifications/index",
     "pages/profile/index",
     "pages/profile/edit",
-    "pages/profile/learning-report/index"
+    "pages/profile/learning-report/index",
+    "pages/subscription/index"
   ],
   "requiredBackgroundModes": [
     "audio"
