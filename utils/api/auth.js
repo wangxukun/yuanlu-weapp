@@ -106,10 +106,23 @@ function verifyAndSignUp(email, code, password) {
     .then((body) => assertAction(body, '注册失败，请稍后重试'));
 }
 
+// ==================== 微信身份绑定（模块 E T3.3） ====================
+
+/**
+ * wx.login code → POST /api/user/wx/bind（需登录，Bearer 自动注入）。
+ * 后端 code2Session 后按决策矩阵落库：CREATE 首绑 / REFRESH 幂等刷新
+ * sessionKey（即签即用——每次购买前重走本接口即完成刷新，T3.1 口径）；
+ * REJECT_OWNER / REJECT_SWAP 走 4xx + 中文文案（request.js 全局 toast 呈现）。
+ */
+function bindWxAccount(code) {
+  return post('/api/user/wx/bind', { code });
+}
+
 module.exports = {
   loginWithPassword,
   loginWithSms,
   sendSmsCode,
   sendEmailVerificationCode,
   verifyAndSignUp,
+  bindWxAccount,
 };

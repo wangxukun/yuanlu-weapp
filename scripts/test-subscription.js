@@ -21,6 +21,11 @@
 let nextResponse = { statusCode: 200, data: { role: 'USER' } };
 let toastCalls = [];
 let navigateCalls = [];
+// ---- T3.3 绑定链路 mock：wx.login 三态 + bind 接口可编程响应 ----
+let wxLoginMode = 'ok'; // 'ok' | 'fail' | 'nocode'
+const loginCalls = [];
+const bindRequests = [];
+let bindOk = true;
 
 global.wx = {
   _storage: {},
@@ -42,7 +47,25 @@ global.wx = {
   navigateTo(opts) {
     navigateCalls.push(opts);
   },
+  login(opts) {
+    loginCalls.push(opts);
+    if (wxLoginMode === 'fail') {
+      opts.fail && opts.fail({ errMsg: 'login:fail' });
+      return;
+    }
+    const code = wxLoginMode === 'nocode' ? '' : 'mock-js-code';
+    opts.success && opts.success({ code });
+  },
   request(opts) {
+    if (opts.url.includes('/api/user/wx/bind')) {
+      bindRequests.push(opts);
+      if (bindOk) {
+        opts.success({ statusCode: 200, data: { success: true, message: '微信账号绑定成功' } });
+      } else {
+        opts.success({ statusCode: 400, data: { success: false, error: '该微信号已绑定其他账号' } });
+      }
+      return;
+    }
     if (opts.url.includes('/api/user/subscription/status')) {
       opts.success({ statusCode: nextResponse.statusCode, data: nextResponse.data });
       return;
@@ -222,20 +245,74 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
 
   // ==================== 六、（expiryDate 回写已并入五） ====================
 
-  // ==================== 七、按钮分流 ====================
-  console.log('━━━ 七、订阅按钮分流 ━━━');
+  // ==================== 七、购买前置绑定链路（T3.3） ====================
+  console.log('━━━ 七、绑定链路/失败分支/回流 ━━━');
+  const settle = () => new Promise((r) => setTimeout(r, 0));
   const p3 = makePage();
   p3.setData({ guest: true });
-  toastCalls = [];
-  navigateCalls = [];
+  toastCalls.length = 0;
+  navigateCalls.length = 0;
   p3.onSubscribe();
   assert(navigateCalls.length === 1 && navigateCalls[0].url === '/pages/auth/index', '游客点订阅 → auth 页');
-  assert(toastCalls.length === 0, '游客点订阅不弹占位 toast');
+  assert(toastCalls.length === 0 && loginCalls.length === 0, '游客点订阅不触发绑定链路');
   p3.onGoLogin();
   assert(navigateCalls.length === 2 && navigateCalls[1].url === '/pages/auth/index', '游客横幅按钮 → auth 页');
+
+  // 登录回流：source 留存本页（订阅页在栈内，navigateBack 即回，source 不丢）
+  const p3s = makePage();
+  pageDef.onLoad.call(p3s, { source: 'episode_deep_dive' });
+  assert(p3s.data.source === 'episode_deep_dive', '登录回流保 source（onLoad 留存）');
+
+  // 已登录 + bind 成功 → 占位支付 toast（支付链路阶段 5 接入）
   p3.setData({ guest: false });
+  loginCalls.length = 0;
+  bindRequests.length = 0;
+  toastCalls.length = 0;
+  bindOk = true;
   p3.onSubscribe();
-  assert(toastCalls.length === 1 && toastCalls[0].title === '支付功能即将上线', '已登录点订阅 → 占位 toast（阶段 5 接支付）');
+  await settle();
+  assert(loginCalls.length === 1, '已登录点订阅 → wx.login 恰一次');
+  assert(
+    bindRequests.length === 1 && bindRequests[0].data.code === 'mock-js-code' &&
+      bindRequests[0].url.includes('/api/user/wx/bind'),
+    'bind 请求携带一次性 code',
+  );
+  assert(
+    toastCalls.length === 1 && toastCalls[0].title === '支付功能即将上线',
+    'bind 成功 → 支付占位 toast（T5.1 接支付）',
+  );
+  assert(p3._purchasing === false, '购买流程退出后防重入锁复位');
+
+  // bind 4xx（REJECT_OWNER 文案）→ 全局 toast 后端文案，不进支付占位
+  bindOk = false;
+  loginCalls.length = 0;
+  toastCalls.length = 0;
+  p3.onSubscribe();
+  await settle();
+  assert(loginCalls.length === 1 && bindRequests.length === 2, '失败分支仍走完 login+bind');
+  assert(
+    toastCalls.some((t) => t.title === '该微信号已绑定其他账号'),
+    'bind 4xx → 全局 toast 后端文案（一号多绑口径）',
+  );
+  assert(!toastCalls.some((t) => t.title === '支付功能即将上线'), '绑定失败不进支付占位');
+
+  // wx.login fail → 本地 toast
+  wxLoginMode = 'fail';
+  loginCalls.length = 0;
+  bindRequests.length = 0;
+  toastCalls.length = 0;
+  p3.onSubscribe();
+  await settle();
+  assert(bindRequests.length === 0, 'wx.login 失败不发 bind 请求');
+  assert(toastCalls.some((t) => t.title === '微信登录失败，请稍后重试'), 'wx.login 失败 → 本地 toast');
+
+  // wx.login 成功但无 code → 同失败分支
+  wxLoginMode = 'nocode';
+  toastCalls.length = 0;
+  p3.onSubscribe();
+  await settle();
+  assert(bindRequests.length === 0 && toastCalls.some((t) => t.title === '微信登录失败，请稍后重试'), '空 code 视同登录失败');
+  wxLoginMode = 'ok';
   p3.onUnload();
 
   // ==================== 八、红线扫描与注册 ====================

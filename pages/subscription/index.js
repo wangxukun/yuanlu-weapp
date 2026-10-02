@@ -29,6 +29,7 @@ const theme = require('../../utils/theme');
 const plansCore = require('../../utils/plans');
 const authStore = require('../../store/authStore');
 const membershipStore = require('../../store/membershipStore');
+const authApi = require('../../utils/api/auth');
 const { SUBSCRIPTION_AGREEMENT } = require('./agreement');
 
 Page({
@@ -121,15 +122,66 @@ Page({
   },
 
   /**
-   * 订阅按钮：游客态先去登录（Web「登录后订阅」同款分流）；已登录为
-   * 占位 toast——支付链路阶段 5 接入（utils/wxpay.js，T5.1）。
+   * 订阅按钮（购买前置，SUBSCRIBE-TASK T3.3）：游客态先去登录（Web「登录后
+   * 订阅」同款分流，登录回流经 membershipStore 订阅自动刷新三态，source 留存
+   * 本页不丢）；已登录 → 静默 wx.login → POST bind（后端 CREATE 首绑 /
+   * REFRESH 幂等刷新 sessionKey，即签即用口径——每次购买前重走一遍）→
+   * 下单（阶段 5 接入 utils/wxpay.js，当前占位 toast）。
    */
   onSubscribe() {
     if (this.data.guest) {
       this.onGoLogin();
       return;
     }
-    wx.showToast({ title: '支付功能即将上线', icon: 'none' });
+    this._startPurchase();
+  },
+
+  /** wx.login → 一次性 code（Promise 化，真机回调口径见 DOWNLOAD-TASK 同款） */
+  _wxLogin() {
+    return new Promise((resolve, reject) => {
+      wx.login({
+        success: (res) => {
+          if (res && res.code) resolve(res.code);
+          else reject(new Error('微信登录失败，请稍后重试'));
+        },
+        fail: () => reject(new Error('微信登录失败，请稍后重试')),
+      });
+    });
+  },
+
+  /**
+   * 购买前绑定（T3.3）：bind 失败分两类——wx.login 失败（前端侧，本地
+   * toast）；接口 4xx（REJECT_OWNER/SWAP 等，request.js 全局 toast 已弹
+   * 后端文案，此处静默返回 false 不再叠加）。
+   */
+  async _ensureWxBound() {
+    let code;
+    try {
+      code = await this._wxLogin();
+    } catch (err) {
+      wx.showToast({ title: err.message, icon: 'none' });
+      return false;
+    }
+    try {
+      await authApi.bindWxAccount(code);
+      return true;
+    } catch (err) {
+      return false; // 全局 toast 已呈现后端文案（错误码/换绑口径）
+    }
+  },
+
+  /** 购买流程入口（防重入锁；支付链路阶段 5 接入） */
+  async _startPurchase() {
+    if (this._purchasing) return;
+    this._purchasing = true;
+    try {
+      const bound = await this._ensureWxBound();
+      if (!bound) return;
+      // TODO(T5.1)：utils/wxpay.js 拉起 requestVirtualPayment
+      wx.showToast({ title: '支付功能即将上线', icon: 'none' });
+    } finally {
+      this._purchasing = false;
+    }
   },
 
   // ==================== 协议全文弹层（onOpen/onClose 与 auth 页同款） ====================
