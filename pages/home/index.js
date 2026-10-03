@@ -357,11 +357,13 @@ Page({
     wx.navigateTo({ url: '/pages/auth/index' });
   },
 
+  /** 「继续收听」右上角 → 收听历史页 */
   onOpenHistory() {
-    // wx.navigateTo({ url: '/pages/history/index' })
+    wx.navigateTo({ url: '/pages/library/history/index' });
   },
 
+  /** 「我的路」右上角 → 学习路径页 */
   onOpenLearningPaths() {
-    // wx.navigateTo({ url: '/pages/paths/index' })
+    wx.navigateTo({ url: '/pages/library/paths/index' });
   }
 });
