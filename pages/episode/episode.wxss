@@ -307,12 +307,16 @@
   font-size: 28rpx;
   color: var(--color-primary);
 }
-/* 输入容器：rounded-2xl + 描边/底色随聚焦切换（对齐 focus:border-primary-600 + focus:bg-white） */
+/* 输入容器：rounded-2xl + 描边/底色随聚焦切换（对齐 focus:border-primary-600 + focus:bg-white）。
+   布局硬约束：textarea 是原生组件，真机上悬浮 view 与其组件矩形重叠时点击会被原生层
+   吃掉（发布钮点了无效的根因）——故容器底部预留 padding-bottom 按钮区，按钮悬浮于
+   padding 区（不与 textarea 矩形重叠），视觉仍是「容器内右下角」，事件稳定可达 */
 .cmt-textarea-box {
   position: relative;
   background-color: var(--cmt-ta-bg);
   border: 2rpx solid var(--cmt-ta-border);
   border-radius: 32rpx;
+  padding-bottom: 96rpx;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 .cmt-textarea-box.focus {
@@ -321,17 +325,19 @@
 }
 .cmt-textarea {
   width: 100%;
-  height: 256rpx; /* h-32 */
+  height: 184rpx; /* ~3 行文字；下方 96rpx 为按钮区（容器 padding，非组件矩形） */
   box-sizing: border-box;
-  padding: 32rpx; /* p-4 */
+  padding: 28rpx 32rpx 0;
   font-size: 28rpx;
   line-height: 1.6;
 }
-/* 悬浮操作行：容器内右下角（对齐 absolute bottom-3 right-3） */
+/* 悬浮操作行：容器内右下角（对齐 absolute bottom-3 right-3），落在按钮区不与
+   textarea 重叠；z-index 双保险 */
 .cmt-form-ops {
   position: absolute;
   right: 24rpx;
   bottom: 24rpx;
+  z-index: 10;
   gap: 24rpx; /* gap-3 */
 }
 /* 字数：text-xs mono ink-400，空输入透明隐藏（对齐 opacity 切换） */
