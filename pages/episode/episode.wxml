@@ -309,17 +309,12 @@
               <view class="related-cover-wrap">
                 <image class="related-cover" src="{{item.coverUrl || item.podcastCoverUrl || item.podcast.coverUrl || episode.podcastCoverUrl || episode.podcast.coverUrl}}" mode="aspectFill"></image>
               </view>
-              <view class="col flex-1 ml-3 mr-2">
+              <view class="col flex-1 ml-3">
                 <text class="t-micro text-primary text-bold tracking-wider">EPISODE {{index + 1}}</text>
                 <text class="t-title text-bold ellipsis mt-1">{{item.title}}</text>
                 <view class="row align-center mt-1 text-secondary">
                   <image class="icon-xs" src="/assets/icons/tv.svg"></image>
                   <text class="t-mini ml-1">{{item.podcastTitle || item.podcast.title || item.podcast.name || episode.podcastTitle || episode.podcast.title || episode.podcast.name || '远路英语'}}</text>
-                </view>
-              </view>
-              <view class="center p-2">
-                <view class="outline-btn center tap-scale">
-                  <image class="icon-xs" src="/assets/icons/list.svg"></image>
                 </view>
               </view>
             </view>
