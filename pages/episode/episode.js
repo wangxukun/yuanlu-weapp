@@ -8,6 +8,105 @@ const audioBus = require('../../utils/audio-bus');
 const membershipStore = require('../../store/membershipStore');
 const downloadManager = require('../../utils/download-manager');
 
+// ==================== 互动讨论纯函数（严格复刻 Web components/episode/comments/useEpisodeComments.ts） ====================
+// /api/comment 系列返回裸数组/裸对象（yuanlu app/api/comment），字段以 Web Comment
+// 接口为准：commentText / commentAt / User.user_profile.{nickname,avatarUrl} /
+// likesCount / isLiked——渲染层旧用的 content/authorName 均非真实字段（空列表 bug 根因）。
+
+/** ISO → 「10月3日 10:52」（对齐 Web formatDate：toLocaleString zh-CN 月/日+时分，非法回退空串） */
+function formatCommentDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => (n < 10 ? '0' + n : '' + n);
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** 评论 DTO → 视图模型（对齐 Web getDisplayName：昵称兜底邮箱前缀，再兜底「用户」在渲染层） */
+function mapComment(dto) {
+  const user = (dto && dto.User) || {};
+  const profile = user.user_profile || {};
+  const nickname = profile.nickname || (user.email ? user.email.split('@')[0] : '') || '';
+  return {
+    commentid: dto.commentid,
+    userid: dto.userid || '',
+    email: user.email || '',
+    text: dto.commentText || '',
+    commentAtText: formatCommentDate(dto.commentAt),
+    parentId: dto.parentId != null ? dto.parentId : null,
+    nickname,
+    // 无头像走 default-avatar.png（对齐 Web：avatarFileName/avatarUrl 缺失一律默认头像图）
+    avatarUrl: profile.avatarUrl || '',
+    likesCount: dto.likesCount || 0,
+    isLiked: !!dto.isLiked,
+    replies: [],
+  };
+}
+
+/**
+ * 平铺评论 → 根评论 + replies 挂载（两遍式，逐行对齐 Web buildCommentTree；
+ * 根评论保持接口顺序——接口 orderBy commentAt desc，最新在前由后端保证）。
+ */
+function buildCommentTree(items) {
+  const list = Array.isArray(items) ? items : [];
+  const byId = {};
+  list.forEach((raw) => {
+    const c = mapComment(raw);
+    byId[c.commentid] = c;
+  });
+  const roots = [];
+  list.forEach((raw) => {
+    const c = byId[raw.commentid];
+    if (c.parentId) {
+      const parent = byId[c.parentId];
+      if (parent) {
+        parent.replies.push(c);
+        return;
+      }
+    }
+    roots.push(c);
+  });
+  return roots;
+}
+
+/** 递归乐观翻转目标评论点赞态（对齐 Web toggleLike.updateList；Web 失败不回滚） */
+function mapLikeState(list, commentid) {
+  return (list || []).map((c) => {
+    if (c.commentid === commentid) {
+      const isLiked = !c.isLiked;
+      return { ...c, isLiked, likesCount: (c.likesCount || 0) + (isLiked ? 1 : -1) };
+    }
+    if (!c.replies || !c.replies.length) return c;
+    return { ...c, replies: mapLikeState(c.replies, commentid) };
+  });
+}
+
+/** 递归查找树中目标评论（更多菜单取整条数据用） */
+function findComment(list, commentid) {
+  for (const c of list || []) {
+    if (c.commentid === commentid) return c;
+    const hit = findComment(c.replies, commentid);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** 递归剔除树中目标评论及其子回复（对齐 Web removeCommentFromTree） */
+function removeCommentFromTree(list, commentid) {
+  return (list || [])
+    .filter((c) => c.commentid !== commentid)
+    .map((c) => ({ ...c, replies: removeCommentFromTree(c.replies, commentid) }));
+}
+
+/** 新回复前插到树中目标评论 replies 头部（对齐 Web addReplyToTree：`[newReply, ...replies]`） */
+function attachReply(comment, parentId, newReply) {
+  if (comment.commentid === parentId) {
+    return { ...comment, replies: [newReply, ...(comment.replies || [])] };
+  }
+  if (!comment.replies || !comment.replies.length) return comment;
+  return { ...comment, replies: comment.replies.map((r) => attachReply(r, parentId, newReply)) };
+}
+
 Page({
   data: {
     themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
@@ -31,10 +130,22 @@ Page({
     isFavorited: false,
     isFavoriteBusy: false,
 
-    // Comments
-    isLoadingComments: false,
+    // Comments（对齐 Web useEpisodeComments：isLoading 初始 true，列表到达前走 loading 态）
+    isLoadingComments: true,
     commentText: '',
+    // WXML 模板表达式不能调用 .trim()（旧版 {{commentText.trim()}} 恒 falsy，
+    // 发布按钮常灰的根因），可提交态在 JS 侧维护
+    commentCanSubmit: false,
+    commentFocus: false, // 输入框聚焦态（聚焦描边/换底，对齐 Web focus:border-primary-600）
     isSubmittingComment: false,
+    // 回复链路（对齐 Web replyingToId）：同一时刻只展开一条回复框
+    replyingTo: null,
+    replyText: '',
+    replyCanSubmit: false,
+    // 当前用户身份（评论权限判定：本人=可删；ADMIN=全量可删；其余=可举报）
+    meUserid: '',
+    meRole: '',
+    meAvatar: '',
 
     // Intro Expanded
     introExpanded: false,
@@ -95,7 +206,14 @@ Page({
     // Subscribe to auth state
     const updateAuth = () => {
       const state = authStore.getState();
-      this.setData({ isLoggedIn: state.isLoggedIn });
+      const u = state.userInfo || {};
+      // 评论权限/表单头像依赖：userid（本人判定）、role（ADMIN 全量可删）、avatarUrl（「我」区头像）
+      this.setData({
+        isLoggedIn: state.isLoggedIn,
+        meUserid: u.userid || '',
+        meRole: u.role || '',
+        meAvatar: u.avatarUrl || '',
+      });
       if (state.isLoggedIn && !this.data.isFavorited) {
         this.checkFavorite();
       }
@@ -205,8 +323,9 @@ Page({
   async fetchComments() {
     this.setData({ isLoadingComments: true });
     try {
-      const comments = await get(`/api/comment/list?episodeid=${this.data.episodeid}`);
-      this.setData({ comments, isLoadingComments: false });
+      // 裸数组 → 视图模型 + 树形挂载（对齐 Web fetchComments → buildCommentTree）
+      const list = await get(`/api/comment/list?episodeid=${this.data.episodeid}`);
+      this.setData({ comments: buildCommentTree(list), isLoadingComments: false });
     } catch (e) {
       this.setData({ isLoadingComments: false });
     }
@@ -747,32 +866,207 @@ Page({
     this.setData({ showPremiumModal: false });
   },
 
-  onCommentInput(e) {
-    this.setData({ commentText: e.detail.value });
+  // ==================== 互动讨论（严格复刻 Web components/episode/comments） ====================
+
+  /** 未登录引导框 / 游客操作拦截 → 登录页（Web 为 email 登录弹窗，小程序等价路由登录页） */
+  onGoLogin() {
+    wx.navigateTo({ url: '/pages/auth/index' });
   },
 
-  async onSubmitComment() {
-    const text = this.data.commentText.trim();
-    if (!text) return;
+  onCommentInput(e) {
+    const commentText = String(e.detail.value || '');
+    this.setData({
+      commentText,
+      commentCanSubmit: commentText.trim().length > 0,
+    });
+  },
 
+  onCommentFocus() {
+    this.setData({ commentFocus: true });
+  },
+
+  onCommentBlur() {
+    this.setData({ commentFocus: false });
+  },
+
+  /**
+   * 发布根评论（对齐 Web handleSubmit）：POST { episodeid, content }（userid 由后端
+   * 从会话取，不随请求携带）；仅成功后清空输入并插到列表头（无成功 toast，乐观 UI）。
+   */
+  async onSubmitComment() {
+    if (!this.data.isLoggedIn) return this.onGoLogin();
+    if (!this.data.commentCanSubmit || this.data.isSubmittingComment) return;
+
+    const content = this.data.commentText.trim();
     this.setData({ isSubmittingComment: true });
     try {
-      const userInfo = authStore.getState().userInfo;
-      const res = await post('/api/comment/create', {
-        episodeid: this.data.episodeid,
-        content: text,
-        userid: userInfo.userid || userInfo.id
-      });
-      // 将新评论加入列表
-      this.setData({ 
-        comments: [res, ...this.data.comments],
+      const dto = await post('/api/comment/create', { episodeid: this.data.episodeid, content });
+      const newComment = mapComment(dto || {});
+      newComment.replies = [];
+      this.setData({
+        comments: [newComment, ...this.data.comments],
         commentText: '',
-        isSubmittingComment: false 
+        commentCanSubmit: false,
+        isSubmittingComment: false,
       });
-      wx.showToast({ title: '评论成功', icon: 'success' });
     } catch (e) {
+      // 失败文案已由 request.js 全局 toast 呈现（对齐 Web else 分支提示）
       this.setData({ isSubmittingComment: false });
-      wx.showToast({ title: '评论失败', icon: 'none' });
     }
-  }
+  },
+
+  /**
+   * 点赞切换（对齐 Web toggleLike）：未登录 → 引导登录（Web 弹登录框）；
+   * 已登录乐观翻转（含嵌套回复递归），POST fire-and-forget，失败不回滚（Web 同款）。
+   */
+  onToggleCommentLike(e) {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return this.onGoLogin();
+    }
+    const commentid = e.currentTarget.dataset.id;
+    this.setData({ comments: mapLikeState(this.data.comments, commentid) });
+    post('/api/comment/like', { commentId: commentid }).catch(() => {});
+  },
+
+  /** 展开/收起回复框（对齐 Web setReplyingToId）；游客 → Web 同款文案 toast + 引导登录 */
+  onToggleReply(e) {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录后再回复评论', icon: 'none' });
+      return this.onGoLogin();
+    }
+    const id = e.currentTarget.dataset.id;
+    this.setData({
+      replyingTo: this.data.replyingTo === id ? null : id,
+      replyText: '',
+      replyCanSubmit: false,
+    });
+  },
+
+  /** 取消回复（对齐 Web 取消钮：收起 + 清空） */
+  onReplyCancel() {
+    this.setData({ replyingTo: null, replyText: '', replyCanSubmit: false });
+  },
+
+  onReplyInput(e) {
+    const replyText = String(e.detail.value || '');
+    this.setData({ replyText, replyCanSubmit: replyText.trim().length > 0 });
+  },
+
+  /**
+   * 发布回复（对齐 Web handleReplySubmit）：POST { episodeid, content, parentId }，
+   * 成功后新回复前插到目标评论 replies 头部并收起输入框（失败保留输入内容）。
+   */
+  async onSubmitReply(e) {
+    const parentId = e.currentTarget.dataset.id;
+    if (this.data.replyingTo !== parentId || !this.data.replyCanSubmit) return;
+
+    const content = this.data.replyText.trim();
+    try {
+      const dto = await post('/api/comment/create', {
+        episodeid: this.data.episodeid,
+        content,
+        parentId,
+      });
+      const newReply = mapComment(dto || {});
+      newReply.replies = [];
+      this.setData({
+        comments: this.data.comments.map((c) => attachReply(c, parentId, newReply)),
+        replyingTo: null,
+        replyText: '',
+        replyCanSubmit: false,
+      });
+    } catch (e2) {
+      // 全局 toast 已呈现，输入框与内容保留可重试
+    }
+  },
+
+  /**
+   * 更多(...)操作菜单（对齐 Web CommentItem dropdown 的权限渲染，Web 下拉 → 小程序 ActionSheet）：
+   *   复制恒有；本人或 ADMIN → 删除；其余（含未登录游客/普通用户/会员）→ 举报。
+   */
+  onMoreComment(e) {
+    const id = e.currentTarget.dataset.id;
+    const comment = findComment(this.data.comments, id);
+    if (!comment) return;
+
+    const isOwner = this.data.isLoggedIn && !!this.data.meUserid && comment.userid === this.data.meUserid;
+    const isAdmin = this.data.meRole === 'ADMIN';
+    const items = isOwner || isAdmin ? ['复制', '删除'] : ['复制', '举报'];
+
+    wx.showActionSheet({
+      itemList: items,
+      success: (res) => {
+        const action = items[res.tapIndex];
+        if (action === '复制') this._copyComment(comment);
+        else if (action === '删除') this._confirmDeleteComment(comment);
+        else this._reportComment(comment);
+      },
+      fail: () => {}, // 取消静默
+    });
+  },
+
+  /** 复制评论内容（对齐 Web handleCopyComment → clipboard） */
+  _copyComment(comment) {
+    if (comment.text) {
+      wx.setClipboardData({ data: comment.text });
+    }
+  },
+
+  /** 删除确认弹窗（对齐 Web DeleteCommentModal：标题/文案/双钮逐字） */
+  _confirmDeleteComment(comment) {
+    wx.showModal({
+      title: '确认删除评论？',
+      content: '此操作不可撤销。如果该评论包含回复，回复也将一并被删除。',
+      confirmText: '确认删除',
+      cancelText: '取消',
+      confirmColor: '#d2503f',
+      success: (res) => {
+        if (res.confirm) this._deleteComment(comment);
+      },
+    });
+  },
+
+  /** 删除执行（对齐 Web confirmDelete）：乐观移除 → POST delete；失败回滚快照 + toast */
+  _deleteComment(comment) {
+    const snapshot = this.data.comments;
+    this.setData({ comments: removeCommentFromTree(snapshot, comment.commentid) });
+    post('/api/comment/delete', { commentId: comment.commentid })
+      .then(() => {
+        wx.showToast({ title: '评论已删除', icon: 'none' });
+      })
+      .catch(() => {
+        this.setData({ comments: snapshot });
+        wx.showToast({ title: '删除失败，请稍后重试', icon: 'none' });
+      });
+  },
+
+  /**
+   * 举报（对齐 Web handleReportComment → POST /api/comment/report 通知全体管理员）：
+   * 未登录也可举报（reporterName=未登录游客）；成功「已举报」/失败「举报提交失败」。
+   */
+  _reportComment(comment) {
+    const me = (this.data.isLoggedIn && authStore.getState().userInfo) || null;
+    const reporterName = me
+      ? `${(me.nickname || '无昵称') + (me.email ? ` (${me.email})` : '')}`
+      : '未登录游客';
+    const authorName = comment.nickname
+      ? `${comment.nickname}${comment.email ? ` (${comment.email})` : ''}`
+      : '未知用户';
+    post(
+      '/api/comment/report',
+      {
+        commentId: comment.commentid,
+        reporterName,
+        reportTime: new Date().toLocaleString('zh-CN'),
+        commentText: comment.text,
+        commentAt: comment.commentAtText,
+        targetUrl: `/pages/episode/episode?id=${this.data.episodeid}`,
+        authorName,
+      },
+      { showError: false },
+    )
+      .then(() => wx.showToast({ title: '已举报', icon: 'success' }))
+      .catch(() => wx.showToast({ title: '举报提交失败', icon: 'none' }));
+  },
 });

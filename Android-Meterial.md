@@ -444,3 +444,24 @@
 | 剧集页音频按钮「已下载」态 | `download_done` | download-done.svg | #64748b（与 download.svg text-secondary 同色，深浅同值） |
 | 剧集页音频按钮「已下载」态 | `download_done` | download-done.svg | #64748b（与 download.svg text-secondary 同色，深浅同值） |
 | 我的页「离线缓存」行（T3.5） | `download`（复用已烘焙字形） | download-primary(-dark).svg | #1f7a5c/#4da989（本地重着色，非新烘焙） |
+
+## 十一、剧集页互动讨论批（2026-10-03，严格源=yuanlu Web 移动端 components/episode/comments，+10）
+
+> 剧集详情页互动讨论模块重构（完全复刻 Web 端 CommentForm/CommentItem/useEpisodeComments）。
+> 字形源：thumb_up outlined/filled 取自 fonts.gstatic.com 官方 classic materialicons(outlined)与
+> materialicons 24px 经典 path（v4/v1 版本探测命中）；reply/more_horiz/account_circle 取自
+> gstatic materialicons v1 经典 path。全幅矩形 `M0 0h24v24H0z fill=none` 按惯例过滤。
+
+| 用途 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 点赞「未赞」态 | `thumb_up`(outlined) | thumb-up(-dark).svg | #a79e8a/#8c8579（text-ink-400 同值对） |
+| 点赞「已赞」态 | `thumb_up`(filled) | thumb-up-primary(-dark).svg | #1f7a5c/#4da989（liked 主色对） |
+| 回复按钮图标 | `reply` | reply(-dark).svg | #a79e8a/#8c8579（Web base-content/40 近似 hint 对） |
+| 更多(...)按钮 | `more_horiz` | more-horiz(-dark).svg | #cfc7b4/#a79e8a（base-content/30 更淡一档） |
+| 未登录引导框人像 | `account_circle` | account-circle-hint(-dark).svg | #a79e8a/#8c8579（Web UserCircleIcon text-ink-400） |
+| 发布按钮纸飞机 | `send` | send-white.svg（复用 contact 批既有） | 白色，品牌底上恒白 |
+
+> 本批先落 Android 口径（thumb_up 单字形换色 + person + send-primary）后被回滚，
+> 以用户指定的 Web 严格源重做：未赞/已赞改为 outline/solid 字形对，person→account_circle
+> （UserCircle 对应物），send-primary 退役（Web 回复框为纯文本「发送」钮）。
+> 配套：assets/images/default-avatar.png 自 yuanlu Web public/static/images 拷贝（评论缺省头像）。

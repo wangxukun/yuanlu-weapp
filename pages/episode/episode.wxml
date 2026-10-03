@@ -140,40 +140,162 @@
 
       <view class="divider mt-4"></view>
 
-      <!-- Interactive Discussion -->
+      <!-- Interactive Discussion（严格复刻 Web components/episode/comments：
+           未登录引导框 / 「我」头像+输入+发布 / 树形评论列表 + 更多权限菜单） -->
       <view class="comments-section px-4 mt-4">
-        <text class="t-h2 text-bold mb-4">互动讨论</text>
-        
-        <view class="comment-input-row row align-start">
-          <view class="avatar-circle center mr-3">
-            <text class="t-body text-white">匿</text>
+        <text class="t-h2 text-bold mb-3">互动讨论</text>
+
+        <!-- 未登录：虚线引导框（对齐 Web CommentForm 未登录态） -->
+        <view wx:if="{{!isLoggedIn}}" class="cmt-login-box center col">
+          <view class="cmt-login-icon center">
+            <image class="cmt-login-icon-img" src="{{dark ? '/assets/icons/account-circle-hint-dark.svg' : '/assets/icons/account-circle-hint.svg'}}"></image>
           </view>
-          <view class="input-wrapper flex-1 col">
-            <textarea class="comment-textarea" placeholder="分享你的见解或提问..." value="{{commentText}}" bindinput="onCommentInput" auto-height></textarea>
-            <view class="row end mt-2">
-              <view class="btn-send center tap-scale {{commentText.trim() ? 'active' : ''}}" bindtap="onSubmitComment">
-                <text class="t-body">发送</text>
+          <text class="cmt-login-text">登录后参与讨论，记录你的学习点滴</text>
+          <view class="cmt-login-btn center tap-scale" bindtap="onGoLogin">
+            <text class="text-bold">立即登录</text>
+          </view>
+        </view>
+
+        <!-- 已登录：头像（有图用图，无图「我」占位）+ 输入容器；发布钮+字数悬浮容器内右下角
+             （对齐 Web：absolute bottom-3 right-3；可提交态由 JS 维护，WXML 表达式不能调 .trim()） -->
+        <view wx:else class="cmt-form row align-start">
+          <view class="cmt-me-avatar center">
+            <image wx:if="{{meAvatar}}" class="cmt-me-avatar-img" src="{{meAvatar}}" mode="aspectFill"></image>
+            <text wx:else class="cmt-me-text text-bold">我</text>
+          </view>
+          <view class="cmt-form-main flex-1">
+            <view class="cmt-textarea-box {{commentFocus ? 'focus' : ''}}">
+              <textarea
+                class="cmt-textarea"
+                placeholder="分享你的见解或疑问..."
+                placeholder-style="color: #A79E8A"
+                value="{{commentText}}"
+                bindinput="onCommentInput"
+                bindfocus="onCommentFocus"
+                bindblur="onCommentBlur"
+                maxlength="-1"
+                disabled="{{isSubmittingComment}}"
+              ></textarea>
+              <view class="cmt-form-ops row center">
+                <text class="cmt-count {{commentText.length > 0 ? 'show' : ''}}">{{commentText.length}}</text>
+                <view
+                  class="cmt-publish center tap-scale {{commentCanSubmit && !isSubmittingComment ? 'active' : ''}}"
+                  bindtap="onSubmitComment"
+                >
+                  <view wx:if="{{isSubmittingComment}}" class="cmt-spin"></view>
+                  <block wx:else>
+                    <image class="cmt-publish-icon" src="/assets/icons/send-white.svg"></image>
+                    <text class="text-bold">发布</text>
+                  </block>
+                </view>
               </view>
             </view>
           </view>
         </view>
 
-        <!-- Comments List -->
-        <view class="comments-list mt-4 center col" wx:if="{{comments.length === 0}}">
-          <text class="t-body text-secondary mt-4">遇到发人深思，来抢沙发吧</text>
+        <!-- 列表三态：loading 点阵 / 空沙发 / 树形条目（对齐 Web EpisodeComments） -->
+        <view wx:if="{{isLoadingComments}}" class="cmt-list-state center row">
+          <view class="cmt-dot d1"></view>
+          <view class="cmt-dot d2"></view>
+          <view class="cmt-dot d3"></view>
         </view>
-        <view class="comments-list mt-4 col" wx:else>
-           <!-- For brevity, simplistic comment render -->
-           <block wx:for="{{comments}}" wx:key="id">
-             <view class="comment-item row mb-4">
-               <view class="avatar-circle center mr-3"><text class="t-body text-white">{{item.authorName[0] || 'U'}}</text></view>
-               <view class="col flex-1">
-                 <text class="t-body text-bold">{{item.authorName || 'User'}}</text>
-                 <text class="t-body mt-1">{{item.content}}</text>
-               </view>
-             </view>
-           </block>
+        <view wx:elif="{{comments.length === 0}}" class="cmt-list-state center col">
+          <text class="cmt-empty-text">还没有人发言，来抢沙发吧！</text>
         </view>
+        <block wx:else>
+          <block wx:for="{{comments}}" wx:key="commentid" wx:for-item="cmt" wx:for-index="cmtIdx">
+            <view class="cmt-item row align-start {{cmtIdx === comments.length - 1 ? 'last' : ''}}">
+              <image class="cmt-avatar" src="{{cmt.avatarUrl || '/assets/images/default-avatar.png'}}" mode="aspectFill"></image>
+              <view class="col flex-1">
+                <view class="row cmt-meta">
+                  <text class="cmt-nickname flex-1 ellipsis">{{cmt.nickname || '用户'}}</text>
+                  <text class="cmt-time">{{cmt.commentAtText}}</text>
+                </view>
+                <view class="cmt-bubble"><text user-select>{{cmt.text}}</text></view>
+                <view class="cmt-actions row">
+                  <view class="row center tap-scale" bindtap="onToggleCommentLike" data-id="{{cmt.commentid}}">
+                    <image
+                      class="cmt-act-icon"
+                      src="{{cmt.isLiked ? (dark ? '/assets/icons/thumb-up-primary-dark.svg' : '/assets/icons/thumb-up-primary.svg') : (dark ? '/assets/icons/thumb-up-dark.svg' : '/assets/icons/thumb-up.svg')}}"
+                    ></image>
+                    <text class="cmt-like-label {{cmt.isLiked ? 'liked' : ''}}">{{cmt.likesCount || 0}}</text>
+                  </view>
+                  <view class="row center tap-scale cmt-reply-btn" bindtap="onToggleReply" data-id="{{cmt.commentid}}">
+                    <image class="cmt-act-icon" src="{{dark ? '/assets/icons/reply-dark.svg' : '/assets/icons/reply.svg'}}"></image>
+                    <text class="cmt-reply-label">回复</text>
+                  </view>
+                  <view class="cmt-more center tap-scale" bindtap="onMoreComment" data-id="{{cmt.commentid}}">
+                    <image class="cmt-more-icon" src="{{dark ? '/assets/icons/more-horiz-dark.svg' : '/assets/icons/more-horiz.svg'}}"></image>
+                  </view>
+                </view>
+
+                <!-- 回复框（对齐 Web：textarea + 取消/发送双钮） -->
+                <view wx:if="{{replyingTo === cmt.commentid}}" class="cmt-reply-box col">
+                  <textarea
+                    class="cmt-reply-textarea"
+                    placeholder="回复 @{{cmt.nickname || '用户'}}..."
+                    placeholder-style="color: #A79E8A"
+                    value="{{replyText}}"
+                    bindinput="onReplyInput"
+                    maxlength="-1"
+                  ></textarea>
+                  <view class="row end cmt-reply-ops">
+                    <view class="cmt-reply-cancel center tap-scale" bindtap="onReplyCancel">取消</view>
+                    <view class="cmt-reply-send center tap-scale {{replyCanSubmit ? 'on' : ''}}" bindtap="onSubmitReply" data-id="{{cmt.commentid}}">发送</view>
+                  </view>
+                </view>
+
+                <!-- 嵌套回复（对齐 Web：左侧竖线导轨 + 递归小卡） -->
+                <view wx:if="{{cmt.replies.length > 0}}" class="cmt-replies col">
+                  <block wx:for="{{cmt.replies}}" wx:key="commentid" wx:for-item="reply">
+                    <view class="cmt-reply-item row align-start">
+                      <image class="cmt-reply-avatar" src="{{reply.avatarUrl || '/assets/images/default-avatar.png'}}" mode="aspectFill"></image>
+                      <view class="col flex-1">
+                        <view class="row cmt-meta">
+                          <text class="cmt-reply-nickname flex-1 ellipsis">{{reply.nickname || '用户'}}</text>
+                          <text class="cmt-time">{{reply.commentAtText}}</text>
+                        </view>
+                        <view class="cmt-reply-bubble"><text user-select>{{reply.text}}</text></view>
+                        <view class="cmt-actions row">
+                          <view class="row center tap-scale" bindtap="onToggleCommentLike" data-id="{{reply.commentid}}">
+                            <image
+                              class="cmt-act-icon"
+                              src="{{reply.isLiked ? (dark ? '/assets/icons/thumb-up-primary-dark.svg' : '/assets/icons/thumb-up-primary.svg') : (dark ? '/assets/icons/thumb-up-dark.svg' : '/assets/icons/thumb-up.svg')}}"
+                            ></image>
+                            <text class="cmt-like-label {{reply.isLiked ? 'liked' : ''}}">{{reply.likesCount || 0}}</text>
+                          </view>
+                          <view class="row center tap-scale cmt-reply-btn" bindtap="onToggleReply" data-id="{{reply.commentid}}">
+                            <image class="cmt-act-icon" src="{{dark ? '/assets/icons/reply-dark.svg' : '/assets/icons/reply.svg'}}"></image>
+                            <text class="cmt-reply-label">回复</text>
+                          </view>
+                          <view class="cmt-more center tap-scale" bindtap="onMoreComment" data-id="{{reply.commentid}}">
+                            <image class="cmt-more-icon" src="{{dark ? '/assets/icons/more-horiz-dark.svg' : '/assets/icons/more-horiz.svg'}}"></image>
+                          </view>
+                        </view>
+
+                        <!-- 回复的回复框（Web 递归同款） -->
+                        <view wx:if="{{replyingTo === reply.commentid}}" class="cmt-reply-box col">
+                          <textarea
+                            class="cmt-reply-textarea"
+                            placeholder="回复 @{{reply.nickname || '用户'}}..."
+                            placeholder-style="color: #A79E8A"
+                            value="{{replyText}}"
+                            bindinput="onReplyInput"
+                            maxlength="-1"
+                          ></textarea>
+                          <view class="row end cmt-reply-ops">
+                            <view class="cmt-reply-cancel center tap-scale" bindtap="onReplyCancel">取消</view>
+                            <view class="cmt-reply-send center tap-scale {{replyCanSubmit ? 'on' : ''}}" bindtap="onSubmitReply" data-id="{{reply.commentid}}">发送</view>
+                          </view>
+                        </view>
+                      </view>
+                    </view>
+                  </block>
+                </view>
+              </view>
+            </view>
+          </block>
+        </block>
       </view>
 
       <view class="divider mt-4"></view>

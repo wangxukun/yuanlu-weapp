@@ -1251,6 +1251,274 @@ const RELATED = [
     dmState.cached.clear();
   }
 
+  section('十五、互动讨论模块（严格复刻 Web components/episode/comments，2026-10-03 重构）');
+  {
+    // ---- 真实后端形状 DTO（裸数组 + commentText/User.user_profile/likesCount/isLiked） ----
+    const C3 = {
+      commentid: 3, userid: 'u1', episodeid: 'ep1',
+      commentText: '第一条根评论', commentAt: '2026-10-03T02:05:00.000Z', parentId: null,
+      User: { userid: 'u1', email: 'wxk@ex.com', user_profile: { nickname: '远路客', avatarUrl: 'https://oss/avatar1', learnLevel: null } },
+      likesCount: 2, isLiked: false,
+    };
+    const C4 = {
+      commentid: 4, userid: 'u2', episodeid: 'ep1',
+      commentText: '第二条根评论（新）', commentAt: '2026-10-03T03:05:00.000Z', parentId: null,
+      User: { userid: 'u2', email: 'guest@ex.com', user_profile: null },
+      likesCount: 0, isLiked: true,
+    };
+    const R5 = {
+      commentid: 5, userid: 'u3', episodeid: 'ep1',
+      commentText: '回复第一条', commentAt: '2026-10-03T04:05:00.000Z', parentId: 3,
+      User: { userid: 'u3', email: 'r@ex.com', user_profile: { nickname: null, avatarUrl: null, learnLevel: null } },
+      likesCount: 0, isLiked: false,
+    };
+    const R6 = { // 孤儿回复：parentId 不在列表 → 兜底为根评论（Web 同口径）
+      commentid: 2, userid: 'u3', episodeid: 'ep1',
+      commentText: '孤儿回复', commentAt: '2026-10-03T01:05:00.000Z', parentId: 999,
+      User: { userid: 'u3', email: 'r@ex.com', user_profile: null },
+      likesCount: 0, isLiked: false,
+    };
+
+    requestHandler = routeAwareHandler({
+      '/api/comment/list': { statusCode: 200, data: [C4, C3, R5, R6] },
+    });
+    const page = createPage(pageConfig);
+    page.data.episodeid = 'ep1';
+    await page.fetchComments();
+    await tick();
+
+    // ① 字段映射 + 建树（修复③核心：commentText/User.user_profile，旧版 content/authorName 全空）
+    assert(page.data.comments.length === 3, '① 建树：2 根 + 孤儿回复兜底为根 = 3 条根评论');
+    assert(page.data.comments[0].commentid === 4 && page.data.comments[1].commentid === 3 && page.data.comments[2].commentid === 2,
+      '① 根评论保持接口顺序（时间倒序由后端 orderBy 保证，客户端不重排）');
+    const root3 = page.data.comments[1];
+    assert(root3.text === '第一条根评论', '① 内容映射 commentText → text');
+    assert(root3.nickname === '远路客' && root3.avatarUrl === 'https://oss/avatar1', '① 昵称/签名头像取 user_profile');
+    assert(root3.userid === 'u1' && root3.email === 'wxk@ex.com', '① userid/email 透传（本人判定与举报署名要用）');
+    assert(root3.likesCount === 2 && root3.isLiked === false, '① 点赞数/点赞态透传');
+    assert(page.data.comments[0].nickname === 'guest', '① 无 profile → 昵称兜底邮箱前缀（对齐 Web getDisplayName）');
+    assert(root3.replies.length === 1 && root3.replies[0].text === '回复第一条', '① 回复按 parentId 挂载到根评论');
+    assert(/^\d+月\d+日 \d{2}:\d{2}$/.test(root3.commentAtText), '① 时间格式「M月D日 HH:mm」（对齐 Web formatDate）');
+
+    // ② 发布按钮激活口径（修复：JS 维护 commentCanSubmit，WXML 表达式不能调 .trim()）
+    assert(page.data.commentCanSubmit === false, '② 初始无可提交态（发布钮灰）');
+    page.onCommentInput({ detail: { value: '   ' } });
+    assert(page.data.commentCanSubmit === false, '② 纯空白输入 → 仍不可提交');
+    page.onCommentInput({ detail: { value: '  hi' } });
+    assert(page.data.commentCanSubmit === true, '② 有实质内容 → 可提交（发布钮品牌绿）');
+
+    // ③ 发布根评论（对齐 Web handleSubmit：不携带 userid；仅成功后清空；新评论插列表头）
+    calls.request.length = 0;
+    requestHandler = routeAwareHandler({
+      '/api/comment/create': {
+        statusCode: 200,
+        data: {
+          commentid: 7, userid: 'u9', episodeid: 'ep1', commentText: 'hi',
+          commentAt: '2026-10-03T06:00:00.000Z', parentId: null,
+          User: { userid: 'u9', email: 'me@ex.com', user_profile: { nickname: '我', avatarUrl: null } },
+        },
+      },
+    });
+    page.data.isLoggedIn = true;
+    await page.onSubmitComment();
+    await tick();
+    const createCall = calls.request.find((c) => c.url.indexOf('/api/comment/create') !== -1);
+    assert(!!createCall, '③ 发布发起 POST /api/comment/create');
+    assert(createCall.data.episodeid === 'ep1' && createCall.data.content === 'hi' && !('userid' in createCall.data),
+      '③ 请求体 { episodeid, content }，不携带 userid（服务端从会话取）');
+    assert(page.data.commentText === '' && page.data.commentCanSubmit === false && page.data.isSubmittingComment === false,
+      '③ 成功后清空输入 + 复位提交态');
+    assert(page.data.comments[0].commentid === 7 && page.data.comments[0].nickname === '我', '③ 新评论映射后插到列表头');
+
+    // ④ 发布失败：仅复位提交态，输入保留（Web 仅成功清空）、列表不变
+    page.onCommentInput({ detail: { value: 'again' } });
+    requestHandler = routeAwareHandler({
+      '/api/comment/create': { statusCode: 403, data: { error: '您的评论权限已被限制，如有疑问请联系管理员' } },
+    });
+    await page.onSubmitComment();
+    await tick();
+    assert(page.data.isSubmittingComment === false && page.data.commentText === 'again' &&
+      page.data.comments[0].commentid === 7, '④ 发布失败 → 复位提交态，输入保留、列表不变');
+
+    // ⑤ 点赞：乐观翻转（含计数），失败不回滚（对齐 Web fire-and-forget）
+    calls.request.length = 0;
+    requestHandler = routeAwareHandler({
+      '/api/comment/like': { statusCode: 500, data: { error: 'boom' } },
+    });
+    page.onToggleCommentLike({ currentTarget: { dataset: { id: 3 } } });
+    const liked3 = page.data.comments.find((c) => c.commentid === 3);
+    assert(liked3.isLiked === true && liked3.likesCount === 3, '⑤ 乐观翻转：isLiked=true / 计数 +1');
+    const likeCall = calls.request.find((c) => c.url.indexOf('/api/comment/like') !== -1);
+    assert(!!likeCall && likeCall.data.commentId === 3, '⑤ POST /api/comment/like { commentId }');
+    await tick();
+    const stayed3 = page.data.comments.find((c) => c.commentid === 3);
+    assert(stayed3.isLiked === true && stayed3.likesCount === 3, '⑤ 失败不回滚（Web 同款乐观 UI）');
+
+    // ⑥ 回复链路（对齐 Web handleReplySubmit：新回复前插 replies 头部；失败保留输入框）
+    calls.request.length = 0;
+    requestHandler = routeAwareHandler({
+      '/api/comment/create': {
+        statusCode: 200,
+        data: {
+          commentid: 8, userid: 'u9', episodeid: 'ep1', commentText: 'second reply',
+          commentAt: '2026-10-03T07:00:00.000Z', parentId: 3,
+          User: { userid: 'u9', email: 'me@ex.com', user_profile: { nickname: '我', avatarUrl: null } },
+        },
+      },
+    });
+    page.onToggleReply({ currentTarget: { dataset: { id: 3 } } });
+    assert(page.data.replyingTo === 3, '⑥ 展开评论 3 的回复框');
+    page.onReplyInput({ detail: { value: '  second reply ' } });
+    assert(page.data.replyCanSubmit === true, '⑥ 回复内容 trim 后可提交');
+    await page.onSubmitReply({ currentTarget: { dataset: { id: 3 } } });
+    await tick();
+    const replyCall = calls.request.find((c) => c.url.indexOf('/api/comment/create') !== -1);
+    assert(replyCall.data.parentId === 3 && replyCall.data.content === 'second reply',
+      '⑥ 回复请求体带 parentId 且 content 已 trim');
+    assert(page.data.replyingTo === null && page.data.replyText === '', '⑥ 成功后收起回复框并清空');
+    const root3After = page.data.comments.find((c) => c.commentid === 3);
+    assert(root3After.replies.length === 2 && root3After.replies[0].commentid === 8,
+      '⑥ 新回复前插到目标评论 replies 头部（Web [newReply, ...replies]）');
+    // 失败保留：再次打开输入，接口失败 → 框保留内容可重试
+    requestHandler = routeAwareHandler({
+      '/api/comment/create': { statusCode: 500, data: { error: 'x' } },
+    });
+    page.onToggleReply({ currentTarget: { dataset: { id: 3 } } });
+    page.onReplyInput({ detail: { value: 'retry me' } });
+    await page.onSubmitReply({ currentTarget: { dataset: { id: 3 } } });
+    await tick();
+    assert(page.data.replyingTo === 3 && page.data.replyText === 'retry me', '⑥ 回复失败 → 输入框与内容保留可重试');
+
+    // ⑦ 游客门禁：点赞/回复 → toast + 引导登录，不发请求
+    calls.request.length = 0;
+    const navCalls15 = [];
+    const toasts15 = [];
+    const rawNav15 = global.wx.navigateTo;
+    const rawToast15 = global.wx.showToast;
+    global.wx.navigateTo = (o) => navCalls15.push(o.url);
+    global.wx.showToast = (o) => toasts15.push(o.title);
+    page.data.isLoggedIn = false;
+    page.onToggleCommentLike({ currentTarget: { dataset: { id: 3 } } });
+    page.onToggleReply({ currentTarget: { dataset: { id: 3 } } });
+    assert(calls.request.length === 0, '⑦ 游客点赞/回复 → 不发请求');
+    assert(toasts15.indexOf('请先登录后再回复评论') !== -1 && navCalls15.indexOf('/pages/auth/index') !== -1,
+      '⑦ Web 同款文案 toast + 引导登录页');
+
+    // ⑧ 更多(...)权限菜单三态（对齐 Web isOwner || isAdmin 渲染逻辑，dropdown → ActionSheet）
+    const sheets15 = [];
+    let sheetResult15 = null;
+    const rawSheet15 = global.wx.showActionSheet;
+    global.wx.showActionSheet = (o) => {
+      sheets15.push(o.itemList);
+      if (sheetResult15 !== null) o.success({ tapIndex: sheetResult15 });
+    };
+    // ⑧a 普通用户看他人评论 → [复制, 举报]
+    page.data.isLoggedIn = true;
+    page.data.meUserid = 'u9';
+    page.data.meRole = 'USER';
+    page.onMoreComment({ currentTarget: { dataset: { id: 3 } } }); // userid u1 ≠ u9
+    assert(JSON.stringify(sheets15[0]) === JSON.stringify(['复制', '举报']), '⑧a 普通用户看他人评论 → [复制, 举报]');
+    // ⑧b 普通用户看本人评论 → [复制, 删除]
+    page.onMoreComment({ currentTarget: { dataset: { id: 7 } } }); // userid u9 = me
+    assert(JSON.stringify(sheets15[1]) === JSON.stringify(['复制', '删除']), '⑧b 本人评论 → [复制, 删除]');
+    // ⑧c 管理员看他人评论 → [复制, 删除]（全量）
+    page.data.meRole = 'ADMIN';
+    page.onMoreComment({ currentTarget: { dataset: { id: 3 } } });
+    assert(JSON.stringify(sheets15[2]) === JSON.stringify(['复制', '删除']), '⑧c ADMIN 看任意评论 → [复制, 删除]');
+    // ⑧d 嵌套回复同权限（对齐 Web 递归组件）
+    page.data.meRole = 'USER';
+    page.onMoreComment({ currentTarget: { dataset: { id: 8 } } }); // 回复（u9 本人）
+    assert(JSON.stringify(sheets15[3]) === JSON.stringify(['复制', '删除']), '⑧d 嵌套回复同权限口径（本人 → 可删）');
+    // ⑧e 游客 → [复制, 举报]
+    page.data.isLoggedIn = false;
+    page.onMoreComment({ currentTarget: { dataset: { id: 3 } } });
+    assert(JSON.stringify(sheets15[4]) === JSON.stringify(['复制', '举报']), '⑧e 未登录游客 → [复制, 举报]');
+    page.data.isLoggedIn = true;
+
+    // ⑨ 复制 / 删除 / 举报 三动作落地
+    const clips15 = [];
+    const rawClip15 = global.wx.setClipboardData;
+    global.wx.setClipboardData = (o) => clips15.push(o.data);
+    let modalOpts15 = null;
+    let modalConfirm15 = true;
+    const rawModal15 = global.wx.showModal;
+    global.wx.showModal = (o) => {
+      modalOpts15 = o;
+      o.success({ confirm: modalConfirm15 });
+    };
+    // ⑨a 复制（tapIndex 0）
+    calls.request.length = 0;
+    sheetResult15 = 0;
+    page.onMoreComment({ currentTarget: { dataset: { id: 3 } } });
+    assert(clips15[0] === '第一条根评论', '⑨a 复制 → setClipboardData(评论原文)');
+    // ⑨b 删除：确认弹窗文案逐字 → 乐观移除 → POST delete → 成功 toast
+    requestHandler = routeAwareHandler({
+      '/api/comment/delete': { statusCode: 200, data: { success: true } },
+    });
+    sheetResult15 = 1;
+    page.data.meRole = 'ADMIN';
+    toasts15.length = 0;
+    page.onMoreComment({ currentTarget: { dataset: { id: 3 } } });
+    assert(modalOpts15.title === '确认删除评论？' &&
+      modalOpts15.content === '此操作不可撤销。如果该评论包含回复，回复也将一并被删除。' &&
+      modalOpts15.confirmText === '确认删除', '⑨b 删除确认弹窗文案逐字（对齐 DeleteCommentModal）');
+    await tick();
+    assert(page.data.comments.every((c) => c.commentid !== 3), '⑨b 确认后乐观移除（含其子回复随树剔除）');
+    const delCall = calls.request.find((c) => c.url.indexOf('/api/comment/delete') !== -1);
+    assert(!!delCall && delCall.data.commentId === 3, '⑨b POST /api/comment/delete { commentId }');
+    assert(toasts15.indexOf('评论已删除') !== -1, '⑨b 删除成功 toast');
+    // ⑨b' 删除失败回滚 + toast
+    requestHandler = routeAwareHandler({
+      '/api/comment/delete': { statusCode: 500, data: { error: 'x' } },
+    });
+    toasts15.length = 0;
+    page.onMoreComment({ currentTarget: { dataset: { id: 4 } } });
+    await tick();
+    assert(page.data.comments.some((c) => c.commentid === 4) && toasts15.indexOf('删除失败，请稍后重试') !== -1,
+      '⑨b′ 删除失败 → 回滚快照 + toast（对齐 Web confirmDelete）');
+    // ⑨c 举报（普通用户看他人评论）：POST report 署名/载荷 + 成功 toast
+    const authStore = require(path.join(__dirname, '../store/authStore'));
+    authStore.setState({ userInfo: { userid: 'u9', nickname: '小明', email: 'me@ex.com', role: 'USER' } });
+    calls.request.length = 0;
+    requestHandler = routeAwareHandler({
+      '/api/comment/report': { statusCode: 200, data: { success: true, message: '举报已提交' } },
+    });
+    page.data.meRole = 'USER';
+    sheetResult15 = 1;
+    toasts15.length = 0;
+    page.onMoreComment({ currentTarget: { dataset: { id: 4 } } }); // [复制, 举报] → tapIndex 1 = 举报
+    await tick();
+    const repCall = calls.request.find((c) => c.url.indexOf('/api/comment/report') !== -1);
+    assert(!!repCall, '⑨c 举报发起 POST /api/comment/report');
+    assert(repCall.data.commentId === 4 && repCall.data.commentText === '第二条根评论（新）' &&
+      repCall.data.reporterName === '小明 (me@ex.com)' &&
+      repCall.data.authorName === 'guest (guest@ex.com)' &&
+      repCall.data.targetUrl === '/pages/episode/episode?id=ep1',
+      '⑨c 举报载荷逐字段（commentId/commentText/举报人署名/被举报人署名/targetUrl）');
+    assert(toasts15.indexOf('已举报') !== -1, '⑨c 举报成功 toast');
+    // ⑨c' 游客举报署名兜底 + 失败 toast
+    authStore.setState({ userInfo: null });
+    requestHandler = routeAwareHandler({
+      '/api/comment/report': { statusCode: 500, data: { error: 'x' } },
+    });
+    calls.request.length = 0;
+    toasts15.length = 0;
+    page.data.isLoggedIn = false;
+    sheetResult15 = 1;
+    page.onMoreComment({ currentTarget: { dataset: { id: 4 } } });
+    await tick();
+    const repCall2 = calls.request.find((c) => c.url.indexOf('/api/comment/report') !== -1);
+    assert(repCall2.data.reporterName === '未登录游客', '⑨c′ 游客举报 → reporterName=未登录游客（Web 同款）');
+    assert(toasts15.indexOf('举报提交失败') !== -1, '⑨c′ 举报失败 toast');
+
+    global.wx.navigateTo = rawNav15;
+    global.wx.showToast = rawToast15;
+    global.wx.showActionSheet = rawSheet15;
+    global.wx.setClipboardData = rawClip15;
+    global.wx.showModal = rawModal15;
+    authStore.setState({ userInfo: null });
+  }
+
   /* ==================== 汇总 ==================== */
 
   console.log(`\n========== 剧集页播放测试：${passed} 通过 / ${failed} 失败 ==========`);
