@@ -98,6 +98,15 @@
       <text class="sub-agreement-plain" user-select>，感谢您的善意支持。</text>
     </view>
 
+    <!-- 订单记录入口（微信订单中心设置规范配套：资金交易订单明细页） -->
+    <view class="orders-entry tap-scale" bindtap="onOpenOrders">
+      <image
+        class="orders-entry-icon"
+        src="{{dark ? '/assets/icons/receipt-long-onsurface-dark.svg' : '/assets/icons/receipt-long-onsurface.svg'}}"
+      />
+      <text class="orders-entry-text">订单记录</text>
+    </view>
+
   </view>
 </view>
 

@@ -1,0 +1,271 @@
+/**
+ * pages/subscription/orders/index.wxss — 订单中心页
+ *
+ * 微信《小程序订单中心设置规范》合规页视觉：订单卡（白底 card-bg + 1px 边框）
+ * = 行首 receipt_long 图标 + 档位名 ×份数 + 金额（右对齐强调）/ 次行「共 N 天
+ * 会员」+ 状态胶囊 / 底行单号（mono 弱化）+ 时间（等宽数字口径 yyyy-MM-dd HH:mm）。
+ *
+ * 状态色：已完成/待支付走全局语义令牌（--color-success/--color-warning 深色自动
+ * 翻转）；「处理中」info 色不在全局翻转表 → 页面局部变量三段式声明（与外观
+ * 设置 contrast 图标对同法）；弱化态走 --text-tertiary。游客横幅特例色与
+ * 订阅页同值三轨。页面根节点挂 themeClass 承接手动浅色/深色覆盖。
+ */
+
+.orders-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--page-bg);
+
+  /* ===== 游客横幅特例色（浅色默认；accent 二百与九百档不在全局翻转表） ===== */
+  --ord-guest-border: #f4d09a;
+  --ord-guest-title-c: #2e1d07;
+  --ord-guest-desc-c: rgba(78, 46, 11, 0.85);
+
+  /* ===== 「处理中」状态特例色（info 档不在全局翻转表，三轨声明） ===== */
+  --ord-processing-c: #4a7fa5;
+}
+
+/* ===== 游客态横幅（结构与订阅页游客横幅同款，文案按订单口径改写） ===== */
+.guest-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  margin: 32rpx 32rpx 0;
+  padding: 40rpx;
+  border-radius: 24rpx;
+  background: var(--accent-50);
+  border: 1rpx solid var(--ord-guest-border);
+  box-shadow: var(--e1);
+}
+
+.guest-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.guest-help-icon {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.guest-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--ord-guest-title-c);
+}
+
+.guest-desc {
+  font-size: 24rpx;
+  line-height: 1.7;
+  text-align: center;
+  color: var(--ord-guest-desc-c);
+}
+
+.guest-btn {
+  padding: 16rpx 48rpx;
+  border-radius: var(--r-full);
+  background: var(--accent-500);
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* ===== 通用状态块（加载/错误/空态共用骨架） ===== */
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+  padding: 160rpx 64rpx 0;
+}
+
+.state-spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 6rpx solid var(--primary-200);
+  border-top-color: var(--primary-600);
+  border-radius: 50%;
+  animation: ord-spin 1s linear infinite;
+}
+
+@keyframes ord-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.state-sub {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+}
+
+.state-btn {
+  margin-top: 16rpx;
+  padding: 16rpx 56rpx;
+  border-radius: var(--r-full);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.empty-icon {
+  width: 96rpx;
+  height: 96rpx;
+  opacity: 0.6;
+}
+
+/* ===== 订单列表 ===== */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 32rpx 32rpx 64rpx;
+}
+
+.order-card {
+  padding: 28rpx 28rpx 24rpx;
+  border-radius: var(--r-xl);
+  background: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--e1);
+}
+
+.order-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.order-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+}
+
+.order-plan-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+}
+
+.order-plan {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.order-qty {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.order-amount {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.order-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  padding-left: 52rpx;
+}
+
+.order-days {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.order-status {
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+/* 状态色类（display.js STATUS_CLASSES 同名映射；处理中走局部变量三轨） */
+.status-done {
+  color: var(--color-success);
+}
+
+.status-pending {
+  color: var(--color-warning);
+}
+
+.status-processing {
+  color: var(--ord-processing-c);
+}
+
+.status-muted {
+  color: var(--text-tertiary);
+}
+
+.order-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  padding-left: 52rpx;
+  border-top: 1rpx solid var(--border-color);
+}
+
+.order-no {
+  font-size: 22rpx;
+  font-family: monospace;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-time {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  font-family: monospace;
+  color: var(--text-tertiary);
+}
+
+.list-end {
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  padding-top: 8rpx;
+}
+
+/* ============================================================
+ * 特例色三轨：媒体查询平类 + theme-dark、theme-light 全量重声明
+ * ========================================================== */
+@media (prefers-color-scheme: dark) {
+  .orders-page {
+    --ord-guest-border: rgba(78, 46, 11, 0.3);
+    --ord-guest-title-c: #f4d09a;
+    --ord-guest-desc-c: rgba(236, 179, 94, 0.8);
+    --ord-processing-c: #7fa8c8;
+  }
+}
+
+.orders-page.theme-dark {
+  --ord-guest-border: rgba(78, 46, 11, 0.3);
+  --ord-guest-title-c: #f4d09a;
+  --ord-guest-desc-c: rgba(236, 179, 94, 0.8);
+  --ord-processing-c: #7fa8c8;
+}
+
+.orders-page.theme-light {
+  --ord-guest-border: #f4d09a;
+  --ord-guest-title-c: #2e1d07;
+  --ord-guest-desc-c: rgba(78, 46, 11, 0.85);
+  --ord-processing-c: #4a7fa5;
+}

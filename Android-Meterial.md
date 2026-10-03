@@ -465,3 +465,15 @@
 > 以用户指定的 Web 严格源重做：未赞/已赞改为 outline/solid 字形对，person→account_circle
 > （UserCircle 对应物），send-primary 退役（Web 回复框为纯文本「发送」钮）。
 > 配套：assets/images/default-avatar.png 自 yuanlu Web public/static/images 拷贝（评论缺省头像）。
+
+## 十二、订单中心批（2026-10-03，微信订单中心设置规范配套，+2）
+
+> 微信《小程序订单中心设置规范》合规页（pages/subscription/orders）图标。
+> 字形源：fonts.gstatic.com materialicons receipt_long v1（1 path，无全幅矩形，
+> 过滤规则照第七节）；驱动 `scripts/tmp-bake-receipt-icons.py`（直连失败回退 Clash 7891）。
+
+| 用途 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 订单卡行首 / 订阅页「订单记录」入口 | `receipt_long` | receipt-long-onsurface.svg | #655d4c（ink-600） |
+| 同上（深色） | `receipt_long` | receipt-long-onsurface-dark.svg | #a8a29e（ink-400；与学习路径 onsurface 对同色规） |
+| 订单中心空态 | `receipt_long`（复用） | 同上两枚 | 大尺寸 96rpx 展示，不另烘焙 |

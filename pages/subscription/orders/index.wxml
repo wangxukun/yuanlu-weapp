@@ -1,0 +1,70 @@
+<!-- pages/subscription/orders/index.wxml — 订单中心（微信订单中心设置规范合规页：资金交易订单明细 + 未登录页内引导登录） -->
+<view class="orders-page {{themeClass}}">
+
+  <!-- 游客态横幅（规范：页内引导登录，登录后停留本页；结构与订阅页游客横幅同款） -->
+  <view wx:if="{{guest}}" class="guest-banner">
+    <view class="guest-title-row">
+      <image
+        class="guest-help-icon"
+        src="{{dark ? '/assets/icons/help-outline-accent-dark.svg' : '/assets/icons/help-outline-accent.svg'}}"
+      />
+      <text class="guest-title">未检测到用户登录信息</text>
+    </view>
+    <view class="guest-desc">登录后即可查看您的会员订单记录，包括支付金额、入账天数与订单状态。</view>
+    <view class="guest-btn tap-scale" bindtap="onGoLogin">立即登录/注册账号</view>
+  </view>
+
+  <block wx:else>
+
+    <!-- 首拉加载态 -->
+    <view wx:if="{{loading}}" class="state-block">
+      <view class="state-spinner"></view>
+      <text class="state-text">订单加载中…</text>
+    </view>
+
+    <!-- 错误态（含重试） -->
+    <view wx:elif="{{error}}" class="state-block">
+      <text class="state-text">{{error}}</text>
+      <view class="state-btn tap-scale" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <!-- 空态（引导去订阅页） -->
+    <view wx:elif="{{orders.length === 0}}" class="state-block empty-block">
+      <image
+        class="empty-icon"
+        src="{{dark ? '/assets/icons/receipt-long-onsurface-dark.svg' : '/assets/icons/receipt-long-onsurface.svg'}}"
+      />
+      <text class="state-text">暂无订单</text>
+      <text class="state-sub">订阅会员后，订单记录会展示在这里</text>
+      <view class="state-btn tap-scale" bindtap="onGoSubscribe">去订阅</view>
+    </view>
+
+    <!-- 订单列表（所有涉及资金交易的订单明细：虚拟支付会员购买） -->
+    <view wx:else class="orders-list">
+      <view wx:for="{{orders}}" wx:key="outTradeNo" class="order-card">
+        <view class="order-head">
+          <image
+            class="order-icon"
+            src="{{dark ? '/assets/icons/receipt-long-onsurface-dark.svg' : '/assets/icons/receipt-long-onsurface.svg'}}"
+          />
+          <view class="order-plan-wrap">
+            <text class="order-plan">{{item.planName}}</text>
+            <text class="order-qty"> × {{item.buyQuantity}}</text>
+          </view>
+          <text class="order-amount">¥{{item.amountYuan}}</text>
+        </view>
+        <view class="order-meta">
+          <text class="order-days">共 {{item.daysGranted}} 天会员</text>
+          <text class="order-status {{item.statusClass}}">{{item.statusLabel}}</text>
+        </view>
+        <view class="order-foot">
+          <text class="order-no">{{item.outTradeNo}}</text>
+          <text class="order-time">{{item.timeText}}</text>
+        </view>
+      </view>
+
+      <view class="list-end">— 已展示全部订单 —</view>
+    </view>
+
+  </block>
+</view>

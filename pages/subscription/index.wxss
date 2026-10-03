@@ -362,6 +362,28 @@
   font-weight: 500;
 }
 
+/* ===== 订单记录入口（微信订单中心设置规范配套；居中胶囊行，弱化不与 CTA 抢焦点） ===== */
+.orders-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  margin-top: 48rpx;
+  padding: 20rpx 0;
+}
+
+.orders-entry-icon {
+  width: 30rpx;
+  height: 30rpx;
+  flex-shrink: 0;
+}
+
+.orders-entry-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 /* ============================================================
  * 协议全文弹层（样式复刻 auth 页 agreement-dialog 系列，
  * 对齐 AgreementDialog.kt：全屏覆盖 + 分块排版 + 关闭按钮；

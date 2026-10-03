@@ -134,6 +134,14 @@ Page({
   },
 
   /**
+   * 订单记录入口 → 订单中心页（微信《小程序订单中心设置规范》合规页；
+   * 游客可进：该页自带游客横幅引导登录，登录后停留该页拉列表）。
+   */
+  onOpenOrders() {
+    wx.navigateTo({ url: '/pages/subscription/orders/index' });
+  },
+
+  /**
    * 订阅按钮（SUBSCRIBE-TASK T3.3/T5.1）：游客态先去登录（Web「登录后订阅」
    * 同款分流，登录回流经 membershipStore 订阅自动刷新三态，source 留存本页
    * 不丢）；已登录 → 按钮携带的档位 key 走 wxpay.pay 全链路（版本闸 → 静默
