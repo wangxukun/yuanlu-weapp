@@ -168,10 +168,11 @@ Page({
     wx.navigateTo({ url: '/pages/podcast/podcast?id=' + id });
   },
 
+  /** 「{{platform}}的更多节目」右上角 → 该平台频道页（与 discover/全部频道页跳转口径一致） */
   onOpenChannel() {
     const p = this.data.podcast;
     if (p && p.platform) {
-      wx.showToast({ title: '频道开发中', icon: 'none' });
+      wx.navigateTo({ url: `/pages/channel/index?name=${encodeURIComponent(p.platform)}` });
     }
   }
 });
