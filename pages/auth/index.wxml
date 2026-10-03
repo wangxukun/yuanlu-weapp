@@ -1,7 +1,7 @@
 <!-- pages/auth/index.wxml — 登录 / 注册页
   对齐 Android 端 feature/auth/LoginSheet.kt 的结构与文案：
   品牌区（欢迎语）→ 双 Tab 分段容器（手机号 / 邮箱）→ 三态表单
-  （手机验证码 / 邮箱登录 / 邮箱注册）→ 协议勾选行 → notice / error → 胶囊主按钮。
+  （手机验证码 / 邮箱登录 / 邮箱注册）→ 协议勾选行（仅注册链路展示）→ notice / error → 胶囊主按钮。
   协议全文弹层对齐 AgreementDialog.kt（全屏覆盖 + 分块排版 + 关闭按钮）。 -->
 
 <view class="login-page">
@@ -183,9 +183,11 @@
     <view class="mode-switch" bindtap="onSwitchToLogin">已有账号？返回登录</view>
   </view>
 
-  <!-- ===== 协议勾选行（对齐 AgreementRow：方形 Checkbox + 严格单行排版；
-       四个文本段必须写在同一源码行，text 组件会把源码换行渲染为真实换行） ===== -->
-  <view class="agreement" bindtap="onToggleAgreement">
+  <!-- ===== 协议勾选行（仅注册链路展示：手机 Tab 验证码登录未注册自动建号、
+       邮箱注册表单；邮箱密码登录不要求勾选。对齐 AgreementRow：方形 Checkbox
+       + 严格单行排版；四个文本段必须写在同一源码行，text 组件会把源码换行
+       渲染为真实换行） ===== -->
+  <view wx:if="{{activeTab === 'phone' || isRegisterMode}}" class="agreement" bindtap="onToggleAgreement">
     <view class="checkbox {{agreed ? 'checkbox--on' : ''}}">
       <text wx:if="{{agreed}}" class="checkbox-mark">✓</text>
     </view>
@@ -198,11 +200,12 @@
   <!-- ===== 行内错误（对齐 uiState.error，error 色居中） ===== -->
   <view wx:if="{{error}}" class="error-text">{{error}}</view>
 
-  <!-- ===== 胶囊主按钮（对齐 PressablePillButton：104rpx 高、按压缩放、文案三态） ===== -->
+  <!-- ===== 胶囊主按钮（对齐 PressablePillButton：104rpx 高、按压缩放、文案三态；
+       登录态恒可用，仅注册链路未勾选协议或 loading 时禁用） ===== -->
   <button
-    class="login-btn tap-scale {{!agreed || isLoading ? 'login-btn--dim' : ''}}"
+    class="login-btn tap-scale {{(activeTab === 'phone' || isRegisterMode) && !agreed || isLoading ? 'login-btn--dim' : ''}}"
     loading="{{isLoading}}"
-    disabled="{{!agreed || isLoading}}"
+    disabled="{{(activeTab === 'phone' || isRegisterMode) && !agreed || isLoading}}"
     bindtap="onSubmit"
   >{{activeTab === 'phone' ? '登录 / 注册' : (isRegisterMode ? '立即注册' : '登录')}}</button>
 

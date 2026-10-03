@@ -8,7 +8,8 @@
  * 状态机对照 Android 端 LoginViewModel.kt / LoginSheet.kt：
  *   双 Tab 切换、邮箱 Tab 内部登录⇄注册切换、60s 倒计时、防重入、
  *   requireCaptcha 风控文案、邮箱注册三步串联（verify-code → sign-up → 自动登录）、
- *   协议门禁、token 落库（authStore 订阅广播）与路由回退。
+ *   协议门禁（仅注册链路：邮箱注册 + 手机 Tab 自动建号；邮箱登录不要求）、
+ *   token 落库（authStore 订阅广播）与路由回退。
  *
  * 运行：node scripts/test-login.js
  */
@@ -336,14 +337,44 @@ const reqPath = (i) => calls.request[i] && calls.request[i].url.replace(/^https?
   assert(reqPath(0) === "/api/auth/send-verification-code", "POST /api/auth/send-verification-code");
   assert(page.data.countdownSeconds === 60, "邮箱发码复用同一倒计时");
 
-  /* ---------- 页面 · 协议门禁与全文 ---------- */
-  section("登录页 · 协议门禁");
+  /* ---------- 页面 · 协议门禁（仅注册链路）与全文 ---------- */
+  section("登录页 · 协议门禁（仅注册链路）");
   resetMock();
   page = makePage({ activeTab: "phone", account: "13800138000", credential: "123456", agreed: false });
   page.onSubmit();
-  assert(toasts.some((t) => t.title.includes("用户协议")), "未勾选协议 → toast 提示");
-  assert(calls.request.length === 0, "未勾选协议 → 不发登录请求");
+  assert(
+    toasts.some((t) => t.title.includes("用户协议")),
+    "手机 Tab 未勾选 → toast 提示（验证码登录自动建号，同属注册）"
+  );
+  assert(calls.request.length === 0, "手机 Tab 未勾选 → 不发登录请求");
   assert(page.data.isLoading === false, "未进入 loading 态");
+
+  resetMock();
+  page = makePage({
+    activeTab: "email",
+    isRegisterMode: true,
+    account: "a@b.com",
+    credential: "123456",
+    registerPassword: "secret123",
+    registerConfirm: "secret123",
+    agreed: false,
+  });
+  page.onSubmit();
+  assert(toasts.some((t) => t.title.includes("用户协议")), "邮箱注册未勾选 → toast 提示");
+  assert(calls.request.length === 0, "邮箱注册未勾选 → 不发请求");
+
+  section("登录页 · 邮箱登录不要求勾选协议");
+  resetMock();
+  respond(200, { success: true, data: { token: "jwt-no-agree" } });
+  page = makePage({ activeTab: "email", account: "a@b.com", credential: "secret123", agreed: false });
+  await page.onSubmit();
+  await tick();
+  assert(
+    !toasts.some((t) => t.title.includes("用户协议")),
+    "未勾选协议不弹协议提示、不拦截"
+  );
+  assert(reqPath(0) === "/api/auth/mobile/token", "直接发起登录请求");
+  assert(storage.get("token") === "jwt-no-agree", "登录成功 token 落库");
 
   section("登录页 · 协议全文弹层");
   resetMock();

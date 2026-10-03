@@ -215,9 +215,11 @@ Page({
     const { activeTab, isRegisterMode, isLoading, agreed } = this.data;
     if (isLoading) return; // loading 防抖
 
-    // 协议门禁（对齐 Android enabled = agreed && !isLoading 的禁用语义，
-    // 小程序补充显式提示以覆盖 dim 态误触与键盘 confirm 等旁路入口）
-    if (!agreed) {
+    // 协议门禁仅约束注册链路：邮箱注册表单，以及手机 Tab（验证码登录未注册
+    // 自动建号，同属注册）；邮箱密码登录不要求勾选。小程序保留显式提示以
+    // 覆盖 dim 态误触与键盘 confirm 等旁路入口
+    const isRegistrationFlow = activeTab === 'phone' || isRegisterMode;
+    if (isRegistrationFlow && !agreed) {
       wx.showToast({
         title: '请先阅读并同意《用户协议》和《隐私政策》',
         icon: 'none',

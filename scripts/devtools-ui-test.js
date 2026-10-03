@@ -80,7 +80,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const loginBtn = await page.$(".login-btn");
   assert(!!loginBtn, "胶囊主按钮存在");
   assert((await loginBtn.text()).includes("登录 / 注册"), "手机 Tab 按钮文案「登录 / 注册」");
-  assert(!!(await loginBtn.attribute("disabled")), "未勾选协议 → 按钮禁用（对齐 enabled=agreed）");
+  assert(
+    !!(await loginBtn.attribute("disabled")),
+    "手机 Tab 未勾选协议 → 按钮禁用（验证码登录自动建号，注册链路保留协议门禁）"
+  );
 
   assert(!!(await page.$(".agreement")), "协议勾选行存在");
   assert(!!(await page.$(".brand-logo")), "品牌 Logo 插画元素存在");
@@ -125,6 +128,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     "登录态文案「没有账号？立即注册」"
   );
   assert((await page.$$(".field")).length === 2, "邮箱登录态：邮箱 + 密码两个输入框");
+  assert(!(await page.$(".agreement")), "邮箱登录态：协议勾选行隐藏（登录不要求勾选）");
+  const emailLoginBtn = await page.$(".login-btn");
+  assert(
+    !(await emailLoginBtn.attribute("disabled")),
+    "邮箱登录态：登录按钮可用（不依赖协议勾选）"
+  );
   await mp.screenshot({ path: path.join(OUT_DIR, "02-email-login.png") });
 
   /* ---------- 4. 邮箱注册态切换（表单项增减） ---------- */
@@ -141,6 +150,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   );
   const btnText = await (await page.$(".login-btn")).text();
   assert(btnText.includes("立即注册"), "主按钮文案切换「立即注册」");
+  assert(!!(await page.$(".agreement")), "注册态：协议勾选行恢复展示");
+  assert(
+    !!(await (await page.$(".login-btn")).attribute("disabled")),
+    "注册态未勾选协议 → 按钮禁用"
+  );
   await mp.screenshot({ path: path.join(OUT_DIR, "03-email-register.png") });
 
   /* ---------- 5. 协议全文弹层 ---------- */
