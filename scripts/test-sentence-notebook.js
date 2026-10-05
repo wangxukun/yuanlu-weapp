@@ -350,6 +350,25 @@ section('allTags / episodeOptions / deriveStats / tagCloud');
   assert(stats.tagCount === 2, '统计：分类标签 2');
   assert(stats.vocabCount === core.filterLinkedVocabWords(VOCAB, SENTENCES).length,
     '统计：联动词汇 = 交集长度');
+
+  // [SRS] due 口径：null 视为到期（新句立即进队列）+ 过去到期 + 未来未到期
+  const srsStats = core.deriveStats([
+    makeSentence(11, { nextReviewAt: '2026-10-01T00:00:00.000Z' }),
+    makeSentence(12, { nextReviewAt: null }),
+    makeSentence(13, { nextReviewAt: '2099-01-01T00:00:00.000Z' }),
+  ], []);
+  assert(srsStats.due === 2, '统计：due=2（过去到期 + null 视为到期；远未来不计）');
+
+  const dueDeck = core.buildDueDeck([
+    makeSentence(21, { nextReviewAt: '2026-10-03T00:00:00.000Z' }),
+    makeSentence(22, { nextReviewAt: '2026-10-01T00:00:00.000Z' }),
+    makeSentence(23, { nextReviewAt: '2099-01-01T00:00:00.000Z' }),
+    makeSentence(24, { nextReviewAt: null }),
+  ]);
+  assert(dueDeck.length === 3, 'buildDueDeck：过滤远未来句（3/4 到期）');
+  assert(dueDeck.map((s) => s.id).join(',') === '24,22,21',
+    'buildDueDeck：nextReviewAt 升序（null 最先——新句立即复习）');
+  assert(core.buildDueDeck([]).length === 0, 'buildDueDeck：空列表安全');
 }
 
 /* ==================== 5. 纯逻辑：四路搜索 + 筛选 ==================== */
@@ -430,6 +449,7 @@ async function driveAttach(opts) {
   assert(inst.data.stats.tagCount === 2, '组件 stats：分类标签 2');
   const expVocab = core.filterLinkedVocabWords(VOCAB, core.parseSentences({ success: true, data: SENTENCES }));
   assert(inst.data.stats.vocabCount === expVocab.length, '组件 stats：联动词汇 = 交集口径');
+  assert(inst.data.stats.due === 3, '组件 stats：due=3（fixtures 无 nextReviewAt → 全部到期）');
 
   const first = inst.data.list[0];
   assert(first.id === S_RESILIENT.id, '列表保持服务端 createAt desc 排序');
@@ -502,6 +522,23 @@ async function driveAttach(opts) {
   idle.onGoDiscover();
   assert(switchTabCalls.length === 1 && switchTabCalls[0] === '/pages/discover/index',
     '空态「去浏览播客」switchTab 发现页');
+
+  /* ---------- [SRS] 全部未到期：due=0（横幅切「全部完成了！」卡） ---------- */
+  apiResponses['/api/sentences/list'] = {
+    success: true,
+    data: SENTENCES.map(function (s, i) {
+      return Object.assign({}, s, { nextReviewAt: '2099-01-0' + (i + 1) + 'T00:00:00.000Z' });
+    }),
+  };
+  fireObserver(idle, 'refreshSeq', 51);
+  await settle(8);
+  assert(idle.data.stats.due === 0 && idle.data.stats.sentenceCount === 3,
+    '全部未到期 → stats.due=0（WXML 渲染 sn-allclear 完成卡）');
+  apiResponses['/api/sentences/list'] = { success: true, data: SENTENCES };
+  fireObserver(idle, 'refreshSeq', 52);
+  await settle(8);
+  assert(idle.data.stats.due === 3,
+    '旧缓存无 nextReviewAt 字段 → 归一 null → 全部视为到期（due=3）');
 
   /* ==================== 7b. T2.2：配额卡 / 筛选交互 / 视图切换 ==================== */
 
@@ -757,6 +794,19 @@ async function driveAttach(opts) {
 
   assert(WXML.includes('关键句') && WXML.includes('联动词汇') && WXML.includes('分类标签'),
     '统计三格文案逐字（Web SentenceStats）');
+
+  // [SRS] 横幅双态：due>0 催复习（vocab 同款结构）/ due=0 全部完成卡
+  assert(WXML.includes('复习计划已就绪') && WXML.includes('根据遗忘曲线，你有'),
+    '横幅 due>0：催复习标题与文案（VocabularyStats 同款）');
+  assert(WXML.includes('{{stats.due}} 个句子'), '横幅 due 数绑定 stats.due');
+  assert(WXML.includes('开始复习'), '横幅 CTA 文案（原「卡片复习模式」退役）');
+  assert(WXML.includes('全部完成了！') && WXML.includes('sn-allclear'),
+    '横幅 due=0：全部完成卡（sn-allclear）');
+  assert(WXML.includes('你做得很好，今日句子复习已清空。快去播客里收藏新句子吧。'),
+    '完成卡副文案逐字（vocab 句式适配句子本）');
+  assert(WXSS.includes('.sn-allclear') && WXSS.includes('.sn-allclear-title'),
+    '完成卡样式落位（sn-allclear 块）');
+  assert(WXML.includes('check-circle-success-m3.svg'), '完成卡图标（vn-allclear 同款）');
   assert(WXML.includes('句子本暂无匹配内容'), '空态标题逐字');
   assert(WXML.includes('在收听播客时打开「沉浸式逐字稿」，点击字幕行右侧的“书签”按钮，即可一键收藏精选原句！'),
     '空态描述逐字（含全角引号）');
@@ -781,9 +831,9 @@ async function driveAttach(opts) {
   assert(WXML.includes('wx:if="{{!isPremium}}"'), '会员/管理员隐藏配额卡（isPremium=PREMIUM|ADMIN 无限额度不渲染 PRO 卡）');
   assert(WXML.includes('primaryLimit="{{sentenceLimit}}"') &&
     WXML.includes('dailyLimit="{{evalQuota.limit}}"'), '双栏 limit 绑定（30 / 动态日池）');
-  assert(WXML.includes('卡片复习已就绪'), '横幅标题逐字');
-  assert(WXML.includes('深度联动，随时开始 AI 影子跟读与卡片复习。'), '横幅描述逐字');
-  assert(WXML.includes('卡片复习模式') && WXML.includes('bindtap="onStartDeck"'), '横幅 CTA 文案 + 事件');
+  assert(WXML.includes('复习计划已就绪'), '横幅标题逐字（[SRS] 退役「卡片复习已就绪」）');
+  assert(WXML.includes('需要复习。'), '横幅描述收尾逐字');
+  assert(WXML.includes('开始复习') && WXML.includes('bindtap="onStartDeck"'), '横幅 CTA 文案 + 事件');
   assert(WXML.includes('placeholder="搜索英文原句、中文翻译、笔记或标签..."'), '搜索 placeholder 逐字（含省略号）');
   assert(WXML.includes('mode="selector" range="{{episodeNames}}"') &&
     WXML.includes('bindchange="onEpisodeChange"'), '剧集筛选 picker');

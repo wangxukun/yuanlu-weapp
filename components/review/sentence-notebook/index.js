@@ -48,7 +48,7 @@ Component({
     loading: true,
     loaded: false,
     // 统计三格（Web SentenceStats props 口径）
-    stats: { sentenceCount: 0, vocabCount: 0, tagCount: 0 },
+    stats: { sentenceCount: 0, vocabCount: 0, tagCount: 0, due: 0 },
     // WXML 就绪列表（decorateSentence：enParts 高亮段等；未筛选时 = filteredList）
     list: [],
     // 评测日池展示口径（未加载 used=null → 文案 …）

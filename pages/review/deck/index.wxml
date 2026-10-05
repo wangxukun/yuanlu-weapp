@@ -6,8 +6,8 @@
     <view class="dk-spin"></view>
   </view>
 
-  <!-- 空句库 -->
-  <view wx:elif="{{isEmpty && !card}}" class="dk-center dk-empty col">
+  <!-- 空句库（srs 到期队列空≠句库空，走下方「今日已完成」态） -->
+  <view wx:elif="{{isEmpty && !card && !srsDueEmpty}}" class="dk-center dk-empty col">
     <view class="dk-empty-badge center">
       <image class="dk-empty-ic" src="/assets/icons/format-quote-primary.svg" />
     </view>
@@ -72,8 +72,50 @@
       <view class="dk-progress-bar" style="width: {{progressPercent}}%"></view>
     </view>
 
-    <!-- ══ 卡片区：堆叠背景 + 当前卡（拖拽跟手 + 角标 + 正/背面） ══ -->
+    <!-- ══ 卡片区：堆叠背景 + 当前卡（拖拽跟手 + 角标 + 正/背面）══
+         [SRS] sessionDone → 总结屏；srs 到期空 → 今日已完成态 -->
     <view class="dk-stage col">
+
+      <!-- [SRS] 总结屏（任意模式走完一轮 / 忘记子集重测完毕） -->
+      <view wx:if="{{sessionDone}}" class="dk-summary col">
+        <view class="dk-sum-trophy center">
+          <image class="dk-sum-trophy-ic" src="/assets/icons/emoji-events-success.svg" />
+        </view>
+        <text class="dk-sum-title">{{summary.titleText}}</text>
+        <text class="dk-sum-sub">{{summary.subText}}</text>
+        <view class="dk-sum-grid col">
+          <view class="dk-sum-row row">
+            <view class="dk-sum-cell dk-sum-cell--error col"><text class="dk-sum-num">{{summary.forgot}}</text><text class="dk-sum-label">忘记</text></view>
+            <view class="dk-sum-cell dk-sum-cell--warn col"><text class="dk-sum-num">{{summary.hard}}</text><text class="dk-sum-label">模糊</text></view>
+          </view>
+          <view class="dk-sum-row row">
+            <view class="dk-sum-cell dk-sum-cell--ok col"><text class="dk-sum-num">{{summary.good}}</text><text class="dk-sum-label">认识</text></view>
+            <view class="dk-sum-cell dk-sum-cell--info col"><text class="dk-sum-num">{{summary.easy}}</text><text class="dk-sum-label">简单</text></view>
+          </view>
+        </view>
+        <text wx:if="{{summary.skipped > 0}}" class="dk-sum-skip">另有 {{summary.skipped}} 张跳过未评分，保持到期</text>
+        <view class="dk-sum-btns row">
+          <view class="dk-sum-retry row center {{summary.forgottenCount ? 'tap-scale' : 'dk-sum-retry--off'}}"
+                bindtap="{{summary.forgottenCount ? 'onRetryTap' : ''}}">
+            <image class="dk-sum-retry-ic" src="/assets/icons/refresh-light.svg" />
+            <text>再来一轮（{{summary.forgottenCount}}）</text>
+          </view>
+          <view wx:if="{{mode !== 'srs'}}" class="dk-sum-back center tap-scale" bindtap="onContinueBrowse">继续刷</view>
+          <view class="dk-sum-back center tap-scale" bindtap="onBack">返回句子本</view>
+        </view>
+      </view>
+
+      <!-- [SRS] srs 到期队列空 → 今日已完成（句库非空，可切回顺序刷自由浏览） -->
+      <view wx:elif="{{srsDueEmpty}}" class="dk-todaydone col">
+        <view class="dk-done-badge center">
+          <image class="dk-done-ic" src="/assets/icons/check-circle-success-m3.svg" />
+        </view>
+        <text class="dk-done-title">今日句子复习已完成</text>
+        <text class="dk-done-desc">没有到期的句子。去播客里收藏新句子，或切回顺序刷自由浏览。</text>
+        <view class="btn-primary dk-empty-btn tap-scale" bindtap="onBack">返回句子本</view>
+      </view>
+
+      <block wx:else>
       <view class="dk-stack dk-stack--back2"></view>
       <view class="dk-stack dk-stack--back1"></view>
 
@@ -122,6 +164,30 @@
           <view class="dk-card-tags row">
             <text class="dk-card-tag" wx:for="{{card.tags}}" wx:for-item="tag" wx:key="*this">#{{tag}}</text>
           </view>
+
+          <!-- [SRS] 四档打卡：翻面自评（三模式通用；小字=下次间隔预览，JS 预计算） -->
+          <view class="dk-rate row {{submitting ? 'dk-rate--off' : ''}}">
+            <view class="dk-rate-btn col center" data-q="0" catchtap="onQualityTap">
+              <image class="dk-rate-ic" src="/assets/icons/replay-error.svg" />
+              <text class="dk-rate-label">忘记</text>
+              <text class="dk-rate-interval">{{card.intervalPreviews.forgot}}</text>
+            </view>
+            <view class="dk-rate-btn col center" data-q="1" catchtap="onQualityTap">
+              <image class="dk-rate-ic" src="/assets/icons/schedule-accent.svg" />
+              <text class="dk-rate-label">模糊</text>
+              <text class="dk-rate-interval">{{card.intervalPreviews.hard}}</text>
+            </view>
+            <view class="dk-rate-btn col center" data-q="2" catchtap="onQualityTap">
+              <image class="dk-rate-ic" src="/assets/icons/check-circle-success-m.svg" />
+              <text class="dk-rate-label">认识</text>
+              <text class="dk-rate-interval">{{card.intervalPreviews.good}}</text>
+            </view>
+            <view class="dk-rate-btn col center" data-q="3" catchtap="onQualityTap">
+              <image class="dk-rate-ic" src="/assets/icons/military-tech-info.svg" />
+              <text class="dk-rate-label">简单</text>
+              <text class="dk-rate-interval">{{card.intervalPreviews.easy}}</text>
+            </view>
+          </view>
         </view>
 
         <!-- 卡底 meta：剧集名 + mono 时间戳 -->
@@ -130,10 +196,11 @@
           <text class="dk-card-slice">{{card.startText}} - {{card.endText}}</text>
         </view>
       </view>
+      </block>
     </view>
 
-    <!-- ══ 底部单手操作坞：重听 | 看译文/看英文 | 跟读 | 下一句 ══ -->
-    <view class="dk-dock row">
+    <!-- ══ 底部单手操作坞：重听 | 看译文/看英文 | 跟读 | 下一句（总结/今日完成态隐藏）══ -->
+    <view wx:if="{{!sessionDone && !srsDueEmpty && card}}" class="dk-dock row">
       <view class="dk-dock-replay center {{playingKey === 'deck:' + card.id ? 'dk-dock-replay--on' : ''}}" bindtap="onReplay">
         <image class="dk-dock-ic" src="{{playingKey === 'deck:' + card.id ? '/assets/icons/volume-up-white.svg' : '/assets/icons/volume-up-gray.svg'}}" />
       </view>

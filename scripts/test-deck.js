@@ -125,6 +125,7 @@ assert(!!pageDef && !!pageDef.methods === false && typeof pageDef.onLoad === 'fu
 
 const WXML = fs.readFileSync(path.join(__dirname, '../pages/review/deck/index.wxml'), 'utf8');
 const WXSS = fs.readFileSync(path.join(__dirname, '../pages/review/deck/index.wxss'), 'utf8');
+const PAGE_JS = fs.readFileSync(path.join(__dirname, '../pages/review/deck/index.js'), 'utf8');
 const JSON_CFG = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/review/deck/index.json'), 'utf8'));
 
 function makePage() {
@@ -155,9 +156,10 @@ function makeSentence(id, extra) {
 }
 
 const SENTENCES = [
-  makeSentence(1, { createAt: '2026-09-05T00:00:00.000Z' }),
-  makeSentence(2, { createAt: '2026-09-02T00:00:00.000Z' }),
-  makeSentence(3, { createAt: '2026-09-08T00:00:00.000Z' }),
+  // [SRS] 调度字段 fixtures：1/2 已到期（10-04 / 10-01），3 远未来（永不临近翻转）
+  makeSentence(1, { createAt: '2026-09-05T00:00:00.000Z', nextReviewAt: '2026-10-04T00:00:00.000Z', proficiency: 0 }),
+  makeSentence(2, { createAt: '2026-09-02T00:00:00.000Z', nextReviewAt: '2026-10-01T00:00:00.000Z', proficiency: 2 }),
+  makeSentence(3, { createAt: '2026-09-08T00:00:00.000Z', nextReviewAt: '2099-01-01T00:00:00.000Z', proficiency: 5 }),
 ];
 const VOCAB = [{ word: 'number', definition: '数字' }];
 
@@ -205,8 +207,12 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   p.onNext();
   assert(p.data.currentIndex === 2 && p.data.flipped === false, '下一句：index+1 且翻面复位');
   p.onNext();
-  assert(p.data.currentIndex === 0, '末尾回环到第 0 张（无完成页）');
+  assert(p.data.sessionDone === true && p.data.summary.skipped === 3,
+    '顺序刷走完最后一张 → 总结屏（全跳过 skipped=3；修复：不再静默回环）');
   assert(p.data.flipCount === 2, '翻卡计数累计 2');
+  p.onContinueBrowse();
+  assert(p.data.currentIndex === 0 && p.data.sessionDone === false && p.data.summary === null,
+    '总结屏「继续刷」→ 回第 0 张开新一轮（原回环行为显式承接）');
   assert(toastCalls.length === 0, '免费用户无成就 toast');
 
   // PRO 成就：每 10 张 toast
@@ -299,12 +305,14 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   assert(p.data.mode === 'sequential' && p.data.showPremiumModal === true,
     '免费点 SRS：不切换 + 弹会员窗');
 
-  // PRO 切 srs：最久收藏优先（createAt 升序 → 第 2 句在前）
+  // PRO 切 srs：到期队列 = isDue 过滤 + nextReviewAt 升序（真遗忘曲线调度）
   p.setData({ isPremium: true });
   p.onModeTap({ currentTarget: { dataset: { mode: 'srs' } } });
   assert(p.data.mode === 'srs' && p.data.currentIndex === 0, 'PRO 切 SRS：模式生效 + index 复位');
   await settle(2);
-  assert(p.data.card.id === 2, 'SRS 排序：最久收藏（createAt 2026-09-02）排首');
+  assert(p.data.deckCount === 2 && p.data.card.id === 2,
+    'SRS 真调度：到期 2/3 句（远未来句出局）+ 最早到期（10-01）排首');
+  assert(p.data.srsDueEmpty === false, '有到期句：srsDueEmpty=false');
 
   // PRO 切 tag + 选标签组卷
   p.onModeTap({ currentTarget: { dataset: { mode: 'tag' } } });
@@ -315,6 +323,162 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   p.onTagTap({ currentTarget: { dataset: { tag: '写作素材' } } });
   assert(p.data.selectedTag === '' && p.data.deckCount === 3, '再点同标签取消 → 全量');
   p.setData({ mode: 'sequential', isPremium: false });
+
+  /* ---------- 4b. [SRS] 四档打卡 / 完成态 / 再来一轮 ---------- */
+  section('[SRS] 四档打卡 / 完成态 / 再来一轮');
+
+  // 打卡响应：忘记 → 重置 0 级仍到期；其余 → 1 级远未来（离开到期集）
+  const reviewOk = (data) => ({
+    success: true,
+    data: {
+      id: data.id,
+      proficiency: data.quality === 0 ? 0 : 1,
+      nextReviewAt: data.quality === 0
+        ? new Date().toISOString()
+        : '2099-01-01T00:00:00.000Z',
+      daysAdded: data.quality === 0 ? 0 : 1,
+    },
+  });
+  apiResponses['/api/sentences/review'] = reviewOk;
+
+  requestLog.length = 0;
+  p.setData({ isPremium: true });
+  p.onModeTap({ currentTarget: { dataset: { mode: 'srs' } } });
+  await settle(2);
+  assert(p.data.deckCount === 2 && p.data.currentIndex === 0 && p.data.card.id === 2,
+    'srs 会话：到期队列 2 张，首卡 id=2（10-01 最早）');
+
+  // 卡背间隔预览（id=2 proficiency=2：认识 → 3 级 → 7 天；忘记 → 今天）
+  assert(p.data.card.intervalPreviews.forgot === '今天' &&
+    p.data.card.intervalPreviews.good === '7天' &&
+    p.data.card.intervalPreviews.hard === '1天',
+    '间隔预览：忘记=今天 / 模糊=1天 / 认识=7天（proficiency 2 → 3 级，srs.getIntervalLabel 口径）');
+
+  // 打卡「认识」(id=2) → 前进到 id=1
+  toastCalls.length = 0;
+  await p.onQualityTap({ currentTarget: { dataset: { q: 2 } } });
+  await settle(4);
+  const postCalls = requestLog.filter((r) => r.path === '/api/sentences/review');
+  assert(postCalls.length === 1 && postCalls[0].method === 'POST',
+    '打卡 POST /api/sentences/review（Bearer 由 request.js 注入）');
+  assert(p.data.currentIndex === 1 && p.data.card.id === 1, '认识打卡后前进到下一张');
+  assert(p._ratings.length === 1 && p._ratings[0].quality === 2, '本轮记录 quality=2');
+  assert(p._all.find((s) => s.id === 2).proficiency === 1,
+    '_all 调度字段按服务端返回覆写（proficiency 2→1）');
+  assert(toastCalls.length === 0, '成功打卡无 toast');
+
+  // 卡组快照：打卡后 id=2 已离开期集，但本轮卡组不重算（索引不错位）
+  assert(p.data.deckCount === 2, '卡组快照：打卡不挤出当前会话卡组');
+
+  // 打卡「简单」(id=1) → 队列走完 → 总结屏
+  await p.onQualityTap({ currentTarget: { dataset: { q: 3 } } });
+  await settle(4);
+  assert(p.data.sessionDone === true, '走完队列 → 总结屏（sessionDone）');
+  assert(p.data.summary.good === 1 && p.data.summary.easy === 1 &&
+    p.data.summary.forgot === 0 && p.data.summary.hard === 0,
+    '总结统计：认识 1 / 简单 1');
+  assert(p.data.summary.skipped === 0 && p.data.progressPercent === 100,
+    '无跳过 + 进度 100%');
+  assert(p.data.summary.titleText === '本轮刷句复习完成' &&
+    p.data.summary.subText === '到期队列已清空，下次复习时间已按遗忘曲线排期。',
+    'srs 总结文案分轨（titleText/subText 预计算，WXML 零方法调用）');
+
+  /* ---------- 4b2. [SRS] 顺序刷（免费默认模式）打卡走完全部 → 总结屏 ---------- */
+
+  const pq = makePage();
+  pq.onLoad({});
+  await settle(8);
+  requestLog.length = 0;
+  await pq.onQualityTap({ currentTarget: { dataset: { q: 2 } } }); // id=1
+  await settle(4);
+  await pq.onQualityTap({ currentTarget: { dataset: { q: 2 } } }); // id=2
+  await settle(4);
+  await pq.onQualityTap({ currentTarget: { dataset: { q: 2 } } }); // id=3（远未来句也在顺序刷卡组）
+  await settle(4);
+  assert(pq.data.sessionDone === true && pq.data.summary.good === 3 &&
+    pq.data.summary.skipped === 0,
+    '顺序刷打卡走完全部 3 张 → 总结屏（认识 3 / 跳过 0——修复主场景：免费默认模式也有完成态）');
+  assert(pq.data.summary.subText.indexOf('已刷完一轮 3 张') === 0,
+    '顺序刷总结副文案分轨（非 srs 不说「到期队列已清空」）');
+  pq.onContinueBrowse();
+  assert(pq.data.sessionDone === false && pq.data.currentIndex === 0 && pq.data.deckCount === 3,
+    '继续刷 → 回第 0 张（sequential 全量重建新一轮）');
+
+  // 再来一轮：忘记数为 0 → no-op 守卫
+  p.onRetryTap();
+  assert(p.data.sessionDone === true, '忘记数为 0：再来一轮 no-op（留在总结屏）');
+
+  /* ---------- 4c. [SRS] 忘记流：FORGOT 留到期 + 再来一轮只重测忘记子集 ---------- */
+
+  const pf = makePage();
+  pf.onLoad({});
+  await settle(8);
+  pf.setData({ isPremium: true });
+  pf.onModeTap({ currentTarget: { dataset: { mode: 'srs' } } });
+  await settle(2);
+  await pf.onQualityTap({ currentTarget: { dataset: { q: 0 } } }); // id=2 忘记
+  await settle(4);
+  await pf.onQualityTap({ currentTarget: { dataset: { q: 0 } } }); // id=1 忘记 → 走完
+  await settle(4);
+  assert(pf.data.sessionDone === true && pf.data.summary.forgottenCount === 2,
+    '两张全忘 → 总结 forgottenCount=2');
+  pf.onRetryTap();
+  await settle(2);
+  assert(pf.data.sessionDone === false && pf.data.summary === null &&
+    pf.data.deckCount === 2 && pf.data.currentIndex === 0,
+    '再来一轮：忘记子集重建卡组（FORGOT 后 nextReviewAt≈now 仍到期）');
+  assert(pf._ratings.length === 0, '再来一轮清空本轮打卡记录');
+  await pf.onQualityTap({ currentTarget: { dataset: { q: 2 } } }); // 重测 id=2 认识
+  await settle(4);
+  pf.onNext(); // 跳过最后一张（左滑语义：不评分）
+  assert(pf.data.sessionDone === true && pf.data.summary.skipped === 1 &&
+    pf.data.summary.good === 1 && pf.data.summary.forgottenCount === 0,
+    '重测 1 认识 + 跳过 1 → 总结（skipped=1，跳过保持到期）');
+
+  /* ---------- 4d. [SRS] 业务失败回滚（200 + success:false） ---------- */
+
+  const pr = makePage();
+  pr.onLoad({});
+  await settle(8);
+  pr.setData({ isPremium: true });
+  pr.onModeTap({ currentTarget: { dataset: { mode: 'srs' } } });
+  await settle(2);
+  const before = pr._all.find((s) => s.id === 2);
+  apiResponses['/api/sentences/review'] = { success: false, message: '句子不存在' };
+  toastCalls.length = 0;
+  await pr.onQualityTap({ currentTarget: { dataset: { q: 2 } } });
+  await settle(4);
+  const after = pr._all.find((s) => s.id === 2);
+  assert(after.proficiency === before.proficiency && after.nextReviewAt === before.nextReviewAt,
+    '业务失败：乐观更新回滚（调度字段复原）');
+  assert(pr.data.currentIndex === 0 && pr._ratings.length === 0,
+    '失败不前进、不记录');
+  assert(toastCalls.includes('打卡失败'),
+    '业务失败补 toast（200 状态 request.js 不提示，避免静默）');
+  assert(pr.data.submitting === false, 'submitting 复位（按钮解禁）');
+
+  /* ---------- 4e. [SRS] srs 到期队列空 → 今日已完成态 ---------- */
+
+  const FUTURE = SENTENCES.map((s) => Object.assign({}, s, { nextReviewAt: '2099-01-01T00:00:00.000Z' }));
+  apiResponses['/api/sentences/list'] = { success: true, data: FUTURE };
+  const pe = makePage();
+  pe.onLoad({});
+  await settle(8);
+  pe.setData({ isPremium: true });
+  pe.onModeTap({ currentTarget: { dataset: { mode: 'srs' } } });
+  await settle(2);
+  assert(pe.data.srsDueEmpty === true && pe.data.card === null,
+    'srs 到期空：srsDueEmpty=true / card=null（今日已完成态）');
+  assert(WXML.includes('isEmpty && !card && !srsDueEmpty'),
+    '空句库分支被 srsDueEmpty 守卫（到期空 ≠ 句库空）');
+  apiResponses['/api/sentences/list'] = { success: true, data: SENTENCES };
+
+  // 恢复 p 到 sequential 全量（第五节跟读/深链用例沿用本实例）
+  p._ratings = [];
+  p._retryIds = null;
+  p.setData({ mode: 'sequential', isPremium: false, sessionDone: false, summary: null });
+  p._applyMode(false);
+  assert(p.data.deckCount === 3 && !!p.data.card, '恢复 sequential：全量 3 张（后续用例底座）');
 
   /* ---------- 5. 跟读与空态 ---------- */
   section('跟读深链 / 空句库');
@@ -346,6 +510,45 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   p.onShow();
   assert(p.data.currentIndex === 1 && appGlobal.globalData.deckFocusSubtitleId === '',
     'onShow 消费带回 subtitleId=20 → 定位第 2 句并清空暂存');
+
+  /* ---------- 5b. 会员/管理员默认 srs 模式 ---------- */
+  section('会员默认 srs（isPremium = PREMIUM|ADMIN）');
+
+  // 前序用例均为免费用户（未登录 store 短路）；登录后强制权威校正为 PREMIUM（绕过 TTL 缓存）。
+  // 接口形状 = role 在顶层（membershipStore 读 res.role，非 res.data.role）
+  apiResponses['/api/user/subscription/status'] = { success: true, role: 'PREMIUM' };
+  const authStore = require('../store/authStore');
+  const membershipStore = require('../store/membershipStore');
+  authStore.setLoginData('token-deck-pro', { userid: 'u-deck-pro', role: 'USER' });
+  await membershipStore.ensureFresh(true);
+  assert(membershipStore.getState().isPremium === true, 'store 权威校正为 PREMIUM');
+
+  // 深链进入：定位优先，不自动切 srs
+  const pd = makePage();
+  pd.onLoad({ subtitleId: '20' });
+  await settle(8);
+  await new Promise((r) => setTimeout(r, 10));
+  assert(pd.data.mode === 'sequential' && pd.data.currentIndex === 1,
+    '深链 subtitleId=20：不自动切 srs，顺序刷定位保留');
+
+  // 用户已显式选过模式：会员默认不越权覆盖
+  const pu = makePage();
+  pu.onLoad({});
+  pu.onModeTap({ currentTarget: { dataset: { mode: 'sequential' } } }); // 同模式早退，但守卫生效
+  await settle(8);
+  await new Promise((r) => setTimeout(r, 10));
+  assert(pu.data.mode === 'sequential',
+    '用户手选模式（含同模式点击）后：不自动切 srs');
+
+  // 会员默认：进入即 srs 到期队列
+  const pm = makePage();
+  pm.onLoad({});
+  await settle(8);
+  await new Promise((r) => setTimeout(r, 10));
+  assert(pm.data.isPremium === true && pm.data.mode === 'srs',
+    '会员进入刷句复习：默认 srs 模式');
+  assert(pm.data.deckCount === 2 && pm.data.card && pm.data.card.id === 2,
+    '会员默认卡组 = 到期队列（2 张，最早到期排首）');
 
   /* ---------- 6. 结构断言 ---------- */
   section('WXML / WXSS / json 结构断言');
@@ -380,6 +583,33 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
     '翻转钮深色描边浅绿透明（双轨媒体查询 + theme-dark）');
   assert(WXSS.includes('#fdf4e7') && WXSS.includes('#e59d2e'),
     'deck 生词高亮 accent 口径（与句子本 amber 区分）');
+
+  // [SRS] 打卡 / 总结 / 今日完成 结构断言
+  assert(WXML.includes('dk-rate-btn') && WXML.includes('intervalPreviews.forgot') &&
+    WXML.includes('replay-error.svg') && WXML.includes('schedule-accent.svg') &&
+    WXML.includes('check-circle-success-m.svg') && WXML.includes('military-tech-info.svg'),
+    '卡背四档打卡行（vocab-review vr-srs 同款图标四件）');
+  assert(WXML.includes('忘记') && WXML.includes('模糊') && WXML.includes('认识') && WXML.includes('简单'),
+    '四档文案');
+  assert(PAGE_JS.includes("'本轮刷句复习完成'") &&
+    PAGE_JS.includes("'到期队列已清空，下次复习时间已按遗忘曲线排期。'") &&
+    PAGE_JS.includes("'已刷完一轮 '"), '总结屏标题/副文案字面量（_finishSession 分轨预计算）');
+  assert(WXML.includes('再来一轮') &&
+    WXML.includes('返回句子本'), '总结屏按钮文案（再来一轮/返回）');
+  assert(WXML.includes('{{summary.titleText}}') && WXML.includes('{{summary.subText}}'),
+    '总结屏文案 JS 预计算绑定（零方法调用红线）');
+  assert(WXML.includes('继续刷') && WXML.includes('bindtap="onContinueBrowse"') &&
+    WXML.includes('wx:if="{{mode !== \'srs\'}}"'),
+    '总结屏「继续刷」：仅 sequential/tag 渲染（原回环显式承接）');
+  assert(WXML.includes('另有') && WXML.includes('张跳过未评分，保持到期'), '总结屏跳过数文案');
+  assert(WXML.includes('今日句子复习已完成'), 'srs 空到期兜底文案');
+  assert(WXML.includes('!sessionDone && !srsDueEmpty && card'),
+    '底部操作坞三条件门控（总结/今日完成/无卡隐藏）');
+  assert(WXSS.includes('.dk-sum-cell--error') && WXSS.includes('.dk-rate-btn') &&
+    WXSS.includes('.dk-todaydone'), '打卡/总结/今日完成样式落位');
+  assert(PAGE_JS.includes('_autoModeByMembership') &&
+    PAGE_JS.includes('this._deepLinked = !!(options && options.subtitleId)'),
+    '会员默认 srs：_autoModeByMembership + 深链守卫落位');
   const methodCalls = WXML.match(/\{\{[^}]*\.(indexOf|includes|map|filter|slice|join|toLowerCase|trim)\(/g);
   assert(!methodCalls, 'WXML 绑定零方法调用（' + (methodCalls ? methodCalls.join(' ; ') : '无') + '）');
 

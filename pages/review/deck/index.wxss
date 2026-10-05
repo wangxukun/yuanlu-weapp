@@ -548,3 +548,163 @@
   height: 80rpx;
   font-size: 28rpx;
 }
+
+/* ---------------- [SRS] 卡背四档打卡（vocab-review vr-srs 同款视觉） ---------------- */
+.dk-rate {
+  gap: 14rpx;
+  margin-top: 4rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid var(--ink-100);
+}
+.dk-rate-btn {
+  flex: 1;
+  background: var(--color-base-200);
+  border-radius: var(--r-lg);
+  padding: 18rpx 0;
+  gap: 6rpx;
+}
+.dk-rate--off {
+  opacity: 0.45;
+}
+.dk-rate-ic {
+  width: 36rpx;
+  height: 36rpx;
+}
+.dk-rate-label {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dk-rate-interval {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+
+/* ---------------- [SRS] 总结屏（vocab-review vr-summary 同款视觉口径） ---------------- */
+.dk-summary {
+  gap: 8rpx;
+  width: 100%;
+  padding: 48rpx 0;
+}
+.dk-sum-trophy {
+  width: 176rpx; /* 88dp 浅绿圆底 */
+  height: 176rpx;
+  border-radius: 50%;
+  background: rgba(46, 143, 111, 0.1);
+  margin-bottom: 24rpx;
+}
+.dk-sum-trophy-ic {
+  width: 88rpx; /* 44dp */
+  height: 88rpx;
+}
+.dk-sum-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dk-sum-sub {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.7;
+}
+.dk-sum-grid {
+  margin-top: 40rpx;
+  gap: 20rpx;
+  width: 100%;
+}
+.dk-sum-row {
+  gap: 20rpx;
+}
+.dk-sum-cell {
+  flex: 1;
+  align-items: center;
+  text-align: center;
+  border-radius: var(--r-lg);
+  padding: 24rpx 0;
+  gap: 4rpx;
+}
+/* 四宫格底色 10% + 数字主题色 + 小字状态色 70%（vr-sum-cell--0..3 同款口径） */
+.dk-sum-cell--error { background: rgba(210, 80, 63, 0.1); }
+.dk-sum-cell--error .dk-sum-num { color: #d2503f; }
+.dk-sum-cell--error .dk-sum-label { color: rgba(210, 80, 63, 0.7); }
+.dk-sum-cell--warn { background: rgba(217, 138, 23, 0.1); }
+.dk-sum-cell--warn .dk-sum-num { color: var(--accent-500); }
+.dk-sum-cell--warn .dk-sum-label { color: rgba(217, 138, 23, 0.7); }
+.dk-sum-cell--ok { background: rgba(46, 143, 111, 0.1); }
+.dk-sum-cell--ok .dk-sum-num { color: var(--primary-500); }
+.dk-sum-cell--ok .dk-sum-label { color: rgba(46, 143, 111, 0.7); }
+.dk-sum-cell--info { background: rgba(74, 127, 165, 0.1); }
+.dk-sum-cell--info .dk-sum-num { color: var(--info-500); }
+.dk-sum-cell--info .dk-sum-label { color: rgba(74, 127, 165, 0.7); }
+.dk-sum-num {
+  font-size: 40rpx;
+  font-weight: 700;
+}
+.dk-sum-label {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+.dk-sum-skip {
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+.dk-sum-btns {
+  margin-top: 36rpx;
+  gap: 20rpx;
+}
+.dk-sum-retry {
+  gap: 10rpx;
+  background: var(--color-primary);
+  color: #ffffff;
+  border-radius: var(--r-lg);
+  padding: 22rpx 36rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.dk-sum-retry--off {
+  opacity: 0.4;
+}
+.dk-sum-retry-ic {
+  width: 30rpx;
+  height: 30rpx;
+}
+.dk-sum-back {
+  background: var(--color-base-200);
+  color: var(--text-primary);
+  border-radius: var(--r-lg);
+  padding: 22rpx 36rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+/* ---------------- [SRS] srs 到期队列空 → 今日已完成 ---------------- */
+.dk-todaydone {
+  gap: 20rpx;
+  padding: 0 48rpx;
+}
+.dk-done-badge {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: var(--r-full);
+  background: var(--color-base-200);
+  margin-bottom: 8rpx;
+}
+.dk-done-ic {
+  width: 60rpx;
+  height: 60rpx;
+}
+.dk-done-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dk-done-desc {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  text-align: center;
+}

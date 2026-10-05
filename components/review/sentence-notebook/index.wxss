@@ -326,6 +326,31 @@
   height: 36rpx;
 }
 
+/* [SRS] 全部完成卡（vn-allclear 同款：due=0 时的复习终态） */
+.sn-allclear {
+  align-items: center;
+  background: var(--card-bg);
+  border-radius: 24rpx;
+  padding: 44rpx;
+  margin-bottom: 24rpx;
+}
+.sn-allclear-ic {
+  width: 60rpx; /* Android CheckCircle 30dp（vn-allclear-ic 同源） */
+  height: 60rpx;
+  margin-bottom: 16rpx;
+}
+.sn-allclear-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.sn-allclear-desc {
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  margin-top: 8rpx;
+  text-align: center;
+}
+
 /* ---------------- 搜索与筛选面板（Web Control Panel 白卡；与配额卡间距 24rpx） ---------------- */
 .sn-panel {
   background: var(--card-bg);

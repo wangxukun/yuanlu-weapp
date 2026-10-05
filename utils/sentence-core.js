@@ -29,6 +29,9 @@
 const FREE_SENTENCE_LIMIT = 30;
 const FREE_REVIEW_EVALUATIONS_PER_DAY = 5;
 
+// [SRS] 到期判定与生词本同源（utils/srs 与 Web lib/srs 口径一致）
+const srs = require('./srs');
+
 /** 正则元字符转义（linked-vocab.ts escapeRegex 同款） */
 function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -49,6 +52,9 @@ function normalizeSentence(item) {
     zhText: src.zhText || null,
     note: src.note || null,
     tags: Array.isArray(src.tags) ? src.tags : [],
+    // [SRS] 调度字段（服务端 SavedSentenceItem 直传；旧缓存缺省按新句=已到期）
+    proficiency: Number(src.proficiency) || 0,
+    nextReviewAt: src.nextReviewAt || null,
     createAt: src.createAt || '',
     updateAt: src.updateAt || '',
   };
@@ -213,7 +219,9 @@ function episodeOptions(sentences) {
 
 /**
  * 统计三格（SentenceStats props 口径）：关键句 / 联动词汇 / 分类标签。
- * @returns {sentenceCount, vocabCount, tagCount}
+ * [SRS] 附带 due：今日到期句数（isDue 与 utils/srs、Web lib/srs 三端同源），
+ * 驱动复习横幅双态（due>0 催复习 / due=0 全部完成）。
+ * @returns {sentenceCount, vocabCount, tagCount, due}
  */
 function deriveStats(sentences, linkedVocabWords) {
   const arr = Array.isArray(sentences) ? sentences : [];
@@ -221,7 +229,24 @@ function deriveStats(sentences, linkedVocabWords) {
     sentenceCount: arr.length,
     vocabCount: (Array.isArray(linkedVocabWords) ? linkedVocabWords : []).length,
     tagCount: allTags(arr).length,
+    due: arr.filter(function (s) {
+      return srs.isDue(s.nextReviewAt);
+    }).length,
   };
+}
+
+/**
+ * [SRS] 到期复习卡组：isDue 过滤 + nextReviewAt 升序（最早到期先复习；
+ * Web ReviewDeck srs 分支同款口径）。输入须为归一化条目。
+ */
+function buildDueDeck(sentences) {
+  return (Array.isArray(sentences) ? sentences : [])
+    .filter(function (s) {
+      return srs.isDue(s.nextReviewAt);
+    })
+    .sort(function (a, b) {
+      return String(a.nextReviewAt || '').localeCompare(String(b.nextReviewAt || ''));
+    });
 }
 
 /**
@@ -304,6 +329,7 @@ module.exports = {
   tagCloud,
   episodeOptions,
   deriveStats,
+  buildDueDeck,
   filterSentences,
   evalQuotaView,
   quotaTexts,

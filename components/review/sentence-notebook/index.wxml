@@ -45,17 +45,24 @@
           </view>
         </view>
 
-        <!-- ══ 2. 复习横幅（Web SentenceStats 卡片复习入口，文案逐字）══ -->
-        <view class="sn-banner">
+        <!-- ══ 2. 复习横幅 / 全部完成（Web SentenceStats 双态同款；
+             [SRS] due>0 按遗忘曲线催复习 / due=0 完成卡——句子本自此有复习终态）══ -->
+        <view wx:if="{{stats.due > 0}}" class="sn-banner">
           <view class="row sn-banner-head">
             <image class="sn-banner-ic" src="{{dark ? '/assets/icons/psychology-dark.svg' : '/assets/icons/psychology-primary300.svg'}}" />
-            <text class="sn-banner-title">卡片复习已就绪</text>
+            <text class="sn-banner-title">复习计划已就绪</text>
           </view>
-          <text class="sn-banner-desc">共收藏 <text class="sn-banner-strong">{{stats.sentenceCount}} 个关键句</text>，与生词本 <text class="sn-banner-strong">{{stats.vocabCount}} 个词汇</text> 深度联动，随时开始 AI 影子跟读与卡片复习。</text>
+          <text class="sn-banner-desc">根据遗忘曲线，你有 <text class="sn-banner-strong">{{stats.due}} 个句子</text> 需要复习。</text>
           <view class="sn-banner-btn center tap-scale" bindtap="onStartDeck">
             <image class="sn-banner-btn-ic" src="{{dark ? '/assets/icons/play-circle-primary-m-dark.svg' : '/assets/icons/play-circle-primary-m.svg'}}" />
-            <text>卡片复习模式</text>
+            <text>开始复习</text>
           </view>
+        </view>
+
+        <view wx:else class="sn-allclear col">
+          <image class="sn-allclear-ic" src="/assets/icons/check-circle-success-m3.svg" />
+          <text class="sn-allclear-title">全部完成了！</text>
+          <text class="sn-allclear-desc">你做得很好，今日句子复习已清空。快去播客里收藏新句子吧。</text>
         </view>
 
         <!-- ══ 3. 配额双栏卡（Web QuotaStatusCard 复用；文案由 quotaTexts 拼装；

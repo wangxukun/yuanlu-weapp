@@ -9,11 +9,20 @@
 //
 // 权限：顺序模式永久免费；tag/srs 为 PRO（免费点击弹 sentence_review_advanced）；
 // 连续翻卡成就 PRO 专属（每 10 张 toast），免费点成就入口仅弹会员窗。
+//
+// [SRS] 真遗忘曲线（与 Web ReviewDeck / 生词本同口径）：
+// - 卡背四档打卡（忘记/模糊/认识/简单 + 间隔预览）三模式通用免费——
+//   POST /api/sentences/review 更新 proficiency/nextReviewAt（Leitner 阶梯）
+// - srs 模式 = buildDueDeck 到期队列（nextReviewAt 升序）
+// - 三模式走完最后一张均进总结屏（四档统计 + 跳过数 + 再来一轮忘记子集；
+//   sequential/tag 另有「继续刷」回第 0 张承接原回环浏览）；
+//   左滑/下一句 = 跳过不评分
 const sentenceCore = require('../../../utils/sentence-core');
 const audioClip = require('../../../utils/audio-clip');
 const membershipStore = require('../../../store/membershipStore');
 const theme = require('../../../utils/theme');
-const { get } = require('../../../utils/request');
+const srs = require('../../../utils/srs');
+const { get, post } = require('../../../utils/request');
 
 // 手势常量（Web 同源）
 const ROTATE_RANGE = 200; // dx ±200 → ±15°
@@ -42,6 +51,12 @@ Page({
     flipCount: 0,
     playingKey: '',
 
+    // [SRS] 打卡会话状态
+    submitting: false,       // 四档打卡请求中（按钮置灰防双击）
+    sessionDone: false,      // srs 模式走完队列 → 总结屏
+    summary: null,           // {forgot,hard,good,easy,forgottenCount,skipped,isRetry}
+    srsDueEmpty: false,      // srs 模式到期队列为空 → 「今日已完成」态
+
     // 当前卡（WXML 就绪：enParts accent 高亮分词 + meta）
     card: null,
 
@@ -65,6 +80,10 @@ Page({
     this._vocab = []; // {word, definition}[]
     this._linked = []; // 联动词汇（统计与高亮同源）
     this._deck = []; // 当前模式卡组（装饰后）
+    this._ratings = []; // 本轮打卡记录 [{id, quality}]（总结统计 + 忘记子集再来一轮）
+    this._retryIds = null; // 再来一轮的忘记子集（null = 首轮全量）
+    this._deepLinked = !!(options && options.subtitleId); // 深链进入：定位优先，不自动切 srs
+    this._autoModePending = true; // 会员/管理员默认 srs（用户手选模式即失效）
     this._initialSubtitleId = (options && options.subtitleId) || '';
     this._unsubClip = audioClip.subscribe((s) => {
       const k = (s && s.playingKey) || '';
@@ -124,25 +143,45 @@ Page({
       this._linked = sentenceCore.filterLinkedVocabWords(this._vocab, this._all);
       this.setData({ loading: false, isEmpty: this._all.length === 0 });
       if (!this._all.length) return;
+      this._autoModeByMembership(); // 乐观快照命中时直接以 srs 组卷（免二次重建）
       this._applyMode(true);
       membershipStore.ensureFresh().then(() => {
         const { isPremium } = membershipStore.getState();
         if (isPremium !== this.data.isPremium) this.setData({ isPremium });
+        this._autoModeByMembership(); // 快照滞后（本地 role 是展示缓存）时权威校正兜底
       });
     } catch (err) {
       this.setData({ loading: false, loadError: '加载失败，请重试' });
     }
   },
 
-  /** 模式/标签 → 卡组重算（srs = 最久收藏优先 createAt 升序；tag = 子集组卷） */
+  /**
+   * 会员/管理员默认 srs 模式（isPremium = PREMIUM|ADMIN，membershipStore 权威口径）。
+   * 越权守卫：用户已手动选过模式（onModeTap 置 _autoModePending=false）或
+   * 深链进入（subtitleId 定位优先，srs 队列未必包含目标句）时不覆盖。
+   */
+  _autoModeByMembership() {
+    if (!this._autoModePending || this._deepLinked) return;
+    const { isPremium } = membershipStore.getState();
+    if (!isPremium) return;
+    this._autoModePending = false;
+    this.setData({ mode: 'srs' });
+    this._applyMode(false);
+  },
+
+  /** 模式/标签 → 卡组重算（srs = [SRS] 到期队列 buildDueDeck；tag = 子集组卷；
+   *  再来一轮 = 忘记子集内重建。换组即新会话：总结态清零） */
   _applyMode(keepIndex) {
     const mode = this.data.mode;
     const tag = this.data.selectedTag;
-    let deck = this._all;
+    const source = this._retryIds
+      ? this._all.filter((s) => this._retryIds.indexOf(s.id) >= 0)
+      : this._all;
+    let deck = source;
     if (mode === 'tag' && tag) {
-      deck = this._all.filter((s) => (s.tags || []).indexOf(tag) >= 0);
+      deck = source.filter((s) => (s.tags || []).indexOf(tag) >= 0);
     } else if (mode === 'srs') {
-      deck = this._all.slice().sort((a, b) => String(a.createAt).localeCompare(String(b.createAt)));
+      deck = sentenceCore.buildDueDeck(source);
     }
     this._deck = deck.map((s) => sentenceCore.decorateSentence(s, this._linked));
 
@@ -162,6 +201,8 @@ Page({
       tagOptions,
       currentIndex: index,
       flipped: false,
+      sessionDone: false,
+      summary: null,
     });
     this._applyCard();
   },
@@ -175,17 +216,28 @@ Page({
     return idx >= 0 ? idx : 0;
   },
 
-  /** 当前卡派生 + 进度（WXML 零方法调用） */
+  /** 当前卡派生 + 进度（WXML 零方法调用；含 [SRS] 间隔预览预计算） */
   _applyCard() {
     const deck = this._deck;
     const index = this.data.currentIndex;
     const card = deck[index] || null;
+    if (card) {
+      // 四档「下次间隔预览」（vocab-review current.intervalPreviews 同款口径）
+      card.intervalPreviews = {
+        forgot: srs.getIntervalLabel(card.proficiency || 0, srs.ReviewQuality.FORGOT),
+        hard: srs.getIntervalLabel(card.proficiency || 0, srs.ReviewQuality.HARD),
+        good: srs.getIntervalLabel(card.proficiency || 0, srs.ReviewQuality.GOOD),
+        easy: srs.getIntervalLabel(card.proficiency || 0, srs.ReviewQuality.EASY),
+      };
+    }
     this.setData({
       card,
       deckCount: deck.length,
       progressPercent: deck.length ? ((index + 1) / deck.length) * 100 : 0,
       indexLabel: (index + 1) + ' / ' + deck.length,
       isEmpty: deck.length === 0,
+      // srs 到期队列空 → 「今日已完成」态（区别于句库为空）
+      srsDueEmpty: this.data.mode === 'srs' && deck.length === 0,
     });
   },
 
@@ -193,18 +245,24 @@ Page({
 
   onModeTap(e) {
     const next = e.currentTarget.dataset.mode;
+    this._autoModePending = false; // 用户显式选择：会员默认 srs 不再越权覆盖
     if (next === this.data.mode) return;
     if (next !== 'sequential' && !this.data.isPremium) {
       // 高级模式 PRO 专属：免费点击弹会员窗，不切换
       this.setData({ showPremiumModal: true, premiumSource: 'sentence_review_advanced' });
       return;
     }
+    // 换模式 = 新会话：清打卡记录与忘记子集
+    this._ratings = [];
+    this._retryIds = null;
     this.setData({ mode: next, selectedTag: next !== 'tag' ? '' : this.data.selectedTag });
     this._applyMode(false);
   },
 
   onTagTap(e) {
     const tag = e.currentTarget.dataset.tag;
+    this._ratings = [];
+    this._retryIds = null;
     this.setData({ selectedTag: this.data.selectedTag === tag ? '' : tag });
     this._applyMode(false);
   },
@@ -241,16 +299,137 @@ Page({
     this.setData({ flipped: !this.data.flipped });
   },
 
-  /** 下一句（末尾回环；翻卡成就 PRO 每 10 张 toast） */
+  /** 下一句（任意模式走完最后一张 → 总结屏；左滑=跳过不评分；
+   *  原回环浏览改由总结屏「继续刷」显式承接） */
   onNext() {
+    if (this.data.currentIndex >= this.data.deckCount - 1) {
+      this._bumpFlip();
+      this._finishSession();
+      return;
+    }
+    this._bumpFlip();
     const next = this.data.currentIndex < this.data.deckCount - 1 ? this.data.currentIndex + 1 : 0;
-    const flipCount = this.data.flipCount + 1;
-    this.setData({ currentIndex: next, flipped: false, flipCount });
+    this.setData({ currentIndex: next, flipped: false });
     this._applyCard();
     audioClip.stop(); // 切卡停止音频（Web 同款）
+  },
+
+  /* ---------------- [SRS] 四档打卡 + 会话收尾 ---------------- */
+
+  /** 卡背四档打卡：乐观更新 → POST /api/sentences/review → 权威覆写 → 前进/收尾 */
+  async onQualityTap(e) {
+    if (this.data.submitting || !this.data.card) return;
+    const quality = Number(e.currentTarget.dataset.q);
+    const card = this.data.card;
+    this.setData({ submitting: true });
+    // 乐观更新（Leitner 前置演算；失败回滚）
+    const prev = { proficiency: card.proficiency || 0, nextReviewAt: card.nextReviewAt || null };
+    const opt = srs.calculateNextReview(prev.proficiency, quality);
+    this._patchItem(card.id, opt.proficiency, opt.nextReviewAt);
+    try {
+      const res = await post('/api/sentences/review', { id: card.id, quality });
+      if (!(res && res.success)) throw new Error('打卡失败'); // 业务失败：request.js 已 toast，catch 回滚
+      const d = res.data || {};
+      // 服务端权威值覆写（与乐观值同口径；返回缺字段时沿用乐观值防御）
+      this._patchItem(
+        card.id,
+        typeof d.proficiency === 'number' ? d.proficiency : opt.proficiency,
+        d.nextReviewAt || opt.nextReviewAt,
+      );
+      this._ratings.push({ id: card.id, quality });
+      this.setData({ flipped: false });
+      this._advanceAfterRating();
+    } catch (err) {
+      this._patchItem(card.id, prev.proficiency, prev.nextReviewAt);
+      // 200+success:false 的业务失败 request.js 不提示（仅 4xx/5xx/网络才统一
+      // toast），这里补提示；ApiError 说明已提示过，不重复弹
+      if (!err || err.name !== 'ApiError') {
+        wx.showToast({ title: (err && err.message) || '打卡失败', icon: 'none' });
+      }
+    } finally {
+      this.setData({ submitting: false });
+    }
+  },
+
+  /** 同步 _all/_deck/data.card 三处的调度字段（乐观更新与权威覆写共用） */
+  _patchItem(id, proficiency, nextReviewAt) {
+    const patch = (s) => (s.id === id
+      ? Object.assign({}, s, { proficiency: proficiency, nextReviewAt: nextReviewAt })
+      : s);
+    this._all = this._all.map(patch);
+    this._deck = this._deck.map(patch);
+    if (this.data.card && this.data.card.id === id) {
+      this.setData({ card: patch(this.data.card) });
+    }
+  },
+
+  /** 打卡后前进（与 onNext 同款收尾判定：打完最后一张即一轮完成 → 总结屏） */
+  _advanceAfterRating() {
+    this._bumpFlip();
+    if (this.data.currentIndex >= this.data.deckCount - 1) {
+      this._finishSession();
+      return;
+    }
+    const next = this.data.currentIndex + 1;
+    this.setData({ currentIndex: next, flipped: false });
+    this._applyCard();
+    audioClip.stop();
+  },
+
+  /** 翻卡成就计数（PRO 每 10 张 toast；收尾那张同样计入——Web bumpFlipAchievement 同款） */
+  _bumpFlip() {
+    const flipCount = this.data.flipCount + 1;
+    this.setData({ flipCount });
     if (this.data.isPremium && flipCount % 10 === 0) {
       wx.showToast({ title: '🔥 连续翻卡 ' + flipCount + ' 张，复习节奏稳住了！', icon: 'none' });
     }
+    return flipCount;
+  },
+
+  /** 会话收尾：总结屏（四档统计 + 跳过数 + 忘记子集计数 + 文案分轨预计算） */
+  _finishSession() {
+    const r = this._ratings;
+    const count = (q) => r.filter((x) => x.quality === q).length;
+    const isRetry = !!this._retryIds;
+    this.setData({
+      sessionDone: true,
+      progressPercent: 100,
+      summary: {
+        forgot: count(0),
+        hard: count(1),
+        good: count(2),
+        easy: count(3),
+        forgottenCount: count(0),
+        skipped: Math.max(0, this.data.deckCount - r.length),
+        isRetry,
+        titleText: isRetry ? '忘记的句子重测完毕' : '本轮刷句复习完成',
+        subText: isRetry
+          ? '忘记的句子已重测完毕。'
+          : this.data.mode === 'srs'
+            ? '到期队列已清空，下次复习时间已按遗忘曲线排期。'
+            : '已刷完一轮 ' + this.data.deckCount + ' 张，翻面打卡的句子已按遗忘曲线排期。',
+      },
+    });
+    audioClip.stop();
+  },
+
+  /** 再来一轮：只重测忘记子集（FORGOT 打卡后仍到期；vocab retryForgotten 同款） */
+  onRetryTap() {
+    const ids = this._ratings
+      .filter((x) => x.quality === 0)
+      .map((x) => x.id);
+    if (!ids.length) return;
+    this._retryIds = ids;
+    this._ratings = [];
+    this._applyMode(false);
+  },
+
+  /** 继续刷：回环浏览的显式承接（sequential/tag；回第 0 张开新一轮。
+   *  srs 不提供——到期队列已清空，继续走「今日已完成」语义） */
+  onContinueBrowse() {
+    this._ratings = [];
+    this._retryIds = null;
+    this._applyMode(false);
   },
 
   /** 跟读 → 影子跟读评测页（subtitleId 缺失不渲染本钮，防御同判 hasSubtitle） */
