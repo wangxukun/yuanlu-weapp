@@ -299,9 +299,13 @@ function bodies(method, p) {
     assert(core.resolveTarget('/episode/abc123') === '/pages/episode/episode?id=abc123',
       '/episode/{id} → 剧集页');
     assert(core.resolveTarget('/charts') === '/pages/profile/learning-report/index',
-      '/charts → 学习报表页');
+      '/charts → 学习报表页（存量口径保留）');
     assert(core.resolveTarget('/charts?tab=week') === '/pages/profile/learning-report/index',
       '/charts?query → 学习报表页（query 剥离）');
+    assert(core.resolveTarget('/library/learning-report') === '/pages/profile/learning-report/index',
+      '/library/learning-report → 学习报表页（2026-10 后端新口径）');
+    assert(core.resolveTarget('/library/learning-report?range=month') === '/pages/profile/learning-report/index',
+      '/library/learning-report?query → 学习报表页（query 剥离）');
     assert(core.resolveTarget('https://example.com/promo') === '' &&
       core.resolveTarget(null) === '', '管理端任意 URL / 空 → 不映射');
   }
