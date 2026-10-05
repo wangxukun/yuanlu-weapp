@@ -779,8 +779,8 @@ const WXML_REVIEW = fs.readFileSync(
     assert(/\.vr-def-cn \{[^}]*font-size: 32rpx/.test(reviewCss2), '释义中文 32rpx（bodyMedium 14sp）');
     assert(/\.vr-ctx-sentence \{[^}]*font-size: 28rpx/.test(reviewCss2), '原声例句 28rpx（bodySmall 12sp）');
     assert(!/font-size: 20rpx/.test(reviewCss2), '复习页无 20rpx 残留（labelSmall 11sp 统一 24rpx）');
-    assert(/\.vr-btn \{[^}]*border-radius: var\(--r-full\)/.test(reviewCss2), '底部按钮胶囊状圆角（r-full）');
-    assert(/\.vr-btn--ghost \{[^}]*background: var\(--vr-surface\)/.test(reviewCss2), '完成按钮浅灰底（令牌口径）');
+    assert(/\.vr-btn \{[^}]*border-radius: var\(--r-lg\)/.test(reviewCss2), '总结页底部按钮圆角 r-lg（与「显示答案」一致，弃胶囊状）');
+    assert(/\.vr-btn--ghost \{[^}]*background: var\(--vr-surface\)/.test(reviewCss2), '完成按钮浅灰底（令牌口径还原；仅圆角随 .vr-btn 改 12dp）');
     // 深色适配把门：本地 --vr-* 令牌三态齐备（媒体查询 + 手动根类）
     assert(/@media \(prefers-color-scheme: dark\) \{[\s\S]{0,900}--vr-strong: rgba\(232, 227, 217, 0\.8\)/.test(reviewCss2), '闪卡页跟随系统深色令牌块（onSurface 80% 精确 alpha）');
     assert(/\.theme-dark \{[\s\S]{0,400}--vr-ink: #e8e3d9/.test(reviewCss2), '闪卡页手动深色根类令牌');

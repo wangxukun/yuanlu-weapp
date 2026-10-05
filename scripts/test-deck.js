@@ -404,9 +404,12 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   assert(pq.data.sessionDone === false && pq.data.currentIndex === 0 && pq.data.deckCount === 3,
     '继续刷 → 回第 0 张（sequential 全量重建新一轮）');
 
-  // 再来一轮：忘记数为 0 → no-op 守卫
+  // 再来一轮：忘记数为 0 → toast 反馈 + 留在总结屏（无禁用态）
+  toastCalls.length = 0;
   p.onRetryTap();
   assert(p.data.sessionDone === true, '忘记数为 0：再来一轮 no-op（留在总结屏）');
+  assert(toastCalls.includes('本轮没有忘记的句子，无需再来一轮'),
+    '忘记数为 0：toast 反馈（替代置灰禁用态）');
 
   /* ---------- 4c. [SRS] 忘记流：FORGOT 留到期 + 再来一轮只重测忘记子集 ---------- */
 
@@ -596,6 +599,15 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
     PAGE_JS.includes("'已刷完一轮 '"), '总结屏标题/副文案字面量（_finishSession 分轨预计算）');
   assert(WXML.includes('再来一轮') &&
     WXML.includes('返回句子本'), '总结屏按钮文案（再来一轮/返回）');
+  assert(WXML.includes('btn-primary dk-sum-retry'),
+    '再来一轮 = 全局主按钮样式（btn-primary 88rpx/主绿）');
+  assert(!WXML.includes('dk-sum-retry--off') &&
+    WXML.includes('class="btn-primary dk-sum-retry tap-scale" bindtap="onRetryTap"'),
+    '再来一轮无禁用态：恒全饱和主样式 + 恒可点（忘记 0 走 toast 反馈）');
+  assert(/\.dk-sum-trophy \{[^}]*align-self: center/s.test(WXSS) &&
+    /\.dk-sum-title \{[^}]*align-self: center/s.test(WXSS) &&
+    /\.dk-sum-skip \{[^}]*align-self: center/s.test(WXSS),
+    '总结屏奖杯/标题/跳过小字水平居中（align-self: center，.col stretch 修正）');
   assert(WXML.includes('{{summary.titleText}}') && WXML.includes('{{summary.subText}}'),
     '总结屏文案 JS 预计算绑定（零方法调用红线）');
   assert(WXML.includes('继续刷') && WXML.includes('bindtap="onContinueBrowse"') &&

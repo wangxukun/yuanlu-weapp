@@ -623,7 +623,7 @@
 }
 .vr-btn {
   height: 96rpx;
-  border-radius: var(--r-full); /* 胶囊状（截图口径） */
+  border-radius: var(--r-lg); /* 12dp（用户口径：与「显示答案」按钮一致，弃胶囊状） */
   font-size: 30rpx;
   font-weight: 700;
 }
@@ -634,7 +634,7 @@
   background: var(--vr-cta);
   color: #ffffff;
 }
-/* 完成：浅灰/米色背景 + 深色文字（对齐 Android Ink100） */
+/* 完成：浅灰/米色背景 + 深色文字（对齐 Android Ink100；圆角随 .vr-btn 取 12dp） */
 .vr-btn--ghost {
   background: var(--vr-surface);
   color: var(--text-primary);

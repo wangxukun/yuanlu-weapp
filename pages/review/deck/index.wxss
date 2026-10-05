@@ -592,6 +592,7 @@
   border-radius: 50%;
   background: rgba(46, 143, 111, 0.1);
   margin-bottom: 24rpx;
+  align-self: center; /* vr-sum-trophy 同款：.col 默认 stretch 会把定宽圆底贴左 */
 }
 .dk-sum-trophy-ic {
   width: 88rpx; /* 44dp */
@@ -601,12 +602,14 @@
   font-size: 40rpx;
   font-weight: 700;
   color: var(--text-primary);
+  align-self: center;
 }
 .dk-sum-sub {
   margin-top: 12rpx;
   font-size: 26rpx;
   color: var(--text-secondary);
   text-align: center;
+  align-self: center;
   line-height: 1.7;
 }
 .dk-sum-grid {
@@ -651,34 +654,33 @@
   margin-top: 20rpx;
   font-size: 22rpx;
   color: var(--text-tertiary);
+  align-self: center;
+  text-align: center;
 }
 .dk-sum-btns {
   margin-top: 36rpx;
   gap: 20rpx;
+  width: 100%;
 }
+/* 再来一轮 = 全局主按钮（btn-primary：88rpx/主绿/主文案色），此处只留间距微调。
+   无禁用态：忘记数为 0 时按钮仍全饱和主样式，点击以 toast 反馈 */
 .dk-sum-retry {
   gap: 10rpx;
-  background: var(--color-primary);
-  color: #ffffff;
-  border-radius: var(--r-lg);
-  padding: 22rpx 36rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-}
-.dk-sum-retry--off {
-  opacity: 0.4;
+  padding: 0 44rpx;
 }
 .dk-sum-retry-ic {
-  width: 30rpx;
-  height: 30rpx;
+  width: 32rpx;
+  height: 32rpx;
 }
+/* 次级按钮与主按钮同高成组（88rpx，btn-primary 座） */
 .dk-sum-back {
+  height: 88rpx;
+  padding: 0 40rpx;
   background: var(--color-base-200);
   color: var(--text-primary);
-  border-radius: var(--r-lg);
-  padding: 22rpx 36rpx;
-  font-size: 26rpx;
-  font-weight: 700;
+  border-radius: var(--r-md);
+  font-size: 30rpx;
+  font-weight: 600;
 }
 
 /* ---------------- [SRS] srs 到期队列空 → 今日已完成 ---------------- */

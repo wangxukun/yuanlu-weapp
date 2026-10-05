@@ -95,8 +95,7 @@
         </view>
         <text wx:if="{{summary.skipped > 0}}" class="dk-sum-skip">另有 {{summary.skipped}} 张跳过未评分，保持到期</text>
         <view class="dk-sum-btns row">
-          <view class="dk-sum-retry row center {{summary.forgottenCount ? 'tap-scale' : 'dk-sum-retry--off'}}"
-                bindtap="{{summary.forgottenCount ? 'onRetryTap' : ''}}">
+          <view class="btn-primary dk-sum-retry tap-scale" bindtap="onRetryTap">
             <image class="dk-sum-retry-ic" src="/assets/icons/refresh-light.svg" />
             <text>再来一轮（{{summary.forgottenCount}}）</text>
           </view>

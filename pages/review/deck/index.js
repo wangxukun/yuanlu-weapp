@@ -413,12 +413,16 @@ Page({
     audioClip.stop();
   },
 
-  /** 再来一轮：只重测忘记子集（FORGOT 打卡后仍到期；vocab retryForgotten 同款） */
+  /** 再来一轮：只重测忘记子集（FORGOT 打卡后仍到期；vocab retryForgotten 同款）。
+   *  无禁用态（按钮恒为主按钮样式）：忘记数为 0 时以 toast 反馈替代置灰 */
   onRetryTap() {
     const ids = this._ratings
       .filter((x) => x.quality === 0)
       .map((x) => x.id);
-    if (!ids.length) return;
+    if (!ids.length) {
+      wx.showToast({ title: '本轮没有忘记的句子，无需再来一轮', icon: 'none' });
+      return;
+    }
     this._retryIds = ids;
     this._ratings = [];
     this._applyMode(false);
