@@ -1,6 +1,6 @@
 # 远路播客微信小程序复刻任务清单 (WE-TASK)
 
-> 更新日期：2026-09-23（**生词复习页重构为闪卡模式（复刻 Android `VocabularyReviewScreen` + 三张截图，四题型退役）→ 总结页复刻 `ReviewSummary`（滚动区+固定底栏）→ 四宫格居中修复 → 字号完整对齐 Material3，四轮落地；同日 TTS 真机 504 根治（音频改经 downloadFile 中转本地播放，缓存+重试）**；此前：REVIEW-TASK 阶段 1 生词本复刻全部落地（T1.1–T1.5：vocab-notebook 组件 + 闪卡复习页 vocab-review + tts.playUrl 扩展 + vocab-core 模型层）+ TTS 真机播放失败修复系列（http 升 https / dictvoice 降级 / 域名拦截指引 Modal）；再前：全量代码走查 + 模块 A/B 完结（3.A.1–3.A.10 / 3.B.1–3.B.4，3.B.4 独立精听工作流页收口）。现状：17 个注册页面 / 10 个组件 / 4 个 store / 11 个 utils / 16 套单测 877 断言）
+> 更新日期：2026-10-07（**新增小程序访问上报 `utils/visit-reporter.js`（Page 构造器劫持，为全部页面 onShow 串入 POST /api/track-visit 静默上报 route+query，5s 同页去重；登录带 Bearer / 游客匿名，与 Web PageTracker 同口径汇入服务端 VisitorLog——访问日志页与转化分析「在线」热力图自此包含小程序流量；配套 13 断言单测挂入 npm test 链）**；此前 2026-09-23：**生词复习页重构为闪卡模式（复刻 Android `VocabularyReviewScreen` + 三张截图，四题型退役）→ 总结页复刻 `ReviewSummary`（滚动区+固定底栏）→ 四宫格居中修复 → 字号完整对齐 Material3，四轮落地；同日 TTS 真机 504 根治（音频改经 downloadFile 中转本地播放，缓存+重试）**；再前：REVIEW-TASK 阶段 1 生词本复刻全部落地（T1.1–T1.5：vocab-notebook 组件 + 闪卡复习页 vocab-review + tts.playUrl 扩展 + vocab-core 模型层）+ TTS 真机播放失败修复系列（http 升 https / dictvoice 降级 / 域名拦截指引 Modal）；更前：全量代码走查 + 模块 A/B 完结（3.A.1–3.A.10 / 3.B.1–3.B.4，3.B.4 独立精听工作流页收口）。现状：17 个注册页面 / 10 个组件 / 4 个 store / 11 个 utils / 16 套单测 877 断言）
 
 ## 1. 项目概览
 - **复刻目标**：将现有的 `yuanlu` (Web/H5) 核心业务流平滑迁移至微信小程序端，部分特定交互参考 `yuanlu-android` 客户端。

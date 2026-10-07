@@ -10,6 +10,9 @@ const membershipStore = require("./store/membershipStore");
 const playerStore = require("./store/playerStore");
 // 「我的」Tab 未读红点服务：登录态联动 + 切回小程序刷新（见 utils/notification-badge.js）
 const notificationBadge = require("./utils/notification-badge");
+// 小程序访问上报（Web PageTracker 对应物，数据汇入服务端 VisitorLog）：require 即激活——
+// 劫持 Page 构造器为所有页面 onShow 串入上报；app.js 求值先于页面文件加载，钩子覆盖全部页面
+require("./utils/visit-reporter");
 
 App({
   globalData: {
