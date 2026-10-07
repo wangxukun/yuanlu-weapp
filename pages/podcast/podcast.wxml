@@ -97,6 +97,9 @@
             </view>
           </scroll-view>
         </block>
+
+        <!-- 底部留白为迷你播放条让位（对齐剧集页 3.B.3 方案 B 占位口径） -->
+        <view style="height: calc(var(--mini-player-height) + 48rpx + env(safe-area-inset-bottom));"></view>
       </view>
     </scroll-view>
   </view>

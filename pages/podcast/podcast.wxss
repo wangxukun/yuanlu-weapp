@@ -2,8 +2,10 @@
 .page-container {
   display: flex;
   flex-direction: column;
-  /* 底部为迷你播放条预留（3.B.3，tabBar 页由 pb-page-bottom-with-player 预留） */
-  height: calc(100vh - var(--mini-player-height) - env(safe-area-inset-bottom));
+  /* 满高滚动容器，迷你播放条占位由滚动内容末尾的 spacer view 预留
+     （对齐剧集页 3.B.3 方案 B 口径：容器减高 calc 在真机上不生效会退化为
+     页面级滚动，固定播放条直接盖住列表尾部且滚不出来） */
+  height: 100vh;
   background-color: var(--page-bg);
 }
 
