@@ -215,20 +215,18 @@ function section(title) { console.log(`\n━━━ ${title} ━━━`); }
 
 const tick = () => new Promise((r) => setImmediate(r));
 
-/** setData 路径补丁应用（viewList[3] / wordModal.visible） */
+/** setData 路径补丁应用（viewList[3] / viewList[3].swIdx / wordModal.visible） */
 function applyPatch(data, key, value) {
-  const m = key.match(/^(.*)\[(\d+)\]$/);
-  if (m) {
-    const parts = m[1].split('.');
-    let obj = data;
-    for (let i = 0; i < parts.length; i++) obj = obj[parts[i]];
-    obj[Number(m[2])] = value;
-    return;
-  }
-  const parts = key.split('.');
+  const segs = key.split('.');
   let obj = data;
-  for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
-  obj[parts[parts.length - 1]] = value;
+  for (let i = 0; i < segs.length - 1; i++) {
+    const m = segs[i].match(/^(.*)\[(\d+)\]$/);
+    obj = m ? obj[m[1]][Number(m[2])] : obj[segs[i]];
+  }
+  const last = segs[segs.length - 1];
+  const lm = last.match(/^(.*)\[(\d+)\]$/);
+  if (lm) obj[lm[1]][Number(lm[2])] = value;
+  else obj[last] = value;
 }
 
 /** Page 定义 → 可驱动伪实例（顶层方法平铺 + setData 记录） */
@@ -392,23 +390,34 @@ playbackAt(1.2); // 句 0 内，词 'free'（0.9-1.5）
 await tick();
 assert(page.data.isPlayingHere === true && page.data.isPlaying === true, 'isPlayingHere/isPlaying 派生态');
 assert(page.data.activeIndex === 0, 'timeupdate → 活动句 0');
-assert(page.data.activeWordIndex === 2 && page.data.wordSweepOn === true, '词窗扫光 → 当前词 free（idx=2 光斑点亮）');
+assert(page.data.viewList[0].active === true, '活动句词光总开关点亮（item.active，路径化）');
+assert(page.data.viewList[0].swIdx === 2 && page.data.viewList[0].swOn === true, '词窗扫光 → 当前词 free（idx=2 光斑点亮，路径化进 viewList[0]）');
 assert(page.data.scrollIntoView === 'sub-10', '自动跟随 → scroll-into-view 锚点 sub-10');
 
 playbackAt(0.2);
 await tick();
-assert(page.data.activeWordIndex === 0 && page.data.wordSweepOn === true, '回跳句首 → 扫光到词 0（光斑点亮）');
+assert(page.data.viewList[0].swIdx === 0 && page.data.viewList[0].swOn === true, '回跳句首 → 扫光到词 0（光斑点亮）');
 
 // 尾词后间隙（coffee. 止于 2.3，句 0 至 5s）：全部已读、无光斑
 playbackAt(3.0);
 await tick();
-assert(page.data.activeWordIndex === 4 && page.data.wordSweepOn === false, '尾词后间隙 → idx=len 全已读、光斑熄灭');
+assert(page.data.viewList[0].swIdx === 4 && page.data.viewList[0].swOn === false, '尾词后间隙 → idx=len 全已读、光斑熄灭');
 
 playbackAt(6.2);
 await tick();
 assert(page.data.activeIndex === 1, '推进 → 活动句 1');
 assert(page.data.scrollIntoView === 'sub-11', '跟随锚点更新 sub-11');
-assert(page.data.activeWordIndex === 2 && page.data.wordSweepOn === true, '句 1 词扫光（yes. 词窗 5.9-6.5）');
+assert(page.data.viewList[1].swIdx === 2 && page.data.viewList[1].swOn === true, '句 1 词扫光（yes. 词窗 5.9-6.5）');
+assert(page.data.viewList[0].active === false && page.data.viewList[1].active === true, '句切换 → 旧句词光熄灭、新句点亮');
+
+// 暂停/恢复词光同步：item.active 承载（原 WXS 以页面级 isPlaying 短路，现须
+// 显式翻转；恢复时按当前进度就地预热扫光，免等下一帧 timeupdate）
+bgmHandlers.pause();
+await tick();
+assert(page.data.isPlaying === false && page.data.viewList[1].active === false, '暂停 → 活动句词光立即回落（不追帧）');
+bgmHandlers.play();
+await tick();
+assert(page.data.viewList[1].active === true && page.data.viewList[1].swIdx === 2, '恢复 → 词光就地预热点亮（不等下一帧）');
 
 section('页面：单句循环（越界回 seek）');
 
@@ -590,13 +599,27 @@ page2.onLoad({ id: 'epLong' });
 await tick(); await tick(); await tick(); await tick();
 assert(page2.data.viewList.length === 40, '长字幕首屏渲染 40 句');
 
-playbackAt(29 * 5 + 1); // 活动句 29（距 40 底缘 11 ≤ 阈值 12）→ 扩窗
+playbackAt(29 * 5 + 1); // 活动句 29
 await tick();
-assert(page2.data.viewList.length === 70, '活动句逼近底缘 → 扩窗 +30（40→70）');
-assert(page2.data.activeIndex === 29, '扩窗不影响活动句');
+assert(page2.data.activeIndex === 29, '滑动窗口不影响活动句');
+assert(page2.data.viewList.length === 69, '跟随窗口右缘 = 活动句+40（29+40=69，节点总量恒定）');
+assert(page2.data.viewList[0].blank === true && page2.data.viewList[20].blank === true, '离开窗口的句子哨兵化（上缘 29-8=21，节点卸载防渲染积压）');
+assert(page2.data.viewList[21].blank !== true && page2.data.viewList[21].id === 1021, '窗口左缘 21 起保留实体句子');
 
 page2.onScrollLower();
-assert(page2.data.viewList.length === 100, '手动滚到底 → 再补一窗至全量');
+assert(page2.data.viewList.length === 99, '自由浏览滚到底 → 只增不减再补一窗（69→99）');
+assert(page2.data.viewList[0].blank === true, '自由浏览不收缩上缘（保留用户阅读位置）');
+
+page2.onScrollUpper();
+assert(page2.data.viewList[0].blank !== true && page2.data.viewList[0].id === 1000, '滚回顶部 → 上缘回填（早期句子复原）');
+
+// 重开跟随 → 收回自由浏览头部：滑窗回活动句（29），上缘回到 21
+playbackAt(29 * 5 + 1);
+await tick();
+page2.onToggleAutoScroll(); // 关
+page2.onToggleAutoScroll(); // 开（收回跟随态）
+assert(page2.data.viewList[0].blank === true && page2.data.viewList[21].blank !== true, '重开跟随 → 滑窗回活动句（自由浏览头部收回）');
+assert(page2.data.scrollIntoView === 'sub-1029', '重开跟随 → 锚点对齐活动句');
 
 /* ==================== 三、组件：完善抽屉 / 生词弹窗 ==================== */
 
@@ -682,7 +705,9 @@ section('扫光三态渲染与活动句字重（useWordHighlight 对齐）');
 const wxsSrc = fs.readFileSync(path.join(__dirname, '../pages/intensive-listening/intensive.wxs'), 'utf8');
 // 三态视图层映射：past / cur / 未读回落
 assert(wxsSrc.indexOf('w--past') >= 0 && wxsSrc.indexOf('w--cur') >= 0, 'WXS：三态 class 映射（w--past / w--cur / w）');
-assert(pageWxml.indexOf('wordSweepOn)') >= 0, 'WXML：wordSweepOn 透传 WXS');
+assert(pageWxml.indexOf('item.swOn)') >= 0, 'WXML：词三态走 item.swIdx/swOn（扫光路径化进活动句字段）');
+assert(pageWxml.indexOf('activeWordIndex') === -1 && pageWxml.indexOf('wordSweepOn') === -1, 'WXML：词 class 零依赖页面级扫光标量（防全列表重算回退）');
+assert(pageWxml.indexOf('wx:if="{{!item.blank}}"') >= 0, 'WXML：blank 哨兵项跳过渲染（滑动窗口节点卸载）');
 // 色值对齐 Web 端 ACCENT_BG_LIGHT #FAE5C6 / READ_TEXT_LIGHT #96580D（走设计令牌）
 assert(pageWxss.indexOf('.w--past') >= 0 && pageWxss.indexOf('var(--accent-700)') >= 0, 'WXSS：已读词 accent-700 棕字（#96580D）');
 assert(pageWxss.indexOf('.w--cur') >= 0 && pageWxss.indexOf('var(--accent-100)') >= 0, 'WXSS：当前词 accent-100 底光斑（#FAE5C6）');

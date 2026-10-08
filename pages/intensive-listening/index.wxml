@@ -48,9 +48,11 @@
   </view>
 
   <!-- ═══ 字幕流 ═══ -->
+  <!-- 性能口径：滑动渲染窗口（离开窗口的句子 blank 哨兵化，节点总量恒定）；
+       bindscrolltoupper 触顶 → 自由浏览上扩（读更早的句子） -->
   <scroll-view class="il-scroll" scroll-y enhanced show-scrollbar="{{false}}"
                scroll-into-view="{{scrollIntoView}}" scroll-with-animation scroll-into-view-offset="-80"
-               bindscrolltolower="onScrollLower">
+               bindscrolltolower="onScrollLower" bindscrolltoupper="onScrollUpper">
 
     <!-- 加载骨架 -->
     <view wx:if="{{isLoading}}" class="il-skeleton">
@@ -64,7 +66,8 @@
     </view>
 
     <block wx:else>
-      <view wx:for="{{viewList}}" wx:key="id" id="sub-{{item.id}}"
+      <block wx:for="{{viewList}}" wx:key="id">
+      <view wx:if="{{!item.blank}}" id="sub-{{item.id}}"
             data-index="{{item.index}}" bindtap="onCardTap"
             class="sub {{item.index === activeIndex ? 'sub--active' : ''}} {{mode === 'dictate' && item.index === activeIndex ? 'sub--dict' : ''}}">
 
@@ -114,8 +117,10 @@
         <block wx:else>
           <view class="sub-text">
             <block wx:if="{{item.words.length > 0}}">
+              <!-- 词三态 class 只依赖 item 字段（active/swIdx/swOn 随活动句
+                   路径补丁下发）——高频扫光 setData 不再牵动全列表词节点重算 -->
               <text wx:for="{{item.words}}" wx:for-item="w" wx:for-index="wi" wx:key="wi"
-                    class="{{fmt.wordCls(item.index, activeIndex, isPlaying, wi, activeWordIndex, wordSweepOn)}} font-serif"
+                    class="{{fmt.wordCls(item.active, wi, item.swIdx, item.swOn)}} font-serif"
                     catchtap="onWordTap" data-index="{{item.index}}" data-wi="{{wi}}">{{w.word}} </text>
             </block>
             <text wx:else class="sub-plain font-serif">{{item.textEn}}</text>
@@ -152,6 +157,7 @@
           </view>
         </block>
       </view>
+      </block>
 
       <!-- ── 游客试听墙：字幕流尾部解锁按钮（Web InteractiveTranscript 同名按钮复刻：
                 未登录字幕止于 180s + 播放时长满 180s 落锁，点击进登录页，成功自动返回解锁） ── -->

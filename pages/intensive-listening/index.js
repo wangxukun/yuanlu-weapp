@@ -23,8 +23,17 @@
  *     前端同口径兜底），播放时长满 180s 落锁暂停，字幕流尾部常驻
  *     「登录后解锁全部字幕」按钮（InteractiveTranscript 同名按钮复刻）。
  *
- * 性能口径：字幕渐进渲染（首屏 40 句，活动句逼近窗口底缘按 30 句扩窗，
- * setData 用 viewList[i] 路径补丁追加，不整表重发）。
+ * 性能口径（长剧集防 setData 渲染积压，2026-10-08 重构）：
+ *   - 扫光/活动态写进 viewList[i] 视图字段（active/swIdx/swOn），高频
+ *     setData 走 viewList[i].xxx 路径补丁——词 class 只依赖 item 字段，
+ *     视图层 WXS 重算范围收敛到活动句，不再随已渲染句数线性放大
+ *     （原页面级标量 activeWordIndex/wordSweepOn 每帧牵动全列表词节点，
+ *     160min 剧集播至 500+ 句时每次 setData 重算上万节点，渲染追不上
+ *     通信频率 → 队列积压，暂停后高亮仍在"追帧"）；
+ *   - 渲染窗口滑动化：跟随态窗口 [活动句-8, 活动句+40] 随句平移，离开
+ *     窗口的句子哨兵化（blank 占位，节点总量恒定，与剧集时长无关）；
+ *     用户手动滚动进入自由浏览（只增不减，活动句保底在窗），点句跳播 /
+ *     重开跟随开关收回跟随态。
  */
 
 const theme = require('../../utils/theme');
@@ -36,9 +45,11 @@ const authStore = require('../../store/authStore');
 const core = require('../../utils/intensive-core');
 const { trackEvent } = require('../../utils/track');
 
-const RENDER_CHUNK = 40;   // 首屏渲染句数
-const RENDER_EXTEND = 30;  // 扩窗步长
-const RENDER_AHEAD = 12;   // 活动句距窗口底缘的提前扩窗阈值
+const RENDER_CHUNK = 40;   // 首屏渲染句数（窗口右缘初值）
+const RENDER_EXTEND = 30;  // 自由浏览扩窗步长
+const RENDER_AHEAD = 12;   // 自由浏览：活动句距窗口底缘的提前扩窗阈值
+const WINDOW_BEHIND = 8;   // 跟随窗口：活动句后方保留句数（上缘收缩线）
+const WINDOW_AHEAD = 40;   // 跟随窗口：活动句前方保留句数（窗口右缘目标）
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
 const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
 
@@ -53,10 +64,10 @@ Page({
     statusBarH: 20,
 
     mode: 'read', // 精读 | 听写（对齐 Web transcriptMode）
-    viewList: [], // 渐进渲染的字幕视图模型
+    viewList: [], // 渐进渲染的字幕视图模型（离开窗口的项哨兵化 blank:true）
     activeIndex: -1,
-    activeWordIndex: -1, // 扫光位置（见 _onTick；-1=句首前，len=整句读完）
-    wordSweepOn: false,  // 当前词光斑是否点亮（间隙/读毕时 false → 全部回落已读色）
+    // 词扫光态随活动句视图字段 viewList[activeIndex] 下发（swIdx/swOn/active），
+    // 高频路径补丁只让活动句的绑定重算——不再放页面级标量（见文件头性能口径）
     isPlaying: false,
     isPlayingHere: false, // 全局播放器当前会话即本集（对齐 isPlayingThisEpisode）
     autoScroll: true,
@@ -112,7 +123,12 @@ Page({
     this._sentences = []; // 原始字幕
     this._views = [];     // 预处理视图模型（全量）
     this._renderEnd = 0;  // 渐进渲染窗口右缘（下标，不含）
+    this._winStart = 0;   // 渲染窗口左缘（含）——左缘之外为 blank 哨兵
+    this._freeScroll = false; // 自由浏览（用户手动滚动过）：窗口只增不减
+    this._blanks = {};    // 下标 → blank 哨兵对象（稳定唯一 id，供 wx:key 复用）
     this._lastActive = -1;
+    this._lastSwIdx = -1; // 上次下发扫光位置（与 viewList[i].swIdx 同步）
+    this._lastSwOn = false; // 上次下发光斑点亮态（与 viewList[i].swOn 同步）
     this._lastSeekAt = 0;
     this._dictErrors = 0;
     this._dictDone = false;
@@ -192,6 +208,11 @@ Page({
         zhClean: core.stripSpeaker(s.textCn),
         words: Array.isArray(s.words) ? s.words : [],
         tsLabel: core.formatStartTime(s.start),
+        // 词光态（原页面级标量 activeWordIndex/wordSweepOn 下沉到活动句字段，
+        // 使高频 setData 的视图层重算收敛到单句，见文件头性能口径）
+        active: false, // 活动句且本集在播（词三态总开关，暂停时回落）
+        swIdx: -1,     // 扫光位置（-1=句首前，len=整句读完）
+        swOn: false,   // 光斑是否点亮（间隙/读毕时 false → 全部回落已读色）
       }));
       // 游客试听墙（对齐 Web 端口径）：后端未登录时已把字幕裁至前 180s
       // （start < 180），前端同口径再裁一次防后端放开后泄漏；音频不受此裁剪
@@ -205,6 +226,10 @@ Page({
       }
 
       this._renderEnd = Math.min(this._views.length, RENDER_CHUNK);
+      this._winStart = 0; // 换集重拉（singletonReload/_syncAuth）复位窗口态
+      this._freeScroll = false;
+      this._lastSwIdx = -1;
+      this._lastSwOn = false;
       this.setData({
         episode,
         isLoading: false,
@@ -302,6 +327,7 @@ Page({
 
   _onPlayerState(s) {
     const wasHere = this.data.isPlayingHere;
+    const wasPlaying = this.data.isPlaying;
     const here = !!(
       s.hasEpisode &&
       s.currentEpisode &&
@@ -309,18 +335,43 @@ Page({
     );
     const playing = !!(here && s.isPlaying);
     const patch = {};
-    if (playing !== this.data.isPlaying) patch.isPlaying = playing;
+    if (playing !== wasPlaying) patch.isPlaying = playing;
     if (here !== this.data.isPlayingHere) patch.isPlayingHere = here;
 
     if (!here) {
       this._lastActive = -1;
-      if (this.data.activeIndex !== -1) patch.activeIndex = -1;
-      if (this.data.activeWordIndex !== -1) patch.activeWordIndex = -1;
+      this._lastSwIdx = -1;
+      this._lastSwOn = false;
+      const idx = this.data.activeIndex;
+      if (idx !== -1) {
+        patch.activeIndex = -1;
+        patch['viewList[' + idx + '].active'] = false;
+      }
       if (Object.keys(patch).length) this.setData(patch);
       // 关闭联动（Bug 1）：本集会话被全局关闭（底部迷你条/全屏面板的 × →
       // audioManager.close 清空会话）时，精听页失去存在意义，随音频停止一并返回
       if (wasHere && !s.hasEpisode) this._exitPage();
       return;
+    }
+
+    // 播放/暂停翻转 → 活动句词光同步：暂停时 item.active 回落全部已读色外
+    // 的未读态（原 WXS 以页面级 isPlaying 短路，现由 item.active 承载须显式
+    // 翻转）；恢复时按当前进度就地预热扫光，免等下一帧 timeupdate
+    if (playing !== wasPlaying) {
+      const idx = this.data.activeIndex;
+      if (idx >= 0) {
+        patch['viewList[' + idx + '].active'] = playing;
+        if (playing) {
+          const v = this._views[idx];
+          if (this.data.mode === 'read' && v.words.length) {
+            const sw = core.computeWordSweep(v.words, s.currentTime || 0, v.start, v.end);
+            this._lastSwIdx = sw.idx;
+            this._lastSwOn = sw.on;
+            patch['viewList[' + idx + '].swIdx'] = sw.idx;
+            patch['viewList[' + idx + '].swOn'] = sw.on;
+          }
+        }
+      }
     }
     if (Object.keys(patch).length) this.setData(patch);
     this._onTick(s.currentTime || 0, playing);
@@ -370,14 +421,17 @@ Page({
       return;
     }
     if (idx >= 0 && playing && this.data.mode === 'read') {
-      // 词级扫光三态（computeWordSweep）：两个标量最小差量下发
+      // 词级扫光三态（computeWordSweep）：路径补丁只写进活动句视图字段，
+      // 视图层重算范围收敛到该句（原页面级标量会牵动全列表词节点重算）
       const v = views[idx];
       const sw = core.computeWordSweep(v.words, t, v.start, v.end);
-      if (
-        sw.idx !== this.data.activeWordIndex ||
-        sw.on !== this.data.wordSweepOn
-      ) {
-        this.setData({ activeWordIndex: sw.idx, wordSweepOn: sw.on });
+      if (sw.idx !== this._lastSwIdx || sw.on !== this._lastSwOn) {
+        this._lastSwIdx = sw.idx;
+        this._lastSwOn = sw.on;
+        this.setData({
+          ['viewList[' + idx + '].swIdx']: sw.idx,
+          ['viewList[' + idx + '].swOn']: sw.on,
+        });
       }
     }
   },
@@ -398,54 +452,121 @@ Page({
   },
 
   _setActive(idx, t) {
+    // prev 以 data.activeIndex 为准（_onTick 调用前 _lastActive 已先行为 idx）
+    const prev = this.data.activeIndex;
     const patch = { activeIndex: idx };
+    if (prev >= 0 && prev !== idx) {
+      patch['viewList[' + prev + '].active'] = false;
+    }
     if (idx >= 0) {
       const v = this._views[idx];
       const sw =
         this.data.mode === 'read' && this.data.isPlaying && v.words.length
           ? core.computeWordSweep(v.words, t, v.start, v.end)
           : { idx: -1, on: false };
-      patch.activeWordIndex = sw.idx;
-      patch.wordSweepOn = sw.on;
+      this._lastSwIdx = sw.idx;
+      this._lastSwOn = sw.on;
+      patch['viewList[' + idx + '].active'] = true;
+      patch['viewList[' + idx + '].swIdx'] = sw.idx;
+      patch['viewList[' + idx + '].swOn'] = sw.on;
 
-      this._maybeExtend(idx);
+      this._slideWindow(idx, patch);
       if (this.data.autoScroll) {
         const anchor = 'sub-' + v.id;
         if (anchor !== this.data.scrollIntoView) patch.scrollIntoView = anchor;
       }
       if (this.data.mode === 'dictate') this._resetDictation(v);
     } else {
-      patch.activeWordIndex = -1;
+      this._lastSwIdx = -1;
+      this._lastSwOn = false;
     }
     this.setData(patch);
   },
 
-  /** 活动句逼近渲染窗底缘时扩窗（路径补丁追加，不整表重发） */
-  _maybeExtend(activeIdx) {
+  /** blank 哨兵（wx:key 需稳定唯一 id；同下标复用同一对象减少分配） */
+  _blankAt(i) {
+    if (!this._blanks[i]) this._blanks[i] = { id: 'blank-' + i, blank: true };
+    return this._blanks[i];
+  },
+
+  /**
+   * 渲染窗口平移（长剧集节点总量恒定的关键）：
+   *   - 跟随态：窗口 [activeIdx-WINDOW_BEHIND, activeIdx+WINDOW_AHEAD] 随句
+   *     滑动，离开窗口的句子哨兵化（渲染节点数恒定 ~50 句，与剧集时长无关）；
+   *   - 自由浏览（用户手动滚动过）：退化为只增不减（原 _maybeExtend 口径），
+   *     但活动句保底收进窗口（上缘回填/底缘扩窗），保证扫光路径补丁永远
+   *     落在真实节点上。
+   * 平移路径并入调用方（_setActive 等）的同一份 patch，一次 setData 收口。
+   */
+  _slideWindow(activeIdx, patch) {
     const total = this._views.length;
-    if (activeIdx < 0 || this._renderEnd >= total) return;
-    if (activeIdx <= this._renderEnd - RENDER_AHEAD) return;
-    let newEnd = this._renderEnd;
-    while (newEnd < total && newEnd < activeIdx + RENDER_AHEAD) {
-      newEnd += RENDER_EXTEND;
+    if (activeIdx < 0) return;
+
+    if (this._freeScroll) {
+      if (activeIdx < this._winStart) {
+        for (let i = activeIdx; i < this._winStart; i++) {
+          patch['viewList[' + i + ']'] = this._views[i];
+        }
+        this._winStart = activeIdx;
+      }
+      if (this._renderEnd < total && activeIdx > this._renderEnd - RENDER_AHEAD) {
+        let newEnd = this._renderEnd;
+        while (newEnd < total && newEnd < activeIdx + RENDER_AHEAD) {
+          newEnd += RENDER_EXTEND;
+        }
+        this._appendInto(newEnd, patch);
+      }
+      return;
     }
-    this._appendRender(newEnd);
+
+    const winStart = Math.max(0, activeIdx - WINDOW_BEHIND);
+    const winEnd = Math.min(total, activeIdx + WINDOW_AHEAD);
+    if (winStart > this._winStart) {
+      for (let i = this._winStart; i < winStart; i++) {
+        const item = this.data.viewList[i];
+        if (!item || !item.blank) {
+          patch['viewList[' + i + ']'] = this._blankAt(i);
+        }
+      }
+    } else if (winStart < this._winStart) {
+      // 回退 seek：上缘重新回填
+      for (let i = winStart; i < this._winStart; i++) {
+        patch['viewList[' + i + ']'] = this._views[i];
+      }
+    }
+    this._winStart = winStart;
+    this._appendInto(winEnd, patch);
   },
 
-  /** 手动滚动到底时再补一窗 */
-  onScrollLower() {
-    if (this._renderEnd >= this._views.length) return;
-    this._appendRender(Math.min(this._views.length, this._renderEnd + RENDER_EXTEND));
-  },
-
-  _appendRender(newEnd) {
+  /** 右缘追加进 patch（路径补丁逐项赋值，不整表重发） */
+  _appendInto(newEnd, patch) {
     if (newEnd <= this._renderEnd) return;
-    const patch = {};
     for (let i = this._renderEnd; i < newEnd; i++) {
       patch['viewList[' + i + ']'] = this._views[i];
     }
     this._renderEnd = newEnd;
-    this.setData(patch);
+  },
+
+  /** 手动滚动到底：进入自由浏览（只增不减），再补一窗 */
+  onScrollLower() {
+    this._freeScroll = true;
+    if (this._renderEnd >= this._views.length) return;
+    const patch = {};
+    this._appendInto(Math.min(this._views.length, this._renderEnd + RENDER_EXTEND), patch);
+    if (Object.keys(patch).length) this.setData(patch);
+  },
+
+  /** 手动滚动到顶：进入自由浏览，上缘回退一窗（阅读更早的句子） */
+  onScrollUpper() {
+    this._freeScroll = true;
+    if (this._winStart <= 0) return;
+    const newStart = Math.max(0, this._winStart - RENDER_EXTEND);
+    const patch = {};
+    for (let i = this._winStart - 1; i >= newStart; i--) {
+      patch['viewList[' + i + ']'] = this._views[i];
+    }
+    this._winStart = newStart;
+    if (Object.keys(patch).length) this.setData(patch);
   },
 
   // ==================== 顶部工具区 ====================
@@ -468,7 +589,27 @@ Page({
   },
 
   onToggleAutoScroll() {
-    this.setData({ autoScroll: !this.data.autoScroll });
+    const autoScroll = !this.data.autoScroll;
+    this.setData({ autoScroll });
+    // 重开跟随：收回自由浏览头部，滑窗回活动句并对齐锚点
+    if (autoScroll) {
+      this._freeScroll = false;
+      const idx = this.data.activeIndex;
+      if (idx >= 0) {
+        const patch = {};
+        this._slideWindow(idx, patch);
+        const anchor = 'sub-' + this._views[idx].id;
+        if (anchor !== this.data.scrollIntoView) {
+          patch.scrollIntoView = anchor;
+        } else {
+          // 锚点未变也要强制回滚（scroll-into-view 同值不触发滚动）：
+          // 先清空再锚定，两次 setData 产生属性翻转
+          this.setData({ scrollIntoView: '' });
+          patch.scrollIntoView = anchor;
+        }
+        if (Object.keys(patch).length) this.setData(patch);
+      }
+    }
   },
 
   onToggleTranslation() {
@@ -487,6 +628,9 @@ Page({
 
   _jumpTo(v) {
     this._lastSeekAt = Date.now();
+    // 点句跳播 = 回到跟随意图（跟随开关关着则保持自由浏览——窗口不跳移，
+    // 防止用户视口附近的句子被滑走清屏）；窗口/锚点由下一帧 _setActive 收口
+    this._freeScroll = !this.data.autoScroll;
     audioManager.seek(v.start);
     audioManager.play();
   },
