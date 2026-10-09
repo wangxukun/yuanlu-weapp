@@ -1,0 +1,152 @@
+/* components/common/channel-card — 频道卡片样式
+   逐项复刻 Web components/discover/ChannelCard.tsx（Tailwind 令牌 → rpx，1px=2rpx）：
+   卡面 bg-primary-50 + rounded-xl(12dp) + border primary-100/70 + overflow-hidden；
+   封面 aspect-[16/9] + bg-base-200 底垫 + object-cover；信息区 p-4 左对齐；
+   眉标 text-[10px] bold primary-600 uppercase tracking-widest；
+   名称 text-base bold ink-900 line-clamp-1；集数行 text-xs ink-500 + podcasts 14px 图标。
+   深色：--cc-* 局部变量三态（媒体查询跟随系统 + .theme-dark/.theme-light 手动双轨，
+   eval-card 同配方）；纯色角色走全局令牌（--primary-50/--color-primary/--ink-* 随主题翻转）。 */
+
+:host {
+  display: block;
+}
+
+.cc-card {
+  /* ===== 局部主题变量（浅色；alpha 依赖项无法走全局令牌，就地三轨重声明） ===== */
+  --cc-border: rgba(213, 237, 225, 0.7); /* border-primary-100/70 */
+
+  display: flex;
+  flex-direction: column;
+  background-color: var(--primary-50);      /* bg-primary-50（深色令牌=品牌暗青 tint） */
+  border: 2rpx solid var(--cc-border);
+  border-radius: 24rpx;                     /* rounded-xl = 12dp */
+  overflow: hidden;
+}
+
+/* 按压反馈（Web hover:scale 的移动端等价物；tap-scale 全局类进不了隔离组件，就地实现） */
+.cc-card--hover {
+  transform: scale(0.97);
+}
+
+/* ===== 封面区：16:9 横幅，aspectFill 裁剪铺满，底垫 ink-200（=bg-base-200） ===== */
+.cc-cover {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* aspect-[16/9] */
+  background-color: var(--ink-200);
+}
+
+.cc-cover-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 无封面兜底：品牌色字标（Web ui-avatars background=1F7A5C&color=fff 的本地等价物，
+   品牌底色不随主题翻转，与 Web URL 参数恒 #1F7A5C 一致） */
+.cc-cover-fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1f7a5c;
+}
+
+.cc-cover-initial {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 4rpx;
+}
+
+/* ===== 信息区：p-4(16dp) 左对齐，flex-1 撑满卡高 ===== */
+.cc-info {
+  flex: 1;
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* 眉标：text-[10px] font-bold text-primary-600 uppercase tracking-widest mb-1 */
+.cc-label {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--color-primary); /* 深色令牌=primary-400 #4da989（=Web dark:text-primary-400） */
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+  margin-bottom: 8rpx;
+}
+
+/* 频道名：text-base(16sp) bold ink-900，line-clamp-1 单行截断 */
+.cc-name {
+  max-width: 100%;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink-900);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 集数行：text-xs(12sp) ink-500 font-medium mt-2，项间 gap-2(8dp) */
+.cc-meta {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  overflow: hidden;
+}
+
+.cc-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx; /* 图标与文字间隙（Web gap-1） */
+  min-width: 0;
+}
+
+.cc-meta-icon {
+  width: 28rpx; /* material symbols 14px */
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.cc-meta-text {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--ink-500);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 分隔圆点：w-1 h-1 rounded-full bg-ink-300 */
+.cc-meta-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background-color: var(--ink-300);
+  flex-shrink: 0;
+}
+
+/* ===== 深色三轨：媒体查询跟随系统（.theme-light 排除）+ 手动类双轨全量重声明 ===== */
+@media (prefers-color-scheme: dark) {
+  .cc-card:not(.theme-light) {
+    --cc-border: rgba(26, 51, 41, 0.9); /* 深色 primary-100=#1a3329 同值描边 */
+  }
+}
+
+.cc-card.theme-dark {
+  --cc-border: rgba(26, 51, 41, 0.9);
+}
+
+.cc-card.theme-light {
+  --cc-border: rgba(213, 237, 225, 0.7);
+}

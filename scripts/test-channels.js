@@ -2,10 +2,11 @@
  * scripts/test-channels.js — 「全部频道」页与频道链路自动化测试
  *
  * 在 Node 环境中 mock 微信全局对象（wx / Page），全链路驱动
- * pages/channel/all/index.js → utils/request.js → wx.request：
- * 覆盖 platform 聚合（空值过滤/计数/降序）、双列分块与奇数占位、
- * 加载/错误/空三态、重试、频道深链跳转、app.json 注册与发现页入口。
- * 另对 WXML/WXSS/图标资产做静态断言（ChannelListScreen.kt 复刻规格）。
+ * pages/channel/all/index.js → utils/channels.js → utils/request.js → wx.request：
+ * GET /api/channels 信封解包（封面/总集数/档数）、双列分块与奇数占位、
+ * 加载/错误/空三态、重试、频道深链跳转（channel-card 组件 open 事件口径）、
+ * app.json 注册与发现页入口（含推荐频道模块软失败口径）。
+ * 另对页面/组件 WXML/WXSS 与图标资产做静态断言（Web ChannelCard.tsx 复刻规格）。
  *
  * 运行：node scripts/test-channels.js
  */
@@ -59,6 +60,9 @@ const allPage = pageConfigs[0];
 const detailPage = pageConfigs[1];
 const discoverPage = pageConfigs[2];
 
+// utils/channels 直接驱动（信封解包单测）
+const { fetchChannels } = require(path.join(__dirname, '../utils/channels.js'));
+
 /* ==================== 工具函数 ==================== */
 
 let passed = 0;
@@ -92,19 +96,18 @@ function createPage(cfg) {
   };
 }
 
-// 模拟数据：5 档 BBC、3 档 CNN、1 档 NYT + 2 条无 platform（应被过滤）
-const PODCASTS = [
-  { podcastid: 'b1', platform: 'BBC' },
-  { podcastid: 'b2', platform: 'BBC' },
-  { podcastid: 'b3', platform: 'BBC' },
-  { podcastid: 'b4', platform: 'BBC' },
-  { podcastid: 'b5', platform: 'BBC' },
-  { podcastid: 'c1', platform: 'CNN' },
-  { podcastid: 'c2', platform: 'CNN' },
-  { podcastid: 'c3', platform: 'CNN' },
-  { podcastid: 'n1', platform: 'NYT' },
-  { podcastid: 'x1', platform: '' },
-  { podcastid: 'x2', platform: null },
+// /api/channels 信封数据：3 频道（服务端已按 channel.sortOrder + 播放量排序、
+// 封面已解析为签名 URL），与 Web discover-service.getRecommendedChannels 同口径
+function channelsEnvelope(list) {
+  return {
+    statusCode: 200,
+    data: { success: true, data: list },
+  };
+}
+const CHANNELS = [
+  { name: 'BBC Learning English', coverUrl: 'https://oss/signed-banner.jpg?sig=1', podcastCount: 9, episodeCount: 416, totalPlays: 12000 },
+  { name: 'CNN 10', coverUrl: 'default_cover_url', podcastCount: 3, episodeCount: 158400, totalPlays: 800 },
+  { name: 'NHK World', coverUrl: 'https://oss/signed-nhk.jpg?sig=2', podcastCount: 2, episodeCount: 980, totalPlays: 300 },
 ];
 
 /* ==================== 用例 ==================== */
@@ -119,48 +122,64 @@ const PODCASTS = [
 
     const appJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../app.json'), 'utf8'));
     assert(appJson.pages.includes('pages/channel/all/index'), 'app.json 已注册 pages/channel/all/index');
-    assert(appJson.pages.includes('pages/channel/index'), 'app.json 已注册 pages/channel/index（详情占位，消除死链）');
+    assert(appJson.pages.includes('pages/channel/index'), 'app.json 已注册 pages/channel/index（详情深链目标）');
   }
 
-  section('二、platform 聚合（对齐 Android DiscoverViewModel）');
+  section('二、GET /api/channels 信封解包（Web getRecommendedChannels 公开口径）');
   {
-    requestHandler = routeAwareHandler({ '/api/podcast/list': { statusCode: 200, data: PODCASTS } });
+    requestHandler = routeAwareHandler({ '/api/channels': channelsEnvelope(CHANNELS) });
     calls.request.length = 0;
     const page = createPage(allPage);
     page.onLoad();
     await tick();
 
-    assert(calls.request.length === 1 && /\/api\/podcast\/list$/.test(calls.request[0].url), 'onLoad 发起 GET /api/podcast/list');
+    assert(calls.request.length === 1 && /\/api\/channels$/.test(calls.request[0].url), 'onLoad 发起 GET /api/channels（不再客户端聚合 /api/podcast/list）');
     assert(page.data.isLoading === false && page.data.error === null, '加载完成复位状态');
-    assert(page.data.channels.length === 3, '空 platform（null/空串）被过滤，剩 3 个频道');
-    assert(page.data.channels[0].name === 'BBC' && page.data.channels[0].podcastCount === 5, 'BBC 聚合 5 档');
-    assert(page.data.channels[1].name === 'CNN' && page.data.channels[1].podcastCount === 3, 'CNN 聚合 3 档');
-    assert(page.data.channels.map((c) => c.podcastCount).join(',') === '5,3,1', '按节目数降序（sortedByDescending）');
-    assert(page.data.channelRows.length === 2 && page.data.channelRows[1].length === 1, '3 频道分块 2 行（2+1，奇数末行）');
+    assert(page.data.channels.length === 3, '信封 data 数组解包为 3 频道');
+    assert(
+      page.data.channels[0].name === 'BBC Learning English' &&
+        page.data.channels[0].coverUrl === 'https://oss/signed-banner.jpg?sig=1' &&
+        page.data.channels[0].episodeCount === 416 &&
+        page.data.channels[0].podcastCount === 9,
+      '频道字段透传（name/coverUrl/podcastCount/episodeCount）'
+    );
+    assert(page.data.channelRows.length === 2 && page.data.channelRows[1].length === 1, '3 频道分块 2 行（2+1，奇数末行占位）');
+
+    // utils/channels 信封异常口径
+    requestHandler = routeAwareHandler({ '/api/channels': { statusCode: 200, data: { success: false, error: 'Channel service down' } } });
+    let err = null;
+    await fetchChannels().catch((e) => (err = e));
+    assert(err && err.message === 'Channel service down', 'success:false → 抛信封 error（页面错误态）');
+
+    requestHandler = routeAwareHandler({ '/api/channels': { statusCode: 200, data: { success: true } } });
+    err = null;
+    await fetchChannels().catch((e) => (err = e));
+    assert(err && err.message === '加载频道失败', 'data 非数组 → 兜底文案');
   }
 
   section('三、错误 / 空态 / 重试');
   {
     requestHandler = routeAwareHandler({
-      '/api/podcast/list': { statusCode: 500, data: { success: false, error: 'Internal Server Error' } },
+      '/api/channels': { statusCode: 500, data: { success: false, error: 'Internal Server Error' } },
     });
     const page = createPage(allPage);
     page.onLoad();
     await tick();
     assert(page.data.error === 'Internal Server Error' && page.data.isLoading === false, '5xx → 错误态展示 message（wxml 渲染重试按钮）');
 
-    requestHandler = routeAwareHandler({ '/api/podcast/list': { statusCode: 200, data: [] } });
+    requestHandler = routeAwareHandler({ '/api/channels': channelsEnvelope([]) });
     page.onRetry();
     await tick();
-    assert(page.data.error === null && page.data.channels.length === 0, '重试成功 → 空态（EmptyBox「暂无频道」分支）');
+    assert(page.data.error === null && page.data.channels.length === 0, '重试成功 → 空态（「暂无频道」分支）');
   }
 
-  section('四、频道深链跳转');
+  section('四、频道深链跳转（channel-card open 事件口径）');
   {
     const page = createPage(allPage);
     navigations.length = 0;
-    page.onOpenChannel({ currentTarget: { dataset: { name: 'BBC News & Sport' } } });
-    assert(navigations[0] === '/pages/channel/index?name=' + encodeURIComponent('BBC News & Sport'), '卡片点击 → 频道详情页 ?name= 深链（encodeURIComponent）');
+    page.onOpenChannel({ detail: { name: 'BBC News & Sport' } });
+    assert(navigations[0] === '/pages/channel/index?name=' + encodeURIComponent('BBC News & Sport'), '卡片 open 事件 e.detail.name → 频道详情页 ?name= 深链（encodeURIComponent）');
+    assert(page.onOpenChannel({ detail: {} }) === undefined, '无 name 静默忽略（不跳转）');
 
     // 详情占位页：name 解码 + 导航栏标题
     const detail = createPage(detailPage);
@@ -169,7 +188,7 @@ const PODCASTS = [
     assert(navTitles[navTitles.length - 1] === 'CNN', '占位页导航栏标题 = 频道名');
   }
 
-  section('五、发现页入口接线');
+  section('五、发现页入口与推荐频道模块（/api/channels 同源 + 软失败）');
   {
     assert(discoverPage.onViewAllChannels !== undefined, '发现页存在 onViewAllChannels');
     navigations.length = 0;
@@ -177,31 +196,53 @@ const PODCASTS = [
     assert(navigations[0] === '/pages/channel/all/index', '「推荐频道 · 查看更多」→ 全部频道页');
     const discoverWxml = fs.readFileSync(path.join(__dirname, '../pages/discover/index.wxml'), 'utf8');
     assert(discoverWxml.includes('查看更多') && discoverWxml.includes('bindtap="onViewAllChannels"'), '发现页「查看更多」绑定 onViewAllChannels');
+
+    // 推荐频道模块：与全部频道同源（/api/channels），含封面/集数；双列分块
+    requestHandler = routeAwareHandler({
+      '/api/podcast/list': { statusCode: 200, data: [{ podcastid: 'p1', platform: 'BBC' }] },
+      '/api/channels': channelsEnvelope(CHANNELS),
+    });
+    const page = createPage(discoverPage);
+    await page.loadData();
+    assert(page.data.channels.length === 3 && page.data.channels[0].episodeCount === 416, '发现页推荐频道来自 /api/channels（封面/总集数字段齐备）');
+    assert(page.data.channelRows.length === 2 && page.data.channelRows[0].length === 2, '推荐频道双列分块（每行两个）');
+
+    // 软失败：/api/channels 异常不阻断发现页其余区块
+    requestHandler = routeAwareHandler({
+      '/api/podcast/list': { statusCode: 200, data: [{ podcastid: 'p1', platform: 'BBC' }] },
+      '/api/channels': { statusCode: 500, data: { success: false, error: 'boom' } },
+    });
+    const page2 = createPage(discoverPage);
+    await page2.loadData();
+    assert(page2.data.error === null && page2.data.channels.length === 0, '频道接口失败 → 软失败（整页正常、推荐频道模块隐藏）');
   }
 
-  section('六、WXML/WXSS 复刻规格（ChannelListScreen.kt / ChannelCard）');
+  section('六、WXML/WXSS 复刻规格（Web ChannelCard.tsx / discover/channels 页）');
   {
     const wxml = fs.readFileSync(path.join(__dirname, '../pages/channel/all/index.wxml'), 'utf8');
     [
-      '全部频道', '暂无频道', '档节目', '频道主页',
-      'class="channel-name"', 'wx:if="{{item.length === 1}}"',
-      '/assets/icons/computer.svg', 'bindtap="onOpenChannel"', 'data-name="{{channel.name}}"',
-    ].forEach((frag) => assert(wxml.includes(frag), `WXML 含 ${frag}`));
+      '全部频道', '暂无频道', 'channel-card',
+      'channel="{{channel}}"', 'bind:open="onOpenChannel"',
+      'wx:if="{{item.length === 1}}"', 'wx:key="name"',
+    ].forEach((frag) => assert(wxml.includes(frag), `全部频道 WXML 含 ${frag}`));
+    assert(!wxml.includes('频道主页') && !wxml.includes('computer.svg'), '旧版「频道主页」胶囊/computer 图标已废弃');
+
+    const discoverWxml2 = fs.readFileSync(path.join(__dirname, '../pages/discover/index.wxml'), 'utf8');
+    assert(discoverWxml2.includes('<channel-card channel="{{channel}}" bind:open="onOpenChannel" />'), '发现页推荐频道渲染 channel-card 组件');
+    assert(!discoverWxml2.includes('频道主页'), '发现页旧版「频道主页」按钮已废弃');
 
     const wxss = fs.readFileSync(path.join(__dirname, '../pages/channel/all/index.wxss'), 'utf8');
-    assert(wxss.includes('aspect-ratio: 1 / 1'), '方卡 aspectRatio(1f)');
-    assert(wxss.includes('var(--primary-50)'), '卡底 primaryContainer=#edf7f2（=primary-50）');
-    assert(wxss.includes('border-radius: 32rpx'), '圆角 16dp=32rpx');
-    assert(wxss.includes('var(--primary-950)'), '文字色 onPrimaryContainer=#0a241b');
-    assert(wxss.includes('opacity: 0.7'), '档节目 onPrimaryContainer 70% 透明度');
-    assert(wxss.includes('justify-content: center'), '卡片内容垂直居中（verticalArrangement=Center）');
-    assert(wxss.includes('text-overflow: ellipsis'), '频道名单行截断（maxLines=1 + Ellipsis）');
-    assert(wxss.includes('background-color: var(--card-bg)') && wxss.includes('var(--r-full)'), '胶囊底色随主题（card-bg）rounded-full');
-    assert(wxss.includes('font-size: 44rpx'), '页标题 titleLarge=22sp');
+    assert(wxss.includes('display: flex') && wxss.includes('gap: 24rpx'), '双列网格保留（每行两个，12dp 间距）');
+    assert(!wxss.includes('aspect-ratio: 1 / 1') && !wxss.includes('var(--primary-950)'), '旧版 1:1 绿底方卡样式已废弃删除');
 
-    // 图标：经典 Material Icons filled Computer（Icons.Filled.Computer，viewBox 0 0 24 24）+ 品牌色烘焙
-    const svg = fs.readFileSync(path.join(__dirname, '../assets/icons/computer.svg'), 'utf8');
-    assert(svg.includes('viewBox="0 0 24 24"') && svg.includes('fill="#1f7a5c"'), 'computer.svg 为官方 filled path 且烘焙 primary 色');
+    // 组件与页面 json 注册
+    const allJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/channel/all/index.json'), 'utf8'));
+    const discoverJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/discover/index.json'), 'utf8'));
+    assert(allJson.usingComponents['channel-card'] === '/components/common/channel-card/index', '全部频道页注册 channel-card 组件');
+    assert(discoverJson.usingComponents['channel-card'] === '/components/common/channel-card/index', '发现页注册 channel-card 组件');
+
+    const compJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../components/common/channel-card/index.json'), 'utf8'));
+    assert(compJson.component === true, 'components/common/channel-card 组件声明 component:true');
   }
 
   section('七、频道详情页数据链路（GET /api/channel/{name}）');

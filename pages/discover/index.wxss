@@ -269,36 +269,9 @@
   color: #fff;
 }
 
-/* ============ 频道卡片 ============ */
-.channel-card {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background-color: var(--primary-100);
-  border-radius: var(--r-lg);
-  padding: 24rpx;
-  box-sizing: border-box;
-}
-
-.channel-name {
-  color: var(--primary-800);
-  text-align: center;
-}
-
-.channel-count {
-  color: var(--primary-600);
-  opacity: 0.7;
-  text-align: center;
-}
-
-.channel-btn {
-  background-color: var(--card-bg);
-  padding: 12rpx 24rpx;
-  border-radius: var(--r-full);
-}
-
-.channel-btn-text {
-  color: var(--color-primary);
-}
+/* ============ 频道卡片 ============
+   已重构为 components/common/channel-card 组件（复刻 Web ChannelCard.tsx：
+   封面 + 眉标 + 集数行），旧版绿底居中卡/「频道主页」胶囊样式废弃删除。 */
 
 /* ============ 分类标签横滑 ============ */
 .tag-scroll {

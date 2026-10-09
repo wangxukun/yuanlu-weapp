@@ -108,6 +108,8 @@ const TAG_LIBRARY = [
     requestHandler = routeAwareHandler({
       '/api/podcast/list': { statusCode: 200, data: PODCASTS },
       '/api/tag/list': { statusCode: 200, data: TAG_LIBRARY },
+      // 推荐频道模块独立数据源（软失败不阻断本页；给出正常信封避免噪音）
+      '/api/channels': { statusCode: 200, data: { success: true, data: [] } },
     });
     calls.request.length = 0;
     const page = createPage(pageConfig);
@@ -124,6 +126,7 @@ const TAG_LIBRARY = [
   {
     requestHandler = routeAwareHandler({
       '/api/podcast/list': { statusCode: 200, data: PODCASTS },
+      '/api/channels': { statusCode: 200, data: { success: true, data: [] } },
     });
     const page = createPage(pageConfig);
     await page.loadData();
@@ -144,7 +147,10 @@ const TAG_LIBRARY = [
   section('三、toggle 与复位');
   {
     const page = createPage(pageConfig);
-    requestHandler = routeAwareHandler({ '/api/podcast/list': { statusCode: 200, data: PODCASTS } });
+    requestHandler = routeAwareHandler({
+      '/api/podcast/list': { statusCode: 200, data: PODCASTS },
+      '/api/channels': { statusCode: 200, data: { success: true, data: [] } },
+    });
     await page.loadData();
 
     page.onSelectTag({ currentTarget: { dataset: { id: 102 } } });

@@ -477,3 +477,14 @@
 | 订单卡行首 / 订阅页「订单记录」入口 | `receipt_long` | receipt-long-onsurface.svg | #655d4c（ink-600） |
 | 同上（深色） | `receipt_long` | receipt-long-onsurface-dark.svg | #a8a29e（ink-400；与学习路径 onsurface 对同色规） |
 | 订单中心空态 | `receipt_long`（复用） | 同上两枚 | 大尺寸 96rpx 展示，不另烘焙 |
+
+## 十三、频道卡片批（2026-10-09，发现页/全部频道 Web ChannelCard 复刻配套，+2）
+
+> 频道卡（components/common/channel-card，严格复刻 Web components/discover/ChannelCard.tsx）
+> 集数行天线图标。字形源同 112/124 批 `podcasts`（经典 materialicons 24px），仅换烘焙色，
+> 复用已有 path，未重新拉取缓存源。
+
+| 用途 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 频道卡集数行（浅色） | `podcasts` | podcasts-ink.svg | #857c68（ink-500，与集数文字 text-ink-500 同色；date-range-ink 同色规） |
+| 频道卡集数行（深色） | `podcasts` | podcasts-ink-dark.svg | #a8a29e（深色 ink-500，date-range-ink-dark 同色规） |

@@ -1,0 +1,37 @@
+<!-- components/common/channel-card — 频道卡片
+  严格复刻 Web components/discover/ChannelCard.tsx：
+  上半 16:9 频道横幅封面（服务端已解析：品牌横幅签名或代表节目封面；
+  兜底品牌色字标 = Web ui-avatars(#1F7A5C 白字) 本地等价物，免外链）；
+  下半信息区左对齐：「频道 Channel」大写眉标（uppercase）+ 加粗频道名（单行截断）
+  + podcasts 天线图标集数行「N 集 · M 档节目」（档数 <3 不展示）。 -->
+<view class="cc-card {{themeClass}}" hover-class="cc-card--hover" hover-stay-time="80" bindtap="_onTap">
+  <!-- 封面区：16:9 自适应裁剪铺满，ink-200 底垫 -->
+  <view class="cc-cover">
+    <image
+      wx:if="{{hasCover && !coverError}}"
+      class="cc-cover-img"
+      src="{{coverUrl}}"
+      mode="aspectFill"
+      binderror="_onCoverError"
+    />
+    <view wx:else class="cc-cover-fallback">
+      <text class="cc-cover-initial">{{initial}}</text>
+    </view>
+  </view>
+
+  <!-- 信息区：左对齐 -->
+  <view class="cc-info">
+    <text class="cc-label">频道 Channel</text>
+    <text class="cc-name">{{name}}</text>
+    <view class="cc-meta">
+      <view class="cc-meta-item">
+        <image class="cc-meta-icon" src="{{dark ? '/assets/icons/podcasts-ink-dark.svg' : '/assets/icons/podcasts-ink.svg'}}" />
+        <text class="cc-meta-text">{{episodeText}} 集</text>
+      </view>
+      <block wx:if="{{showPodcastCount}}">
+        <view class="cc-meta-dot"></view>
+        <text class="cc-meta-text">{{podcastCount}} 档节目</text>
+      </block>
+    </view>
+  </view>
+</view>

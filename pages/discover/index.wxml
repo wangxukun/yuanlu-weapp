@@ -161,7 +161,7 @@
       </view>
     </block>
 
-    <!-- 推荐频道 -->
+    <!-- 推荐频道（channel-card 组件：复刻 Web ChannelCard，封面+眉标+集数行） -->
     <block wx:if="{{channels.length > 0}}">
       <view class="section-header between">
         <text class="t-h3 text-bold">推荐频道</text>
@@ -169,14 +169,9 @@
       </view>
       <view class="grid-row" wx:for="{{channelRows}}" wx:key="index">
         <view class="grid-col" wx:for="{{item}}" wx:for-item="channel" wx:key="name">
-          <view class="channel-card tap-scale center col" bindtap="onOpenChannel" data-name="{{channel.name}}">
-            <text class="channel-name t-h3 text-bold">{{channel.name}}</text>
-            <text class="channel-count t-caption mt-1">{{channel.podcastCount}} 档节目</text>
-            <view class="channel-btn row center mt-3">
-              <text class="channel-btn-text t-mini text-primary text-bold">频道主页</text>
-            </view>
-          </view>
+          <channel-card channel="{{channel}}" bind:open="onOpenChannel" />
         </view>
+        <!-- 单数末行占位 -->
         <view class="grid-col" wx:if="{{item.length === 1}}"></view>
       </view>
     </block>

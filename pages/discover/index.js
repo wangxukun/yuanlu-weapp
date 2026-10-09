@@ -1,4 +1,5 @@
 const { get } = require('../../utils/request');
+const { fetchChannels } = require('../../utils/channels');
 const theme = require('../../utils/theme');
 
 Page({
@@ -76,16 +77,15 @@ Page({
         .sort((a, b) => new Date(b.createAt) - new Date(a.createAt))
         .slice(0, 8); // TOP 8
 
-      // 频道聚合
-      const channelMap = {};
-      podcasts.forEach(p => {
-        if (p.platform) {
-          channelMap[p.platform] = (channelMap[p.platform] || 0) + 1;
-        }
-      });
-      const channels = Object.entries(channelMap)
-        .map(([name, count]) => ({ name, podcastCount: count }))
-        .sort((a, b) => b.podcastCount - a.podcastCount);
+      // 推荐频道：GET /api/channels（Web 发现页/全部频道同源；服务端聚合
+      // platform + 频道品牌横幅签名 + 总集数 + channel 表排序，客户端不再
+      // 自行按 podcastCount 聚合）。软失败——接口异常仅隐藏该模块，不阻断整页。
+      let channels = [];
+      try {
+        channels = await fetchChannels();
+      } catch (e) {
+        channels = [];
+      }
 
       // 热门榜每行两列：预处理成二维数组供 WXML 双列渲染
       const trendingRows = this._chunkPairs(trending.slice(0, 6)); // 截取前6供UI展示
@@ -176,9 +176,10 @@ Page({
     wx.navigateTo({ url: `/pages/podcast/podcast?id=${id}` });
   },
 
-  /** 点击频道卡片 */
+  /** 点击频道卡片（channel-card 组件 open 事件）→ 频道详情页 */
   onOpenChannel(e) {
-    const name = e.currentTarget.dataset.name;
+    const name = e.detail.name;
+    if (!name) return;
     wx.navigateTo({ url: `/pages/channel/index?name=${encodeURIComponent(name)}` });
   },
 
