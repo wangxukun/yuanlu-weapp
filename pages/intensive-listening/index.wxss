@@ -424,6 +424,9 @@
   width: 100%;
   height: 100%;
   opacity: 0;
+  color: transparent;
+  background-color: transparent;
+  caret-color: transparent;
 }
 
 /* ============ 游客试听墙（Web InteractiveTranscript 尾部解锁按钮复刻） ============
