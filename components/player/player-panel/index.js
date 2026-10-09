@@ -10,7 +10,8 @@
  *     标题/播客名 → 「播放列表 | 定时关闭」行（进度条正上方）→ 进度条 + 双端时间 →
  *     控制排（倍速 / 上一首 / 播放大钮 / 下一首 / 循环）；
  *   - 页面最底部：橙色「精听模式」胶囊（GraphicEq 图标），点击跳本集精听工作流
- *     （episode 页 practice 深链自动起播；已在剧集页则就地驱动精听起播）；
+ *     （episode 页 practice 深链自动起播；已在剧集页则就地驱动精听起播；
+ *     已在本集精听页上唤起面板时等价于收起箭头，只关面板不重载）；
  *   - 「定时」底部弹层：上次定时（Switch 快捷重开/取消）→ 按时间（播完整集停止 +
  *     15/30/60/90分/自定义）→ 按集数（本集/2/3/5集）→ 定时启播占位；
  *   - 「播放列表」底部弹层：当前播放列表切换（点条目切播，当前集高亮）——
@@ -32,6 +33,9 @@ const MINUTE_OPTIONS = [15, 30, 60, 90];
 const EPISODE_OPTIONS = [1, 2, 3, 5];
 // 纯时间推进（timeupdate）节流间隔
 const TIME_TICK = 400;
+// 独立精听工作流页路由（页面实例 route 字段无前导斜杠）
+const INTENSIVE_ROUTE = 'pages/intensive-listening/index';
+const INTENSIVE_ROUTE_URL = '/' + INTENSIVE_ROUTE + '?id=';
 
 /** mm:ss（分钟定时按钮倒计时展示） */
 function formatTime(seconds) {
@@ -386,22 +390,46 @@ Component({
     },
 
     /**
+     * 当前是否已处于「本集精听上下文」：栈顶（= 本面板的宿主页，面板只在
+     * 当前显示页上可交互）即精听页，且该页展示的正是当前播放集。
+     * 页面实例 episodeid 优先读 data（singletonReload 换集后会更新），
+     * 兜底读路由参数 options.id。
+     */
+    _isInIntensiveContext(ep) {
+      if (!ep || !ep.episodeid) return false;
+      const top = route.getTopPage();
+      if (!top || top.route !== INTENSIVE_ROUTE) return false;
+      const pageEpisodeId = (top.data && top.data.episodeid) ||
+        (top.options && top.options.id) || '';
+      return String(pageEpisodeId) === String(ep.episodeid);
+    },
+
+    /**
      * 「精听模式」橙色胶囊（对齐 Android onOpenIntensive → IntensiveListeningNav）：
      * 补精听标记 + 收起面板，跳转本集独立精听工作流页（3.B.4，对齐 Android
      * IntensiveListeningScreen；此前由 episode 页 practice 深链承接）。
-     * 单例跳转（utils/route）：栈内已有精听页实例 → navigateBack 回退
-     * （换集时经 singletonReload 就地重指）；栈顶已是本集精听页 → no-op。
+     *
+     * 分支（2026-10-09 交互统一）：
+     *   1. 已在本集精听上下文（精听页 → 迷你条唤起面板）→ 与左上角收起箭头
+     *      （onCollapse）完全一致：只收起面板，不触发任何路由/重载/toast，
+     *      精听页的高亮、扫光、滚动位置、单句循环等状态原样保留；
+     *   2. 其余情况走单例跳转（utils/route）：栈内已有精听页实例 → navigateBack
+     *      回退（同集保留状态，换集经 singletonReload 就地重指）；不存在 → 压栈。
      */
     onOpenIntensive() {
       const ep = playerStore.getState().currentEpisode;
       if (!ep || !ep.episodeid) return;
+
+      if (this._isInIntensiveContext(ep)) {
+        // 精听页 _ensurePlaying 已补过标记；仅防御性补齐，避免无谓 emit
+        if (!playerStore.getState().isIntensiveMode) audioManager.setIntensiveMode(true);
+        this.onCollapse();
+        return;
+      }
+
       audioManager.setIntensiveMode(true); // 对齐 Android：进入精听流时补标记
       this.triggerEvent('close');
-      const r = route.singletonNavigateTo('/pages/intensive-listening/index?id=' + ep.episodeid);
-      // 栈顶已是精听页：单例 no-op（面板收起即止），toast 点明当前已在精听页
-      if (r.action === 'noop') {
-        wx.showToast({ title: '已在精听页', icon: 'none' });
-      }
+      route.singletonNavigateTo(INTENSIVE_ROUTE_URL + ep.episodeid);
     },
 
     /** header chevron-down：仅收起面板（会话保留） */

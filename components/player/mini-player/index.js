@@ -18,6 +18,7 @@
 const audioManager = require('../../../utils/audioManager');
 const audioBus = require('../../../utils/audio-bus');
 const playerStore = require('../../../store/playerStore');
+const route = require('../../../utils/route');
 
 Component({
   options: {
@@ -98,7 +99,7 @@ Component({
      *  小程序无 app 级 UI 挂载点，面板随宿主页各持一份，永不入页面栈） */
     onOpenPanel() {
       try {
-        const routes = (wx.getCurrentPages() || []).map((p) => p.route);
+        const routes = route.getPageStack().map((p) => p.route);
         console.info('[迷你条] 面板就地展开（overlay，无路由跳转）｜栈深 ' +
           routes.length + '：[' + routes.join(' › ') + ']');
       } catch (e) {

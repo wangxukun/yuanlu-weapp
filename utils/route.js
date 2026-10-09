@@ -8,7 +8,7 @@
  * 重复实例，回不到主流程。
  *
  * singletonNavigateTo(url)：
- *   - 经 wx.getCurrentPages() 自底向上找**最深处**的目标路由实例
+ *   - 经全局 getCurrentPages()（getPageStack 封装）自底向上找**最深处**的目标路由实例
  *     （栈里若已有多条重复，回退到最深处即弹出其上全部重复层，顺带去重）；
  *   - 已存在 → wx.navigateBack({ delta }) 回退到该实例；实例若实现
  *     singletonReload(query) 钩子则就地换参刷新（播放列表切集后回退到
@@ -17,7 +17,42 @@
  *
  * 页面实例的 route 字段无前导斜杠（如 'pages/episode/episode'），
  * 入参 url 带不带开头斜杠均可。
+ *
+ * 2026-10-09 根因修复（精听页经面板「精听模式」二次进入被重新加载）：
+ * 原实现调用 wx.getCurrentPages()——微信运行时**不存在**该 API
+ * （页面栈查询是逻辑层全局函数 getCurrentPages()，与 App/Page/getApp
+ * 同级，不挂在 wx 上）。真机/开发者工具里 wx.getCurrentPages 为
+ * undefined → 调用抛 TypeError → 被 try/catch 吞掉按「空栈」处理 →
+ * 永远走 navigateTo 压栈：精听页上点「精听模式」压入第二个精听页实例
+ * （onLoad 全量重拉、句子高亮/扫光复位），封面 → 剧集页同样重复压栈。
+ * 单测此前把 getCurrentPages mock 在 wx 上，恰好掩盖了该问题。
+ * 现统一经 getPageStack() 读取：优先全局 getCurrentPages，wx 挂载仅作兜底。
  */
+
+/**
+ * 读取当前页面栈（数组首项为最底层页面，末项为栈顶/当前显示页）。
+ * 优先使用逻辑层全局 getCurrentPages()（微信官方唯一口径）；
+ * 个别测试桩/历史环境若仅挂在 wx 上则兜底读取；均不可用时返回空栈。
+ */
+function getPageStack() {
+  try {
+    if (typeof getCurrentPages === 'function') {
+      return getCurrentPages() || []; // eslint-disable-line no-undef
+    }
+    if (typeof wx !== 'undefined' && wx && typeof wx.getCurrentPages === 'function') {
+      return wx.getCurrentPages() || [];
+    }
+  } catch (e) {
+    // 页面栈不可用（极早期/异常环境）→ 按空栈处理
+  }
+  return [];
+}
+
+/** 栈顶页面实例（当前正在显示的页面）；空栈返回 null */
+function getTopPage() {
+  const pages = getPageStack();
+  return pages.length ? pages[pages.length - 1] : null;
+}
 
 /** url → { path, query }；path 归一为无前导斜杠，query 值解码 */
 function parseUrl(url) {
@@ -38,7 +73,7 @@ function parseUrl(url) {
  */
 function logDecision(action, path, delta) {
   try {
-    const routes = (wx.getCurrentPages() || []).map((p) => p.route);
+    const routes = getPageStack().map((p) => p.route);
     console.info('[单例路由] ' + action + (delta ? '(delta=' + delta + ')' : '') +
       ' → ' + path + ' ｜ 当前栈深 ' + routes.length + '：[' + routes.join(' › ') + ']');
   } catch (e) {
@@ -48,12 +83,8 @@ function logDecision(action, path, delta) {
 
 function singletonNavigateTo(url) {
   const { path, query } = parseUrl(url);
-  let pages = [];
-  try {
-    pages = wx.getCurrentPages() || [];
-  } catch (e) {
-    // 页面栈不可用（极早期/异常环境）→ 按不存在处理直接压栈
-  }
+  // 页面栈不可用时 getPageStack 返回 [] → 按不存在处理直接压栈
+  const pages = getPageStack();
 
   // 自底向上：第一个命中即最深处实例，回退到它 = 弹出其上所有层（含重复）
   let targetIdx = -1;
@@ -90,4 +121,4 @@ function singletonNavigateTo(url) {
   return { action: delta > 0 ? 'back' : 'noop', delta };
 }
 
-module.exports = { singletonNavigateTo, parseUrl };
+module.exports = { singletonNavigateTo, parseUrl, getPageStack, getTopPage };

@@ -57,6 +57,10 @@ const toastCalls = []; // showToast 标题记录（no-op 反馈断言用）
 const modalCalls = [];
 const requestUrls = [];
 let currentPages = []; // 页面栈 mock（单例路由查重/跳转守卫用）
+// 页面栈按真实运行时口径 mock 为**逻辑层全局函数** getCurrentPages()——
+// 微信运行时不存在 wx.getCurrentPages（2026-10-09 精听页二次进入被重载的根因：
+// 旧 mock 挂在 wx 上，单测全绿而真机永远查到空栈 → 重复压栈）
+global.getCurrentPages = () => currentPages;
 global.wx = {
   getStorageSync: () => '',
   setStorageSync: () => {},
@@ -64,7 +68,6 @@ global.wx = {
   showToast: (opts) => { toastCalls.push(opts && opts.title); },
   showModal: (opts) => { modalCalls.push(opts); },
   navigateTo: (opts) => { navCalls.push(opts.url); },
-  getCurrentPages: () => currentPages,
   switchTab: () => {},
   navigateBack: (opts) => { backCalls.push(opts && opts.delta); },
   stopPullDownRefresh: () => {},
@@ -513,14 +516,124 @@ const subRequestCount = () => requestUrls.filter((u) => u === '/api/episode/subt
     reloadSpy.length = 0;
     navCalls.length = 0;
     backCalls.length = 0;
+    toastCalls.length = 0;
     panel2.onOpenIntensive();
     assert(navCalls.length === 0 && backCalls.length === 0 && audioManager.getState().isIntensiveMode === true,
       '栈顶精听页(ep4) 再点「精听模式」(现播 ep5) → 补标记后 no-op，不压栈');
-    assert(toastCalls.includes('已在精听页'),
-      '栈顶 no-op → toast「已在精听页」点明单例语义');
+    assert(!toastCalls.includes('已在精听页'),
+      '栈顶 no-op 不再弹 toast（交互与收起箭头统一，页面换集本身即反馈）');
     assert(reloadSpy.length === 1 && reloadSpy[0].id === 'ep5',
       '精听页实例 singletonReload 重指 ep5（不新开精听页实例）');
 
+    audioManager.close();
+    currentPages = [];
+  }
+
+  section('七、回归：精听页唤起面板后「精听模式」≡ 左上角收起箭头（2026-10-09）');
+  {
+    // —— 根因：页面栈 API 口径 ——
+    assert(typeof wx.getCurrentPages === 'undefined',
+      '前置：mock 与真机一致，wx 上不存在 getCurrentPages');
+    currentPages = [{ route: 'pages/home/index' }, { route: 'pages/intensive-listening/index' }];
+    assert(route.getPageStack().length === 2 && route.getTopPage().route === 'pages/intensive-listening/index',
+      'route.getPageStack/getTopPage 读取全局 getCurrentPages（旧实现读 wx.getCurrentPages 恒为空栈）');
+
+    const panel3 = makeInstance(panelDef);
+    panel3._attached();
+    const reloadSpy = [];
+    let storeEmits = 0;
+    const unsub = playerStore.subscribe(() => { storeEmits += 1; });
+
+    // 精听页实例桩：data.episodeid（singletonReload 会更新）+ 路由参数 options.id
+    const intensivePage = (dataId, optId) => ({
+      route: 'pages/intensive-listening/index',
+      options: { id: optId || dataId },
+      data: { episodeid: dataId },
+      singletonReload(q) { reloadSpy.push(q); },
+    });
+    const resetSpies = () => {
+      navCalls.length = 0;
+      backCalls.length = 0;
+      toastCalls.length = 0;
+      reloadSpy.length = 0;
+      panel3.events.length = 0;
+      storeEmits = 0;
+    };
+    const snapshot = () => JSON.stringify({
+      events: panel3.events.slice(),
+      nav: navCalls.slice(),
+      back: backCalls.slice(),
+      toast: toastCalls.slice(),
+      reload: reloadSpy.slice(),
+      emits: storeEmits,
+    });
+
+    // 复现链路：剧集页 → 开始精听 → 面板「精听模式」首次进入精听页
+    await audioManager.playEpisode(EP('ep4'), { playlist: [EP('ep4'), EP('ep5')] });
+    await tick();
+    currentPages = [{ route: 'pages/home/index' }, { route: 'pages/episode/episode', options: { id: 'ep4' } }];
+    resetSpies();
+    panel3.onOpenIntensive();
+    assert(navCalls[0] === '/pages/intensive-listening/index?id=ep4' && backCalls.length === 0,
+      '首次进入：栈内无精听页 → navigateTo 压栈（正常加载）');
+    assert(audioManager.getState().isIntensiveMode === true, '首次进入：补精听标记');
+
+    // 精听页迷你条唤起面板（宿主 = 栈顶精听页）
+    currentPages = [
+      { route: 'pages/home/index' },
+      { route: 'pages/episode/episode', options: { id: 'ep4' } },
+      intensivePage('ep4'),
+    ];
+
+    // 方式 1：左上角收起箭头
+    resetSpies();
+    panel3.onCollapse();
+    const viaChevron = snapshot();
+
+    // 方式 2：底部「精听模式」
+    resetSpies();
+    panel3.onOpenIntensive();
+    const viaButton = snapshot();
+
+    assert(navCalls.length === 0, '方式 2：不 navigateTo（不压第二个精听页实例 → 不重新加载）');
+    assert(backCalls.length === 0, '方式 2：不 navigateBack');
+    assert(reloadSpy.length === 0, '方式 2：不调 singletonReload（页面状态/扫光/滚动零扰动）');
+    assert(toastCalls.length === 0, '方式 2：不弹 toast');
+    assert(storeEmits === 0, '方式 2：精听标记已在 → 不 emit 无谓的 episodeChange');
+    assert(panel3.events.length === 1 && panel3.events[0] === 'close', '方式 2：仅触发 close 收起面板');
+    assert(viaButton === viaChevron, '方式 1 与方式 2 副作用逐项完全一致');
+
+    // 防御：极端情况下精听标记缺失 → 只补标记，仍不路由
+    audioManager.setIntensiveMode(false);
+    resetSpies();
+    panel3.onOpenIntensive();
+    assert(audioManager.getState().isIntensiveMode === true && navCalls.length === 0 && backCalls.length === 0 && reloadSpy.length === 0,
+      '精听上下文内标记缺失 → 仅补标记 + 收起，仍不路由不重载');
+
+    // 精听页经 singletonReload 换集后：options.id 仍是旧集，data.episodeid 为新集
+    await audioManager.playEpisode(EP('ep5'), { playlist: [EP('ep4'), EP('ep5')], intensive: true });
+    await tick();
+    currentPages = [{ route: 'pages/home/index' }, intensivePage('ep5', 'ep4')];
+    resetSpies();
+    panel3.onOpenIntensive();
+    assert(navCalls.length === 0 && backCalls.length === 0 && reloadSpy.length === 0 && panel3.events[0] === 'close',
+      '上下文判定以页面 data.episodeid 为准（换集后的精听页同样只收起）');
+
+    // 非上下文：精听页展示 ep4、现播 ep5（播放列表切集）→ 单例 no-op + 就地换集
+    currentPages = [{ route: 'pages/home/index' }, intensivePage('ep4')];
+    resetSpies();
+    panel3.onOpenIntensive();
+    assert(navCalls.length === 0 && backCalls.length === 0 && reloadSpy.length === 1 && reloadSpy[0].id === 'ep5',
+      '精听页集 ≠ 现播集 → 不压栈，singletonReload 就地重指新集');
+
+    // 非上下文：剧集页（栈顶）面板点「精听模式」，栈深处已有本集精听页 → 回退复用实例
+    currentPages = [{ route: 'pages/home/index' }, intensivePage('ep5'), { route: 'pages/episode/episode', options: { id: 'ep5' } }];
+    resetSpies();
+    panel3.onOpenIntensive();
+    assert(navCalls.length === 0 && backCalls[0] === 1,
+      '栈深处已有精听页 → navigateBack 回退复用实例（同集 singletonReload 页面侧 no-op，状态保留）');
+
+    unsub && unsub();
     audioManager.close();
     currentPages = [];
   }
