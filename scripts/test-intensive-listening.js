@@ -14,8 +14,9 @@
  *     生词落库（/api/vocabulary/add 请求体）；
  *   - 组件：sentence-tag-drawer 预设/自定义标签与 meta 提交、
  *     vocabulary-modal 词源折叠与发音（InnerAudioContext）；
- *   - 词扫光开关（「逐词」按钮，平台性扩展）：默认开/storage 偏好回读、
- *     关闭停发高频扫光补丁且句级高亮保留、重开就地预热。
+ *   - 工具行开关（「逐词」词扫光平台性扩展 + 三开关偏好持久化）：逐词默认开/
+ *     关闭停发高频扫光补丁且句级高亮保留/重开就地预热；逐词/跟随/译文偏好
+ *     wx storage 落盘与 onLoad 集中回读（跟随默认开、译文默认关）。
  *
  * 运行：node scripts/test-intensive-listening.js
  */
@@ -723,9 +724,9 @@ const activeBlock = pageWxss.slice(
 assert(activeBlock.indexOf('font-weight') === -1, 'WXSS：活动句恢复正常字重（移除 font-weight:700）');
 assert(pageWxss.indexOf('.w--on') === -1, 'WXSS：旧单态 .w--on 已退役');
 
-/* ==================== 五·五、词扫光开关（「逐词」按钮，平台性扩展） ==================== */
+/* ==================== 五·五、工具行开关（逐词扫光 + 三开关偏好持久化） ==================== */
 
-section('词扫光开关（逐词按钮：关闭停发高频补丁 / 重开预热 / 偏好持久化）');
+section('工具行开关（逐词扫光：关闭停发高频补丁/重开预热；逐词/跟随/译文偏好持久化）');
 
 // 结构：工具行「逐词」按钮（跟随左侧，仅精读模式渲染）+ Material highlight 双色图标
 assert(pageWxml.indexOf('onToggleWordSweep') >= 0 && pageWxml.indexOf('>逐词</text>') >= 0, 'WXML：工具行「逐词」按钮绑定 onToggleWordSweep');
@@ -789,6 +790,30 @@ global.wx.getStorageSync = origGetStorage;
 assert(page4.data.wordSweep === false, '偏好回读：storage=false → onLoad 默认关');
 page4.onToggleWordSweep();
 assert(page4.data.wordSweep === true && page4.data.viewList[1].swIdx === 2 && page4.data.viewList[1].swOn === true, '偏好关闭态下重开 → 就地预热扫光（6.2s → yes. idx=2）');
+
+// 跟随/译文同款持久化（跟随默认开 → 存显式 false；译文默认关 → 存显式 true）
+storageSets.length = 0;
+page3.onToggleAutoScroll();
+assert(page3.data.autoScroll === false && storageSets.some((s) => s.key === 'intensiveAutoScroll' && s.value === false), '跟随关闭 → 偏好落 storage（intensiveAutoScroll=false）');
+page3.onToggleAutoScroll();
+assert(page3.data.autoScroll === true && storageSets.some((s) => s.key === 'intensiveAutoScroll' && s.value === true), '跟随重开 → 偏好更新（true，跟随态收回）');
+page3.onToggleTranslation();
+assert(page3.data.showTranslation === true && storageSets.some((s) => s.key === 'intensiveShowTranslation' && s.value === true), '译文开启 → 偏好落 storage（intensiveShowTranslation=true）');
+page3.onToggleTranslation();
+assert(page3.data.showTranslation === false && storageSets.some((s) => s.key === 'intensiveShowTranslation' && s.value === false), '译文关闭 → 偏好更新（false）');
+
+// 三键偏好回读：跟随关 + 译文开 + 逐词关 → 新页面三开关全部按偏好初始化
+global.wx.getStorageSync = (k) => {
+  if (k === 'intensiveAutoScroll') return false;
+  if (k === 'intensiveShowTranslation') return true;
+  if (k === 'intensiveWordSweep') return false;
+  return origGetStorage(k);
+};
+const page5 = makePage();
+page5.onLoad({ id: 'ep1' });
+await tick(); await tick(); await tick(); await tick();
+global.wx.getStorageSync = origGetStorage;
+assert(page5.data.autoScroll === false && page5.data.showTranslation === true && page5.data.wordSweep === false, '偏好回读：跟随关/译文开/逐词关 → onLoad 三开关按偏好初始化');
 
 // 终态复位：关闭播放会话（本段重启过播放，listening-reporter 的真实
 // setInterval 会占住事件循环导致进程不退出，须随 close 停表）

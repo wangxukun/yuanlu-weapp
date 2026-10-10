@@ -38,11 +38,13 @@
  * 词扫光开关（小程序平台性扩展，Web 端无此控件——Web 扫光为 rAF 60fps 直写
  * DOM 无性能问题，小程序 timeupdate 离散采样且 setData 有通信成本，低端机
  * 长句仍可能卡顿；另有用户觉得光斑晃眼）：
- *   - 工具行「逐词」按钮（跟随左侧，仅精读模式显示），默认开，
- *     偏好 wx storage 持久化（intensiveWordSweep），关→开就地预热；
+ *   - 工具行「逐词」按钮（跟随左侧，仅精读模式显示），默认开，关→开就地预热；
  *   - 关闭后活动句仅保留句级高亮（primary-50 底 + 左缘线），词色统一；
  *   - _onTick/_setActive/_onPlayerState 预热三处以 wordSweep && 短路，
  *     关闭时高频路径补丁 setData 整体不再产生。
+ *   - 工具行三开关（逐词/跟随/译文）偏好 wx storage 持久化
+ *     （intensiveWordSweep/intensiveAutoScroll/intensiveShowTranslation，
+ *     默认 开/开/关，只存显式翻转值，onLoad 集中回读 + _savePref 统一落盘）。
  */
 
 const theme = require('../../utils/theme');
@@ -62,7 +64,13 @@ const WINDOW_BEHIND = 8;   // 跟随窗口：活动句后方保留句数（上�
 const WINDOW_AHEAD = 40;   // 跟随窗口：活动句前方保留句数（窗口右缘目标）
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
 const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
-const SWEEP_PREF_KEY = 'intensiveWordSweep'; // 词扫光开关偏好（跨会话记忆，缺省开）
+// 工具行开关偏好 key（跨会话记忆）：逐词/跟随默认开、译文默认关——
+// 只存显式翻转值，onLoad 仅在存值偏离默认时覆盖
+const PREF_KEYS = {
+  wordSweep: 'intensiveWordSweep',
+  autoScroll: 'intensiveAutoScroll',
+  showTranslation: 'intensiveShowTranslation',
+};
 
 Page({
   data: {
@@ -81,8 +89,8 @@ Page({
     // 高频路径补丁只让活动句的绑定重算——不再放页面级标量（见文件头性能口径）
     isPlaying: false,
     isPlayingHere: false, // 全局播放器当前会话即本集（对齐 isPlayingThisEpisode）
-    autoScroll: true,
-    showTranslation: false,
+    autoScroll: true, // 跟随开关（默认开；偏好持久化，见 PREF_KEYS）
+    showTranslation: false, // 译文开关（默认关；偏好持久化，见 PREF_KEYS）
     wordSweep: true, // 词级扫光开关（平台性扩展；关闭仅留句级高亮，见文件头）
     loopIndex: -1,
     scrollIntoView: '',
@@ -131,11 +139,12 @@ Page({
       episodeid: query.id || '',
       statusBarH: this._statusBarHeight(),
     });
-    // 词扫光偏好：仅显式存过 false 才关（storage 异常/未存过均回落默认开）
+    // 工具行开关偏好回读：仅显式存过非默认值才覆盖（storage 异常/未存过
+    // 均回落默认：逐词/跟随开、译文关）
     try {
-      if (wx.getStorageSync(SWEEP_PREF_KEY) === false) {
-        this.setData({ wordSweep: false });
-      }
+      if (wx.getStorageSync(PREF_KEYS.wordSweep) === false) this.setData({ wordSweep: false });
+      if (wx.getStorageSync(PREF_KEYS.autoScroll) === false) this.setData({ autoScroll: false });
+      if (wx.getStorageSync(PREF_KEYS.showTranslation) === true) this.setData({ showTranslation: true });
     } catch (e) {}
 
     this._sentences = []; // 原始字幕
@@ -615,9 +624,17 @@ Page({
     }
   },
 
+  /** 工具行偏好落盘（storage 异常静默——偏好丢失不阻断交互） */
+  _savePref(key, value) {
+    try {
+      wx.setStorageSync(key, value);
+    } catch (e) {}
+  },
+
   onToggleAutoScroll() {
     const autoScroll = !this.data.autoScroll;
     this.setData({ autoScroll });
+    this._savePref(PREF_KEYS.autoScroll, autoScroll);
     // 重开跟随：收回自由浏览头部，滑窗回活动句并对齐锚点
     if (autoScroll) {
       this._freeScroll = false;
@@ -640,7 +657,9 @@ Page({
   },
 
   onToggleTranslation() {
-    this.setData({ showTranslation: !this.data.showTranslation });
+    const showTranslation = !this.data.showTranslation;
+    this.setData({ showTranslation });
+    this._savePref(PREF_KEYS.showTranslation, showTranslation);
   },
 
   /**
@@ -654,9 +673,7 @@ Page({
   onToggleWordSweep() {
     const wordSweep = !this.data.wordSweep;
     this.setData({ wordSweep });
-    try {
-      wx.setStorageSync(SWEEP_PREF_KEY, wordSweep);
-    } catch (e) {}
+    this._savePref(PREF_KEYS.wordSweep, wordSweep);
 
     const idx = this.data.activeIndex;
     if (idx < 0 || this.data.mode !== 'read') return;
