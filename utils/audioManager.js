@@ -22,6 +22,7 @@
  */
 
 const { get, post } = require("./request");
+const { fetchSubtitles } = require('./subtitle-cache');
 const progress = require("./progress-reporter");
 const listeningReporter = require("./listening-reporter");
 
@@ -259,9 +260,7 @@ async function playEpisode(episode, context) {
   let audioUrl = localPath || episode.audioUrl;
   if (!audioUrl) {
     // TODO(阶段二)：解析签名直链并缓存（getEpisodeSubtitlesData 同款缓存策略）
-    const body = await get(
-      `/api/episode/subtitles?id=${episode.episodeid}`
-    ).catch(() => null);
+    const body = await fetchSubtitles(episode.episodeid, { showError: false }).catch(() => null);
     audioUrl = (body && body.audioUrl) || null;
     // 解析出的直链可回填 episode.audioUrl 供下次复用
     episode.audioUrl = audioUrl;

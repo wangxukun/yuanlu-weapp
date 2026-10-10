@@ -38,6 +38,7 @@
 
 const theme = require('../../utils/theme');
 const { get, post } = require('../../utils/request');
+const { fetchSubtitles } = require('../../utils/subtitle-cache');
 const audioManager = require('../../utils/audioManager');
 const audioBus = require('../../utils/audio-bus');
 const playerStore = require('../../store/playerStore');
@@ -129,6 +130,7 @@ Page({
     this._lastActive = -1;
     this._lastSwIdx = -1; // 上次下发扫光位置（与 viewList[i].swIdx 同步）
     this._lastSwOn = false; // 上次下发光斑点亮态（与 viewList[i].swOn 同步）
+    this._isRenderingSweep = false; // 是否正在渲染词级扫光（用于限流防积压）
     this._lastSeekAt = 0;
     this._dictErrors = 0;
     this._dictDone = false;
@@ -188,7 +190,7 @@ Page({
     try {
       const [episode, subBody] = await Promise.all([
         get(`/api/episode/detail?id=${episodeid}`),
-        get(`/api/episode/subtitles?id=${episodeid}`),
+        fetchSubtitles(episodeid),
       ]);
       const subtitles = (subBody && subBody.data) || [];
       if (!Array.isArray(subtitles) || subtitles.length === 0) {
@@ -426,11 +428,19 @@ Page({
       const v = views[idx];
       const sw = core.computeWordSweep(v.words, t, v.start, v.end);
       if (sw.idx !== this._lastSwIdx || sw.on !== this._lastSwOn) {
+        if (this._isRenderingSweep) {
+          // 如果上一帧扫光还在渲染队列中，主动丢弃当前帧，防止队列积压
+          // 这会使得高亮在性能受限时跳跃前进，而不是持续滞后并在暂停后继续"追帧"
+          return;
+        }
         this._lastSwIdx = sw.idx;
         this._lastSwOn = sw.on;
+        this._isRenderingSweep = true;
         this.setData({
           ['viewList[' + idx + '].swIdx']: sw.idx,
           ['viewList[' + idx + '].swOn']: sw.on,
+        }, () => {
+          this._isRenderingSweep = false;
         });
       }
     }

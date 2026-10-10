@@ -235,9 +235,10 @@ function makePage() {
     data: JSON.parse(JSON.stringify(pageDef.data)),
     options: {},
     setDataLog: [],
-    setData(d) {
+    setData(d, cb) {
       inst.setDataLog.push(d);
       Object.keys(d).forEach((k) => applyPatch(inst.data, k, d[k]));
+      if (cb) cb();
     },
   };
   Object.keys(pageDef).forEach((k) => {
