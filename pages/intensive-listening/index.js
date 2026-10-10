@@ -34,6 +34,15 @@
  *     窗口的句子哨兵化（blank 占位，节点总量恒定，与剧集时长无关）；
  *     用户手动滚动进入自由浏览（只增不减，活动句保底在窗），点句跳播 /
  *     重开跟随开关收回跟随态。
+ *
+ * 词扫光开关（小程序平台性扩展，Web 端无此控件——Web 扫光为 rAF 60fps 直写
+ * DOM 无性能问题，小程序 timeupdate 离散采样且 setData 有通信成本，低端机
+ * 长句仍可能卡顿；另有用户觉得光斑晃眼）：
+ *   - 工具行「逐词」按钮（跟随左侧，仅精读模式显示），默认开，
+ *     偏好 wx storage 持久化（intensiveWordSweep），关→开就地预热；
+ *   - 关闭后活动句仅保留句级高亮（primary-50 底 + 左缘线），词色统一；
+ *   - _onTick/_setActive/_onPlayerState 预热三处以 wordSweep && 短路，
+ *     关闭时高频路径补丁 setData 整体不再产生。
  */
 
 const theme = require('../../utils/theme');
@@ -53,6 +62,7 @@ const WINDOW_BEHIND = 8;   // 跟随窗口：活动句后方保留句数（上�
 const WINDOW_AHEAD = 40;   // 跟随窗口：活动句前方保留句数（窗口右缘目标）
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
 const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
+const SWEEP_PREF_KEY = 'intensiveWordSweep'; // 词扫光开关偏好（跨会话记忆，缺省开）
 
 Page({
   data: {
@@ -73,6 +83,7 @@ Page({
     isPlayingHere: false, // 全局播放器当前会话即本集（对齐 isPlayingThisEpisode）
     autoScroll: true,
     showTranslation: false,
+    wordSweep: true, // 词级扫光开关（平台性扩展；关闭仅留句级高亮，见文件头）
     loopIndex: -1,
     scrollIntoView: '',
 
@@ -120,6 +131,12 @@ Page({
       episodeid: query.id || '',
       statusBarH: this._statusBarHeight(),
     });
+    // 词扫光偏好：仅显式存过 false 才关（storage 异常/未存过均回落默认开）
+    try {
+      if (wx.getStorageSync(SWEEP_PREF_KEY) === false) {
+        this.setData({ wordSweep: false });
+      }
+    } catch (e) {}
 
     this._sentences = []; // 原始字幕
     this._views = [];     // 预处理视图模型（全量）
@@ -365,7 +382,7 @@ Page({
         patch['viewList[' + idx + '].active'] = playing;
         if (playing) {
           const v = this._views[idx];
-          if (this.data.mode === 'read' && v.words.length) {
+          if (this.data.mode === 'read' && this.data.wordSweep && v.words.length) {
             const sw = core.computeWordSweep(v.words, s.currentTime || 0, v.start, v.end);
             this._lastSwIdx = sw.idx;
             this._lastSwOn = sw.on;
@@ -422,7 +439,7 @@ Page({
       this._setActive(idx, t);
       return;
     }
-    if (idx >= 0 && playing && this.data.mode === 'read') {
+    if (idx >= 0 && playing && this.data.mode === 'read' && this.data.wordSweep) {
       // 词级扫光三态（computeWordSweep）：路径补丁只写进活动句视图字段，
       // 视图层重算范围收敛到该句（原页面级标量会牵动全列表词节点重算）
       const v = views[idx];
@@ -471,7 +488,7 @@ Page({
     if (idx >= 0) {
       const v = this._views[idx];
       const sw =
-        this.data.mode === 'read' && this.data.isPlaying && v.words.length
+        this.data.mode === 'read' && this.data.wordSweep && this.data.isPlaying && v.words.length
           ? core.computeWordSweep(v.words, t, v.start, v.end)
           : { idx: -1, on: false };
       this._lastSwIdx = sw.idx;
@@ -624,6 +641,44 @@ Page({
 
   onToggleTranslation() {
     this.setData({ showTranslation: !this.data.showTranslation });
+  },
+
+  /**
+   * 词扫光开关（仅精读模式；听写本就无扫光，按钮隐藏）：
+   *   - 关闭：清当前活动句扫光字段（wordCls 对 active=true + swIdx=-1 自然
+   *     回落全词统一色，WXS 无需改），_onTick 扫光分支被 guard 短路，
+   *     高频路径补丁 setData 整体停发；
+   *   - 重开：按当前进度就地预热（免等下一帧 timeupdate）。
+   * 偏好 storage 持久化，晃眼敏感/低端机用户无需每次重进再关。
+   */
+  onToggleWordSweep() {
+    const wordSweep = !this.data.wordSweep;
+    this.setData({ wordSweep });
+    try {
+      wx.setStorageSync(SWEEP_PREF_KEY, wordSweep);
+    } catch (e) {}
+
+    const idx = this.data.activeIndex;
+    if (idx < 0 || this.data.mode !== 'read') return;
+    const v = this._views[idx];
+    if (!v) return;
+    if (!wordSweep) {
+      this._lastSwIdx = -1;
+      this._lastSwOn = false;
+      this.setData({
+        ['viewList[' + idx + '].swIdx']: -1,
+        ['viewList[' + idx + '].swOn']: false,
+      });
+    } else if (this.data.isPlaying && v.words.length) {
+      const st = playerStore.getState();
+      const sw = core.computeWordSweep(v.words, st.currentTime || 0, v.start, v.end);
+      this._lastSwIdx = sw.idx;
+      this._lastSwOn = sw.on;
+      this.setData({
+        ['viewList[' + idx + '].swIdx']: sw.idx,
+        ['viewList[' + idx + '].swOn']: sw.on,
+      });
+    }
   },
 
   // ==================== 字幕卡交互 ====================

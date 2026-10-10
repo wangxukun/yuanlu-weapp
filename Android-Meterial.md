@@ -488,3 +488,16 @@
 |------|--------------|-----------|------|
 | 频道卡集数行（浅色） | `podcasts` | podcasts-ink.svg | #857c68（ink-500，与集数文字 text-ink-500 同色；date-range-ink 同色规） |
 | 频道卡集数行（深色） | `podcasts` | podcasts-ink-dark.svg | #a8a29e（深色 ink-500，date-range-ink-dark 同色规） |
+
+## 十四、精听页词扫光开关批（2026-10-10，「逐词」按钮平台性扩展，+2）
+
+> 精读页工具行新增「逐词」开关（跟随左侧，Web 端无此控件——Web 扫光为 rAF 60fps
+> 直写 DOM 无性能问题，小程序 timeupdate 离散采样 + setData 通信成本，低端机长句
+> 仍可能卡顿，另有光斑晃眼的观感问题；关闭后仅留句级高亮）。字形源：
+> fonts.gstatic.com materialicons highlight v1（1 path；源文件以 defs/clipPath 引用
+> 全幅矩形 `M0 0h24v24H0V0z`，非独立 path，直接取字形 path 即完成过滤）。
+
+| 用途 | Material 图标 | 文件（色） | 备注 |
+|------|--------------|-----------|------|
+| 「逐词」开关开启态 | `highlight` | highlight-primary.svg | #1f7a5c（primary-600，开启态与跟随/译文同规） |
+| 「逐词」开关关闭态 | `highlight` | highlight-gray.svg | #a79e8a（ink-400 未选灰，工具行未选态同规） |

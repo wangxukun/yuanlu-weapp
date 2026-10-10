@@ -13,7 +13,9 @@
  *     完善抽屉 + 配额墙回滚）、点词查典（/api/dict + 暂停 + 已收藏态）与
  *     生词落库（/api/vocabulary/add 请求体）；
  *   - 组件：sentence-tag-drawer 预设/自定义标签与 meta 提交、
- *     vocabulary-modal 词源折叠与发音（InnerAudioContext）。
+ *     vocabulary-modal 词源折叠与发音（InnerAudioContext）；
+ *   - 词扫光开关（「逐词」按钮，平台性扩展）：默认开/storage 偏好回读、
+ *     关闭停发高频扫光补丁且句级高亮保留、重开就地预热。
  *
  * 运行：node scripts/test-intensive-listening.js
  */
@@ -57,6 +59,7 @@ const navBackCalls = [];
 const modalCalls = [];
 const toastCalls = [];
 const requestCalls = [];
+const storageSets = []; // setStorageSync 记录（词扫光偏好持久化断言）
 let currentPages = [];
 
 const innerAudios = [];
@@ -64,7 +67,7 @@ let routeHandler = null; // (path, method, data) => {statusCode, data}
 
 global.wx = {
   getStorageSync: (k) => (k === 'token' ? 'test-token' : ''),
-  setStorageSync: () => {},
+  setStorageSync: (k, v) => { storageSets.push({ key: k, value: v }); },
   removeStorageSync: () => {},
   showToast: (o) => { toastCalls.push(o); },
   showModal: (o) => { modalCalls.push(o); },
@@ -719,6 +722,78 @@ const activeBlock = pageWxss.slice(
 );
 assert(activeBlock.indexOf('font-weight') === -1, 'WXSS：活动句恢复正常字重（移除 font-weight:700）');
 assert(pageWxss.indexOf('.w--on') === -1, 'WXSS：旧单态 .w--on 已退役');
+
+/* ==================== 五·五、词扫光开关（「逐词」按钮，平台性扩展） ==================== */
+
+section('词扫光开关（逐词按钮：关闭停发高频补丁 / 重开预热 / 偏好持久化）');
+
+// 结构：工具行「逐词」按钮（跟随左侧，仅精读模式渲染）+ Material highlight 双色图标
+assert(pageWxml.indexOf('onToggleWordSweep') >= 0 && pageWxml.indexOf('>逐词</text>') >= 0, 'WXML：工具行「逐词」按钮绑定 onToggleWordSweep');
+assert(pageWxml.indexOf('highlight-primary.svg') >= 0 && pageWxml.indexOf('highlight-gray.svg') >= 0, 'WXML：highlight 双色图标（开 primary / 关 gray）');
+const sweepBtnBlock = pageWxml.slice(pageWxml.indexOf('onToggleWordSweep') - 400, pageWxml.indexOf('onToggleWordSweep'));
+assert(sweepBtnBlock.indexOf("wx:if=\"{{mode === 'read'}}\"") >= 0, 'WXML：逐词按钮仅精读模式渲染（听写本就无扫光）');
+assert(pageWxml.indexOf('>逐词</text>') < pageWxml.indexOf('>跟随</text>'), 'WXML：逐词位于跟随左侧');
+const hlPrimary = fs.readFileSync(path.join(__dirname, '../assets/icons/highlight-primary.svg'), 'utf8');
+const hlGray = fs.readFileSync(path.join(__dirname, '../assets/icons/highlight-gray.svg'), 'utf8');
+assert(hlPrimary.indexOf('M6 14l3 3v5h6v-5l3-3V9H6') >= 0 && hlPrimary.indexOf('#1f7a5c') >= 0, '图标：Material 官方 highlight v1 path 烘焙 primary（#1f7a5c）');
+assert(hlGray.indexOf('M6 14l3 3v5h6v-5l3-3V9H6') >= 0 && hlGray.indexOf('#a79e8a') >= 0, '图标：gray 变体同 path（#a79e8a）');
+
+// 行为：重开一集页面（page2 会话已在 Bug1 回归 close）
+routeHandler = (p, method) => {
+  if (p === '/api/episode/detail') return { statusCode: 200, data: EPISODE };
+  if (p === '/api/episode/subtitles') return { statusCode: 200, data: { success: true, data: SUBS, audioUrl: 'https://oss/signed.m4a' } };
+  if (p === '/api/sentences/keys') return { statusCode: 200, data: { success: true, data: { subtitleIds: [], allTags: [] } } };
+  if (p === '/api/vocabulary/words') return { statusCode: 200, data: { success: true, data: [] } };
+  return { statusCode: 200, data: { success: true } };
+};
+const page3 = makePage();
+page3.onLoad({ id: 'ep1' });
+await tick(); await tick(); await tick(); await tick();
+assert(page3.data.wordSweep === true, '默认词扫光开启');
+
+bgmHandlers.play();
+playbackAt(1.2); // 句 0 内，词 'free'（0.9-1.5）
+await tick();
+assert(page3.data.viewList[0].swIdx === 2 && page3.data.viewList[0].swOn === true, '前置：扫光正常驱动（free 光斑点亮）');
+
+// 关闭：当前活动句扫光立即清除（回落全词统一色，句级高亮保留）
+storageSets.length = 0;
+page3.onToggleWordSweep();
+assert(page3.data.wordSweep === false, '切换 → wordSweep=false');
+assert(page3.data.viewList[0].swIdx === -1 && page3.data.viewList[0].swOn === false, '关闭 → 活动句扫光字段清除（wordCls 回落统一色）');
+assert(page3.data.viewList[0].active === true && page3.data.activeIndex === 0, '关闭 → 句级高亮保留（primary-50 底 + 左缘线）');
+assert(storageSets.length === 1 && storageSets[0].key === 'intensiveWordSweep' && storageSets[0].value === false, '关闭 → 偏好落 storage（intensiveWordSweep=false）');
+
+// 关闭态推进：同句内 timeupdate 不再产生扫光补丁；越句新活动句 swIdx=-1（guard 短路 _setActive）
+playbackAt(0.2);
+await tick();
+assert(page3.data.viewList[0].swIdx === -1, '关闭态推进 → 扫光补丁停发（swIdx 恒 -1）');
+playbackAt(6.2); // 越到句 1
+await tick();
+assert(page3.data.activeIndex === 1 && page3.data.viewList[1].active === true, '关闭态越句 → 句级高亮照常切换');
+assert(page3.data.viewList[1].swIdx === -1 && page3.data.viewList[1].swOn === false, '关闭态越句 → 新活动句无扫光（_setActive guard）');
+
+// 重开：按当前进度就地预热（6.2s 落 'yes.' 词窗 5.9-6.5 → idx=2 点亮），免等下一帧
+page3.onToggleWordSweep();
+assert(page3.data.wordSweep === true, '再切 → wordSweep=true');
+assert(page3.data.viewList[1].swIdx === 2 && page3.data.viewList[1].swOn === true, '重开 → 就地预热扫光（不等下一帧 timeupdate）');
+assert(storageSets[storageSets.length - 1].value === true, '重开 → 偏好落 storage（true）');
+
+// 偏好回读：storage 存过 false → 新页面默认关
+const origGetStorage = global.wx.getStorageSync;
+global.wx.getStorageSync = (k) => (k === 'intensiveWordSweep' ? false : origGetStorage(k));
+const page4 = makePage();
+page4.onLoad({ id: 'ep1' });
+await tick(); await tick(); await tick(); await tick();
+global.wx.getStorageSync = origGetStorage;
+assert(page4.data.wordSweep === false, '偏好回读：storage=false → onLoad 默认关');
+page4.onToggleWordSweep();
+assert(page4.data.wordSweep === true && page4.data.viewList[1].swIdx === 2 && page4.data.viewList[1].swOn === true, '偏好关闭态下重开 → 就地预热扫光（6.2s → yes. idx=2）');
+
+// 终态复位：关闭播放会话（本段重启过播放，listening-reporter 的真实
+// setInterval 会占住事件循环导致进程不退出，须随 close 停表）
+audioManager.close();
+await tick(); await tick();
 
 /* ==================== 六、收藏成功 toast 富色主题（sonner richColors） ==================== */
 

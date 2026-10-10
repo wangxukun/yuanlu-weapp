@@ -2,7 +2,7 @@
 
 <!--
   独立精听工作流页 · 视图结构（复刻 Web InteractiveTranscript 移动端全屏态）：
-  il-header   顶部：收起 / 📖精读·✍️听写 Tab / 关闭 + 工具行（播放态 pill + 跟随/译文）
+  il-header   顶部：收起 / 📖精读·✍️听写 Tab / 关闭 + 工具行（播放态 pill + 逐词/跟随/译文）
   il-scroll   字幕流（精读卡 / 听写卡混排：仅听写模式的活动句渲染挖空输入）
   弹窗层      vocabulary-modal 全屏生词弹窗 / sentence-tag-drawer 完善抽屉 /
               premium-modal 配额墙 / il-toast 收藏成功提示（带 action 按钮）
@@ -26,13 +26,19 @@
       <view class="il-icon-btn il-icon-btn--ghost"></view>
     </view>
 
-    <!-- 工具行：播放态 pill | 跟随 / 译文 -->
+    <!-- 工具行：播放态 pill | 逐词 / 跟随 / 译文（逐词=词扫光开关，平台性扩展，
+         听写模式本就无扫光故隐藏） -->
     <view class="il-toolbar">
       <view class="il-live {{isPlayingHere ? 'il-live--on' : ''}}">
         <image wx:if="{{isPlayingHere}}" class="il-live-icon" src="/assets/icons/volume-up-primary.svg" />
         <text>{{isPlayingHere ? '正在精听' : '点击段落播放'}}</text>
       </view>
       <view class="il-tools row">
+        <view wx:if="{{mode === 'read'}}" class="il-tool {{wordSweep ? 'il-tool--on' : ''}} tap-dim" bindtap="onToggleWordSweep">
+          <image class="il-tool-icon"
+                 src="{{wordSweep ? '/assets/icons/highlight-primary.svg' : '/assets/icons/highlight-gray.svg'}}" />
+          <text>逐词</text>
+        </view>
         <view class="il-tool {{autoScroll ? 'il-tool--on' : ''}} tap-dim" bindtap="onToggleAutoScroll">
           <image class="il-tool-icon {{autoScroll ? 'il-tool-icon--rot' : ''}}"
                  src="{{autoScroll ? '/assets/icons/swap-horiz-primary.svg' : '/assets/icons/swap-horiz-gray.svg'}}" />
