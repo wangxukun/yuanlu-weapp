@@ -293,14 +293,28 @@ Page({
       const checkInStatus = todayMinutes >= dailyGoalMins ? '今日打卡完成' : `今日打卡还差 ${dailyGoalMins - todayMinutes} 分钟`;
 
       // 推荐剧集筛选 (基于 CEFR)
+      // 口径与 web 对齐：优先用服务端并入 profile 的语音评测推导等级 derivedLevel
+      // （CEFR 值如 B2，映射相邻档），回退手动设置的 learnLevel（粗粒度档）
+      const CEFR_EPISODE_MAPPING = {
+        "A1": ["A1", "A2"],
+        "A2": ["A2", "B1"],
+        "B1": ["B1", "B2"],
+        "B2": ["B2", "C1"],
+        "C1": ["C1", "C2"]
+      };
       const LEVEL_MAPPING = {
         "Beginner": ["A1", "A2"],
         "Intermediate": ["B1", "B2"],
         "Advanced": ["C1", "C2"]
       };
-      const level = profile.learnLevel || "General";
-      const targetDifficulties = LEVEL_MAPPING[level] || [];
-      
+      const derivedLevel = profile.derivedLevel && CEFR_EPISODE_MAPPING[profile.derivedLevel]
+        ? profile.derivedLevel
+        : null;
+      const level = derivedLevel || profile.learnLevel || "General";
+      const targetDifficulties = derivedLevel
+        ? CEFR_EPISODE_MAPPING[derivedLevel]
+        : (LEVEL_MAPPING[level] || []);
+
       let recommended = [];
       if (targetDifficulties.length > 0) {
         const matched = enrichedEpisodes.filter(e => targetDifficulties.includes(e.difficulty));
@@ -312,6 +326,11 @@ Page({
       const rawBio = (profile.bio && profile.bio.trim()) ? profile.bio.trim() : '世界很长，慢慢走';
       const formattedBio = rawBio.length > 15 ? rawBio.slice(0, 15) + '...' : rawBio;
 
+      // 「最近发布」严格按发布时间倒序（与 Web getRecentPublishedEpisodes 同口径）；
+      // 接口数组本身是推荐序，不能直接取前 4
+      const latestSorted = [...enrichedEpisodes]
+        .sort((a, b) => new Date(b.publishAt || 0) - new Date(a.publishAt || 0));
+
       this.setData({
         greeting: `${timeGreeting}，${displayName}。`,
         bio: formattedBio,
@@ -320,7 +339,7 @@ Page({
         latestHistory: historyList[0] || null,
         continueListening: historyList.slice(1, 5),
         recommended,
-        latestEpisodes: enrichedEpisodes.slice(0, 4),
+        latestEpisodes: latestSorted.slice(0, 4),
         mileage: {
           weeklyProgress,
           kmCurrent: (thisWeekMinutes / 60) * 5.0,
