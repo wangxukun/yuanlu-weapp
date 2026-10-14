@@ -2,12 +2,14 @@
  * utils/api/auth.js — 认证服务层
  *
  * 移植自 Android 端 AuthRepositoryImpl.kt，接口路径与请求体一一同构：
- *   POST /api/auth/mobile/token           登录（type: "sms" | "password"，信封 { success, data: { token } }）
+ *   POST /api/auth/mobile/token           登录（type: "sms" | "password"，信封 { success, data: { token } }；
+ *                                         sms 首登自动建号，携带 signupSource 注册归因）
  *   POST /api/auth/sms/send               发送短信验证码（{ phone, scene }；业务失败也返回 HTTP 200，
  *                                         requireCaptcha 标识阿里云滑块风控）
  *   POST /api/auth/send-verification-code 发送邮箱注册验证码（裸 { success, message }）
  *   POST /api/auth/verify-code            校验邮箱验证码（裸 { success, message }，错误随 4xx）
- *   POST /api/auth/sign-up                邮箱 + 密码创建账号（裸 { success, message }，已注册随 400）
+ *   POST /api/auth/sign-up                邮箱 + 密码创建账号（裸 { success, message }，已注册随 400；
+ *                                         携带 signupSource 注册归因）
  *
  * 登录成功统一经 authStore.setLoginData 完成 token 本地持久化
  * （对齐 Android TokenStore.saveToken），并触发订阅页面的登录态刷新。
@@ -15,9 +17,17 @@
 
 const { post } = require('../request');
 const authStore = require('../../store/authStore');
+const entrySource = require('../entry-source');
 
 /** 匿名接口选项：不带 token、错误不弹全局 Toast（由登录页行内展示） */
 const NO_AUTH = { needAuth: false, showError: false };
+
+/** 建号请求携带注册归因来源（无来源时不加字段，保持旧负载形状不变） */
+function attachSource(payload) {
+  const s = entrySource.get();
+  if (s) payload.signupSource = s;
+  return payload;
+}
 
 /** HTTP 200 但 success:false 的裸响应 → 抛出带后端文案的 Error */
 function assertAction(body, fallback) {
@@ -59,7 +69,7 @@ function loginWithPassword(email, password) {
 function loginWithSms(phone, code) {
   return post(
     '/api/auth/mobile/token',
-    { type: 'sms', phone, code },
+    attachSource({ type: 'sms', phone, code }),
     NO_AUTH
   ).then((body) => persistLogin(body, { phone }));
 }
@@ -102,7 +112,7 @@ function sendEmailVerificationCode(email) {
 function verifyAndSignUp(email, code, password) {
   return post('/api/auth/verify-code', { email, code }, NO_AUTH)
     .then((body) => assertAction(body, '验证码错误'))
-    .then(() => post('/api/auth/sign-up', { email, password }, NO_AUTH))
+    .then(() => post('/api/auth/sign-up', attachSource({ email, password }), NO_AUTH))
     .then((body) => assertAction(body, '注册失败，请稍后重试'));
 }
 

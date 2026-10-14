@@ -13,6 +13,9 @@ const notificationBadge = require("./utils/notification-badge");
 // 小程序访问上报（Web PageTracker 对应物，数据汇入服务端 VisitorLog）：require 即激活——
 // 劫持 Page 构造器为所有页面 onShow 串入上报；app.js 求值先于页面文件加载，钩子覆盖全部页面
 require("./utils/visit-reporter");
+// 启动来源捕获（注册归因）：扫码进入时记录 scene/src（如 gzh_follow），
+// 建号请求经 utils/api/auth.js 携带给后端落 User.signupSource
+const entrySource = require("./utils/entry-source");
 
 App({
   globalData: {
@@ -22,7 +25,10 @@ App({
     playerSnapshot: null,
   },
 
-  onLaunch() {
+  onLaunch(options) {
+    // 0. 启动来源捕获（扫码进入的 scene/src，冷启动投递）
+    entrySource.captureFromQuery(options && options.query);
+
     // 1. 初始化全局音频管理器：绑定后台音频事件、恢复上次播放列表
     audioManager.init();
 
@@ -46,7 +52,10 @@ App({
     notificationBadge.init();
   },
 
-  onShow() {
+  onShow(options) {
+    // 热启动扫码（小程序码长按进入已运行实例）走 onShow 投递
+    entrySource.captureFromQuery(options && options.query);
+
     audioManager.onAppShow();
     // 外观：回前台重申 chrome（手动模式覆盖系统态的 tabBar/导航栏色）
     theme.applyChrome();
