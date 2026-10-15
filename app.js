@@ -26,8 +26,8 @@ App({
   },
 
   onLaunch(options) {
-    // 0. 启动来源捕获（扫码进入的 scene/src，冷启动投递）
-    entrySource.captureFromQuery(options && options.query);
+    // 0. 启动入口：扫码来源捕获（归因）+ episode 型 scene 直达剧集页
+    entrySource.handleEntry(options && options.query);
 
     // 1. 初始化全局音频管理器：绑定后台音频事件、恢复上次播放列表
     audioManager.init();
@@ -53,8 +53,8 @@ App({
   },
 
   onShow(options) {
-    // 热启动扫码（小程序码长按进入已运行实例）走 onShow 投递
-    entrySource.captureFromQuery(options && options.query);
+    // 热启动扫码（小程序码长按进入已运行实例）走 onShow 投递，同款入口处理
+    entrySource.handleEntry(options && options.query);
 
     audioManager.onAppShow();
     // 外观：回前台重申 chrome（手动模式覆盖系统态的 tabBar/导航栏色）
