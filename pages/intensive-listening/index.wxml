@@ -192,8 +192,9 @@
 
   <!-- ═══ 底部迷你播放条（跨页组件复用：播放/暂停 + 关闭；点条身可展开全屏面板） ═══
        关闭联动（Bug 1）：条上 × → audioManager.close() 清空会话 → 本页
-       _onPlayerState 感知 hasEpisode 翻 false 后随音频停止一并 navigateBack -->
-  <mini-player />
+       _onPlayerState 感知 hasEpisode 翻 false 后随音频停止一并 navigateBack；
+       il-mini-host 类 = 页面域 selectComponent 句柄（跟随智能滚动的遮挡带测量） -->
+  <mini-player class="il-mini-host" />
 
   <!-- ═══ 收藏成功 toast（对齐 Web sonner richColors success：浅绿底/绿边/对钩图标 + 黑色 action） ═══ -->
   <view wx:if="{{toast}}" class="il-toast-wrap">

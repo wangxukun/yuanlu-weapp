@@ -6,8 +6,9 @@
  *     computeWordSweep 词级扫光三态（useWordHighlight 离散移植）、shouldLoopSeek 循环回跳守卫、
  *     buildDictation 去空格切块三态判定（correct/error/pending/标点恒对）、
  *     formatStartTime 补零、stripSpeaker；
- *   - 页面全链路：字幕渐进渲染 + 扩窗、活动句/词高亮 setData 差量、自动跟随
- *     scroll-into-view、单句循环越界回 seek、精听起播（audioBus 互停 +
+ *   - 页面全链路：字幕渐进渲染 + 扩窗、活动句/词高亮 setData 差量、跟随
+ *     智能滚动（完全可见不滚 / 出视口对齐锚点 / 迷你条遮挡带 / 测量失败
+ *     fail-open）、单句循环越界回 seek、精听起播（audioBus 互停 +
  *     intensive 标记 + 签名直链回填免二次拉取）、听写（0.8 倍速/输入三态/
  *     全对自动跳句/错满 3 次提示词）、句子收藏（乐观翻转 + toast action 开
  *     完善抽屉 + 配额墙回滚）、点词查典（/api/dict + 暂停 + 已收藏态）与
@@ -94,6 +95,36 @@ global.wx = {
   },
   getBackgroundAudioManager: () => bgm,
 };
+
+// SelectorQuery mock（跟随智能滚动的异步测量）：pageRects/compRects 表
+// selector → boundingClientRect 结果，缺省 null = 节点未渲染/不可测。
+// exec 同步回调（真机异步，被测代码不依赖回调时序）
+const pageRects = {};
+const compRects = {};
+global.wx.createSelectorQuery = () => {
+  const q = {
+    compScope: false,
+    sels: [],
+    select(sel) { q.sels.push(sel); return q; },
+    boundingClientRect() { return q; },
+    in() { q.compScope = true; return q; },
+    exec(cb) {
+      const src = q.compScope ? compRects : pageRects;
+      cb(q.sels.map((sel) => (src[sel] != null ? src[sel] : null)));
+    },
+  };
+  return q;
+};
+
+/** 配置跟随测量场景：box=滚动区矩形；items={锚点(不带#): 矩形}；
+ *  mpBarTop 给定则迷你条可测（组件域 .mp-bar 顶缘），缺省迷你条不可测 */
+function setFollowRects(box, items, mpBarTop) {
+  Object.keys(pageRects).forEach((k) => delete pageRects[k]);
+  Object.keys(compRects).forEach((k) => delete compRects[k]);
+  if (box) pageRects['.il-scroll'] = box;
+  Object.keys(items || {}).forEach((k) => { pageRects['#' + k] = items[k]; });
+  if (mpBarTop != null) compRects['.mp-bar'] = { top: mpBarTop, bottom: mpBarTop + 60 };
+}
 
 let pageDef = null;
 global.Page = (cfg) => { pageDef = cfg; };
@@ -239,6 +270,8 @@ function makePage() {
     data: JSON.parse(JSON.stringify(pageDef.data)),
     options: {},
     setDataLog: [],
+    compHosts: null, // 页面域 selectComponent 句柄表（'.il-mini-host' → 组件伪实例）
+    selectComponent(sel) { return (inst.compHosts && inst.compHosts[sel]) || null; },
     setData(d, cb) {
       inst.setDataLog.push(d);
       Object.keys(d).forEach((k) => applyPatch(inst.data, k, d[k]));
@@ -367,6 +400,12 @@ assert(d.slots[0].status === 'correct', 'buildDictation：大小写不敏感');
 section('页面：加载 · 精听起播 · 渐进渲染');
 
 const page = makePage();
+// 跟随测量场景：sub-10/sub-11 均越出视口 → 走滚动分支（"完全可见不滚"
+// 分支见 page2 专节）
+setFollowRects({ top: 100, bottom: 800 }, {
+  'sub-10': { top: 700, bottom: 900 },
+  'sub-11': { top: 780, bottom: 950 },
+});
 page.onLoad({ id: 'ep1' });
 await tick(); await tick(); await tick(); await tick();
 
@@ -397,7 +436,7 @@ assert(page.data.isPlayingHere === true && page.data.isPlaying === true, 'isPlay
 assert(page.data.activeIndex === 0, 'timeupdate → 活动句 0');
 assert(page.data.viewList[0].active === true, '活动句词光总开关点亮（item.active，路径化）');
 assert(page.data.viewList[0].swIdx === 2 && page.data.viewList[0].swOn === true, '词窗扫光 → 当前词 free（idx=2 光斑点亮，路径化进 viewList[0]）');
-assert(page.data.scrollIntoView === 'sub-10', '自动跟随 → scroll-into-view 锚点 sub-10');
+assert(page.data.scrollIntoView === 'sub-10', '跟随（出视口）→ scroll-into-view 锚点 sub-10');
 
 playbackAt(0.2);
 await tick();
@@ -411,7 +450,7 @@ assert(page.data.viewList[0].swIdx === 4 && page.data.viewList[0].swOn === false
 playbackAt(6.2);
 await tick();
 assert(page.data.activeIndex === 1, '推进 → 活动句 1');
-assert(page.data.scrollIntoView === 'sub-11', '跟随锚点更新 sub-11');
+assert(page.data.scrollIntoView === 'sub-11', '跟随锚点更新 sub-11（出视口 → 滚动）');
 assert(page.data.viewList[1].swIdx === 2 && page.data.viewList[1].swOn === true, '句 1 词扫光（yes. 词窗 5.9-6.5）');
 assert(page.data.viewList[0].active === false && page.data.viewList[1].active === true, '句切换 → 旧句词光熄灭、新句点亮');
 
@@ -604,6 +643,8 @@ page2.onLoad({ id: 'epLong' });
 await tick(); await tick(); await tick(); await tick();
 assert(page2.data.viewList.length === 40, '长字幕首屏渲染 40 句');
 
+// 跟随测量场景：sub-1029 越出视口 → _setActive(29) 同步走滚动分支
+setFollowRects({ top: 100, bottom: 800 }, { 'sub-1029': { top: 700, bottom: 900 } });
 playbackAt(29 * 5 + 1); // 活动句 29
 await tick();
 assert(page2.data.activeIndex === 29, '滑动窗口不影响活动句');
@@ -625,6 +666,52 @@ page2.onToggleAutoScroll(); // 关
 page2.onToggleAutoScroll(); // 开（收回跟随态）
 assert(page2.data.viewList[0].blank === true && page2.data.viewList[21].blank !== true, '重开跟随 → 滑窗回活动句（自由浏览头部收回）');
 assert(page2.data.scrollIntoView === 'sub-1029', '重开跟随 → 锚点对齐活动句');
+
+section('页面：跟随智能滚动（完全可见不滚 / 遮挡带 / fail-open）');
+
+// 迷你条宿主可寻 + 可测（.mp-bar 顶缘 740）→ 可见下缘 = min(800, 740) = 740
+page2.compHosts = { '.il-mini-host': {} };
+
+// a) 完全可见 → 页面静止（锚点不动，仅切高亮）
+setFollowRects({ top: 100, bottom: 800 }, { 'sub-1030': { top: 200, bottom: 420 } }, 740);
+playbackAt(30 * 5 + 1); // 活动句 30
+await tick();
+assert(page2.data.activeIndex === 30, '推进 → 活动句 30');
+assert(page2.data.scrollIntoView === 'sub-1029', 'sub-1030 完全可见 → 页面静止（锚点不动，仅切高亮）');
+
+// b) 底缘入迷你条遮挡带（box 内但越过迷你条顶缘）→ 视为不可见 → 滚动
+setFollowRects({ top: 100, bottom: 800 }, { 'sub-1031': { top: 700, bottom: 770 } }, 740);
+playbackAt(31 * 5 + 1); // 活动句 31
+await tick();
+assert(page2.data.scrollIntoView === 'sub-1031', '底缘入迷你条遮挡带（770>740）→ 视为不可见 → 滚动对齐');
+
+// c) 顶缘越出滚动区上缘 → 滚动
+setFollowRects({ top: 100, bottom: 800 }, { 'sub-1032': { top: 60, bottom: 300 } }, 740);
+playbackAt(32 * 5 + 1); // 活动句 32
+await tick();
+assert(page2.data.scrollIntoView === 'sub-1032', '顶缘越出滚动区（60<100）→ 滚动对齐');
+
+// d) 容差内微越界（bottom=743，越遮挡带上缘 3px ≤ 4px 容差）→ 仍视为完全可见
+setFollowRects({ top: 100, bottom: 800 }, { 'sub-1033': { top: 300, bottom: 743 } }, 740);
+playbackAt(33 * 5 + 1); // 活动句 33
+await tick();
+assert(page2.data.scrollIntoView === 'sub-1032', '3px 微越界在容差内 → 视为完全可见不滚');
+
+// e) 迷你条宿主不可寻 → 可见下缘全额回退滚动区底缘（780≤800 可见 → 不滚）
+page2.compHosts = null;
+setFollowRects({ top: 100, bottom: 800 }, { 'sub-1034': { top: 500, bottom: 780 } });
+playbackAt(34 * 5 + 1); // 活动句 34
+await tick();
+assert(page2.data.scrollIntoView === 'sub-1032', '迷你条不可测 → 回退滚动区底缘判定（可见不滚）');
+
+// f) 测量失败（节点未渲染）→ 2×50ms 重试后 fail-open 回落无条件滚动
+setFollowRects({ top: 100, bottom: 800 }, null);
+playbackAt(35 * 5 + 1); // 活动句 35
+await tick();
+assert(page2.data.activeIndex === 35 && page2.data.scrollIntoView === 'sub-1032',
+  '测量未决 → 高亮先行、页面暂不滚动（异步判定不阻塞切句）');
+await new Promise((r) => setTimeout(r, 220));
+assert(page2.data.scrollIntoView === 'sub-1035', '测量重试耗尽 → fail-open 回落无条件滚动（sub-1035）');
 
 /* ==================== 三、组件：完善抽屉 / 生词弹窗 ==================== */
 

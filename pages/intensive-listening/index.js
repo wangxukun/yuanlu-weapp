@@ -34,6 +34,11 @@
  *     窗口的句子哨兵化（blank 占位，节点总量恒定，与剧集时长无关）；
  *     用户手动滚动进入自由浏览（只增不减，活动句保底在窗），点句跳播 /
  *     重开跟随开关收回跟随态。
+ *   - 跟随滚动智能判定（对齐 Web useTranscriptScroll §4 的"安全带内不滚"
+ *     语义，口径取"完全可见"）：切句时活动句已完全在 ScrollView 视口内
+ *     （底缘扣除迷你播放条遮挡带）则页面静止仅切高亮，出视口才对齐锚点
+ *     ——短句连播不再每句强制滚动（_followAnchor：SelectorQuery 异步测量
+ *     + 令牌防陈旧决策，测不到 fail-open 回落原滚动）。
  *
  * 词扫光开关（小程序平台性扩展，Web 端无此控件——Web 扫光为 rAF 60fps 直写
  * DOM 无性能问题，小程序 timeupdate 离散采样且 setData 有通信成本，低端机
@@ -62,6 +67,7 @@ const RENDER_EXTEND = 30;  // 自由浏览扩窗步长
 const RENDER_AHEAD = 12;   // 自由浏览：活动句距窗口底缘的提前扩窗阈值
 const WINDOW_BEHIND = 8;   // 跟随窗口：活动句后方保留句数（上缘收缩线）
 const WINDOW_AHEAD = 40;   // 跟随窗口：活动句前方保留句数（窗口右缘目标）
+const FOLLOW_VISIBLE_TOL = 4; // 跟随智能滚动：完全可见判定容差（px，吸收亚像素/取整误差）
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
 const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
 // 工具行开关偏好 key（跨会话记忆）：逐词/跟随默认开、译文默认关——
@@ -154,6 +160,7 @@ Page({
     this._freeScroll = false; // 自由浏览（用户手动滚动过）：窗口只增不减
     this._blanks = {};    // 下标 → blank 哨兵对象（稳定唯一 id，供 wx:key 复用）
     this._lastActive = -1;
+    this._followSeq = 0; // 跟随智能滚动令牌（exec 异步回调期间切句/关跟随/卸载 → 丢弃陈旧决策）
     this._lastSwIdx = -1; // 上次下发扫光位置（与 viewList[i].swIdx 同步）
     this._lastSwOn = false; // 上次下发光斑点亮态（与 viewList[i].swOn 同步）
     this._isRenderingSweep = false; // 是否正在渲染词级扫光（用于限流防积压）
@@ -185,6 +192,7 @@ Page({
   },
 
   onUnload() {
+    this._followSeq = (this._followSeq || 0) + 1; // 作废在途跟随测量回调
     if (this._unsubAuth) this._unsubAuth();
     if (this._unsubPlayer) this._unsubPlayer();
     if (this._toastTimer) clearTimeout(this._toastTimer);
@@ -491,6 +499,7 @@ Page({
     // prev 以 data.activeIndex 为准（_onTick 调用前 _lastActive 已先行为 idx）
     const prev = this.data.activeIndex;
     const patch = { activeIndex: idx };
+    let follow = false;
     if (prev >= 0 && prev !== idx) {
       patch['viewList[' + prev + '].active'] = false;
     }
@@ -507,16 +516,95 @@ Page({
       patch['viewList[' + idx + '].swOn'] = sw.on;
 
       this._slideWindow(idx, patch);
-      if (this.data.autoScroll) {
-        const anchor = 'sub-' + v.id;
-        if (anchor !== this.data.scrollIntoView) patch.scrollIntoView = anchor;
-      }
+      // 跟随滚动改走 _followAnchor 智能判定（完全可见不滚）：在 setData 之后
+      // 发起——测量回调以 activeIndex 为陈旧闸，高亮先落、滚动决策随后，
+      // 短句连播不再每句跳页
+      follow = this.data.autoScroll;
       if (this.data.mode === 'dictate') this._resetDictation(v);
     } else {
       this._lastSwIdx = -1;
       this._lastSwOn = false;
     }
     this.setData(patch);
+    if (follow) this._followAnchor(idx);
+  },
+
+  /**
+   * 跟随滚动智能判定（Web useTranscriptScroll §4 的"安全带内不滚"语义，
+   * 口径取用户可感的"完全可见"）：
+   *   - 活动句完全在 ScrollView 视口内（顶缘不裁、底缘不含迷你播放条遮挡带）
+   *     → 页面静止，仅切高亮——短句连播防每句强制对齐的跳动感；
+   *   - 未完全可见（部分遮挡/越出上下缘）→ 滚动对齐锚点（原跟随位：
+   *     scroll-into-view + -80 offset）。
+   * SelectorQuery 异步：exec 回调期间可能已切句/关跟随 → _followSeq 令牌 +
+   * activeIndex 双闸丢弃陈旧决策；节点未测到（首屏 viewList 同帧未渲染）
+   * 延时重试，仍失败则回落原无条件滚动（fail-open，宁可多滚不可不跟）。
+   */
+  _followAnchor(idx, attempt) {
+    if (!this.data.autoScroll) return;
+    const v = this._views && this._views[idx];
+    if (!v) return;
+    const anchor = 'sub-' + v.id;
+    const seq = (this._followSeq = (this._followSeq || 0) + 1);
+    wx.createSelectorQuery()
+      .select('.il-scroll')
+      .boundingClientRect()
+      .select('#' + anchor)
+      .boundingClientRect()
+      .exec((res) => {
+        if (seq !== this._followSeq || !this.data.autoScroll) return;
+        if (this.data.activeIndex !== idx) return; // 已切到更新的句子，决策作废
+        const box = res && res[0];
+        const item = res && res[1];
+        if (!box || !item) {
+          if ((attempt || 0) < 2) {
+            setTimeout(() => {
+              if (seq === this._followSeq) this._followAnchor(idx, (attempt || 0) + 1);
+            }, 50);
+          } else {
+            this._scrollToAnchor(anchor); // 测不到（病态路径）→ 回落原滚动
+          }
+          return;
+        }
+        this._decideFollow(box, item, anchor);
+      });
+  },
+
+  /**
+   * 完全可见 → 静止；否则滚动。可见下缘取 min(滚动区底缘, 迷你条顶缘)——
+   * 底部悬浮迷你条的遮挡带内不算"完全可见"（高亮/控制条被压住），
+   * 迷你条未渲染或不可测时全额回退滚动区底缘。
+   */
+  _decideFollow(box, item, anchor) {
+    const decide = (viewBottom) => {
+      if (
+        item.top >= box.top - FOLLOW_VISIBLE_TOL &&
+        item.bottom <= viewBottom + FOLLOW_VISIBLE_TOL
+      ) {
+        return; // 完全可见：页面保持静止，仅句级高亮切换
+      }
+      this._scrollToAnchor(anchor);
+    };
+    const mp = this.selectComponent ? this.selectComponent('.il-mini-host') : null;
+    if (!mp) return decide(box.bottom);
+    wx.createSelectorQuery()
+      .in(mp)
+      .select('.mp-bar')
+      .boundingClientRect()
+      .exec((r) => {
+        const bar = r && r[0];
+        decide(bar && bar.top < box.bottom ? bar.top : box.bottom);
+      });
+  },
+
+  /** scroll-into-view 赋值：同值不触发滚动 → 先清空再锚定强制翻转
+   *  （原 onToggleAutoScroll 重开跟随的手法收敛成复用） */
+  _scrollToAnchor(anchor) {
+    if (anchor !== this.data.scrollIntoView) {
+      this.setData({ scrollIntoView: anchor });
+    } else {
+      this.setData({ scrollIntoView: '' }, () => this.setData({ scrollIntoView: anchor }));
+    }
   },
 
   /** blank 哨兵（wx:key 需稳定唯一 id；同下标复用同一对象减少分配） */
@@ -635,23 +723,16 @@ Page({
     const autoScroll = !this.data.autoScroll;
     this.setData({ autoScroll });
     this._savePref(PREF_KEYS.autoScroll, autoScroll);
-    // 重开跟随：收回自由浏览头部，滑窗回活动句并对齐锚点
+    // 重开跟随：收回自由浏览头部，滑窗回活动句并强制对齐锚点（显式回位
+    // 意图，不受智能滚动"完全可见不滚"约束）
     if (autoScroll) {
       this._freeScroll = false;
       const idx = this.data.activeIndex;
-      if (idx >= 0) {
+      if (idx >= 0 && this._views[idx]) {
         const patch = {};
         this._slideWindow(idx, patch);
-        const anchor = 'sub-' + this._views[idx].id;
-        if (anchor !== this.data.scrollIntoView) {
-          patch.scrollIntoView = anchor;
-        } else {
-          // 锚点未变也要强制回滚（scroll-into-view 同值不触发滚动）：
-          // 先清空再锚定，两次 setData 产生属性翻转
-          this.setData({ scrollIntoView: '' });
-          patch.scrollIntoView = anchor;
-        }
         if (Object.keys(patch).length) this.setData(patch);
+        this._scrollToAnchor('sub-' + this._views[idx].id);
       }
     }
   },
