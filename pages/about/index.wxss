@@ -1,0 +1,132 @@
+/**
+ * pages/about/index.wxss — 关于远路播客 + 公众号关注承接
+ * 沿用远路设计令牌（contact 页同款口径）：
+ *   页面 bg ink-50；卡 card-bg + border ink-100 + rounded-3xl(24dp)；
+ *   品牌区远青 primary-600 + 眉题 ink-400 大写观感 + 口号曙光橙竖条（accent-500）；
+ *   official-account 组件自带白底横幅，仅包一层圆角裁切，未渲染时不占位。
+ */
+
+.ab-page {
+  min-height: 100vh;
+  background: var(--ink-50);
+  padding: 48rpx 32rpx 96rpx;
+}
+
+/* ── 卡片 ── */
+.ab-card {
+  background: var(--card-bg);
+  border: 2rpx solid var(--ink-100);
+  border-radius: 48rpx; /* rounded-3xl 24dp */
+  padding: 64rpx;
+  margin-bottom: 32rpx;
+}
+
+/* ── 品牌区 ── */
+.ab-brand-logo {
+  width: 96rpx;
+  height: 96rpx;
+}
+.ab-brand-eyebrow {
+  margin-top: 24rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--ink-400);
+  letter-spacing: 0.18em;
+}
+.ab-brand-name {
+  margin-top: 12rpx;
+  font-size: 56rpx; /* 品牌名略升半档（>text-2xl） */
+  font-weight: 700;
+  color: var(--primary-600);
+}
+.ab-slogan {
+  margin-top: 24rpx;
+}
+.ab-slogan-bar {
+  width: 8rpx;
+  height: 40rpx;
+  border-radius: 4rpx;
+  background: var(--accent-500); /* 曙光橙竖条（欢迎卡片同款语言） */
+}
+.ab-slogan-text {
+  margin-left: 16rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ab-intro {
+  margin-top: 24rpx;
+  font-size: 28rpx; /* text-sm */
+  line-height: 1.7;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ── 分节头 ── */
+.ab-sec-head {
+  gap: 12rpx;
+}
+.ab-sec-icon {
+  width: 40rpx; /* w-5 */
+  height: 40rpx;
+}
+.ab-sec-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ab-sec-desc {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── 关注组件位 ── */
+.ab-follow {
+  margin-top: 32rpx;
+  border-radius: 24rpx;
+  overflow: hidden; /* 组件横幅裁成卡片圆角；未渲染时高度塌缩不留洞 */
+}
+
+/* ── 公众号二维码（长按识别兜底位） ── */
+.ab-qr {
+  margin-top: 32rpx;
+}
+.ab-qr-img {
+  width: 340rpx;
+  height: 340rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid var(--ink-100); /* 二维码白底与卡片描边咬合 */
+  background: #ffffff;
+}
+.ab-qr-hint {
+  margin-top: 16rpx;
+  font-size: 24rpx; /* text-xs */
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ── 信息与支持 ── */
+.ab-info {
+  padding: 8rpx 0;
+}
+.ab-info-label {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.ab-info-value {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+.ab-chevron {
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 4rpx;
+}
+.ab-divider {
+  height: 2rpx;
+  background: var(--ink-50);
+  margin: 24rpx -16rpx; /* 与卡片内边距咬合的浅分隔线 */
+}

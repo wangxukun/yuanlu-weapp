@@ -1,0 +1,56 @@
+<!-- pages/about — 关于远路播客 + 公众号关注承接（04 清单 T4）
+     <official-account /> 由微信按平台规则渲染：公众号与小程序同主体且已关联、
+     用户未关注时显示关注横幅；不满足条件（已关注/未关联/PC 与开发者工具）时
+     组件不渲染且不占位，关注卡的文案兜底仍然成立。 -->
+<view class="ab-page col {{themeClass}}">
+
+  <!-- ── 品牌卡 ── -->
+  <view class="ab-card col center">
+    <image class="ab-brand-logo" mode="aspectFit" src="/assets/icons/podcasts-primary.svg" />
+    <text class="ab-brand-eyebrow">YUANLU PODCAST</text>
+    <text class="ab-brand-name">远路播客</text>
+    <view class="ab-slogan row center-v">
+      <view class="ab-slogan-bar"></view>
+      <text class="ab-slogan-text">英语精听，就到远路播客。</text>
+    </view>
+    <text class="ab-intro">把英语播客做成逐词高亮的"卡拉OK"式精听工具：听到哪亮到哪，单句循环、点词查词、句子收藏、听写判卷、AI 跟读评分，生词自动进复习。小程序 / 网站 / App 进度实时同步。</text>
+  </view>
+
+  <!-- ── 关注公众号卡（official-account 承接主位） ── -->
+  <view class="ab-card col">
+    <view class="ab-sec-head row center-v">
+      <image class="ab-sec-icon" mode="aspectFit" src="{{dark ? '/assets/icons/campaign-primary-dark.svg' : '/assets/icons/campaign-primary.svg'}}" />
+      <text class="ab-sec-title">关注公众号</text>
+    </view>
+    <text class="ab-sec-desc">新节目上线、精听方法与学习心得，第一时间推送给你。</text>
+    <view class="ab-follow">
+      <!-- bind:load/bind:error：official-account 排查诊断（vConsole 看错误码：
+           3=关联解除或未选中 4=未开启功能 5=场景值错误，其余见官方文档） -->
+      <official-account bind:load="onOfficialLoad" bind:error="onOfficialError" />
+    </view>
+
+    <!-- 公众号二维码（个人主体兜底转化位：长按识别 → 公众号资料页 → 关注；
+         official-account 组件位保留，后台哪天配通即多一个转化面，两者并存不冲突） -->
+    <view class="ab-qr col center">
+      <image class="ab-qr-img" src="/assets/images/official-account-qr.jpg" mode="aspectFit"
+             show-menu-by-longpress="{{true}}" />
+      <text class="ab-qr-hint">长按识别二维码，关注「远路播客」</text>
+    </view>
+  </view>
+
+  <!-- ── 信息与支持 ── -->
+  <view class="ab-card col">
+    <view class="ab-info row between center-v tap-scale" bindtap="onCopySite">
+      <text class="ab-info-label">官方网站</text>
+      <view class="row center-v">
+        <text class="ab-info-value">wxkzd.com</text>
+        <image class="ab-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </view>
+    </view>
+    <view class="ab-divider"></view>
+    <navigator url="/pages/contact/index" class="ab-info row between center-v tap-scale">
+      <text class="ab-info-label">帮助与支持</text>
+      <image class="ab-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+    </navigator>
+  </view>
+</view>

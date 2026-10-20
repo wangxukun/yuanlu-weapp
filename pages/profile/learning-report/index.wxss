@@ -381,6 +381,14 @@
   font-size: 28rpx;
 }
 
+/* ============ 公众号关注组件位（04 清单 T4） ============ */
+/* official-account 自带横幅观感，仅圆角裁切；未渲染时高度塌缩不留洞 */
+.lr-official {
+  margin-top: 24rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
 /* ============ 底部预留（mini-player + 安全区） ============ */
 
 .lr-bottom-space {

@@ -11,7 +11,7 @@
  *      长按删除（showModal 确认 + POST /delete 请求体 + 移除 + 未读重算 +
  *      失败 toast）、下拉刷新重拉、可跳转项 navigateTo；
  *   3. mine 入口：登录拉未读角标、登出清零、onNotifications 跳转、wxml
- *      插入位置（外观设置 → 消息通知 → 帮助与支持）与 99+ 角标绑定；
+ *      插入位置（外观设置 → 消息通知 → 关注公众号；帮助与支持已并入关于页）与 99+ 角标绑定；
  *   4. 结构红线：WXML 绑定零方法调用、未读红点/双态类名/空态文案、
  *      图标资产与台账登记。
  *
@@ -626,12 +626,12 @@ function bodies(method, p) {
     const iAppearance = WXML_MINE.indexOf('外观设置');
     const iNotif = WXML_MINE.indexOf('消息通知');
     const iCache = WXML_MINE.indexOf('离线缓存');
-    const iHelp = WXML_MINE.indexOf('帮助与支持');
-    assert(iAppearance >= 0 && iNotif > iAppearance && iHelp > iNotif,
-      'mine 菜单插入位置：外观设置 → 消息通知 → 帮助与支持');
-    assert(iCache > iNotif && iCache < iHelp && WXML_MINE.indexOf('{{cacheLabel}}') >= 0 &&
+    const iAbout = WXML_MINE.indexOf('关注公众号');
+    assert(iAppearance >= 0 && iNotif > iAppearance && iAbout > iNotif,
+      'mine 菜单插入位置：外观设置 → 消息通知 → 关注公众号（帮助与支持已并入关于页）');
+    assert(iCache > iNotif && iCache < iAbout && WXML_MINE.indexOf('{{cacheLabel}}') >= 0 &&
       WXML_MINE.indexOf('onClearCache') >= 0,
-      '离线缓存行（T3.5）：消息通知 → 离线缓存 → 帮助与支持，尾值 cacheLabel 绑定');
+      '离线缓存行（T3.5）：消息通知 → 离线缓存 → 关注公众号，尾值 cacheLabel 绑定');
     assert(WXML_MINE.indexOf('download-primary.svg') >= 0 &&
       WXML_MINE.indexOf('download-primary-dark.svg') >= 0,
       '离线缓存 Material 图标深浅双变体（download 着色，台账第十节）');

@@ -585,6 +585,13 @@
   margin-top: 40rpx; /* 20dp */
   gap: 12rpx; /* 6dp */
 }
+
+/* 公众号关注组件位（04 清单 T4）：官方横幅自带观感，仅圆角裁切；未渲染时不占位 */
+.vr-official {
+  margin-top: 40rpx; /* 与结果列表同距 */
+  border-radius: 20rpx; /* 10dp，与 vr-result 行一致 */
+  overflow: hidden;
+}
 .vr-result {
   background: var(--vr-panel-60); /* 逐词结果行 */
   border-radius: 20rpx; /* 10dp */

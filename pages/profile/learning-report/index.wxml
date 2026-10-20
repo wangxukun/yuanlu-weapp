@@ -120,6 +120,10 @@
       </view>
       <view class="lr-lock-cta">解锁学习报表</view>
     </view>
+    <!-- 公众号关注承接（04 清单 T4：同主体关联才渲染，未渲染时不占位） -->
+    <view class="lr-official">
+      <official-account />
+    </view>
   </block>
 
   <view class="lr-bottom-space"></view>

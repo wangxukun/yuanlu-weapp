@@ -69,6 +69,11 @@
           </view>
         </view>
 
+        <!-- 公众号关注承接（04 清单 T4：完成时刻转化位，同主体关联才渲染、未渲染不占位） -->
+        <view class="vr-official">
+          <official-account />
+        </view>
+
       </view>
     </scroll-view>
 
