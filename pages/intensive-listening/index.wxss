@@ -559,3 +559,272 @@
   border-radius: var(--r-sm);
   white-space: nowrap;
 }
+
+/* ============ T4.1 微剧场画报头卡 / 倍速 / 显微镜 / 词块坞 / 精析 ============ */
+.il-rate {
+  gap: 8rpx;
+  margin-right: 8rpx;
+}
+.il-rate-chip {
+  padding: 4rpx 16rpx;
+  border-radius: var(--r-full);
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  border: 1rpx solid var(--border-color);
+}
+.il-rate-chip--on {
+  color: #ffffff;
+  background-color: var(--primary-600);
+  border-color: var(--primary-600);
+}
+.il-tool-flash {
+  font-size: 26rpx;
+  margin-right: 2rpx;
+}
+
+/* 画报头卡（scene 模式首卡） */
+.il-hero {
+  position: relative;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  height: 300rpx;
+  margin-bottom: 24rpx;
+}
+.il-hero-cover {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+.il-hero-shade {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(27, 24, 18, 0.05) 30%, rgba(27, 24, 18, 0.72) 100%);
+}
+.il-hero-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+.il-hero-tags {
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+.il-hero-pill {
+  padding: 4rpx 18rpx;
+  border-radius: var(--r-full);
+  background-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  font-size: 20rpx;
+}
+.il-hero-title {
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.il-hero-dur {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 22rpx;
+}
+.il-hero-play {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--r-full);
+  background-color: #ffffff;
+}
+.il-hero-play-ic {
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 4rpx;
+}
+.il-hero-bars {
+  gap: 6rpx;
+}
+.il-hero-bar {
+  width: 8rpx;
+  height: 28rpx;
+  border-radius: 4rpx;
+  background-color: var(--primary-600);
+}
+.il-hero-bar:nth-child(2) {
+  height: 36rpx;
+}
+
+/* 连读词块：琥珀高亮 + ⚡块首标 + 选区 */
+.w--flash {
+  background-color: rgba(245, 166, 35, 0.18);
+  border-bottom: 4rpx solid #f5a623;
+  border-radius: 6rpx;
+  padding: 0 4rpx;
+}
+.w--sel {
+  background-color: var(--primary-100);
+  border-bottom: 4rpx solid var(--primary-600);
+  border-radius: 6rpx;
+  padding: 0 4rpx;
+}
+.w-flash-mark {
+  font-size: 22rpx;
+  color: #f5a623;
+  margin-right: 2rpx;
+}
+
+/* 词块点读坞（固定底部） */
+.il-dock-wrap {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 24rpx);
+  z-index: 55;
+}
+.il-dock {
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--r-lg);
+  padding: 20rpx 24rpx;
+  gap: 12rpx;
+  box-shadow: var(--e2, 0 8rpx 24rpx rgba(27, 24, 18, 0.12));
+}
+.il-dock-info {
+  min-width: 0;
+}
+.il-dock-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.il-dock-btn {
+  flex-shrink: 0;
+  height: 56rpx;
+  padding: 0 22rpx;
+  border-radius: var(--r-full);
+  border: 1rpx solid var(--border-color);
+  font-size: 22rpx;
+  color: var(--text-primary);
+}
+.il-dock-btn--main {
+  background-color: var(--primary-600);
+  border-color: var(--primary-600);
+  color: #ffffff;
+}
+.il-dock-btn--on {
+  border-color: var(--primary-600);
+  color: var(--primary-600);
+}
+.il-dock-close {
+  flex-shrink: 0;
+  width: 48rpx;
+  height: 48rpx;
+}
+.il-dock-close-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+/* 语境精析面板 */
+.il-insight {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 45;
+  overflow-y: auto;
+  background-color: var(--page-bg);
+  padding: calc(var(--status-bar-height, 60px) + 180rpx) 32rpx calc(env(safe-area-inset-bottom) + 48rpx);
+  box-sizing: border-box;
+}
+.ii-sec {
+  margin-bottom: 40rpx;
+}
+.ii-sec-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 20rpx;
+}
+.ii-vocab {
+  padding: 20rpx;
+  border-radius: var(--r-md);
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 16rpx;
+}
+.ii-vocab-word {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ii-vocab-ph {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+.ii-vocab-meaning {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.ii-sent {
+  padding: 20rpx;
+  border-radius: var(--r-md);
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 16rpx;
+}
+.ii-sent-en {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.ii-sent-an {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.ii-quiz {
+  padding: 20rpx;
+  border-radius: var(--r-md);
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 16rpx;
+}
+.ii-quiz-q {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 14rpx;
+}
+.ii-quiz-opt {
+  padding: 14rpx 20rpx;
+  border-radius: var(--r-md);
+  border: 1rpx solid var(--border-color);
+  font-size: 24rpx;
+  color: var(--text-primary);
+  margin-bottom: 10rpx;
+}
+.ii-quiz-opt--ok {
+  border-color: #3e9b6c;
+  background-color: rgba(62, 155, 108, 0.12);
+}
+.ii-quiz-opt--bad {
+  border-color: #e0403f;
+  background-color: rgba(224, 64, 63, 0.1);
+}
+.ii-quiz-ex {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+.ii-empty {
+  padding: 120rpx 40rpx;
+}

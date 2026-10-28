@@ -1,22 +1,102 @@
 <!--
-  探索画廊 · 阶段 0 过渡态（RESHAPE-TASK T0.2/T4.2）：
-  节目榜单/节目列表/频道入口已随合规重塑（红线 1）整体退役；
-  心愿定制栏、今日声音明信片与主题微剧场专栏待后端语料原子化
-  （/api/scenes/*、/api/studio/*）就绪后落地（T4.2）。
+  探索画廊（RESHAPE-TASK T4.2）：搜索 + 声音明信片卡流 + 场景胶囊/专栏 + 日签海报
 -->
 <view class="discover-container pb-page-bottom {{themeClass}}">
-  <view class="card gallery-hero col center">
-    <text class="t-h2 text-bold">探索画廊，筹备中</text>
-    <text class="t-body text-secondary gallery-desc center mt-3">
-      我们正在把数百小时的原声语料，打磨成一张张可以随身携带的语境卡片。
-      不久之后，你可以在这里许下任何学习心愿，由真实母语者的原声为你策展。
-    </text>
-    <view class="gallery-chips row">
-      <text class="gallery-chip">#职场表达</text>
-      <text class="gallery-chip">#日常闲聊</text>
-      <text class="gallery-chip">#抚平焦虑</text>
-      <text class="gallery-chip">#高频连读</text>
+  <!-- 搜索栏：搜表达、场景、中文意图或单词（防抖 400ms） -->
+  <view class="search-bar row">
+    <view class="search-input-wrap row flex-1">
+      <image class="search-icon-img" src="/assets/icons/search.svg" />
+      <input class="search-input flex-1" value="{{query}}" bindinput="onSearchInput"
+             placeholder="搜表达、场景、中文意图或单词" placeholder-class="search-placeholder"
+             confirm-type="search" />
+      <view wx:if="{{query}}" class="search-clear center" bindtap="onClearSearch">
+        <image class="search-clear-ic" src="/assets/icons/close.svg" />
+      </view>
     </view>
-    <text class="t-mini text-secondary gallery-hint mt-6">— 原声语境 · 精研每一句 —</text>
+  </view>
+
+  <!-- 语用场景胶囊栏 -->
+  <scroll-view class="chip-row" scroll-x show-scrollbar="{{false}}">
+    <view class="chip-row-inner row">
+      <view wx:for="{{chips}}" wx:key="key"
+            class="chip {{activeTag === item.key ? 'chip--on' : ''}} tap-scale"
+            data-key="{{item.key}}" bindtap="onChipTap">{{item.label}}</view>
+    </view>
+  </scroll-view>
+
+  <!-- 主题微剧场专栏（situationTag 聚合；复用专栏卡视觉） -->
+  <block wx:if="{{columns.length > 0 && !query}}">
+    <view class="section-title mt-4 mb-3"><text class="t-h3 text-bold">主题专栏</text></view>
+    <scroll-view class="col-row" scroll-x show-scrollbar="{{false}}">
+      <view class="col-row-inner row">
+        <view wx:for="{{columns}}" wx:key="name" class="column-card tap-scale"
+              data-name="{{item.name}}" bindtap="onColumnTap">
+          <image class="column-cover" src="{{item.coverUrl}}" mode="aspectFill" />
+          <view class="column-shade"></view>
+          <view class="column-body col">
+            <text class="column-name ellipsis">{{item.name}}</text>
+            <text class="column-count">{{item.sceneCount}} 段微剧场</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </block>
+
+  <!-- 声音明信片卡流 -->
+  <view class="section-title mt-4 mb-3 between">
+    <text class="t-h3 text-bold">今日声音明信片</text>
+    <text class="t-caption text-secondary" wx:if="{{total > 0}}">{{total}} 段</text>
+  </view>
+
+  <block wx:if="{{isLoading && cards.length === 0}}">
+    <view class="center" style="height: 30vh;"><view class="loading-spinner"></view></view>
+  </block>
+  <block wx:elif="{{cards.length === 0}}">
+    <view class="empty col center">
+      <text class="t-body text-secondary">{{query ? '没有找到贴近日签的原声，换个说法试试' : '原声语料正在筹备中，稍后再来逛逛'}}</text>
+    </view>
+  </block>
+  <block wx:else>
+    <view class="postcard" wx:for="{{cards}}" wx:key="sceneid"
+          data-scene="{{item.sceneid}}" bindtap="onCardTap">
+      <image class="postcard-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+      <view class="postcard-shade"></view>
+      <view class="postcard-body col">
+        <view class="row postcard-tags" wx:if="{{item.situationTag || item.cefrLabel}}">
+          <text class="postcard-pill" wx:if="{{item.situationTag}}">{{item.situationTag}}</text>
+          <text class="postcard-pill" wx:if="{{item.cefrLabel}}">{{item.cefrLabel}}</text>
+          <text class="postcard-pill">{{item.durText}}</text>
+        </view>
+        <text class="postcard-en ellipsis-2">{{item.en}}</text>
+        <text class="postcard-zh ellipsis" wx:if="{{item.zh}}">{{item.zh}}</text>
+        <view class="postcard-foot between w-full">
+          <view class="postcard-play row" data-scene="{{item.sceneid}}" catchtap="onPosterOpen">
+            <image class="postcard-poster-ic" src="/assets/icons/share.svg" />
+            <text class="postcard-poster-text">日签</text>
+          </view>
+          <sentence-micro-player
+            episodeid="" clip-id="{{item.sceneid}}" sentence-id="{{item.sceneid}}"
+            start-time="{{item.start}}" end-time="{{item.end}}" />
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{isLoading}}" class="center" style="padding: 32rpx 0;">
+      <view class="loading-spinner loading-spinner--sm"></view>
+    </view>
+    <view wx:elif="{{noMore}}" class="t-mini text-secondary center" style="padding: 32rpx 0;">— 已经逛到底啦 —</view>
+  </block>
+</view>
+
+<!-- ═══ 日签海报弹层（Canvas：封面 + 金句 + 品牌落款） ═══ -->
+<view wx:if="{{poster}}" class="poster-mask" bindtap="onPosterClose">
+  <view class="poster-card col center" catchtap="noop">
+    <canvas id="poster-canvas" type="2d" class="poster-canvas" bindinit="onPosterReady" />
+    <view class="row poster-actions">
+      <view class="poster-btn center tap-scale" bindtap="onPosterClose">关闭</view>
+      <view class="poster-btn poster-btn--main center tap-scale {{posterSaving ? 'is-busy' : ''}}" bindtap="onPosterSave">
+        <view wx:if="{{posterSaving}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
+        <text wx:else>保存到相册</text>
+      </view>
+    </view>
   </view>
 </view>

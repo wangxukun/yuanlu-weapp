@@ -3,6 +3,7 @@
   "usingComponents": {
     "vocabulary-modal": "/components/vocabulary-modal/index",
     "sentence-tag-drawer": "/components/sentence-tag-drawer/index",
-    "premium-modal": "/components/premium-modal/index"
+    "premium-modal": "/components/premium-modal/index",
+    "ai-deep-dive": "/components/ai-deep-dive/index"
   }
 }

@@ -75,6 +75,7 @@ const PREF_KEYS = {
   wordSweep: 'intensiveWordSweep',
   autoScroll: 'intensiveAutoScroll',
   showTranslation: 'intensiveShowTranslation',
+  linkRead: 'intensiveLinkRead', // 连读显微镜（T4.1，默认关）
 };
 
 Page({
@@ -82,7 +83,14 @@ Page({
     themeClass: '', // 手动外观根类（跟随系统为空，走媒体查询）
     dark: false,
     episodeid: '',
-    episode: null,
+    sceneid: '', // 微剧场模式（?sceneId=）：30 秒精研室（T4.1）
+    scene: null,
+    isSceneMode: false,
+    rateLabel: '1x',
+    phrase: null, // 词块点读坞：{ index, startWi, endWi, text, durText }
+    phrasePlaying: '',
+    quizPick: {}, // 精析随堂小测作答：quizIdx -> optionIdx
+    insight: null, // 场景精析视图（vocabulary/sentences/quiz 预处理）
     isLoading: true,
     error: null,
     statusBarH: 20,
@@ -97,6 +105,7 @@ Page({
     autoScroll: true, // 跟随开关（默认开；偏好持久化，见 PREF_KEYS）
     showTranslation: false, // 译文开关（默认关；偏好持久化，见 PREF_KEYS）
     wordSweep: true, // 词级扫光开关（平台性扩展；关闭仅留句级高亮，见文件头）
+    linkRead: false, // 连读显微镜：极速连读词块琥珀高亮 + 词块点读选区（T4.1）
     loopIndex: -1,
     scrollIntoView: '',
 
@@ -142,8 +151,12 @@ Page({
   onLoad(query) {
     // 深链预选模式（心愿卡册「捕词」入口）：直接进听写（含 0.8 倍速口径）
     const presetDictate = query && query.mode === 'dictate';
+    // 微剧场模式（?sceneId=）：30 秒精研室（T4.1）；与 ?id= 剧集模式并存
+    const sceneId = (query && (query.sceneId || query.scene)) || '';
     this.setData({
       episodeid: query.id || '',
+      sceneid: sceneId,
+      isSceneMode: !!sceneId,
       statusBarH: this._statusBarHeight(),
       ...(presetDictate ? { mode: 'dictate' } : {}),
     });
@@ -153,6 +166,7 @@ Page({
       if (wx.getStorageSync(PREF_KEYS.wordSweep) === false) this.setData({ wordSweep: false });
       if (wx.getStorageSync(PREF_KEYS.autoScroll) === false) this.setData({ autoScroll: false });
       if (wx.getStorageSync(PREF_KEYS.showTranslation) === true) this.setData({ showTranslation: true });
+      if (wx.getStorageSync(PREF_KEYS.linkRead) === true) this.setData({ linkRead: true });
     } catch (e) {}
 
     this._sentences = []; // 原始字幕
@@ -187,11 +201,18 @@ Page({
       onTick: (pos) => this._onTick(pos, this._playing),
       onEnded: () => this._onPlayingChanged(false),
     });
+    // 词块点读慢放坞（T4.1）：独立窗口播放器，与主播放器互停
+    this._phraseSeq = null;
+    this._phrasePlayer = createClipPlayer({
+      onPlaying: (k) => this.setData({ phrasePlaying: k || '' }),
+      onEnded: (k) => this._onPhraseEnded(k),
+    });
 
     this._unsubAuth = authStore.subscribe(() => this._syncAuth());
     this._syncAuth();
 
-    this._bootstrap();
+    if (this.data.isSceneMode) this._bootstrapScene(this.data.sceneid);
+    else this._bootstrap();
   },
 
   /** 单例回退换集刷新（utils/route.singletonNavigateTo 回退/命中本页实例时
@@ -211,6 +232,7 @@ Page({
     // 页内播放会话随页面销毁结束（无跨页后台播放器；stop 会联动
     // _onPlayingChanged(false) → listening-reporter 冲刷余量）
     if (this._player) this._player.stop();
+    if (this._phrasePlayer) this._phrasePlayer.stop();
   },
 
   noop() {},
@@ -226,6 +248,125 @@ Page({
     } catch (e) {
       return 20;
     }
+  },
+
+  /**
+   * 微剧场模式（T4.1）：GET /api/scenes/{id} 一次拉齐（3-6 句含词级时间戳
+   * + deepDive），音频走物理切片（clipAudioUrl 直连 / 懒取 /api/clips），
+   * 零整集字幕请求零整集音频（红线 2 终态）。切片起点 clipOffset 记为
+   * _timeBase：播放位置 + timeBase = 原剧集时间轴，扫光/跟随/循环全复用。
+   */
+  async _bootstrapScene(sceneid) {
+    this.setData({ isLoading: true, error: null, guestLimitOn: false });
+    try {
+      const body = await get('/api/scenes/' + encodeURIComponent(sceneid), null, { showError: false });
+      if (!body || !body.success || !body.data || !body.data.scene) {
+        throw new Error((body && body.message) || '微剧场不存在');
+      }
+      const d = body.data;
+      const scene = d.scene;
+      const clips = Array.isArray(scene.clips) ? scene.clips : [];
+      if (clips.length === 0) throw new Error('暂无字幕数据');
+
+      this._timeBase = Number(d.clipOffset) || 0;
+      this._buildViews(clips);
+      this.setData({
+        scene: {
+          episodeid: scene.episodeid || '',
+          title: scene.title || '原声微剧场',
+          summaryZh: scene.summaryZh || '',
+          situationTag: scene.situationTag || '',
+          cefrLevel: scene.cefrLevel || '',
+          coverUrl: scene.coverUrl || '',
+          duration: scene.duration || d.clipDuration || 0,
+        },
+        insight: this._buildInsight(scene.deepDive),
+        isLoading: false,
+        viewList: this._views.slice(0, this._renderEnd),
+      });
+
+      if (d.clipAudioUrl) {
+        this._audioUrl = d.clipAudioUrl;
+        this._playerPlay(0);
+      } else {
+        get('/api/clips/' + encodeURIComponent(sceneid) + '/audio', null, { showError: false })
+          .then((res) => {
+            if (!res || !res.success || !res.data || !res.data.url) return;
+            this._audioUrl = res.data.url;
+            this._timeBase = Number(res.data.clipOffset) || this._timeBase;
+            this._playerPlay(0);
+          })
+          .catch(() => {});
+      }
+      this._fetchSaveState();
+    } catch (err) {
+      this.setData({ error: (err && err.message) || '加载失败', isLoading: false });
+    }
+  },
+
+  /** 字幕句（episode/scene 同构）→ 视图模型 + 连读词块标记（T4.1） */
+  _buildViews(subtitles) {
+    this._views = subtitles.map((sv, i) => {
+      const words = Array.isArray(sv.words) ? sv.words : [];
+      const flags = new Array(words.length).fill(false);
+      const heads = new Array(words.length).fill(false);
+      const ac = core.analyzeWordAcoustics(words);
+      (ac.fastLinks || []).forEach((b) => {
+        for (let k = b.startIdx; k <= b.endIdx && k < words.length; k++) {
+          flags[k] = true;
+          if (k === b.startIdx) heads[k] = true;
+        }
+      });
+      const markedWords = words.map((w, wi) => ({
+        word: w.word,
+        start: w.start,
+        end: w.end,
+        fl: flags[wi],
+        flHead: heads[wi],
+      }));
+      return {
+        index: i,
+        id: sv.subtitleId != null ? sv.subtitleId : (sv.id != null ? sv.id : i),
+        start: sv.start,
+        end: sv.end != null ? sv.end : sv.start + 3,
+        textEn: sv.textEn || '',
+        zhClean: core.stripSpeaker(sv.textCn),
+        words: markedWords,
+        tsLabel: core.formatStartTime(sv.start),
+        active: false,
+        swIdx: -1,
+        swOn: false,
+      };
+    });
+    this._renderEnd = Math.min(this._views.length, RENDER_CHUNK);
+    this._winStart = 0;
+    this._freeScroll = false;
+    this._lastSwIdx = -1;
+    this._lastSwOn = false;
+  },
+
+  /** 场景 deepDive → 精析视图（WXML 零方法调用） */
+  _buildInsight(deepDive) {
+    if (!deepDive) return null;
+    return {
+      vocabulary: (deepDive.vocabulary || []).map((v) => ({
+        word: v.word || '',
+        phonetic: v.phonetic || '',
+        meaning: v.meaning || '',
+        reason: v.reason || '',
+      })),
+      sentences: (deepDive.sentences || []).map((x) => ({
+        text: x.text || '',
+        analysis: x.analysis || '',
+      })),
+      quiz: (deepDive.quiz || []).map((q, qi) => ({
+        question: q.question || '',
+        options: Array.isArray(q.options) ? q.options : [],
+        answerIndex: Number(q.answerIndex) || 0,
+        explanation: q.explanation || '',
+        idx: qi,
+      })),
+    };
   },
 
   async _bootstrap() {
@@ -249,21 +390,7 @@ Page({
       if (subBody.audioUrl) episode.audioUrl = subBody.audioUrl;
 
       this._sentences = subtitles;
-      this._views = subtitles.map((s, i) => ({
-        index: i,
-        id: s.id,
-        start: s.start,
-        end: s.end != null ? s.end : s.start + 3,
-        textEn: s.textEn || '',
-        zhClean: core.stripSpeaker(s.textCn),
-        words: Array.isArray(s.words) ? s.words : [],
-        tsLabel: core.formatStartTime(s.start),
-        // 词光态（原页面级标量 activeWordIndex/wordSweepOn 下沉到活动句字段，
-        // 使高频 setData 的视图层重算收敛到单句，见文件头性能口径）
-        active: false, // 活动句且本集在播（词三态总开关，暂停时回落）
-        swIdx: -1,     // 扫光位置（-1=句首前，len=整句读完）
-        swOn: false,   // 光斑是否点亮（间隙/读毕时 false → 全部回落已读色）
-      }));
+      this._buildViews(subtitles);
       // 游客试听墙（对齐 Web 端口径）：后端未登录时已把字幕裁至前 180s
       // （start < 180），前端同口径再裁一次防后端放开后泄漏；音频不受此裁剪
       // 影响（detail 接口对游客仍签发直链、整集连播），越界续播由 _onTick
@@ -275,11 +402,6 @@ Page({
         if (cutLen > 0) this._views = this._views.slice(0, cutLen);
       }
 
-      this._renderEnd = Math.min(this._views.length, RENDER_CHUNK);
-      this._winStart = 0; // 换集重拉（singletonReload/_syncAuth）复位窗口态
-      this._freeScroll = false;
-      this._lastSwIdx = -1;
-      this._lastSwOn = false;
       this.setData({
         episode,
         isLoading: false,
@@ -306,12 +428,19 @@ Page({
 
   // ==================== 页内播放会话（clip-player 适配） ====================
 
-  /** 起播/重锚起播（seek 即重锚：clip-player 的 startTime 起播锚定无 seek 竞态） */
+  /** 起播/重锚起播（seek 即重锚）。fromSec 为切片本地秒；剧集模式
+   *  _timeBase=0 时与原剧集时间轴等价 */
   _playerPlay(fromSec) {
     if (!this._audioUrl) return;
     const sec = isFinite(fromSec) && fromSec > 0 ? fromSec : 0;
     this._resumeAt = sec;
+    if (this._phrasePlayer) this._phrasePlayer.stop(); // 词块坞互停
     this._player.playUrl(this._audioUrl, 'episode', { startSec: sec, rate: this._rate });
+  },
+
+  /** 剧集时间轴绝对秒 → 切片本地秒（微剧场模式） */
+  _absToLocal(absSec) {
+    return Math.max(0, (Number(absSec) || 0) - (this._timeBase || 0));
   },
 
   /** 暂停并记住位置（续播从 _resumeAt 起） */
@@ -322,10 +451,11 @@ Page({
     this._player.stop();
   },
 
-  /** 暂停态跳句只挪 _resumeAt；在播则重锚到目标句句首 */
-  _playerSeek(sec) {
-    if (this._playing) this._playerPlay(sec);
-    else this._resumeAt = sec;
+  /** 暂停态跳句只挪 _resumeAt；在播则重锚到目标句句首（入参为剧集绝对秒） */
+  _playerSeek(absSec) {
+    const local = this._absToLocal(absSec);
+    if (this._playing) this._playerPlay(local);
+    else this._resumeAt = local;
   },
 
   /** clip-player 播放态翻转 → 页面态同步 + 收听时长心跳 + 扫光预热/回落 */
@@ -342,7 +472,7 @@ Page({
       if (playing) {
         const v = this._views[idx];
         if (this.data.mode === 'read' && this.data.wordSweep && v && v.words.length) {
-          const sw = core.computeWordSweep(v.words, this._lastPos, v.start, v.end);
+          const sw = core.computeWordSweep(v.words, (this._lastPos || 0) + (this._timeBase || 0), v.start, v.end);
           this._lastSwIdx = sw.idx;
           this._lastSwOn = sw.on;
           patch['viewList[' + idx + '].swIdx'] = sw.idx;
@@ -408,11 +538,11 @@ Page({
   _onTick(t, playing) {
     const views = this._views;
     if (!views.length) return;
-    this._lastPos = t;
+    this._lastPos = t; // 切片本地秒（重锚/词块坞共用）
+    const at = t + (this._timeBase || 0); // 剧集时间轴绝对秒（扫光/跟随/循环）
 
-    // 游客时长拦截：未登录试听满 180s → 落锁暂停；已落锁后越界续播就地再拦
-    //（180s 内跳句/循环/听写不受影响）
-    if (!this.data.isLoggedIn && t >= GUEST_PREVIEW_SECONDS) {
+    // 游客时长拦截（仅剧集模式；微剧场切片 ≤40s 天然合规，游客可完整体验）
+    if (!this.data.isSceneMode && !this.data.isLoggedIn && at >= GUEST_PREVIEW_SECONDS) {
       if (!this.data.guestLimitOn) this._engageGuestLimit();
       else if (playing) this._playerPause();
       return;
@@ -423,24 +553,24 @@ Page({
       this.data.mode === 'dictate' ? this.data.activeIndex : this.data.loopIndex;
     if (playing && loopIdx >= 0 && loopIdx < views.length) {
       const sub = views[loopIdx];
-      if (core.shouldLoopSeek(t, sub, this._lastSeekAt, Date.now())) {
+      if (core.shouldLoopSeek(at, sub, this._lastSeekAt, Date.now())) {
         this._lastSeekAt = Date.now();
         this._playerSeek(sub.start);
         return; // 重锚后由新位置回调接管
       }
     }
 
-    const idx = core.findActiveIndex(views, t, this._lastActive);
+    const idx = core.findActiveIndex(views, at, this._lastActive);
     if (idx !== this.data.activeIndex) {
       this._lastActive = idx;
-      this._setActive(idx, t);
+      this._setActive(idx, at);
       return;
     }
     if (idx >= 0 && playing && this.data.mode === 'read' && this.data.wordSweep) {
       // 词级扫光三态（computeWordSweep）：路径补丁只写进活动句视图字段，
       // 视图层重算范围收敛到该句（原页面级标量会牵动全列表词节点重算）
       const v = views[idx];
-      const sw = core.computeWordSweep(v.words, t, v.start, v.end);
+      const sw = core.computeWordSweep(v.words, at, v.start, v.end);
       if (sw.idx !== this._lastSwIdx || sw.on !== this._lastSwOn) {
         if (this._isRenderingSweep) {
           // 如果上一帧扫光还在渲染队列中，主动丢弃当前帧，防止队列积压
@@ -468,7 +598,7 @@ Page({
   _engageGuestLimit() {
     const last = this._views[this._views.length - 1];
     this._playerPause();
-    if (last) this._resumeAt = last.start; // 回退到最后一句句首（登录前仍可反复试听前 180s）
+    if (last) this._resumeAt = this._absToLocal(last.start); // 回退句首（登录前可反复试听）
     this.setData({ guestLimitOn: true });
   },
 
@@ -722,6 +852,29 @@ Page({
     this._savePref(PREF_KEYS.showTranslation, showTranslation);
   },
 
+  /** 连读显微镜开关（T4.1）：词块琥珀高亮 + 点词切换为词块选区 */
+  onToggleLinkRead() {
+    const linkRead = !this.data.linkRead;
+    this.setData({ linkRead, phrase: null });
+    if (this._phrasePlayer) this._phrasePlayer.stop();
+    this._selAnchor = null;
+    this._savePref(PREF_KEYS.linkRead, linkRead);
+  },
+
+  /** 倍速切换（画报头卡控制条）：在播则以当前位置重锚续播 */
+  onRatePick(e) {
+    const rate = Number(e.currentTarget.dataset.rate) || 1;
+    this._rate = rate;
+    this.setData({ rateLabel: rate === 0.75 ? '0.75x' : rate + 'x' });
+    if (this._playing) this._playerPlay(this._lastPos);
+  },
+
+  /** 画报头卡播放/暂停 */
+  onHeroToggle() {
+    if (this._playing) this._playerPause();
+    else this._playerPlay(this._resumeAt || 0);
+  },
+
   /**
    * 词扫光开关（仅精读模式；听写本就无扫光，按钮隐藏）：
    *   - 关闭：清当前活动句扫光字段（wordCls 对 active=true + swIdx=-1 自然
@@ -747,7 +900,7 @@ Page({
         ['viewList[' + idx + '].swOn']: false,
       });
     } else if (this.data.isPlaying && v.words.length) {
-      const sw = core.computeWordSweep(v.words, this._lastPos, v.start, v.end);
+      const sw = core.computeWordSweep(v.words, (this._lastPos || 0) + (this._timeBase || 0), v.start, v.end);
       this._lastSwIdx = sw.idx;
       this._lastSwOn = sw.on;
       this.setData({
@@ -772,7 +925,7 @@ Page({
     // 点句跳播 = 回到跟随意图（跟随开关关着则保持自由浏览——窗口不跳移，
     // 防止用户视口附近的句子被滑走清屏）；窗口/锚点由下一帧 _setActive 收口
     this._freeScroll = !this.data.autoScroll;
-    this._playerPlay(v.start);
+    this._playerPlay(this._absToLocal(v.start));
   },
 
   /** 单句循环开关（SubtitleItem.onToggleLoop + useTranscriptScroll 回跳） */
@@ -790,8 +943,12 @@ Page({
 
   // ==================== 生词收藏（点词 → 词典 → 落库） ====================
 
-  /** 点词查词典（Web handleWordClick：清洗标点 → 暂停 → 拉取 /api/dict/[word]） */
+  /** 点词（T4.1 双态）：显微镜开 → 词块选区；关 → 查词典 */
   onWordTap(e) {
+    if (this.data.linkRead) {
+      this._onWordSelect(e.currentTarget.dataset);
+      return;
+    }
     const ds = e.currentTarget.dataset;
     const v = this._views[Number(ds.index)];
     if (!v) return;
@@ -842,6 +999,143 @@ Page({
 
   onVocabClose() {
     this.setData({ 'wordModal.visible': false });
+  },
+
+  // ==================== 词块点读慢放坞（T4.1 显微镜） ====================
+
+  /** 连点两个词框选 2-4 词词块：首点定起点（pending 态提示），次点定终点 */
+  _onWordSelect(ds) {
+    const index = Number(ds.index);
+    const wi = Number(ds.wi);
+    const v = this._views[index];
+    if (!v) return;
+    if (this._phrasePlayer) this._phrasePlayer.stop();
+    this._phraseSeq = null;
+
+    // 首点 / 换句重选：落 pending 起点
+    if (!this._selAnchor || this._selAnchor.index !== index) {
+      this._selAnchor = { index, wi };
+      this.setData({
+        phrase: { index, startWi: wi, endWi: wi, text: v.words[wi].word, durText: '再点尾词框选 2-4 词', pending: true },
+      });
+      return;
+    }
+    // 同词再点：取消选区
+    if (this._selAnchor.wi === wi) {
+      this._selAnchor = null;
+      this.setData({ phrase: null });
+      return;
+    }
+    // 次点定界：顺序归一 + 钳制 ≤4 词
+    let a = Math.min(this._selAnchor.wi, wi);
+    let b = Math.max(this._selAnchor.wi, wi);
+    if (b - a > 3) b = a + 3;
+    this._selAnchor = null;
+    const win = core.slicePhraseWindow(v.words, a, b);
+    if (!win || !isFinite(win.startSec) || !isFinite(win.endSec)) {
+      wx.showToast({ title: '该词块缺少时间戳', icon: 'none' });
+      this.setData({ phrase: null });
+      return;
+    }
+    this._phraseWin = win;
+    this.setData({
+      phrase: {
+        index,
+        startWi: a,
+        endWi: b,
+        text: win.phraseText,
+        durText: win.endSec - win.startSec < 10
+          ? (win.endSec - win.startSec).toFixed(1) + 's'
+          : Math.round(win.endSec - win.startSec) + 's',
+        pending: false,
+      },
+    });
+  },
+
+  onPhraseClose() {
+    this._selAnchor = null;
+    this._phraseSeq = null;
+    if (this._phrasePlayer) this._phrasePlayer.stop();
+    this.setData({ phrase: null });
+  },
+
+  /** 原速 / 慢镜 / 阶梯三连放（1.0 → 0.75 → 1.0） */
+  onPhrasePlay(e) {
+    const phrase = this.data.phrase;
+    if (!phrase || phrase.pending || !this._phraseWin || !this._audioUrl) return;
+    const mode = e.currentTarget.dataset.mode;
+    const seq = mode === 'slow' ? [0.75] : mode === 'triple' ? [1, 0.75, 1] : [1];
+    this._player.stop(); // 主播放器互停
+    this._phraseSeq = seq;
+    this._playPhraseAt(0, seq[0]);
+  },
+
+  _playPhraseAt(i, rate) {
+    const win = this._phraseWin;
+    this._phrasePlayer.playUrl(this._audioUrl, 'phrase' + i, {
+      startSec: this._absToLocal(win.startSec),
+      endSec: this._absToLocal(win.endSec),
+      rate,
+    });
+  },
+
+  /** 三连放推进：onEnded 携带序号推进到下一档 */
+  _onPhraseEnded(kind) {
+    if (!this._phraseSeq) {
+      this.setData({ phrasePlaying: '' });
+      return;
+    }
+    const i = Number(String(kind || '').replace('phrase', ''));
+    if (!isFinite(i) || i + 1 >= this._phraseSeq.length) {
+      this._phraseSeq = null;
+      this.setData({ phrasePlaying: '' });
+      return;
+    }
+    this._playPhraseAt(i + 1, this._phraseSeq[i + 1]);
+  },
+
+  /** 词块收进生词本（word=词块文本，上下文=所在句） */
+  onPhraseSave() {
+    const phrase = this.data.phrase;
+    if (!phrase || phrase.pending) return;
+    if (!this.data.isLoggedIn) {
+      this._promptLogin('请先登录后再保存生词');
+      return;
+    }
+    const v = this._views[phrase.index] || {};
+    const word = String(phrase.text || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    if (!word) return;
+    post(
+      '/api/vocabulary/add',
+      {
+        word,
+        definition: '',
+        contextSentence: v.textEn || '',
+        translation: v.zhClean || '',
+        episodeid: this.data.isSceneMode
+          ? ((this.data.scene && this.data.scene.episodeid) || '')
+          : this.data.episodeid,
+        timestamp: Math.floor(this._phraseWin ? this._phraseWin.startSec : 0),
+        speakUrl: '', dictUrl: '', webUrl: '', mobileUrl: '',
+      },
+      { showError: false }
+    )
+      .then(() => wx.showToast({ title: '已收进生词本', icon: 'none' }))
+      .catch((err) => {
+        if (err && err.statusCode === 400) {
+          wx.showToast({ title: '已在生词本里', icon: 'none' });
+          return;
+        }
+        wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' });
+      });
+  },
+
+  /** 精析随堂小测作答（点选项显对错 + 解析） */
+  onQuizPick(e) {
+    const ds = e.currentTarget.dataset;
+    const q = Number(ds.q);
+    if (!isFinite(q) || this.data.quizPick[q] !== undefined) return; // 已作答锁定
+    this.setData({ ['quizPick.' + q]: Number(ds.o) });
   },
 
   onVocabComplete() {
