@@ -8,7 +8,7 @@
  *   - captureFromQuery 返回本次新捕获值（自然打开返回 ''，不触发直达）
  *
  * 直达（T2）：handleEntry 仅对新来源发起 GET /api/wxacode 解析；
- *   targetType=episode → navigateTo /pages/episode/episode?id=；follow/404/网络失败
+ *   targetType=episode → navigateTo /pages/intensive-listening/index?id=；follow/404/网络失败
  *   一律静默不导航；冷启动 onLaunch+onShow 同参双触发 10s 去重；
  *   navigateTo 冷启动竞态 fail 时退避重试（最多 2 次）。
  *
@@ -98,7 +98,7 @@ async function main() {
   });
   entrySource.handleEntry({ scene: 'gzh_w5_b' });
   await sleep(20);
-  ok(navigations[navigations.length - 1] === '/pages/episode/episode?id=cmivwgyal_ep5', 'episode 型 scene 解析后直达剧集页');
+  ok(navigations[navigations.length - 1] === '/pages/intensive-listening/index?id=cmivwgyal_ep5', 'episode 型 scene 解析后直达原声精研页');
   ok(entrySource.get() === 'gzh_w5_b', '直达与归因互不干扰（storage 已更新）');
 
   // follow 类型：只归因不导航
@@ -121,7 +121,7 @@ async function main() {
   entrySource.handleEntry({ scene: 'gzh_w6_b' }); // 模拟紧随其后的 onShow
   await sleep(20);
   ok(requests.length - reqBefore === 1, '冷启动 onLaunch+onShow 双触发只解析一次');
-  ok(navigations.filter((u) => u === '/pages/episode/episode?id=ep6').length === 1, '剧集页只被压栈一次');
+  ok(navigations.filter((u) => u === '/pages/intensive-listening/index?id=ep6').length === 1, '精研页只被压栈一次');
 
   // 404 / 网络失败：静默不导航不抛错
   requestResponder = () => ({ statusCode: 404, data: { success: false, error: '短码不存在' } });
@@ -151,7 +151,7 @@ async function main() {
   });
   entrySource.handleEntry({ scene: 'gzh_w9_b' });
   await sleep(2000);
-  ok(navigations.filter((u) => u === '/pages/episode/episode?id=ep9').length === 3, '首页未就绪时退避重试直达（2 次失败后成功）');
+  ok(navigations.filter((u) => u === '/pages/intensive-listening/index?id=ep9').length === 3, '首页未就绪时退避重试直达（2 次失败后成功）');
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);

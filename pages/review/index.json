@@ -3,6 +3,5 @@
     "vocab-notebook": "/components/review/vocab-notebook/index",
     "sentence-notebook": "/components/review/sentence-notebook/index",
     "pron-notebook": "/components/review/pron-notebook/index",
-    "mini-player": "/components/player/mini-player/index"
   }
 }

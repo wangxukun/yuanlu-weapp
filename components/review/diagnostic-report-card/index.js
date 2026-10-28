@@ -1,5 +1,5 @@
 /**
- * components/review/diagnostic-report-card — AI 发音诊断报告卡
+ * components/review/diagnostic-report-card — 发音弱项剖析报告卡
  * 复刻 Web app/(main)/library/pronunciation/components/DiagnosticReportCard.tsx
  * 〔Android 无此卡（其 PhonemeRadarCard 归 T4.4），内容/交互以 Web 为唯一源；
  * 卡壳与头部沿用 T4.2 已确立的 Android Material3 语言（CardShell/IconBadge/

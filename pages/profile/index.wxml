@@ -124,7 +124,7 @@
           </view>
           <view class="flex-1 pf-report-text">
             <view class="pf-report-title">学习报表</view>
-            <view class="pf-report-sub">{{isPremium ? '近7天简报·全年的趋势、热力图与智能建议' : '近7天简报·升级PRO解锁全年报表'}}</view>
+            <view class="pf-report-sub">{{isPremium ? '近7天简报·全年的趋势、热力图与复盘建议' : '近7天简报·升级PRO解锁全年报表'}}</view>
           </view>
           <image class="pf-report-arrow" src="{{reportArrowIcon}}" mode="aspectFit" />
         </view>
@@ -396,10 +396,8 @@
       </view>
     </view>
 
-    <!-- 底部预留：24dp 间距 + mini-player + 安全区（对齐 Android 尾部 Spacer 24dp） -->
+    <!-- 底部预留：24dp 间距 + 安全区（对齐 Android 尾部 Spacer 24dp） -->
     <view class="pf-bottom-space"></view>
   </block>
 
-  <!-- 跨页迷你播放条：无播放会话时整条不渲染（非 tab 页不传 elevated） -->
-  <mini-player />
 </view>

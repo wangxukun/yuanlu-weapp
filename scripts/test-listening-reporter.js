@@ -4,11 +4,15 @@
  * 把门口径 = Android ListeningTimeReporter.kt / Web GlobalAudio 心跳：
  *   - 播放中 1s 墙钟计时，满 30s 批量 POST /api/auth/update-activity {seconds}
  *   - 暂停/停止冲刷余量；游客不计时；登出余量丢弃
- *   - audioManager 六路播放事件（play/pause/stop/ended/error/close）联动
+ *   - 播放态接线：精研页页内 clip-player 的 onPlayingChanged 翻转驱动
+ *     （原全局播放器六路事件联动已随整集链路退役，红线 2）
  *   - 主页脏刷新含 weekly-activity：打卡时间随收听时长更新
  *
  * 运行：node scripts/test-listening-reporter.js
  */
+
+const fs = require('fs');
+const path = require('path');
 
 const storage = new Map();
 const uploads = [];
@@ -98,42 +102,16 @@ const reporter = require('../utils/listening-reporter');
   reporter.onPlaybackState(false);
   ok(uploadsFor().length === 0, '登出后冲刷分支丢弃 20s（不误记到后续账号）');
 
-  console.log('== audioManager 六路事件联动 ==');
-  // 重新加载模块（audioManager 在文件加载时不依赖 wx 音频实例，init 才创建）
-  const bgmHandlers = {};
-  const bgm = {
-    onPlay(cb) { bgmHandlers.play = cb; },
-    onPause(cb) { bgmHandlers.pause = cb; },
-    onStop(cb) { bgmHandlers.stop = cb; },
-    onEnded(cb) { bgmHandlers.ended = cb; },
-    onError(cb) { bgmHandlers.error = cb; },
-    onTimeUpdate() {},
-    onCanplay() {},
-    onWaiting() {},
-    onPrev() {},
-    onNext() {},
-  };
-  global.wx.getBackgroundAudioManager = () => bgm;
-  let audioManager;
-  try { delete require.cache[require.resolve('../utils/audioManager')]; } catch (e) {}
-  audioManager = require('../utils/audioManager');
-  audioManager.init();
-
-  reporter._reset(); uploads.length = 0; timers.length = 0;
-  storage.set('token', 'tk');
-  bgmHandlers.play();
-  advance(30000);
-  bgmHandlers.pause();
-  await new Promise((r) => setTimeout(r, 5));
-  ok(uploadsFor().length === 1 && uploadsFor()[1 - 1].data.seconds === 30, 'onPlay→onPause 心跳链路（bgm 事件驱动上报）');
-
-  uploads.length = 0;
-  bgmHandlers.play();
-  advance(15000);
-  bgmHandlers.ended();
-  await new Promise((r) => setTimeout(r, 5));
-  ok(uploadsFor().length === 1 && uploadsFor()[0].data.seconds === 15,
-    '播完 onEnded 冲刷 15s（打卡时长落账）：实际 ' + JSON.stringify(uploadsFor().map((u) => u.data.seconds)));
+  console.log('== 精研页播放态接线（原全局播放器六路事件联动已随整集链路退役） ==');
+  // 红线 2：wx.getBackgroundAudioManager 全局播放内核已删除
+  ok(!fs.existsSync(path.join(__dirname, '../utils/audioManager.js')),
+    'utils/audioManager.js 已退役（零后台整集播放内核）');
+  // 新接线：精研页页内 clip-player 的 onPlayingChanged 翻转驱动心跳
+  const intensiveSrc = fs.readFileSync(path.join(__dirname, '../pages/intensive-listening/index.js'), 'utf8');
+  ok(intensiveSrc.indexOf('listeningReporter.onPlaybackState(playing)') !== -1,
+    '精研页 _onPlayingChanged → onPlaybackState(playing)（起播计时/停止冲刷）');
+  ok(intensiveSrc.indexOf('this._player.stop()') !== -1,
+    '页面卸载停止播放会话（联动冲刷余量）');
 
   console.log('');
   console.log('收听心跳：' + passed + ' 通过，' + failed + ' 失败');

@@ -750,7 +750,7 @@ async function driveAttach(opts) {
 
   // meta 出处胶囊 → 剧集详情
   idle.onEpisodeTap({ currentTarget: { dataset: { episodeid: 'ep1' } } });
-  assert(navCalls[1] === '/pages/episode/episode?id=ep1', '出处胶囊：跳剧集详情 ?id=');
+  assert(navCalls[1] === '/pages/intensive-listening/index?id=ep1', '出处胶囊：跳原声精研页 ?id=');
 
   // 编辑 → 抽屉 sentence 置位
   idle.onEditTap({ currentTarget: { dataset: { id: 1 } } });

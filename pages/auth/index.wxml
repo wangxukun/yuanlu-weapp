@@ -9,7 +9,7 @@
   <!-- ===== 品牌区（对齐 LoginGateScreen 的 PodcastWave 插画 + LoginSheet 标题） ===== -->
   <view class="brand">
     <view class="brand-logo" />
-    <text class="brand-title">欢迎来到远路播客</text>
+    <text class="brand-title">欢迎来到远路听说</text>
     <text class="brand-subtitle">请选择登录方式</text>
   </view>
 

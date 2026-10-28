@@ -3,7 +3,7 @@
 
   <!-- 行1：标题 + 权限状态（PRO 徽标 / 锁 / 展开箭头） -->
   <view class="dd-head row align-center {{!content ? 'tap-scale-light' : ''}}" bindtap="onHeadTap">
-    <text class="dd-title">AI 精讲本集</text>
+    <text class="dd-title">语境深度精析</text>
     <view class="dd-pro-badge" wx:if="{{isLoggedIn && !isPremium}}">PRO</view>
     <view class="flex-1"></view>
     <image class="dd-lock" wx:if="{{isLoggedIn && !isPremium}}" src="/assets/icons/lock.svg"></image>
@@ -32,7 +32,7 @@
         </view>
       </view>
     </view>
-    <text class="dd-loading-text flex-1" wx:else>AI 正在精读字幕并生成精讲内容，首次生成约需 30-60 秒...</text>
+    <text class="dd-loading-text flex-1" wx:else>正在拆解词汇、句法与语境要点，首次整理约需 15-30 秒...</text>
   </view>
 
   <!-- 展开态：按 activeFilter 条件渲染四类精讲内容（无卡片包裹） -->

@@ -10,15 +10,8 @@
     "pages/review/leaderboard/index",
     "pages/mine/index",
     "pages/auth/index",
-    "pages/library/favorites/index",
-    "pages/library/history/index",
     "pages/library/paths/index",
     "pages/library/paths/detail",
-    "pages/podcast/podcast",
-    "pages/episode/episode",
-    "pages/search/search",
-    "pages/channel/all/index",
-    "pages/channel/index",
     "pages/intensive-listening/index",
     "pages/speech-eval/index",
     "pages/contact/index",
@@ -30,13 +23,10 @@
     "pages/subscription/index",
     "pages/subscription/orders/index"
   ],
-  "requiredBackgroundModes": [
-    "audio"
-  ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "@navBgColor",
-    "navigationBarTitleText": "远路播客",
+    "navigationBarTitleText": "远路听说",
     "navigationBarTextStyle": "@navTxtStyle",
     "backgroundColor": "@bgColor"
   },

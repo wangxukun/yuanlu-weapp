@@ -3,7 +3,7 @@
  *
  * UI 复刻 Android 端 LearningPathsScreen.kt（横向卡片：左封面 PUBLIC 角标 +
  * 右标题/描述/进度/集数与创建者），顶部操作按钮区融合 Web 端 LearningPathsClient
- * 的双按钮设计（紫渐变「AI 生成路径」+ 主题绿「+ 创建新路径」；页面不再放大标题
+ * 的双按钮设计（紫渐变「定制专属卡册」+ 主题绿「+ 创建新路径」；页面不再放大标题
  * 与副标题，标题由原生导航栏「学习路径」承担）。
  *
  * 数据逻辑（对齐 Android LearningPathsViewModel + Web LearningPathsClient）：
@@ -12,7 +12,7 @@
  *   两 Tab 并行拉取（对齐 Web Promise.all），Tab 切换为本地态切换不重拉；
  *   搜索为本地过滤（路径名忽略大小写包含）。
  *   - POST /api/learning-paths                 创建（免费配额 1 条，403=PATH_QUOTA_EXCEEDED）
- *   - POST /api/learning-paths/generate        AI 生成（PRO 专属，403=PREMIUM_REQUIRED；
+ *   - POST /api/learning-paths/generate        心愿定制（PRO 专属，403=PREMIUM_REQUIRED；
  *                                              422/429/503=降级手动创建并预填主题）
  * 会员判定：role 展示缓存 + /api/user/subscription/status 校正（deriveDisplayRole 口径）。
  */
@@ -60,7 +60,7 @@ Page({
     myPaths: [],
     publicPaths: [],
     displayPaths: [], // 渲染源：activeTab 列表经搜索过滤
-    // ---- 会员态（AI 生成 / 配额墙判定） ----
+    // ---- 会员态（心愿定制 / 配额墙判定） ----
     isPremium: false,
     // ---- 创建路径弹窗 ----
     showCreateDialog: false,
@@ -68,7 +68,7 @@ Page({
     formDesc: '',
     formPublic: false,
     isSubmitting: false,
-    // ---- AI 生成弹窗 ----
+    // ---- 心愿定制弹窗 ----
     showGenerateDialog: false,
     generateTopic: '',
     isGenerating: false,
@@ -286,9 +286,9 @@ Page({
     }
   },
 
-  // ==================== AI 生成路径（对齐 Web handleGenerateClick / handleGenerate） ====================
+  // ==================== 心愿定制卡册（对齐 Web handleGenerateClick / handleGenerate） ====================
 
-  /** 「AI 生成路径」：PRO 专属（LLM 真实边际成本），免费用户弹窗承接 */
+  /** 「定制专属卡册」：PRO 专属（LLM 真实边际成本），免费用户弹窗承接 */
   onGenerateClick() {
     if (!this.data.isPremium) {
       this.openPremium('path_ai_generate');
@@ -321,7 +321,7 @@ Page({
         this.setData({ isGenerating: false, showGenerateDialog: false, generateTopic: '' });
         const data = res.data || {};
         wx.showToast({
-          title: 'AI 已生成「' + (data.pathName || topic) + '」（' + (data.itemCount || 0) + ' 集）',
+          title: '已为你定制「' + (data.pathName || topic) + '」（' + (data.itemCount || 0) + ' 集）',
           icon: 'none',
         });
         this.setData({ activeTab: 'mine' });
@@ -329,7 +329,7 @@ Page({
         return;
       }
       // 200 + success:false 的业务失败（走降级口径）
-      wx.showToast({ title: (res && res.message) || 'AI 生成失败，已为你切换到手动创建', icon: 'none' });
+      wx.showToast({ title: (res && res.message) || '定制失败，已为你切换到手动创建', icon: 'none' });
       fallbackToCreate = true;
     } catch (err) {
       if (err && err.code === 'PREMIUM_REQUIRED') {
@@ -339,7 +339,7 @@ Page({
         return;
       }
       // LLM 失败 / 无匹配 / 频率限制 / 网络异常：降级为手动创建（预填主题），不阻断
-      wx.showToast({ title: (err && err.message) || 'AI 生成失败，已为你切换到手动创建', icon: 'none' });
+      wx.showToast({ title: (err && err.message) || '定制失败，已为你切换到手动创建', icon: 'none' });
       fallbackToCreate = true;
     }
     if (fallbackToCreate) {

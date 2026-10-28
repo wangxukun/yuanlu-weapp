@@ -290,10 +290,10 @@ Component({
 
     /* ---------------- 卡片操作坞（T2.3） ---------------- */
 
-    /** meta 出处胶囊 → 剧集详情页（Web Link /episode/{episodeid}） */
+    /** meta 出处胶囊 → 原声精研页（原剧集详情页已随整集链路退役，改道精研） */
     onEpisodeTap(e) {
       const id = e.currentTarget.dataset.episodeid;
-      if (id) wx.navigateTo({ url: '/pages/episode/episode?id=' + id });
+      if (id) wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + id });
     },
 
     /** 影子跟读：subtitleId 缺失时禁用并提示（Web title 提示的小程序等价） */

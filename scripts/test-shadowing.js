@@ -1,5 +1,5 @@
 /**
- * scripts/test-shadowing.js — AI 影子跟读页自动化测试（REVIEW-TASK T3.4）
+ * scripts/test-shadowing.js — 原声影子跟读页自动化测试（REVIEW-TASK T3.4）
  *
  * Page 定义捕获 + makeInstance 驱动：
  *   1. 深链定位（id 优先 / subtitleId 兜底 / 未命中回落 0）
@@ -278,7 +278,7 @@ apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, 
   /* ---------- 8. 结构断言 ---------- */
   section('WXML / json 结构断言');
 
-  assert(WXML.includes('AI 影子跟读评测 ({{index + 1}}/{{total}})'), '标题格式（(i/N)）逐字');
+  assert(WXML.includes('原声影子跟读 ({{index + 1}}/{{total}})'), '标题格式（(i/N)）逐字');
   assert(WXML.includes('sh-progress-bar'), '进度条');
   assert(WXML.includes('<eval-card') && WXML.includes('key="{{cardKey}}"') &&
     WXML.includes('subtitle="{{subtitle}}"') && WXML.includes('quota-locked="{{quotaLocked}}"') &&

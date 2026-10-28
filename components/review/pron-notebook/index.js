@@ -1,6 +1,6 @@
 // components/review/pron-notebook — 发音弱项本根视图
 // 阶段四：T4.1 数据接入已落地（拉取/归一/试用埋点），画像卡（T4.2）、
-// AI 诊断报告卡（T4.3）、弱项句列表（T4.4）、闯关与排行榜入口（T4.5）
+// 弱项剖析报告卡（T4.3）、弱项句列表（T4.4）、闯关与排行榜入口（T4.5）
 // 的 UI 逐任务替换下方占位卡。
 //
 // T4.1（数据接入，REVIEW-TASK 阶段 4）：
@@ -43,7 +43,7 @@ Component({
     placeholder: {
       icon: '/assets/icons/mic-ink-active.svg',
       title: '发音弱项本',
-      desc: 'AI 诊断发音弱项，五维画像 + 音素报告，逐句闯关攻克弱音。',
+      desc: '多维剖析发音弱项，五维画像 + 音素报告，逐句闯关攻克弱音。',
       phase: '加载中'
     },
     failed: {

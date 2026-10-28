@@ -78,13 +78,11 @@ function routeAwareHandler(routes) {
 
 const path = require('path');
 const authStore = require(path.join(__dirname, '../store/authStore.js'));
-const audioManager = require(path.join(__dirname, '../utils/audioManager.js'));
 require(path.join(__dirname, '../pages/library/paths/index.js'));
 const listConfig = global.__pageConfig;
 global.__pageConfig = null;
 require(path.join(__dirname, '../pages/library/paths/detail.js'));
 const detailConfig = global.__pageConfig;
-audioManager.init();
 
 /* ==================== 工具函数 ==================== */
 
@@ -134,8 +132,6 @@ function resetMock() {
   clipboard = '';
   global.__app = { globalData: {} };
   authStore.setState({ isLoggedIn: false, token: '', userInfo: null });
-  // 复位播放器会话（场景间状态不串扰；close 空会话安全）
-  audioManager.close();
 }
 
 const tick = async (n = 12) => {
@@ -463,7 +459,7 @@ requestHandler = routeAwareHandler(
   assert(!!gen && gen.data.topic === '商务英语入门', '生成提交 POST /generate { topic }');
   assert(page.data.showGenerateDialog === false, '生成成功关闭弹窗');
   assert(
-    toasts.some((t) => t.indexOf('AI 已生成「商务英语入门」（6 集）') !== -1),
+    toasts.some((t) => t.indexOf('已为你定制「商务英语入门」（6 集）') !== -1),
     '成功 toast 带「名称 + 集数」'
   );
   assert(page.data.activeTab === 'mine', '生成成功切回「我的集合」并刷新');
@@ -573,7 +569,7 @@ requestHandler = routeAwareHandler(
   assert(page.data.detail.isOwner === false, '非拥有者（发现 Tab 进入）无管理入口');
 }
 
-section('详情页 · 播放（专属过滤 + 拦截）');
+section('详情页 · 逐条精研（专属过滤 + 拦截；整集连播已随红线 2 退役）');
 
 resetMock();
 login('USER');
@@ -587,14 +583,10 @@ requestHandler = routeAwareHandler(
   await tick();
   await page.onPlayAll();
   await tick();
-  const st = audioManager.getState();
   assert(
-    toasts.includes('已跳过 1 个专属剧集'),
-    '非会员播放全部：过滤专属剧集并 toast 跳过数'
+    navigations[navigations.length - 1] === '/pages/intensive-listening/index?id=ep1',
+    '非会员「开始精研」：过滤专属剧集，从第一个可研条目进入精研页'
   );
-  assert(st.currentEpisode && st.currentEpisode.episodeid === 'ep1', '从第一个可播剧集起播');
-  assert(st.playlist.length === 2, '播放队列剔除专属剧集（3 → 2）');
-  assert(st.playlist[1].episodeid === 'ep3' && st.playlist[1].podcastTitle, '队列条目补齐 podcastTitle 元数据');
 }
 
 resetMock();
@@ -625,7 +617,7 @@ requestHandler = routeAwareHandler(
     page.data.showPremiumModal === true && page.data.premiumSource === 'exclusive_play',
     '全部为专属且无权限：触发 exclusive_play 会员窗（对齐 Web checkExclusivePlay 兜底）'
   );
-  assert(!audioManager.getState().currentEpisode, '无可播剧集不起播');
+  assert(navigations.every((u) => u.indexOf('/pages/intensive-listening') === -1), '无可研剧集不跳转');
 }
 
 resetMock();
@@ -643,9 +635,10 @@ requestHandler = routeAwareHandler(
   await tick();
   await page.onPlayEpisode({ currentTarget: { dataset: { id: 'ep2' } } });
   await tick();
-  const st = audioManager.getState();
-  assert(st.currentEpisode && st.currentEpisode.episodeid === 'ep2', '会员点专属剧集行直接起播');
-  assert(st.playlist.length === 3, '会员播放队列不过滤专属剧集');
+  assert(
+    navigations[navigations.length - 1] === '/pages/intensive-listening/index?id=ep2',
+    '会员点专属剧集行 → 直达精研页（会员放行）'
+  );
 }
 
 section('详情页 · 编辑 / 删除（PATCH 的 POST 别名）');

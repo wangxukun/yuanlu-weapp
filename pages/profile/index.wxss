@@ -1070,7 +1070,7 @@
 /* ============ 底部预留（mini-player + 安全区） ============ */
 
 .pf-bottom-space {
-  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+  height: calc(48rpx + env(safe-area-inset-bottom));
 }
 
 /* ============ 学习报表入口卡（阶段 8 · Web personal-center 入口卡复刻） ============ */

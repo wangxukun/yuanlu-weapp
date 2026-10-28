@@ -10,11 +10,11 @@
  * 无参数的普通启动不触碰旧值。读取时机：建号请求（utils/api/auth.js）携带给后端，
  * 落 User.signupSource（后端仅建号时写入，登录不覆盖）。
  *
- * ── 剧集直达（T2）──
+ * ── 剧集直达（T2，重塑后改道精研页）──
  * handleEntry(query)：仅当**本次启动携带了新来源**时，调 GET /api/wxacode?scene=
- * 解析短码（服务端 qr_scene 表映射）；targetType=episode 则导航到剧集页
- * （/pages/episode/episode?id=）。已存储的旧来源在自然打开时**不**触发直达，
- * 避免昨天扫过码的用户今天正常进小程序被劫持到旧剧集。
+ * 解析短码（服务端 qr_scene 表映射）；targetType=episode 则导航到原声精研页
+ * （/pages/intensive-listening/index?id=）。已存储的旧来源在自然打开时**不**
+ * 触发直达，避免昨天扫过码的用户今天正常进小程序被劫持到旧剧集。
  *
  * 请求口径（对齐 utils/visit-reporter.js）：不走 utils/request.js——解析属于
  * "锦上添花"，任何失败（404 短码不存在/网络异常/字段缺失）一律静默收敛，
@@ -129,7 +129,7 @@ function handleEntry(query) {
 
   resolveTarget(fresh).then((target) => {
     if (target && target.targetType === 'episode' && target.episodeId) {
-      navigateWithRetry('/pages/episode/episode?id=' + target.episodeId);
+      navigateWithRetry('/pages/intensive-listening/index?id=' + target.episodeId);
     }
     // follow/article（无剧集目标）与解析失败：仅归因，不导航
   });

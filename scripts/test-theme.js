@@ -180,17 +180,14 @@ const theme = require('../utils/theme');
   ok(/--ink-900: #221f18/.test(appWxss), 'theme-light 全量还原原色阶（手动浅色防串色）');
   ok(/--primary-50: #12261f/.test(appWxss) && /--primary-100: #1a3329/.test(appWxss),
     'primary 浅色档深色翻转（品牌淡底自动双态）');
-  // 第二波页面接线
-  ['pages/contact/index.wxml','pages/library/favorites/index.wxml','pages/library/history/index.wxml','pages/podcast/podcast.wxml',
-   'pages/episode/episode.wxml','pages/channel/index.wxml','pages/channel/all/index.wxml',
-   'pages/search/search.wxml','pages/intensive-listening/index.wxml'].forEach((f) => {
+  // 第二波页面接线（退役页已移除：podcast/episode/search/channel；favorites/
+  // history 暂注销待 T5.2 重建，themeClass 把门留在文件内）
+  ['pages/contact/index.wxml','pages/library/favorites/index.wxml','pages/library/history/index.wxml',
+   'pages/intensive-listening/index.wxml'].forEach((f) => {
     ok(fs.readFileSync(f, 'utf8').includes('{{themeClass}}'), f + ' 根视图挂 themeClass');
   });
-  // 关键白底已令牌化（迷你条/全屏弹层/频道卡）
-  ok(fs.readFileSync('components/player/mini-player/index.wxss', 'utf8').includes('background-color: var(--card-bg);'),
-    '迷你播放条底色令牌化');
-  ok(!/background-color: #ffffff/.test(fs.readFileSync('components/player/player-panel/index.wxss', 'utf8')),
-    '全屏播放器无白底残留');
+  // 全局播放器组件已随整集链路退役（红线 2）：目录不复存在即把门通过
+  ok(!fs.existsSync('components/player/mini-player/index.wxss'), '迷你播放条已退役（零整集播放器 UI）');
   // theme require 解析把门：嵌套目录页（pages/library/favorites 等）曾用
   // 浅层 '../../' 解析到 pages/utils/theme 不存在而整页白屏
   const pathMod = require('path');
@@ -209,14 +206,11 @@ const theme = require('../utils/theme');
   });
   ok(brokenReq.length === 0, 'theme require 全部可解析（' + (brokenReq[0] || '无错位路径') + '）');
   // 语音评测接入全局主题（私有存储键退役）
-  // 剧集详情：AI 精讲 chip 与评论区不得再用纯白/Slate 硬编码底（联系我们表单风格）
-  const epCss = fs.readFileSync('pages/episode/episode.wxss', 'utf8');
-  ok(!/background-color: #FFFFFF/.test(epCss) && !/#E2E8F0|#94A3B8/.test(epCss),
-    '评论区输入框/发送钮/头像底令牌化（无 Slate 硬编码）');
+  // 语境精析 chip 不得再用纯白/Slate 硬编码底（联系我们表单风格；剧集页已退役）
   const ddCss = fs.readFileSync('components/ai-deep-dive/index.wxss', 'utf8');
   ok(!/background-color: #ffffff/.test(ddCss) && !/rgba\(34, 31, 24/.test(ddCss),
-    'AI 精讲 chip/分割线令牌化（无纯白底与透明黑描边）');
-  ok(!/#(1f2937|374151|6b7280|9ca3af)/.test(ddCss), 'AI 精讲展开态文本令牌化（无 Tailwind 灰硬编码，深色可读）');
+    '语境精析 chip/分割线令牌化（无纯白底与透明黑描边）');
+  ok(!/#(1f2937|374151|6b7280|9ca3af)/.test(ddCss), '语境精析展开态文本令牌化（无 Tailwind 灰硬编码，深色可读）');
   ok(/\.dd-opt \{[^}]*border: 1px solid var\(--border-color\)/.test(ddCss), '测验选项描边令牌化（深色降亮）');
   ok(!fs.readFileSync('pages/speech-eval/index.js', 'utf8').includes('THEME_KEY'),
     '语音评测废弃私有主题存储（走 utils/theme）');

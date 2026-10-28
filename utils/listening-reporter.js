@@ -72,7 +72,7 @@ function stopTicker() {
 }
 
 /**
- * 播放状态入口（audioManager 在 play/pause/stop/ended/error/close 时调用）：
+ * 播放状态入口（播放内核在起播/停止时调用；现为精研页页内 clip-player 接线）：
  * 播放中且登录 → 计时；否则停止计时并冲刷余量（登出/游客态余量丢弃）。
  */
 function onPlaybackState(isPlaying) {

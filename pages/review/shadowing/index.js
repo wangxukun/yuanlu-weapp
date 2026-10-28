@@ -1,4 +1,4 @@
-// pages/review/shadowing — AI 影子跟读评测（REVIEW-TASK T3.4）
+// pages/review/shadowing — 原声影子跟读（REVIEW-TASK T3.4）
 // 复刻 Web SentenceShadowingPractice.tsx：复用 T3.2 语音评测卡（录音 → 有道
 // ISE → 逐词/音素评分），按收藏句列表逐句跟读。
 //

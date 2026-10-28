@@ -6,7 +6,8 @@
  *     computeWordSweep 词级扫光三态（useWordHighlight 离散移植）、shouldLoopSeek 循环回跳守卫、
  *     buildDictation 去空格切块三态判定（correct/error/pending/标点恒对）、
  *     formatStartTime 补零、stripSpeaker；
- *   - 页面全链路：字幕渐进渲染 + 扩窗、活动句/词高亮 setData 差量、跟随
+ *   - 页面全链路（播放内核 = 页内 clip-player 适配器，BGM 全局播放器已退役）：
+ *     字幕渐进渲染 + 扩窗、活动句/词高亮 setData 差量、跟随
  *     智能滚动（完全可见不滚 / 出视口对齐锚点 / 迷你条遮挡带 / 测量失败
  *     fail-open）、单句循环越界回 seek、精听起播（audioBus 互停 +
  *     intensive 标记 + 签名直链回填免二次拉取）、听写（0.8 倍速/输入三态/
@@ -81,7 +82,29 @@ global.wx = {
   getWindowInfo: () => ({ statusBarHeight: 44 }),
   getMenuButtonBoundingClientRect: () => ({ top: 48, bottom: 80, height: 32 }),
   createInnerAudioContext: () => {
-    const a = { src: '', play() { a.played = (a.played || 0) + 1; }, stop() {}, destroy() {} };
+    const a = {
+      src: '', currentTime: 0, _h: {},
+      onCanplay(cb) { this._h.canplay = cb; },
+      onPlay(cb) { this._h.play = cb; },
+      onTimeUpdate(cb) { this._h.timeupdate = cb; },
+      onEnded(cb) { this._h.ended = cb; },
+      onError(cb) { this._h.error = cb; },
+      onWaiting(cb) { this._h.waiting = cb; },
+      offCanplay() {}, offTimeUpdate() {}, offEnded() {}, offError() {}, offPlay() {}, offWaiting() {},
+      play() { a.played = (a.played || 0) + 1; },
+      pause() { a.paused = (a.paused || 0) + 1; },
+      stop() { a.stopped = (a.stopped || 0) + 1; },
+      destroy() { a.destroyed = (a.destroyed || 0) + 1; },
+      seek(t) { a.currentTime = t; },
+    };
+    Object.defineProperty(a, 'playbackRate', {
+      get() { return a.rateVal || 0; },
+      set(v) { a.rateVal = v; },
+    });
+    Object.defineProperty(a, 'startTime', {
+      get() { return a.startTimeVal || 0; },
+      set(v) { a.startTimeVal = v; },
+    });
     innerAudios.push(a);
     return a;
   },
@@ -211,9 +234,10 @@ routeHandler = (p, method) => {
 
 const core = require(path.join(__dirname, '../utils/intensive-core'));
 
-const audioManager = require(path.join(__dirname, '../utils/audioManager'));
-audioManager.init();
-const playerStore = require(path.join(__dirname, '../store/playerStore'));
+// 页内 clip-player 的 50ms 看门狗与 listening-reporter 心跳均走 setInterval：
+// 测试桩掉真实调度（位置推进由 playbackAt 直驱 _onTick，确定且不挂事件循环）
+global.setInterval = () => 0;
+
 const authStore = require(path.join(__dirname, '../store/authStore'));
 const audioBus = require(path.join(__dirname, '../utils/audio-bus'));
 
@@ -310,11 +334,23 @@ function makeInstance(def, props) {
   return inst;
 }
 
-/** 模拟播放推进：设 BGM 时间并触发 timeupdate（经 audioManager → playerStore → 页面订阅） */
+/** 当前被驱动的页面实例（playbackAt/kickPlay 作用于它） */
+let curPage = null;
+/** 模拟播放推进：直驱页内管线 _onTick（clip-player 位置回调的等价物） */
 function playbackAt(t) {
-  bgm.currentTime = t;
-  bgmHandlers.timeupdate();
+  if (curPage) curPage._onTick(t, curPage._playing);
 }
+/** 模拟起播翻转（clip-player onPlaying(true) → _onPlayingChanged） */
+function kickPlay(p) {
+  curPage = p || curPage;
+  curPage._onPlayingChanged(true);
+}
+/** 页内重锚起播次数/最新落点（seek = 重锚 startTime，BGM seek 的等价物） */
+const playCount = () => innerAudios.length;
+const lastStart = () => {
+  const a = innerAudios[innerAudios.length - 1];
+  return a && a.startTimeVal ? a.startTimeVal : 0;
+};
 
 const lastRequest = (p, method) => {
   const hits = requestCalls.filter((c) => c.path === p && (!method || c.method === method));
@@ -416,10 +452,10 @@ assert(page.data.viewList[1].zhClean === '她答应了。', 'zhClean 去说话�
 assert(page.data.episode.audioUrl === 'https://oss/signed.m4a', 'subtitles 签名直链回填剧集对象');
 
 // 精听起播：互停 + intensive 标记 + 直链复用（无二次 subtitles 拉取）
-assert(stopAllCalls >= 1, '起播前 audioBus.stopAll 互停');
-assert(audioManager.getState().currentEpisode.episodeid === 'ep1', '全局播放器切到本集');
-assert(audioManager.getState().isIntensiveMode === true, '精听起播 → intensive 标记置位');
-assert(bgmCalls.src === 'https://oss/signed.m4a', 'BGM 使用回填直链（免二次拉取）');
+assert(stopAllCalls >= 1, '起播前 audioBus.stopAll 互停（clip-player 内建）');
+assert(innerAudios.length >= 1 && innerAudios[innerAudios.length - 1].src === 'https://oss/signed.m4a',
+  '页内播放器直连签名直链（免二次拉取，零全局 BGM）');
+assert(page.data.isPlayingHere === true, '页内播放会话置位（isPlayingHere）');
 assert(requestCalls.filter((c) => c.path === '/api/episode/subtitles').length === 1, 'subtitles 仅请求一次');
 
 await tick(); await tick();
@@ -428,8 +464,8 @@ assert(page.data.isLoggedIn === true, '登录态同步');
 
 section('页面：活动句 / 词扫光 / 自动跟随');
 
-// playEpisode 后 isPlaying=true（mock BGM 未触发 onPlay，手动补一帧）
-bgmHandlers.play();
+// bootstrap 自动起播后补一帧播放态翻转（clip-player canplay → onPlaying）
+kickPlay(page);
 playbackAt(1.2); // 句 0 内，词 'free'（0.9-1.5）
 await tick();
 assert(page.data.isPlayingHere === true && page.data.isPlaying === true, 'isPlayingHere/isPlaying 派生态');
@@ -456,38 +492,40 @@ assert(page.data.viewList[0].active === false && page.data.viewList[1].active ==
 
 // 暂停/恢复词光同步：item.active 承载（原 WXS 以页面级 isPlaying 短路，现须
 // 显式翻转；恢复时按当前进度就地预热扫光，免等下一帧 timeupdate）
-bgmHandlers.pause();
+page._playerPause();
 await tick();
 assert(page.data.isPlaying === false && page.data.viewList[1].active === false, '暂停 → 活动句词光立即回落（不追帧）');
-bgmHandlers.play();
+kickPlay(page);
 await tick();
 assert(page.data.viewList[1].active === true && page.data.viewList[1].swIdx === 2, '恢复 → 词光就地预热点亮（不等下一帧）');
 
 section('页面：单句循环（越界回 seek）');
 
-bgmCalls.seeks.length = 0;
+const playsLoopOn = playCount();
 page.onToggleLoop({ currentTarget: { dataset: { index: 1 } } });
 await tick();
 assert(page.data.loopIndex === 1, '循环按钮 → loopIndex=1');
-assert(bgmCalls.seeks[0] === 5, '开启循环 → 立即 seek 句首');
+assert(playCount() === playsLoopOn + 1 && lastStart() === 5, '开启循环 → 立即重锚句首（startTime=5）');
 
 fakeNow += 1000; // 出保护窗
+const playsLoopSeek = playCount();
 playbackAt(10.3); // 越过句 1 句尾
 await tick();
-assert(bgmCalls.seeks[1] === 5, '越过句尾 → 回 seek 句首（500ms 守卫放行）');
+assert(playCount() === playsLoopSeek + 1 && lastStart() === 5, '越过句尾 → 重锚句首（500ms 守卫放行）');
 
 fakeNow += 100;
+const playsGuard = playCount();
 playbackAt(10.6);
 await tick();
-assert(bgmCalls.seeks.length === 2, '保护窗内不重复回跳');
+assert(playCount() === playsGuard, '保护窗内不重复回跳');
 
 page.onToggleLoop({ currentTarget: { dataset: { index: 1 } } });
 assert(page.data.loopIndex === -1, '再点循环 → 取消');
 fakeNow += 1000;
-bgmCalls.seeks.length = 0;
+const playsOff = playCount();
 playbackAt(10.8);
 await tick();
-assert(bgmCalls.seeks.length === 0, '取消循环后自然推进不回跳');
+assert(playCount() === playsOff, '取消循环后自然推进不回跳');
 
 section('页面：句子收藏（乐观 + toast + 抽屉 + 配额墙）');
 
@@ -532,10 +570,9 @@ page.setData({ isLoggedIn: true });
 
 section('页面：点词查典 + 生词落库');
 
-bgmCalls.pauses = 0;
 page.onWordTap({ currentTarget: { dataset: { index: 0, wi: 2 } } }); // 'free'
 await tick(); await tick();
-assert(bgmCalls.pauses === 1, '点词 → 暂停播放（对齐 Web handleWordClick）');
+assert(page.data.isPlaying === false, '点词 → 暂停播放（对齐 Web handleWordClick）');
 assert(page.data.wordModal.visible === true && page.data.wordModal.word === 'free', '生词弹窗打开');
 assert(page.data.wordModal.isSaved === true, 'words 列表含 free → isSaved 预置');
 assert(page.data.wordModal.dictData && page.data.wordModal.dictData.definitions.length === 2, '词典数据（/api/dict）载入');
@@ -570,12 +607,11 @@ page.onPremiumClose();
 
 section('页面：听写模式（0.8 倍速 / 三态 / 自动跳句 / 提示词）');
 
-bgmCalls.rates.length = 0;
 page.onSwitchMode({ currentTarget: { dataset: { mode: 'dictate' } } });
 assert(page.data.mode === 'dictate', '切换听写 Tab');
-assert(bgmCalls.rates[bgmCalls.rates.length - 1] === 0.8, '听写 → 0.8 倍速');
+assert(page._rate === 0.8, '听写 → 0.8 倍速（页内倍速态，重锚起播时锚定）');
 
-bgmHandlers.play(); // wordTap 曾暂停，恢复播放后进入听写流
+kickPlay(page); // wordTap 曾暂停，恢复播放后进入听写流
 playbackAt(5.2); // 回到句 1
 await tick();
 assert(page.data.activeIndex === 1, '听写活动句 = 播放句');
@@ -596,12 +632,13 @@ page.onDictConfirm();
 assert(page.data.dictHint === true, '错满 3 次 → 提示词开启');
 assert(page.data.dictSlots.some((s) => s.hint), '槽位带提示词标记');
 
-// 改对 → 全对自动跳下一句（seek 句 2 起点）
-bgmCalls.seeks.length = 0;
+// 改对 → 全对自动跳下一句（重锚句 2 起点）
+const playsDict = playCount();
 page.onDictInput({ detail: { value: 'shesaidyes' } });
 assert(page.data.dictSlots.every((s) => s.status === 'correct'), '改对 → 全槽 correct');
-assert(bgmCalls.seeks[0] === 10, '全对 → 自动 seek 下一句起点');
+assert(playCount() === playsDict + 1 && lastStart() === 10, '全对 → 自动重锚下一句起点');
 await tick();
+kickPlay(page); // 重锚重建 ctx 后真机由 canplay 恢复播放态（mock 补帧）
 playbackAt(10.2);
 await tick();
 assert(page.data.activeIndex === 2, '跳句后听写卡跟随到句 2');
@@ -609,14 +646,15 @@ assert(page.data.dictSlots.every((s) => s.status === 'pending'), '新听写句�
 
 // 听写模式循环锁活动句：越过句 2 句尾回句首
 fakeNow += 1000;
-bgmCalls.seeks.length = 0;
+kickPlay(page); // 重锚重建 ctx 后真机由 canplay 恢复播放态（mock 补帧）
+const playsDictLoop = playCount();
 playbackAt(15.2);
 await tick();
-assert(bgmCalls.seeks[0] === 10, '听写模式：越过活动句尾 → 自动回句首（loopTarget=activeIndex）');
+assert(playCount() === playsDictLoop + 1 && lastStart() === 10,
+  '听写模式：越过活动句尾 → 自动回句首（loopTarget=activeIndex）');
 
-bgmCalls.rates.length = 0;
 page.onSwitchMode({ currentTarget: { dataset: { mode: 'read' } } });
-assert(bgmCalls.rates[bgmCalls.rates.length - 1] === 1.0, '回精读 → 恢复 1.0 倍速');
+assert(page._rate === 1.0, '回精读 → 恢复 1.0 倍速');
 
 section('页面：渐进渲染扩窗');
 
@@ -639,6 +677,7 @@ routeHandler = (p) => {
 };
 
 const page2 = makePage();
+curPage = page2;
 page2.onLoad({ id: 'epLong' });
 await tick(); await tick(); await tick(); await tick();
 assert(page2.data.viewList.length === 40, '长字幕首屏渲染 40 句');
@@ -746,6 +785,7 @@ assert(vm.data.etyOpen === false, '新词 → 词源面板重置收缩');
 vm.onToggleEty();
 assert(vm.data.etyOpen === true, '点击词源头 → 展开');
 
+innerAudios.length = 0; // 与页内播放器 ctx 计数隔离
 vm.onPlayAudio({ currentTarget: { dataset: { url: 'https://voice/free-us.mp3' } } });
 assert(innerAudios.length === 1 && innerAudios[0].src === 'https://voice/free-us.mp3' && innerAudios[0].played === 1, '发音按钮 → InnerAudioContext 播放 US 音源');
 vm.onPlayAudio({ currentTarget: { dataset: { url: 'https://voice/free-uk.mp3' } } });
@@ -760,19 +800,18 @@ assert(vm.events.some((e) => e.name === 'complete'), '完成学习 → complete 
 
 section('四 Bug 修复回归（底部条联动 / 关闭钮删除 / 安全区 / 换行）');
 
-// —— Bug 1：底部迷你条挂载 + 「关闭音频」联动退栈 ——
+// —— Bug 1 → 红线 2：底部迷你条与全局会话联动整体退役 ——
 const pageWxml = fs.readFileSync(path.join(__dirname, '../pages/intensive-listening/index.wxml'), 'utf8');
 const pageWxss = fs.readFileSync(path.join(__dirname, '../pages/intensive-listening/index.wxss'), 'utf8');
 const pageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/intensive-listening/index.json'), 'utf8'));
-assert(pageWxml.indexOf('<mini-player') >= 0 && !!pageJson.usingComponents['mini-player'], 'Bug1：页面挂载底部迷你播放条（含组件注册）');
+assert(pageWxml.indexOf('<mini-player') < 0 && !pageJson.usingComponents['mini-player'],
+  '红线2：底部迷你播放条已退役（无挂载无注册）');
 
-// page2 正在播 epLong（isPlayingHere=true）→ 模拟迷你条 ×：audioManager.close()
-navBackCalls.length = 0;
-assert(page2.data.isPlayingHere === true, 'Bug1 前置：page2 处于本集在播态');
-audioManager.close();
-await tick(); await tick();
-assert(navBackCalls.length === 1, 'Bug1：关闭音频（close 清空会话）→ navigateBack 恰好一次（episodeChange+stop 双事件防重）');
-assert(audioManager.getState().hasEpisode === false, 'Bug1：会话确已清空（hasEpisode=false）');
+// 页面卸载 → 页内播放会话随页面销毁（ctx stop+destroy，播放态回落）
+assert(page2.data.isPlayingHere === true, '前置：page2 处于本集在播态');
+page2.onUnload();
+assert(page2._player.getKind() === null, '卸载 → 页内播放会话清空（kind=null）');
+assert(page2.data.isPlaying === false, '卸载 → 播放态回落（无跨页后台会话）');
 
 // —— Bug 2：右上角关闭钮删除（仅剩左 chevron + 隐形占位维持 Tab 居中） ——
 assert((pageWxml.match(/il-icon-btn tap-scale/g) || []).length === 1, 'Bug2：header 仅保留左 chevron 一个可点按钮');
@@ -839,7 +878,7 @@ page3.onLoad({ id: 'ep1' });
 await tick(); await tick(); await tick(); await tick();
 assert(page3.data.wordSweep === true, '默认词扫光开启');
 
-bgmHandlers.play();
+kickPlay(page3);
 playbackAt(1.2); // 句 0 内，词 'free'（0.9-1.5）
 await tick();
 assert(page3.data.viewList[0].swIdx === 2 && page3.data.viewList[0].swOn === true, '前置：扫光正常驱动（free 光斑点亮）');
@@ -875,6 +914,9 @@ page4.onLoad({ id: 'ep1' });
 await tick(); await tick(); await tick(); await tick();
 global.wx.getStorageSync = origGetStorage;
 assert(page4.data.wordSweep === false, '偏好回读：storage=false → onLoad 默认关');
+kickPlay(page4);
+playbackAt(6.2); // 页内会话推进到句 1（原全局 currentTime 口径已退役）
+await tick();
 page4.onToggleWordSweep();
 assert(page4.data.wordSweep === true && page4.data.viewList[1].swIdx === 2 && page4.data.viewList[1].swOn === true, '偏好关闭态下重开 → 就地预热扫光（6.2s → yes. idx=2）');
 
@@ -902,9 +944,11 @@ await tick(); await tick(); await tick(); await tick();
 global.wx.getStorageSync = origGetStorage;
 assert(page5.data.autoScroll === false && page5.data.showTranslation === true && page5.data.wordSweep === false, '偏好回读：跟随关/译文开/逐词关 → onLoad 三开关按偏好初始化');
 
-// 终态复位：关闭播放会话（本段重启过播放，listening-reporter 的真实
-// setInterval 会占住事件循环导致进程不退出，须随 close 停表）
-audioManager.close();
+// 终态复位：全部页面卸载（页内播放会话销毁；setInterval 已桩掉，事件循环干净）
+page.onUnload();
+page3.onUnload();
+page4.onUnload();
+page5.onUnload();
 await tick(); await tick();
 
 /* ==================== 六、收藏成功 toast 富色主题（sonner richColors） ==================== */

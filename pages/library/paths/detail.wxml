@@ -2,7 +2,7 @@
   严格复刻 Web /library/learning-paths/[id] 移动端（LearningPathDetailClient）：
   主色沉浸头部（Map 10% 水印 + 封面/公开标签/标题/描述/创建者·集数）→
   -mt-6 上叠操作栏卡片（播放全部/随机；拥有者=添加剧集+更多菜单）→
-  剧集行（序号/16:9 封面〔PRO 角标+底部细进度条〕/标题/播客·时长/移除）。
+  剧集行（序号/16:9 封面〔PRO 角标+底部细进度条〕/标题/专栏·时长/移除）。
   拥有者条件渲染对齐 Web：detail.userid === 当前用户（isOwner）。
   顶部「路径详情」由原生导航栏承担。 -->
 
@@ -56,21 +56,11 @@
       <view class="pd-header-tail" />
     </view>
 
-    <!-- 上叠操作栏（对齐 Web -mt-6 卡片） -->
+    <!-- 上叠操作栏（对齐 Web -mt-6 卡片；整集连播已退役 → 开始精研） -->
     <view class="pd-actionbar">
       <view class="pd-playall center {{detail.itemCount === 0 ? 'is-disabled' : ''}}" bindtap="onPlayAll">
         <image class="pd-playall-icon" mode="aspectFit" src="/assets/icons/play-circle-white.svg" />
-        <text>播放全部</text>
-      </view>
-      <view
-        class="pd-iconbtn center {{detail.itemCount === 0 ? 'is-disabled' : ''}}"
-        bindtap="onShuffle"
-      >
-        <image
-          class="pd-iconbtn-img"
-          mode="aspectFit"
-          src="{{dark ? '/assets/icons/shuffle-onsurface-dark.svg' : '/assets/icons/shuffle-onsurface.svg'}}"
-        />
+        <text>开始精研</text>
       </view>
 
       <!-- 拥有者：添加剧集 + 更多菜单；非拥有者仅分享（对齐 Web 条件渲染） -->
@@ -142,7 +132,7 @@
         <view class="eprow-info">
           <text class="eprow-title ellipsis-2">{{item.title}}</text>
           <view class="eprow-metarow">
-            <text class="eprow-meta ellipsis">{{item.podcastTitle || '未知播客'}} · {{item.durationText}}</text>
+            <text class="eprow-meta ellipsis">{{item.podcastTitle || '原声专栏'}} · {{item.durationText}}</text>
             <image
               wx:if="{{item.isFinished}}"
               class="eprow-done"
@@ -296,5 +286,3 @@
   bind:close="onPremiumClose"
 />
 
-<!-- 跨页迷你播放条 -->
-<mini-player elevated />

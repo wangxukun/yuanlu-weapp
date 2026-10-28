@@ -61,15 +61,15 @@ const SCENARIOS = {
       '你今天平均 {avgScore} 分，连续学习 {streak} 天。无限评测，把每个弱音磨到满分——PRO ¥0.46/天起。',
     descriptionFallback:
       '今天的免费跟读评测圆满用完，明日额度自动就位。无限评测，把每个弱音磨到满分——PRO ¥0.46/天起。',
-    benefits: ['跟读评测不限次', 'AI 逐句评分', '历史成绩对比'],
+    benefits: ['跟读评测不限次', '多维音素级评分', '历史成绩对比'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '无限练到满意',
   },
   sentence_review_advanced: {
     title: '高级复习模式是 PRO 专属',
     description:
-      '基础刷句永久免费。标签组卷、SRS 智能调度与连续翻卡成就，帮你把句库真正盘活。',
-    benefits: ['标签组卷刷句', 'SRS 智能调度', 'CSV / Anki 导出'],
+      '基础刷句永久免费。标签组卷、SRS 遗忘曲线调度与连续翻卡成就，帮你把句库真正盘活。',
+    benefits: ['标签组卷刷句', '遗忘曲线调度', 'CSV / Anki 导出'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '解锁高级复习',
   },
@@ -105,28 +105,20 @@ const SCENARIOS = {
   stats_report: {
     title: '学习报表是 PRO 会员专属',
     description:
-      '免费层可见近 7 天学习简报。PRO：月/季/年趋势报表 + 全年学习热力图 + 智能学习建议，看清每一步积累。',
-    benefits: ['月/季/年趋势报表', '全年学习热力图', '智能学习建议'],
+      '免费层可见近 7 天学习简报。PRO：月/季/年趋势报表 + 全年学习热力图 + 阶段复盘建议，看清每一步积累。',
+    benefits: ['月/季/年趋势报表', '全年学习热力图', '阶段复盘建议'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '解锁学习报表',
   },
 
   /* ---- 剧集页（已有场景） ---- */
   episode_deep_dive: {
-    title: 'AI 精讲这集播客',
+    title: '深度拆解这段原声',
     description:
-      '难点词汇预扫、长难句逐层拆解、跟读句推荐、理解测验——AI 把每一集变成一节精听课。PRO 专属。',
+      '难点词汇预扫、长难句逐层拆解、跟读句推荐、理解测验——把这段原声变成一节精研课。PRO 专属。',
     benefits: ['难点词汇预扫 + 长难句拆解', '本集跟读句推荐', '理解测验即时检验'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
-    cta: '解锁 AI 精讲',
-  },
-  /* 剧集侧权益·音频/文稿下载门禁（DOWNLOAD-TASK T1.1，源 :272-283 逐字） */
-  episode_audio_download: {
-    title: '音频与文稿下载是会员专属',
-    description: '把整集播客装进口袋，离线精听不受网络限制。',
-    benefits: ['音频无限下载', '文稿 PDF 下载', '离线精听'],
-    priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
-    cta: '解锁下载',
+    cta: '解锁语境精析',
   },
 
   /* ---- 学习路径模块（文案逐字移植 Web premium-modal-scenarios.ts） ---- */
@@ -134,22 +126,22 @@ const SCENARIOS = {
     title: '第一条学习路径已经就位',
     description:
       '免费用户可创建 1 条学习路径——编辑、排序、添加剧集全部免费。PRO：无限路径，把每个学习目标都单独排一条。',
-    benefits: ['无限学习路径', 'AI 智能生成路径', '按目标分线推进'],
+    benefits: ['无限学习路径', '心愿定制特训卡册', '按目标分线推进'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '解锁无限路径',
   },
   path_ai_generate: {
-    title: '让 AI 帮你排一条学习路径',
+    title: '为你量身定制原声卡册',
     description:
-      '告诉 AI 你的学习目标，它从剧集库中挑出最相关的一串，按先易后难排好顺序。PRO 专属：无限次智能生成。',
-    benefits: ['AI 按主题挑选剧集', '先易后难自动排序', '无限学习路径'],
+      '写下你想突破的场景、话题或心情，为你从原声库中精挑细选、按先易后难排好。PRO 专属：无限次定制。',
+    benefits: ['按心愿挑选原声切片', '先易后难自动排序', '无限学习路径'],
     priceAnchor: 'PRO ' + WEEKLY_ANCHOR,
-    cta: '解锁 AI 生成',
+    cta: '解锁心愿定制',
   },
   exclusive_play: {
     title: '这是会员专享剧集',
-    description: '专享剧集向 PRO 会员开放。已有会员？登录后即可直接播放。',
-    benefits: ['专享剧集畅听', '音频文稿下载', '无限跟读评测'],
+    description: '专享剧集向 PRO 会员开放。已有会员？登录后即可直接精研。',
+    benefits: ['专享剧集畅研', '心愿卡册无限定制', '无限跟读评测'],
     priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
     cta: '解锁专享剧集',
   },
@@ -160,7 +152,7 @@ const DEFAULT_SCENARIO = {
   title: '这里是会员专享内容',
   description:
     '为了支持网站长期高质量运转，此内容仅向赞助会员开放。如果您喜欢这里的内容，欢迎加入我们的会员社区，享受专属权益。',
-  benefits: ['无限语音评测', '词典与生词不限量', '音频与文稿下载'],
+  benefits: ['无限语音评测', '词典与生词不限量', '心愿卡册无限定制'],
   priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
   cta: '去看看赞助方案',
 };
@@ -247,8 +239,7 @@ Component({
 });
 
 /**
- * 场景数据单源导出：供同源场景消费方复用（transcript-preview 拦截卡
- * 直接取 episode_audio_download 场景，与弹窗本体同数据同改）。
+ * 场景数据单源导出：供同源场景消费方与测试复用。
  * SCENARIO_KEYS 供测试遍历全部场景（CTA 接线一致性断言，增删场景自动同步）。
  */
 module.exports.getScenario = (source) => SCENARIOS[source] || DEFAULT_SCENARIO;

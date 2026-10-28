@@ -430,7 +430,7 @@ assert(
 assert(nbWxml.indexOf('pron-list') >= 0 && nbDef.data.coming === undefined, '弱项列表（T4.4）随诊断卡挂载，coming 占位退场');
 
 const wxml = fs.readFileSync(path.join(__dirname, '../components/review/diagnostic-report-card/index.wxml'), 'utf8');
-assert(wxml.indexOf('AI 发音诊断报告') >= 0, '卡片标题逐字');
+assert(wxml.indexOf('发音弱项剖析报告') >= 0, '卡片标题逐字');
 assert(wxml.indexOf('诊断数据积累中') >= 0 && wxml.indexOf('完成更多语音评测后，这里会逐个指出你的薄弱音素') >= 0, '空态文案逐字');
 assert(wxml.indexOf('PRO 解锁：Top10 逐个击破方案 + 逐月进步曲线') >= 0, '解锁副文案逐字');
 assert(wxml.indexOf('解锁完整诊断') >= 0, 'CTA 文案逐字');

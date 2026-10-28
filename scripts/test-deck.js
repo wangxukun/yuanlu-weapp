@@ -567,7 +567,7 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   assert(WXML.includes('顺序刷') && WXML.includes('标签组卷') && WXML.includes('SRS 调度'),
     '三模式标签文案');
   assert(WXML.includes('句子本为空') &&
-    WXML.includes('请先在播客单集逐字稿中收藏一些句子，再进入卡片复习模式。'),
+    WXML.includes('请先在原声逐字稿中收藏一些句子，再进入卡片复习模式。'),
     '空态文案逐字');
   assert(WXML.includes('手势操作指南') && WXML.includes('知道了'), '帮助弹窗');
   assert(WXML.includes('catchtap="noop"') && WXML.includes('catchtap="onHelpToggle"'),

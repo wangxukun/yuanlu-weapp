@@ -217,12 +217,13 @@ Page({
 
   // ==================== 跳转 ====================
 
-  onOpenPodcast(e) {
-    wx.navigateTo({ url: `/pages/podcast/podcast?id=${e.currentTarget.dataset.id}` });
+  /** 播客详情页已随去播客化退役（T5.2 将以微剧场/卡册形态重建数据源） */
+  onOpenPodcast() {
+    wx.showToast({ title: '节目详情升级中，敬请期待', icon: 'none' });
   },
 
   onOpenEpisode(e) {
-    wx.navigateTo({ url: `/pages/episode/episode?id=${e.currentTarget.dataset.id}` });
+    wx.navigateTo({ url: `/pages/intensive-listening/index?id=${e.currentTarget.dataset.id}` });
   },
 
   onGoDiscover() {

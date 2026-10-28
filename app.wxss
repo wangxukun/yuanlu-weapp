@@ -89,14 +89,12 @@ page {
 
   /* ===== z-index 分层（小程序原生导航/tabBar 层级更高，从 40 起与 Web 对齐） ===== */
   --z-nav: 40;
-  --z-miniplayer: 50;
   --z-sheet: 60;
   --z-modal: 70;
   --z-toast: 80;
 
   /* ===== 布局尺寸 ===== */
   --bottom-nav-height: 100rpx;
-  --mini-player-height: 120rpx;
   --page-padding: 32rpx;
   --safe-bottom: env(safe-area-inset-bottom);
   --card-fade: rgba(241, 237, 228, 0.3);
@@ -367,15 +365,10 @@ page {
 .mb-safe {
   margin-bottom: env(safe-area-inset-bottom);
 }
-/* 内容区为 tabBar + mini 播放器预留的底部占位（页面使用 padding-bottom） */
+/* 内容区为 tabBar 预留的底部占位（页面使用 padding-bottom） */
 .pb-page-bottom {
   padding-bottom: calc(
     var(--bottom-nav-height) + var(--safe-bottom)
-  );
-}
-.pb-page-bottom-with-player {
-  padding-bottom: calc(
-    var(--bottom-nav-height) + var(--mini-player-height) + var(--safe-bottom)
   );
 }
 

@@ -392,7 +392,7 @@
 /* ============ 底部预留（mini-player + 安全区） ============ */
 
 .lr-bottom-space {
-  height: calc(48rpx + var(--mini-player-height) + env(safe-area-inset-bottom));
+  height: calc(48rpx + env(safe-area-inset-bottom));
 }
 
 /* ============ 深色三段式（媒体查询轨 + 类轨全量重声明） ============ */

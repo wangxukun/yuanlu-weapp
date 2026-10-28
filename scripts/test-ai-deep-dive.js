@@ -82,7 +82,7 @@ assert(/isGenerating:\s*!cached/.test(js), 'JS 按探测结果置 isGenerating�
 assert(/showError:\s*false/.test(js), 'JS 探测请求静默失败（showError:false，不弹全局 toast）');
 assert(/probeErr[\s\S]*?PREMIUM_REQUIRED/.test(js), 'JS 探测 403 直接转化窗承接（不再发主请求）');
 assert(/wx:if="\{\{!isGenerating\}\}"/.test(wxml), 'WXML 标签网格按 isGenerating 隐藏（缓存命中加载时保持可见）');
-assert(wxml.includes('首次生成约需 30-60 秒'), 'WXML 保留首次生成提示文案（仅真生成态渲染）');
+assert(wxml.includes('首次整理约需 15-30 秒'), 'WXML 保留首次整理提示文案（仅真生成态渲染）');
 assert(!/wx:if="\{\{!isLoading\}\}"[^>]*dd-chip-grid/.test(wxml) && !/dd-chip-grid[^>]*wx:if="\{\{!isLoading\}\}"/.test(wxml), 'WXML 标签网格不再挂 isLoading 条件（防提示闪现回归）');
 
 console.log('----------------------------------------');

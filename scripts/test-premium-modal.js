@@ -94,22 +94,11 @@ assert(modal.data.scenario.title === '高级复习模式是 PRO 专属', 'A sent
 fire(modal, false, 'diagnostic_report', null);
 assert(modal.data.scenario.cta === '解锁完整诊断', 'A diagnostic_report CTA');
 fire(modal, false, 'episode_deep_dive', null);
-assert(modal.data.scenario.title === 'AI 精讲这集播客', 'A episode_deep_dive 保持不变（剧集页兼容）');
+assert(modal.data.scenario.title === '深度拆解这段原声', 'A episode_deep_dive 语境精析新口径（去 AI 字眼）');
 
-// A2 下载门禁场景（DOWNLOAD-TASK T1.1）：文案与 Web premium-modal-scenarios.ts:272-283 逐字一致
+// A2 下载门禁场景已随整集下载链路退役（RESHAPE-TASK 红线 2）：未知 source 走通用兜底
 fire(modal, false, 'episode_audio_download', null);
-s = modal.data.scenario;
-assert(s.title === '音频与文稿下载是会员专属', 'A episode_audio_download 标题逐字');
-assert(s.description === '把整集播客装进口袋，离线精听不受网络限制。', 'A episode_audio_download 正文逐字（全角标点）');
-assert(
-  s.benefits.length === 3 &&
-    s.benefits[0] === '音频无限下载' &&
-    s.benefits[1] === '文稿 PDF 下载' &&
-    s.benefits[2] === '离线精听',
-  'A episode_audio_download 权益 3 项逐字',
-);
-assert(s.priceAnchor === '¥5/7天起 · 低至 ¥0.46/天', 'A episode_audio_download 双价格锚点');
-assert(s.cta === '解锁下载', 'A episode_audio_download CTA');
+assert(modal.data.scenario.title === '这里是会员专享内容', 'A episode_audio_download 场景已移除（回落 DEFAULT_SCENARIO）');
 
 // —— 场景 B：占位符插值 ——
 fire(modal, true, 'pronunciation_locked', { totalErrors: 7, worstPhoneme: 'θ' });
@@ -159,16 +148,6 @@ assert(
   'D 载荷 {eventType, source}',
 );
 
-// D2 下载门禁场景埋点：source 透传 episode_audio_download（T1.1 验收红线）
-fire(guestModal, false, 'episode_audio_download', null);
-fire(guestModal, true, 'episode_audio_download', null);
-const downloadReq = trackRequests[trackRequests.length - 1];
-assert(
-  downloadReq.data.eventType === 'PREMIUM_MODAL_OPEN' &&
-    downloadReq.data.source === 'episode_audio_download',
-  'D 下载场景埋点携带 episode_audio_download source',
-);
-
 // —— 场景 E：鉴权头注入 ——
 assert(req.header.Authorization === undefined, 'E 游客无 Authorization（后端允许匿名上报）');
 wx.setStorageSync('token', 'tk-1');
@@ -184,7 +163,7 @@ assert(
 // —— 场景 F：CTA 真路由（SUBSCRIBE-TASK T2.1）——
 // 全场景一致性：任一场景 CTA 都应 close + 进订阅页并透传 source（购买漏斗归因）
 const { SCENARIO_KEYS } = require('../components/premium-modal');
-assert(SCENARIO_KEYS.length === 15, 'F 场景数 15（增删场景此处同步锚点）');
+assert(SCENARIO_KEYS.length === 14, 'F 场景数 14（下载门禁退役后，增删场景此处同步锚点）');
 navigateCalls.length = 0;
 toastCalls.length = 0;
 let allRouted = true;

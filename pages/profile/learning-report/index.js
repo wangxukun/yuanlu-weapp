@@ -7,7 +7,7 @@
  *   DTO 与 Web core/stats/learning-report.service 同源）。
  * 分层：
  *   - 公共：页头权限副标题 + 近 7 天四宫格 + 逐日面积图（紫 #4f46e5 同 Web 硬编码）
- *   - PRO（isPremium）：月/季/年趋势 + 全年热力图（view 网格 + 横向滚动）+ 智能学习建议
+ *   - PRO（isPremium）：月/季/年趋势 + 全年热力图（view 网格 + 横向滚动）+ 阶段复盘建议
  *   - 免费：amber 虚线解锁卡 → premium-modal stats_report 场景（弹窗 + 埋点红线）
  * 会员口径：ensureFresh 权威校正后再拉取（切片与渲染同源）；升级返回时 isPremium
  *   变化自动重拉（365 天切片就位），对齐 Web SSR「一份数据按身份切片」语义。
@@ -43,7 +43,7 @@ Page({
     headerIcon: '/assets/icons/bar-chart-primary.svg',
     // ---- 视图模型（WXML 零方法调用） ----
     statCards: [], // 四宫格
-    suggestions: [], // PRO 智能建议（≤3 条）
+    suggestions: [], // PRO 复盘建议（≤3 条）
     heatMonthLabels: [],
     heatWeeks: [], // [[{cls:'lv0'..'lv4'|'lvx'}]] 周一列化网格
     weekdayLabels: WEEKDAY_LABELS,

@@ -4,7 +4,7 @@
  * 严格复刻 Web 端 /library/learning-paths/[id] 移动端（LearningPathDetailClient）：
  * 沉浸式主色头部（封面/公开标签/标题/描述/创建者·集数 + Map 水印）→ 上叠操作栏
  * （播放全部/随机播放；拥有者额外 添加剧集 + 更多菜单〔编辑/删除/分享〕）→
- * 剧集列表（序号/16:9 封面〔PRO 角标+细进度条〕/标题/播客名·时长；拥有者可移除）。
+ * 剧集列表（序号/16:9 封面〔PRO 角标+细进度条〕/标题/专栏名·时长；拥有者可移除）。
  * 权限条件渲染：isOwner = detail.userid === 当前登录用户（对齐 Web userid 比对）。
  *
  * API（对齐 Android LearningPathDetailViewModel，后端为 Web service 的 REST 包装）：
@@ -17,8 +17,6 @@
  */
 
 const theme = require('../../../utils/theme');
-const audioBus = require('../../../utils/audio-bus');
-const audioManager = require('../../../utils/audioManager');
 const { get, post, delete: del } = require('../../../utils/request');
 const authStore = require('../../../store/authStore');
 
@@ -75,7 +73,7 @@ function mapDetail(raw, currentUserId) {
   };
 }
 
-/** 剧集条目 → audioManager 播放对象（playlist 全量传入供上下曲切换） */
+/** 剧集条目 → 精研页跳参（原全局播放器播放对象已随整集链路退役） */
 function toPlayableEpisode(item) {
   return {
     episodeid: item.episodeid,
@@ -241,9 +239,9 @@ Page({
     });
   },
 
-  // ==================== 播放（对齐 Web handlePlayAll + Android buildPlayQueue） ====================
+  // ==================== 逐条精研（原「播放全部/随机」整集连播已随合规重塑退役） ====================
 
-  /** 过滤专属剧集构建可播队列（PREMIUM/ADMIN 放行，对齐 hasExclusivePermission） */
+  /** 过滤专属剧集构建可研队列（PREMIUM/ADMIN 放行，对齐 hasExclusivePermission） */
   buildPlayableQueue() {
     const items = (this.data.detail && this.data.detail.items) || [];
     const hasPermission = this.data.isPremium;
@@ -251,33 +249,24 @@ Page({
     return { queue, skipped: items.length - queue.length };
   },
 
-  playAll(shuffle) {
+  /** 「开始精研」：从头一条可研条目进入原声精研页（原播放全部） */
+  playAll() {
     const items = (this.data.detail && this.data.detail.items) || [];
     if (items.length === 0) return;
-    const { queue, skipped } = this.buildPlayableQueue();
+    const { queue } = this.buildPlayableQueue();
     if (queue.length === 0) {
       // 全部为专属且无权限：触发拦截承接（对齐 Web checkExclusivePlay 兜底）
       this.openPremium('exclusive_play');
       return;
     }
-    if (skipped > 0) {
-      wx.showToast({ title: '已跳过 ' + skipped + ' 个专属剧集', icon: 'none' });
-    }
-    let playlist = queue;
-    if (shuffle) playlist = queue.slice().sort(() => Math.random() - 0.5);
-    audioBus.stopAll(); // 停 TTS / 复习原声片段，防双声
-    audioManager.playEpisode(playlist[0], { playlist });
+    wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + queue[0].episodeid });
   },
 
   onPlayAll() {
     this.playAll(false);
   },
 
-  onShuffle() {
-    this.playAll(true);
-  },
-
-  /** 剧集行点击：专属拦截 → 直接起播（对齐 Web onPlayEpisode） */
+  /** 剧集行点击：专属拦截 → 进入原声精研页（原直接起播） */
   onPlayEpisode(e) {
     const episodeid = e.currentTarget.dataset.id;
     const item = (this.data.detail && this.data.detail.items || []).find(
@@ -290,9 +279,7 @@ Page({
         return;
       }
     }
-    const { queue } = this.buildPlayableQueue();
-    audioBus.stopAll();
-    audioManager.playEpisode(toPlayableEpisode(item), { playlist: queue });
+    wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + episodeid });
   },
 
   // ==================== 更多菜单（编辑 / 删除 / 分享） ====================
@@ -443,7 +430,7 @@ Page({
       const results = ((res && res.data) || []).map((r) => ({
         episodeid: r.id,
         title: r.title || '',
-        author: r.author || '未知播客',
+        author: r.author || '未知专栏',
         thumbnailUrl: r.thumbnailUrl || '',
         durationText: formatDuration(r.duration),
         added: !!added[r.id],

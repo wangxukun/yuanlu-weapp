@@ -1,23 +1,22 @@
 /**
  * scripts/test-home-guest.js — 主页登录引导态行为单测（Node 环境，mock wx + Page）
  *
- * 验证目标（见 REVIEW-TASK.md T0.1 同款模式移植到主页）：
- *   A. 游客 onLoad → 整页引导态（isLoggedIn=false），7 路主页 API 零请求
+ * 验证目标（RESHAPE-TASK T0.2/T3.1 前置拆除后的主页口径）：
+ *   A. 游客 onLoad → 整页引导态（isLoggedIn=false），主页 API 零请求
  *   B. 登录（authStore.subscribe 通道）→ 自动恢复内容态：isLoggedIn=true、拉取数据、isLoading=false
- *   C. onShow 通道重复触发（token 未变）→ 不重复拉取
- *   D. 登出 → 回到引导态
- *   E. 重新登录（subscribe + onShow 双通道都触发）→ 只拉取一批数据（token 去重）
- *   F. 播放事件（audioManager episodeChange/pause 等）置脏 → 切回主页 onShow
- *      仅静默补拉 /api/user/history 一路（不重拉 7 路聚合），顶卡/横向列表
- *      含新进度回填；无脏标记的 onShow 仍零请求；游客态脏标记不发请求
+ *   C. onShow 通道重复触发（token 未变）→ 不重拉聚合，仅静默补拉 weekly-activity 一路
+ *   D. 登出 → 回到引导态、零请求
+ *   E. 重新登录（subscribe + onShow 双通道都触发）→ 只拉一批数据（token 去重）
+ *   F. 整集列表已退役：无「继续收听/推荐/最近发布」区块；onShow 恒定 weekly 补拉；
+ *      游客态 onShow 零请求
  *
- * 每批数据 = 7 路主页聚合 + 1 路 authStore.fetchProfile = 8 个请求。
+ * 每批数据 = 5 路主页聚合（profile/overview/weekNow/weekLast/vocab）+
+ * 1 路 authStore.fetchProfile = 6 个请求（episode/history 两路已随去播客化退役）。
  * 运行：node scripts/test-home-guest.js
  */
 
 let apiCalls = 0;
-let historyCalls = 0; // /api/user/history 独立计数（场景 F 补拉断言）
-let historyPayload = { data: { items: [] } }; // 可变载荷：模拟播放后历史刷新
+let weeklyCalls = 0; // /api/user/stats/weekly-activity 独立计数（onShow 补拉断言）
 
 global.wx = {
   _storage: {},
@@ -39,15 +38,11 @@ global.wx = {
   request(opts) {
     apiCalls++;
     const url = opts.url;
-    if (url.includes('/api/user/history')) {
-      historyCalls++;
-      opts.success({ statusCode: 200, data: historyPayload });
-      return;
-    }
     let data = {};
-    if (url.includes('/api/user/stats/weekly-activity')) data = { weeklyActivity: [] };
-    else if (url.includes('/api/vocabulary/all')) data = [];
-    else if (url.includes('/api/episode/list')) data = [];
+    if (url.includes('/api/user/stats/weekly-activity')) {
+      weeklyCalls++;
+      data = { weeklyActivity: [] };
+    } else if (url.includes('/api/vocabulary/all')) data = [];
     opts.success({ statusCode: 200, data });
   },
 };
@@ -62,6 +57,9 @@ global.Page = (cfg) => {
     },
   });
 };
+
+const fs = require('fs');
+const path = require('path');
 
 require('../pages/home/index');
 const authStore = require('../store/authStore');
@@ -78,77 +76,66 @@ function assert(cond, msg) {
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 (async () => {
+  const wxml = fs.readFileSync(path.join(__dirname, '../pages/home/index.wxml'), 'utf8');
+
   // —— 场景 A：游客进入主页 ——
   page.onLoad();
   assert(page.data.isLoggedIn === false, 'A 游客 isLoggedIn=false（引导态）');
   assert(page.data.isLoading === false, 'A 游客不进骨架屏（引导态直接渲染）');
-  assert(apiCalls === 0, 'A 游客零 API 请求（7 路主页 API 全部不发）');
+  assert(apiCalls === 0, 'A 游客零 API 请求（主页 API 全部不发）');
 
   // —— 场景 B：登录（subscribe 通道）→ 自动恢复内容态 ——
   authStore.setLoginData('token-1', { userid: 'u1', role: 'USER' });
   await settle();
   assert(page.data.isLoggedIn === true, 'B 登录后 isLoggedIn=true（内容态恢复）');
   assert(page.data.isLoading === false, 'B 数据拉取完成后 isLoading=false');
-  assert(apiCalls === 8, 'B 恰好一批请求（7 路聚合 + 1 路 fetchProfile），实际 ' + apiCalls);
+  assert(apiCalls === 6, 'B 恰好一批请求（5 路聚合 + 1 路 fetchProfile），实际 ' + apiCalls);
   assert(
     typeof page.data.greeting === 'string' && page.data.greeting.includes('朋友'),
     'B 首页数据管线完成（问候语已渲染）',
   );
 
-  // —— 场景 C：onShow 通道重复触发（token 未变）→ 不重复拉取 ——
+  // —— 场景 C：onShow 通道重复触发（token 未变）→ 不重拉聚合 ——
+  const beforeC = apiCalls;
   page.onShow();
   await settle();
-  assert(apiCalls === 8, 'C onShow token 未变不重复拉取');
+  assert(apiCalls === beforeC + 1 && weeklyCalls === 3,
+    'C onShow token 未变不重拉聚合（仅 weekly-activity 一路静默补拉；批次内已含 2 路 weekly）');
 
   // —— 场景 D：登出 → 回到引导态 ——
   authStore.logout();
   await settle();
   assert(page.data.isLoggedIn === false, 'D 登出后回到引导态');
   assert(page.data.isLoading === false && page.data.error === null, 'D 登出清空加载/错误态');
-  assert(apiCalls === 8, 'D 登出不发请求');
 
   // —— 场景 E：重新登录，subscribe + onShow 双通道都触发 → 只拉一批 ——
+  const beforeE = apiCalls;
   authStore.setLoginData('token-2', { userid: 'u1', role: 'USER' }); // subscribe 通道
   page.onShow(); // onShow 通道（模拟登录页 navigateBack 返回）
   await settle();
   assert(page.data.isLoggedIn === true, 'E 重新登录恢复内容态');
-  assert(apiCalls === 16, 'E 双通道只拉取一批数据（token 去重），实际 ' + apiCalls);
+  assert(apiCalls === beforeE + 7, 'E 双通道只拉取一批数据（6 请求 + onShow weekly 1 路），实际 +' + (apiCalls - beforeE));
 
-  // —— 场景 F：播放后切回主页 → 静默补拉最近收听 ——
-  const audioManager = require('../utils/audioManager');
-  const historyItems = [1, 2, 3, 4, 5].map((i) => ({
-    episode: { id: 'e' + i, title: 'EP' + i, durationSeconds: 600 },
-    progressSeconds: 100 + i,
-  }));
-  historyPayload = { data: { items: historyItems } };
-
-  const apiBefore = apiCalls;
-  const histBefore = historyCalls;
-  audioManager._emit('episodeChange', {}); // 播放/切集 → 置脏
-  audioManager._emit('pause', {});         // 暂停（进度落库）→ 仍只是置脏
-  assert(apiCalls === apiBefore, 'F 播放事件本身零请求（只置脏标记）');
-  page.onShow(); // 切回主页
-  await settle();
-  assert(historyCalls === histBefore + 1, 'F onShow 仅补拉 history 一路，实际 +' + (historyCalls - histBefore));
-  assert(apiCalls === apiBefore + 2, 'F 不重拉 7 路聚合（仅 history + weekly-activity 两路，打卡时间联动刷新）');
-  assert(page.data.latestHistory && page.data.latestHistory.episode.id === 'e1' && page.data.latestHistory.progressSeconds === 101,
-    'F 顶部继续收听卡回填最新一条（含进度）');
-  assert(page.data.continueListening.length === 4 && page.data.continueListening[0].episode.id === 'e2',
-    'F 横向列表回填 2~5 条');
-
+  // —— 场景 F：整集链路退役后的主页形态 ——
+  assert(page.data.continueListening === undefined && page.data.recommended === undefined &&
+    page.data.latestEpisodes === undefined && page.data.latestHistory === undefined,
+    'F 继续收听/推荐/最近发布数据位已退役（红线 1：零整集列表）');
+  assert(!wxml.includes('onPlayEpisode') && !wxml.includes('/pages/episode/episode'),
+    'F WXML 零剧集跳转');
+  assert(wxml.includes('本周里程') && wxml.includes('我的路'),
+    'F 修行骨架保留（本周里程 + 我的路）');
+  assert(!fs.existsSync(path.join(__dirname, '../utils/audioManager.js')),
+    'F 全局播放内核已退役（播放事件置脏链路不复存在）');
   const apiAfterF = apiCalls;
-  page.onShow(); // 无新播放 → 脏标记已消费
+  page.onShow(); // 登录态 onShow → 恒定 weekly 一路
   await settle();
-  assert(apiCalls === apiAfterF, 'F 无脏标记的 onShow 零请求');
-
-  // 游客态脏标记不发请求
+  assert(apiCalls === apiAfterF + 1, 'F 登录态 onShow 恒定补拉 weekly 一路');
   authStore.logout();
   await settle();
-  audioManager._emit('ended', {});
   const apiLoggedOut = apiCalls;
-  page.onShow();
+  page.onShow(); // 游客态 onShow → 零请求
   await settle();
-  assert(apiCalls === apiLoggedOut, 'F 游客态脏标记不触发补拉');
+  assert(apiCalls === apiLoggedOut, 'F 游客态 onShow 零请求');
 
   console.log('----------------------------------------');
   if (failed === 0) {

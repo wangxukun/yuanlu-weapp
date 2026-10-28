@@ -145,7 +145,7 @@ function formatDistanceZh(iso, now) {
 function resolveTarget(url) {
   if (typeof url !== 'string' || !url) return '';
   const ep = url.match(/\/episode\/([A-Za-z0-9_-]+)/);
-  if (ep) return '/pages/episode/episode?id=' + ep[1];
+  if (ep) return '/pages/intensive-listening/index?id=' + ep[1];
   const path = url.split('?')[0];
   // 新口径 /library/learning-report + 存量 /charts 均落学习报表页
   if (path === '/library/learning-report' || path === '/charts') {

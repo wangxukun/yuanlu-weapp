@@ -15,7 +15,7 @@
   --sn-fold-bg: #f9fafb;    /* gray-50（Web 折叠区底色） */
 
   padding: var(--page-padding);
-  padding-bottom: calc(var(--mini-player-height, 0rpx) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ---------------- 首次加载 ---------------- */

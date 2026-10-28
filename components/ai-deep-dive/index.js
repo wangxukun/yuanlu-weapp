@@ -1,5 +1,5 @@
 /**
- * components/ai-deep-dive — AI 精讲本集（PRO 专属，复刻 Web 端 EpisodeDeepDive）
+ * components/ai-deep-dive — 语境深度精析（PRO 专属，复刻 Web 端 EpisodeDeepDive）
  *
  * 扁平化无卡片容器（与详情页"节目介绍"模块同风格）：
  *   行1 = 标题 + PRO 徽标（非会员）+ 锁/展开箭头
@@ -111,7 +111,7 @@ Component({
     /** 入口点击（行1/标签透传）：登录 → 会员态分流（与 Web 端 handleClick 一致） */
     onCardTap() {
       if (!this.data.isLoggedIn) {
-        wx.showToast({ title: 'AI 精讲仅对会员开放，请先登录', icon: 'none' });
+        wx.showToast({ title: '语境精析仅对会员开放，请先登录', icon: 'none' });
         return;
       }
       if (!this.data.isPremium) {
@@ -223,7 +223,7 @@ Component({
           return;
         }
         this.setData({ isLoading: false, isGenerating: false });
-        wx.showToast({ title: 'AI 精讲生成失败，请稍后重试', icon: 'none' });
+        wx.showToast({ title: '精析内容生成失败，请稍后重试', icon: 'none' });
       } catch (err) {
         this.setData({ isLoading: false, isGenerating: false });
         // 403：服务端判定非有效会员（role 过期缝隙等）→ 转化弹窗承接

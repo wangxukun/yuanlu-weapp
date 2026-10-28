@@ -50,7 +50,7 @@
 }
 .vn-bottom-space {
   /* 底部让位：跨页迷你播放条（elevated 2rpx）+ 安全区 */
-  height: calc(var(--mini-player-height) + env(safe-area-inset-bottom) + 24rpx);
+  height: calc(env(safe-area-inset-bottom) + 24rpx);
 }
 
 /* ── 首次加载 ── */

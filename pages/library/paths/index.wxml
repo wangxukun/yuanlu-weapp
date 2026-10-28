@@ -1,7 +1,7 @@
 <!-- pages/library/paths/index.wxml — 学习路径列表
   UI 基准 = Android LearningPathsScreen.kt（横向卡片：左 16:9 封面 + PUBLIC 角标，
   右标题/两行描述/进度条/集数与创建者）；顶部按钮区融合 Web LearningPathsClient
-  双按钮（紫渐变「AI 生成路径」+ 主题绿「+ 创建新路径」并排 flex gap-3）。
+  双按钮（紫渐变「定制专属卡册」+ 主题绿「+ 创建新路径」并排 flex gap-3）。
   页面无大标题/副标题，「学习路径」由原生导航栏承担（navigationBarTitleText）。 -->
 
 <view class="paths-page {{themeClass}}">
@@ -24,7 +24,7 @@
   <!-- ===== 内容区 ===== -->
   <block wx:else>
 
-    <!-- 双按钮操作区（融合 Web：AI 生成路径〔会员=紫渐变 / 免费=琥珀 PRO〕+ 创建新路径） -->
+    <!-- 双按钮操作区（融合 Web：定制卡册〔会员=紫渐变 / 免费=琥珀 PRO〕+ 创建新路径） -->
     <view class="action-row">
       <view
         class="btn-ai {{isPremium ? '' : 'btn-ai--free'}} center tap-scale"
@@ -35,7 +35,7 @@
           mode="aspectFit"
           src="{{isPremium ? '/assets/icons/auto-awesome-white.svg' : '/assets/icons/auto-awesome-amber.svg'}}"
         />
-        <text class="btn-ai-text">AI 生成路径{{isPremium ? '' : ' · PRO'}}</text>
+        <text class="btn-ai-text">定制专属卡册{{isPremium ? '' : ' · PRO'}}</text>
       </view>
       <view class="btn-create center tap-scale" bindtap="onCreateClick">
         <image class="btn-create-icon" mode="aspectFit" src="/assets/icons/add-white.svg" />
@@ -148,14 +148,14 @@
   </block>
 </view>
 
-<!-- ===== AI 生成路径弹窗（复刻 Web GENERATE MODAL） ===== -->
+<!-- ===== 心愿定制弹窗（复刻 Web GENERATE MODAL） ===== -->
 <view wx:if="{{showGenerateDialog}}" class="modal-mask" bindtap="onCloseGenerateDialog">
   <view class="modal-card col" catchtap="noop">
     <view class="modal-title-row">
       <image class="modal-title-icon" mode="aspectFit" src="/assets/icons/auto-awesome-white.svg" />
-      <text class="modal-title">AI 生成学习路径</text>
+      <text class="modal-title">心愿定制工坊</text>
     </view>
-    <text class="modal-lead">告诉 AI 你的学习目标，它会从剧集库中挑出最相关的一串，按先易后难排好。</text>
+    <text class="modal-lead">写下你想突破的场景、话题或心情，为你从原声库中精挑细选。</text>
 
     <text class="field-label">学习主题 / 目标</text>
     <input
@@ -173,7 +173,7 @@
       <view class="modal-btn-generate center {{isGenerating ? 'is-busy' : ''}}" bindtap="onSubmitGenerate">
         <view wx:if="{{isGenerating}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
         <image wx:else class="modal-btn-icon" mode="aspectFit" src="/assets/icons/auto-awesome-white.svg" />
-        <text>{{isGenerating ? 'AI 正在挑选剧集...' : '开始生成'}}</text>
+        <text>{{isGenerating ? '正在从原声语料库中甄选切片...' : '开始生成'}}</text>
       </view>
     </view>
   </view>
@@ -224,7 +224,7 @@
   </view>
 </view>
 
-<!-- 会员转化弹窗（配额墙 / AI 生成墙场景承接） -->
+<!-- 会员转化弹窗（配额墙 / 心愿定制墙场景承接） -->
 <premium-modal
   visible="{{showPremiumModal}}"
   source="{{premiumSource}}"
@@ -232,5 +232,3 @@
   bind:close="onPremiumClose"
 />
 
-<!-- 跨页迷你播放条：无播放会话时整条不渲染 -->
-<mini-player elevated />

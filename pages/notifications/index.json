@@ -2,6 +2,5 @@
   "navigationBarTitleText": "消息通知",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "mini-player": "/components/player/mini-player/index"
   }
 }

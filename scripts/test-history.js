@@ -367,7 +367,7 @@ function pageBody(items, total, hasMore) {
     await page.onShow();
     await tick();
     page.onOpenEpisode({ currentTarget: { dataset: { id: 'ep1' } } });
-    assert(navigations[0] === '/pages/episode/episode?id=ep1', '跳转 /pages/episode/episode?id=ep1');
+    assert(navigations[0] === '/pages/intensive-listening/index?id=ep1', '跳转原声精研页 ?id=ep1（剧集页已退役）');
     page.onOpenEpisode({ currentTarget: { dataset: {} } });
     assert(navigations.length === 1, '缺 id 不跳转');
   }

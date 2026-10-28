@@ -251,6 +251,7 @@ Page({
   onOpenEpisode(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) return;
-    wx.navigateTo({ url: '/pages/episode/episode?id=' + id });
+    // 剧集详情页已退役：直达原声精研页继续研读（T5.2 重建为精研足迹）
+    wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + id });
   },
 });

@@ -1,4 +1,4 @@
-<view class="mine-container pb-page-bottom-with-player {{themeClass}}">
+<view class="mine-container pb-page-bottom {{themeClass}}">
   <!-- 头部身份卡片（Android UserCard 同款） -->
   <view class="card profile-card row tap-scale" bindtap="{{isLoggedIn ? 'onProfile' : 'onLogin'}}">
     <view class="avatar-wrap center">
@@ -60,7 +60,8 @@
       </view>
     </view>
 
-    <!-- 学习与记录（Android ProfileScreen MenuCard：仅登录可见） -->
+    <!-- 学习与记录（Android ProfileScreen MenuCard：仅登录可见）。
+         历史与收藏两入口随整集链路退役暂隐，待 T5.2 以「精研足迹/收藏卡册」形态回归 -->
     <view class="card menu-card mt-4">
       <text class="menu-title">学习与记录</text>
       <navigator url="/pages/library/paths/index" class="menu-item row center-v tap-scale">
@@ -68,20 +69,6 @@
           <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/school-primary-dark.svg' : '/assets/icons/school-primary.svg'}}" />
         </view>
         <text class="menu-label flex-1">学习路径</text>
-        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
-      </navigator>
-      <navigator url="/pages/library/history/index" class="menu-item row center-v tap-scale">
-        <view class="menu-icon-box menu-icon-box--accent center">
-          <image class="menu-icon" mode="aspectFit" src="/assets/icons/history-accent.svg" />
-        </view>
-        <text class="menu-label flex-1">收听历史</text>
-        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
-      </navigator>
-      <navigator url="/pages/library/favorites/index" class="menu-item row center-v tap-scale">
-        <view class="menu-icon-box menu-icon-box--accent-deep center">
-          <image class="menu-icon" mode="aspectFit" src="/assets/icons/bookmark-accent-deep.svg" />
-        </view>
-        <text class="menu-label flex-1">我的收藏</text>
         <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
       </navigator>
     </view>
@@ -135,16 +122,6 @@
       </view>
     </block>
 
-    <!-- 离线缓存（Download · primary，尾值 = 已用容量；DOWNLOAD-TASK T3.5，缓存为设备本地资产故全登录态可见） -->
-    <view class="menu-item row center-v tap-scale" bindtap="onClearCache">
-      <view class="menu-icon-box menu-icon-box--primary center">
-        <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/download-primary-dark.svg' : '/assets/icons/download-primary.svg'}}" />
-      </view>
-      <text class="menu-label flex-1">离线缓存</text>
-      <text class="menu-trailing">{{cacheLabel}}</text>
-      <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
-    </view>
-
     <!-- 关注公众号（Campaign · primary → 关于页 official-account 组件承接，04 清单 T4） -->
     <navigator url="/pages/about/index" class="menu-item row center-v tap-scale">
       <view class="menu-icon-box menu-icon-box--primary center">
@@ -166,5 +143,3 @@
   <view style="height:96rpx;"></view>
 </view>
 
-<!-- 跨页迷你播放条（3.B.3）：无播放会话时整条不渲染 -->
-<mini-player elevated />

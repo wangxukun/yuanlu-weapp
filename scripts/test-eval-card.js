@@ -454,7 +454,7 @@ section('clip-player（窗口播放内核）');
 
   section('WXML / WXSS / json 结构断言');
 
-  ['AI朗读', '原声播放', '慢速播放', '收藏书签', '单句循环'].forEach((label) => {
+  ['标准示范', '原声播放', '慢速播放', '收藏书签', '单句循环'].forEach((label) => {
     assert(WXML.includes('>' + label + '</text>'), '工具行钮标签：' + label);
   });
   assert(/\.ec-act \{[^}]*display: flex;[^}]*flex-direction: column;[^}]*align-items: center/s.test(WXSS),

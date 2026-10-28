@@ -7,7 +7,7 @@
       <image class="lr-header-icon" src="{{headerIcon}}" mode="aspectFit" />
       <view class="lr-header-title">学习报表</view>
     </view>
-    <view class="lr-header-sub">{{isPremium ? 'PRO · 全年趋势、热力图与智能建议' : '近 7 天学习简报 · 升级 PRO 解锁全年报表'}}</view>
+    <view class="lr-header-sub">{{isPremium ? 'PRO · 全年趋势、热力图与复盘建议' : '近 7 天学习简报 · 升级 PRO 解锁全年报表'}}</view>
   </view>
 
   <!-- 首载骨架 -->
@@ -96,11 +96,11 @@
         </scroll-view>
       </view>
 
-      <!-- 智能学习建议（amber 灯泡 + 圆序号列表） -->
+      <!-- 阶段复盘建议（amber 灯泡 + 圆序号列表） -->
       <view class="lr-card">
         <view class="lr-card-title row">
           <image class="lr-sugg-bulb" src="/assets/icons/lightbulb-amber.svg" mode="aspectFit" />
-          <view>智能学习建议</view>
+          <view>阶段复盘建议</view>
         </view>
         <view class="lr-sugg row" wx:for="{{suggestions}}" wx:key="index">
           <view class="lr-sugg-no center">{{index + 1}}</view>
@@ -115,7 +115,7 @@
         <image class="lr-lock-icon" src="/assets/icons/lock-amber.svg" mode="aspectFit" />
       </view>
       <view class="lr-lock-text flex-1">
-        <view class="lr-lock-title">月 / 季 / 年趋势报表 · 全年热力图 · 智能学习建议</view>
+        <view class="lr-lock-title">月 / 季 / 年趋势报表 · 全年热力图 · 阶段复盘建议</view>
         <view class="lr-lock-desc">你的每一步积累都值得被看清——PRO 解锁完整学习报表，回顾一年来的坚持</view>
       </view>
       <view class="lr-lock-cta">解锁学习报表</view>

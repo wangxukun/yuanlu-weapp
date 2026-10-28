@@ -183,6 +183,164 @@ function buildDictation(textEn, inputValue) {
   return { targetWords: targetWords, slots: slots, isCorrect: isCorrect };
 }
 
+/**
+ * 声学显微镜（RESHAPE-TASK T2.2 / 创想三）：榨干词级时间戳的纯函数族。
+ *   - analyzeWordAcoustics：单句每词持续毫秒 / 语速热力三档 / 极速连读词块
+ *     （功能词 <130ms 且与相邻词间隙 <20ms → ⚡连读吞音闪电标数据源）
+ *   - slicePhraseWindow：词块点读窗口（选中 2-4 词的精确起止秒，供
+ *     clip-player 局部慢放三连剖析）
+ */
+
+/** 功能词表（虚词/助动词/代词/介词——母语者口语中被极速压缩的高频词） */
+var FUNCTION_WORDS = {
+  a: 1, an: 1, the: 1, and: 1, or: 1, but: 1, nor: 1, so: 1, yet: 1,
+  of: 1, to: 1, in: 1, on: 1, at: 1, for: 1, with: 1, from: 1, by: 1,
+  up: 1, out: 1, off: 1, outta: 1, into: 1, about: 1, over: 1, under: 1,
+  that: 1, this: 1, these: 1, those: 1, there: 1, here: 1, than: 1, then: 1,
+  is: 1, am: 1, are: 1, was: 1, were: 1, be: 1, been: 1, being: 1,
+  do: 1, does: 1, did: 1, done: 1, has: 1, have: 1, had: 1,
+  will: 1, would: 1, can: 1, could: 1, should: 1, shall: 1, may: 1, might: 1, must: 1,
+  not: 1, no: 1, "don't": 1, "doesn't": 1, "didn't": 1, "won't": 1, "can't": 1, "couldn't": 1, "wouldn't": 1, "shouldn't": 1, "isn't": 1, "wasn't": 1, "aren't": 1, "weren't": 1, "hasn't": 1, "haven't": 1, "hadn't": 1,
+  it: 1, its: 1, he: 1, him: 1, his: 1, she: 1, her: 1, we: 1, us: 1, our: 1,
+  they: 1, them: 1, their: 1, you: 1, your: 1, i: 1, me: 1, my: 1,
+  what: 1, which: 1, who: 1, whom: 1, whose: 1, how: 1, when: 1, where: 1, why: 1,
+  all: 1, any: 1, both: 1, each: 1, few: 1, more: 1, most: 1, other: 1, some: 1, such: 1,
+  just: 1, only: 1, very: 1, too: 1, got: 1, get: 1, gonna: 1, wanna: 1, gotta: 1,
+  kind: 1, sort: 1, lot: 1, bit: 1, going: 1, want: 1, because: 1, as: 1, if: 1, at: 1,
+};
+
+/** 极速词阈值（毫秒）：低于此值的功能词视作被母语者"吞掉" */
+var FAST_LINK_MS = 130;
+/** 连读间隙阈值（毫秒）：相邻极速词间隙小于此值才并块 */
+var FAST_LINK_GAP_MS = 20;
+
+/** 词长清洗（连读闪电标的功能词判定用，复用听写 cleanWord 口径） */
+function isFunctionWord(word) {
+  return Object.prototype.hasOwnProperty.call(
+    FUNCTION_WORDS,
+    String(word || '').toLowerCase().replace(/[.,!?;:"()']/g, '')
+  );
+}
+
+/** 英文音节估算：连续元音组计数；>1 组且尾部静音 e（辅音+e，-le 除外——
+ *  table/little 的 le 自成音节）则减一；最少 1 */
+function estimateSyllables(word) {
+  var w = String(word || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return 1;
+  var groups = w.match(/[aeiouy]+/g);
+  var n = groups ? groups.length : 1;
+  if (n > 1 && /[^aeiouyl]e$/.test(w)) n -= 1;
+  return Math.max(1, n);
+}
+
+function round1(n) { return Math.round(n * 10) / 10; }
+function round2(n) { return Math.round(n * 100) / 100; }
+
+/**
+ * 单句声学分析（纯函数，无 wx 依赖）。
+ * @param {Array} words [{word, start, end}]（毫秒级词级时间戳）
+ * @returns {{
+ *   words: Array<{word,start,end,durationMs,gapMs,syllables,sps,speedTier,isFastLink}>,
+ *   wpm: number,                 // 句真实语速（词/分钟，按首词起~末词止）
+ *   medianSps: number,           // 句内音节/秒 中位数（热力基准）
+ *   fastLinks: Array<{startIdx,endIdx,text,durationSec}>  // ⚡连读吞音词块（≥1 词）
+ * }}
+ */
+function analyzeWordAcoustics(words) {
+  var list = (Array.isArray(words) ? words : []).filter(function (w) {
+    return w && isFinite(w.start) && isFinite(w.end) && w.end >= w.start;
+  });
+  if (list.length === 0) {
+    return { words: [], wpm: 0, medianSps: 0, fastLinks: [] };
+  }
+
+  var items = list.map(function (w, i) {
+    var durationMs = (w.end - w.start) * 1000;
+    return {
+      word: w.word || '',
+      start: w.start,
+      end: w.end,
+      durationMs: round1(durationMs),
+      gapMs: i > 0 ? round1(Math.max(0, (w.start - list[i - 1].end) * 1000)) : 0,
+      syllables: estimateSyllables(w.word),
+      isFastLink: false,
+    };
+  });
+
+  // 每秒音节数（SPS）与句内热力基准（中位数，免疫个别超长词拉偏）
+  var sps = items.map(function (it) {
+    return it.durationMs > 0 ? it.syllables / (it.durationMs / 1000) : 0;
+  });
+  var positive = sps.filter(function (x) { return x > 0; }).sort(function (a, b) { return a - b; });
+  var medianSps = positive.length > 0 ? positive[Math.floor(positive.length / 2)] : 0;
+  items.forEach(function (it, i) {
+    it.sps = round2(sps[i]);
+    if (medianSps <= 0 || sps[i] <= 0) {
+      it.speedTier = 'normal';
+    } else if (sps[i] >= medianSps * 1.3) {
+      it.speedTier = 'fast';
+    } else if (sps[i] <= medianSps * 0.7) {
+      it.speedTier = 'slow';
+    } else {
+      it.speedTier = 'normal';
+    }
+  });
+
+  // 句真实语速：总词数 / 首词起~末词止时长
+  var spanSec = list[list.length - 1].end - list[0].start;
+  var wpm = spanSec > 0 ? Math.round(list.length / (spanSec / 60)) : 0;
+
+  // ⚡连读吞音词块：功能词且 <130ms；相邻块内词间隙 <20ms 才并块
+  var fastLinks = [];
+  var blockStart = -1;
+  function flush(endIdx) {
+    if (blockStart < 0) return;
+    fastLinks.push({
+      startIdx: blockStart,
+      endIdx: endIdx,
+      text: list.slice(blockStart, endIdx + 1).map(function (w) { return w.word || ''; }).join(' '),
+      durationSec: round2(list[endIdx].end - list[blockStart].start),
+    });
+    for (var k = blockStart; k <= endIdx; k++) items[k].isFastLink = true;
+    blockStart = -1;
+  }
+  items.forEach(function (it, i) {
+    var qualifies = isFunctionWord(it.word) && it.durationMs > 0 && it.durationMs < FAST_LINK_MS;
+    if (qualifies) {
+      if (blockStart < 0 || it.gapMs >= FAST_LINK_GAP_MS) {
+        flush(i - 1); // 间隙过大：前块收口，本词开新块
+        blockStart = i;
+      }
+    } else {
+      flush(i - 1);
+    }
+  });
+  flush(items.length - 1);
+
+  return { words: items, wpm: wpm, medianSps: round2(medianSps), fastLinks: fastLinks };
+}
+
+/**
+ * 词块点读窗口（纯函数）：选中 [startIdx, endIdx] 连续词块的精确起止秒。
+ * 起点前让 0.06s / 终点后让 padSec（默认 0.08s），保证爆破音起振与尾音完整。
+ * @returns {{startSec,endSec,phraseText,wordCount} | null}（越界/缺时间戳返回 null）
+ */
+function slicePhraseWindow(words, startIdx, endIdx, padSec) {
+  if (!Array.isArray(words) || words.length === 0) return null;
+  var i = Math.max(0, Math.min(Number(startIdx) || 0, words.length - 1));
+  var j = Math.max(i, Math.min(Number(endIdx) == null || !isFinite(Number(endIdx)) ? i : Number(endIdx), words.length - 1));
+  var a = words[i];
+  var b = words[j];
+  if (!a || !b || !isFinite(a.start) || !isFinite(b.end)) return null;
+  var pad = padSec == null ? 0.08 : Number(padSec) || 0;
+  return {
+    startSec: Math.max(0, a.start - 0.06),
+    endSec: b.end + pad,
+    phraseText: words.slice(i, j + 1).map(function (w) { return (w && w.word) || ''; }).join(' ').trim(),
+    wordCount: j - i + 1,
+  };
+}
+
 module.exports = {
   stripSpeaker,
   formatStartTime,
@@ -192,4 +350,8 @@ module.exports = {
   computeWordSweep,
   shouldLoopSeek,
   buildDictation,
+  analyzeWordAcoustics,
+  slicePhraseWindow,
+  estimateSyllables,
+  isFunctionWord,
 };

@@ -199,22 +199,22 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
     {
       key: 'WEEKLY', name: '周度会员', price: 5, days: 7,
       desc: '7天高级会员权益，低门槛体验所有专业功能',
-      features: ['7天会员特权', '无限次语音评测', '完整句子跟读练习', '音频、文稿 PDF 下载', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
+      features: ['7天会员特权', '无限次语音评测', '完整句子跟读练习', '心愿卡册无限定制', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
     },
     {
       key: 'MONTHLY', name: '月度会员', price: 18, days: 30,
       desc: '30天高级会员权益，适合中短期高强度需求',
-      features: ['30天会员特权', '无限次语音评测', '完整句子跟读练习', '音频、文稿 PDF 下载', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
+      features: ['30天会员特权', '无限次语音评测', '完整句子跟读练习', '心愿卡册无限定制', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
     },
     {
       key: 'QUARTERLY', name: '季度会员', price: 48, days: 90,
       desc: '90天高级会员权益，季付更划算，效率倍增',
-      features: ['90天会员特权', '无限次语音评测', '完整句子跟读练习', '音频、文稿 PDF 下载', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
+      features: ['90天会员特权', '无限次语音评测', '完整句子跟读练习', '心愿卡册无限定制', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
     },
     {
       key: 'YEARLY', name: '年度会员', price: 168, days: 365,
       desc: '365天终极会员权益，超值优待，一年无忧',
-      features: ['365天至尊全权', '无限次语音评测', '完整句子跟读练习', '音频、文稿 PDF 下载', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
+      features: ['365天至尊全权', '无限次语音评测', '完整句子跟读练习', '心愿卡册无限定制', '生词无限收藏', '词典无限查询', '发音弱项本与诊断'],
     },
   ];
   assert(JSON.stringify(plansCore.PLANS) === JSON.stringify(expectedPlans), '四档 key/名称/价格/天数/描述/权益逐字');
@@ -595,7 +595,7 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
     headings.map((h) => h.text).join('|').includes('8. 争议解决'), '首末节标题逐字');
   assert(bullets.reduce((n, b) => n + b.items.length, 0) === 13, '五组列表共 13 条（3+2+3+3+2，对齐 Web li 计数）');
   const allText = JSON.stringify(blocks);
-  assert(allText.includes('本协议是您（下称“用户”）与《远路播客》（下称“本平台”）'), '首段文案逐字（全角引号）');
+  assert(allText.includes('本协议是您（下称“用户”）与《远路听说》（下称“本平台”）'), '首段文案逐字（全角引号）');
   assert(allText.includes('通过“微信虚拟支付”完成交易处理'), '第 2 节支付口径 = 微信虚拟支付（2026-10-02 用户拍板改写）');
   assert(allText.includes('时长自动入账，无需填写任何凭证信息'), '自动激活口径 = 微信账号自动匹配');
   assert(!allText.includes('爱发电') && !allText.includes('预留邮箱'), '协议全文无爱发电/邮箱凭证残留（防回退红线）');

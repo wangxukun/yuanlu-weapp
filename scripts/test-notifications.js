@@ -296,7 +296,7 @@ function bodies(method, p) {
 
   section('三、resolveTarget（Web 路由 → 小程序路由）');
   {
-    assert(core.resolveTarget('/episode/abc123') === '/pages/episode/episode?id=abc123',
+    assert(core.resolveTarget('/episode/abc123') === '/pages/intensive-listening/index?id=abc123',
       '/episode/{id} → 剧集页');
     assert(core.resolveTarget('/charts') === '/pages/profile/learning-report/index',
       '/charts → 学习报表页（存量口径保留）');
@@ -318,7 +318,7 @@ function bodies(method, p) {
     );
     assert(item.typeLabel === '点赞' && item.badge === 'like', 'LIKE 类型标签+徽章映射');
     assert(item.timeText === '' && item.isRead === true, '空时间 → 空文案；isRead 透传');
-    assert(item.target === '/pages/episode/episode?id=xyz', 'target 路由预派生');
+    assert(item.target === '/pages/intensive-listening/index?id=xyz', 'target 路由预派生');
 
     const unknown = core.mapItem(dto(8, { type: 'PROMO' }), new Date());
     assert(unknown.typeLabel === 'PROMO' && unknown.badge === 'neutral', '未知类型 → 原值标签 + neutral 徽章');
@@ -442,7 +442,7 @@ function bodies(method, p) {
     await tick();
     page.onItemTap({ currentTarget: { dataset: { id: 9 } } });
     await tick();
-    assert(navigations[0] === '/pages/episode/episode?id=ep-42',
+    assert(navigations[0] === '/pages/intensive-listening/index?id=ep-42',
       '/episode 深链 → wx.navigateTo 剧集页');
     assert(page.data.items[0].isRead === true, '跳转同时乐观置已读');
   }
@@ -625,16 +625,11 @@ function bodies(method, p) {
 
     const iAppearance = WXML_MINE.indexOf('外观设置');
     const iNotif = WXML_MINE.indexOf('消息通知');
-    const iCache = WXML_MINE.indexOf('离线缓存');
     const iAbout = WXML_MINE.indexOf('关注公众号');
     assert(iAppearance >= 0 && iNotif > iAppearance && iAbout > iNotif,
       'mine 菜单插入位置：外观设置 → 消息通知 → 关注公众号（帮助与支持已并入关于页）');
-    assert(iCache > iNotif && iCache < iAbout && WXML_MINE.indexOf('{{cacheLabel}}') >= 0 &&
-      WXML_MINE.indexOf('onClearCache') >= 0,
-      '离线缓存行（T3.5）：消息通知 → 离线缓存 → 关注公众号，尾值 cacheLabel 绑定');
-    assert(WXML_MINE.indexOf('download-primary.svg') >= 0 &&
-      WXML_MINE.indexOf('download-primary-dark.svg') >= 0,
-      '离线缓存 Material 图标深浅双变体（download 着色，台账第十节）');
+    assert(WXML_MINE.indexOf('离线缓存') < 0 && WXML_MINE.indexOf('onClearCache') < 0,
+      '离线缓存行已随整集下载链路退役（红线 2）');
     assert(WXML_MINE.indexOf("unreadCount > 99 ? '99+' : unreadCount") >= 0 &&
       WXML_MINE.indexOf('unread-badge') >= 0,
       '未读角标 99+ 封顶绑定');
@@ -650,10 +645,10 @@ function bodies(method, p) {
       '需求红线：分组卡菜单项之间无分隔线（对齐 Android MenuRow 无 divider）');
     const iStudy = WXML_MINE.indexOf('学习与记录');
     const iPaths = WXML_MINE.indexOf('学习路径');
-    const iHistory = WXML_MINE.indexOf('收听历史');
-    const iFav = WXML_MINE.indexOf('我的收藏');
-    assert(iStudy >= 0 && iPaths > iStudy && iHistory > iPaths && iFav > iHistory,
-      '学习与记录组内序：学习路径 → 收听历史 → 我的收藏');
+    assert(iStudy >= 0 && iPaths > iStudy, '学习与记录组内序：学习路径在组内');
+    // 收听历史/我的收藏入口随整集链路退役暂隐（T5.2 以精研足迹/收藏微剧场回归）
+    assert(WXML_MINE.indexOf('收听历史') < 0 && WXML_MINE.indexOf('我的收藏') < 0,
+      '收听历史/我的收藏入口暂隐（页面注销待 T5.2 重建）');
     const iAccount = WXML_MINE.indexOf('订阅与系统设置');
     const iSub = WXML_MINE.indexOf('我的订阅');
     const iConsole = WXML_MINE.indexOf('控制台');
@@ -911,57 +906,6 @@ function bodies(method, p) {
   }
 
   /* ==================== 汇总 ==================== */
-
-  section('十七、离线缓存管理入口（DOWNLOAD-TASK T3.5）');
-  {
-    resetMock();
-    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
-    requestHandler = routeAwareHandler({
-      '/api/notification/list': { statusCode: 200, data: { unreadCount: 0, notifications: [] } },
-    });
-    // 索引直注入（读穿透口径，storage 即事实）：2 集 = 5MB + 512KB
-    storage.set('download_index', {
-      epA: { path: 'wxfile://usr/audio/epA.m4a', size: 5 * 1024 * 1024, savedAt: 1, lastPlayedAt: 0, title: 'A' },
-      epB: { path: 'wxfile://usr/audio/epB.m4a', size: 512 * 1024, savedAt: 2, lastPlayedAt: 0, title: 'B' },
-    });
-    const page = makePage(mineConfig, { unsubscribeAuth: null });
-    page.onLoad();
-    page.onShow();
-    await tick();
-    assert(page.data.cacheLabel === '5.5 MB', '尾值容量展示（5MB+512KB → 5.5 MB）');
-
-    page.onClearCache();
-    assert(
-      modalCalls.length === 1 &&
-        modalCalls[0].content.indexOf('2 集') !== -1 &&
-        modalCalls[0].content.indexOf('5.5 MB') !== -1,
-      '确认弹窗含集数与容量',
-    );
-    assert(
-      storage.get('download_index') && Object.keys(storage.get('download_index')).length === 0,
-      '确认后索引清空（clearAll）',
-    );
-    assert(page.data.cacheLabel === '空', '清空后尾值复位「空」');
-    assert(toasts.indexOf('已清空离线缓存') !== -1, '清空提示 toast');
-
-    // 空缓存 → 直接提示不弹窗
-    modalCalls.length = 0;
-    toasts.length = 0;
-    page.onClearCache();
-    assert(modalCalls.length === 0 && toasts.indexOf('暂无离线缓存') !== -1, '空缓存 → 提示不弹窗');
-
-    // 取消分支 + KB 级格式
-    storage.set('download_index', {
-      epC: { path: 'wxfile://usr/audio/epC.m4a', size: 1024, savedAt: 3, lastPlayedAt: 0, title: 'C' },
-    });
-    page._refreshCacheUsage();
-    assert(page.data.cacheLabel === '1.0 KB', 'KB 级容量格式（一位小数）');
-    modalConfirm = false;
-    page.onClearCache();
-    assert(!!storage.get('download_index').epC, '取消 → 索引保留');
-    assert(page.data.cacheLabel === '1.0 KB', '取消后尾值不变');
-    modalConfirm = true;
-  }
 
   section('十八、我的订阅真路由（SUBSCRIBE-TASK T2.2）');
   {

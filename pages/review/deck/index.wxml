@@ -12,7 +12,7 @@
       <image class="dk-empty-ic" src="/assets/icons/format-quote-primary.svg" />
     </view>
     <text class="dk-empty-title">句子本为空</text>
-    <text class="dk-empty-desc">请先在播客单集逐字稿中收藏一些句子，再进入卡片复习模式。</text>
+    <text class="dk-empty-desc">请先在原声逐字稿中收藏一些句子，再进入卡片复习模式。</text>
     <view class="btn-primary dk-empty-btn tap-scale" bindtap="onBack">返回句子本</view>
   </view>
 
@@ -110,7 +110,7 @@
           <image class="dk-done-ic" src="/assets/icons/check-circle-success-m3.svg" />
         </view>
         <text class="dk-done-title">今日句子复习已完成</text>
-        <text class="dk-done-desc">没有到期的句子。去播客里收藏新句子，或切回顺序刷自由浏览。</text>
+        <text class="dk-done-desc">没有到期的句子。去原声精研页收藏新句子，或切回顺序刷自由浏览。</text>
         <view class="btn-primary dk-empty-btn tap-scale" bindtap="onBack">返回句子本</view>
       </view>
 
@@ -191,7 +191,7 @@
 
         <!-- 卡底 meta：剧集名 + mono 时间戳 -->
         <view class="dk-card-meta row">
-          <text class="dk-card-ep ellipsis">{{card.episodeTitle || '播客单集原声'}}</text>
+          <text class="dk-card-ep ellipsis">{{card.episodeTitle || '原声语境'}}</text>
           <text class="dk-card-slice">{{card.startText}} - {{card.endText}}</text>
         </view>
       </view>

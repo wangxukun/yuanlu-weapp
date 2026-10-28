@@ -3,10 +3,10 @@
  *
  * 复刻 Web 端 components/episode/InteractiveTranscript.tsx 的移动端全屏精听体验
  * （对齐 Android IntensiveListeningScreen 的页面定位），承接全屏播放面板
- * 「精听模式」胶囊入口（player-panel.onOpenIntensive → 本页 ?id=）。
+ * 「精听模式」胶囊入口与本页 ?id= 直达。
  *
  * 核心机制（对应 Web 源）：
- *   - 字幕流 + 词级扫光：playerStore 订阅 timeupdate → intensive-core.findActiveIndex
+ *   - 字幕流 + 词级扫光：页内 clip-player 位置回调 → intensive-core.findActiveIndex
  *     增量定位当前句（useTranscriptScroll 去 rAF 化），activeWordIndex 最小差量
  *     setData，WXS 视图层求高亮 class（Web SubtitleItem + useWordHighlight）；
  *   - 单句循环：shouldLoopSeek 越过句尾回 seek 句首，500ms 保护窗
@@ -34,7 +34,7 @@
  *     窗口的句子哨兵化（blank 占位，节点总量恒定，与剧集时长无关）；
  *     用户手动滚动进入自由浏览（只增不减，活动句保底在窗），点句跳播 /
  *     重开跟随开关收回跟随态。
- *   - 跟随滚动智能判定（对齐 Web useTranscriptScroll §4 的"安全带内不滚"
+ *   - 跟随滚动自动判定（对齐 Web useTranscriptScroll §4 的"安全带内不滚"
  *     语义，口径取"完全可见"）：切句时活动句已完全在 ScrollView 视口内
  *     （底缘扣除迷你播放条遮挡带）则页面静止仅切高亮，出视口才对齐锚点
  *     ——短句连播不再每句强制滚动（_followAnchor：SelectorQuery 异步测量
@@ -55,9 +55,8 @@
 const theme = require('../../utils/theme');
 const { get, post } = require('../../utils/request');
 const { fetchSubtitles } = require('../../utils/subtitle-cache');
-const audioManager = require('../../utils/audioManager');
-const audioBus = require('../../utils/audio-bus');
-const playerStore = require('../../store/playerStore');
+const { createClipPlayer } = require('../../utils/clip-player');
+const listeningReporter = require('../../utils/listening-reporter');
 const authStore = require('../../store/authStore');
 const core = require('../../utils/intensive-core');
 const { trackEvent } = require('../../utils/track');
@@ -67,7 +66,7 @@ const RENDER_EXTEND = 30;  // 自由浏览扩窗步长
 const RENDER_AHEAD = 12;   // 自由浏览：活动句距窗口底缘的提前扩窗阈值
 const WINDOW_BEHIND = 8;   // 跟随窗口：活动句后方保留句数（上缘收缩线）
 const WINDOW_AHEAD = 40;   // 跟随窗口：活动句前方保留句数（窗口右缘目标）
-const FOLLOW_VISIBLE_TOL = 4; // 跟随智能滚动：完全可见判定容差（px，吸收亚像素/取整误差）
+const FOLLOW_VISIBLE_TOL = 4; // 跟随自动滚动：完全可见判定容差（px，吸收亚像素/取整误差）
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
 const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
 // 工具行开关偏好 key（跨会话记忆）：逐词/跟随默认开、译文默认关——
@@ -160,7 +159,7 @@ Page({
     this._freeScroll = false; // 自由浏览（用户手动滚动过）：窗口只增不减
     this._blanks = {};    // 下标 → blank 哨兵对象（稳定唯一 id，供 wx:key 复用）
     this._lastActive = -1;
-    this._followSeq = 0; // 跟随智能滚动令牌（exec 异步回调期间切句/关跟随/卸载 → 丢弃陈旧决策）
+    this._followSeq = 0; // 跟随自动滚动令牌（exec 异步回调期间切句/关跟随/卸载 → 丢弃陈旧决策）
     this._lastSwIdx = -1; // 上次下发扫光位置（与 viewList[i].swIdx 同步）
     this._lastSwOn = false; // 上次下发光斑点亮态（与 viewList[i].swOn 同步）
     this._isRenderingSweep = false; // 是否正在渲染词级扫光（用于限流防积压）
@@ -169,24 +168,35 @@ Page({
     this._dictDone = false;
     this._savingBusy = false;
     this._toastTimer = null;
-    this._exiting = false; // 关闭音频联动退栈的一次性门闩
     this._vocabSet = {}; // 已收藏生词小写表（/api/vocabulary/words）
+
+    // 页内窗口播放器（整集后台播放器退役后的精研页音频内核）：InnerAudioContext
+    // 经 clip-player 封装——起播锚定 startTime、墙钟外推位置免疫事件管线延迟、
+    // 50ms 看门狗判停（七轮真机验证结晶）。seek 无原地实现 = 重锚起播；
+    // 暂停位 _resumeAt 续播；播放态经 listening-reporter 联动收听时长心跳。
+    this._playing = false;
+    this._lastPos = 0;   // 最近一次位置回调（秒）
+    this._resumeAt = 0;  // 暂停位（续播/暂停态跳句的落点）
+    this._rate = 1;      // 听写降速 0.8 / 精读 1.0
+    this._audioUrl = ''; // 字幕接口带回的签名直链
+    this._player = createClipPlayer({
+      onPlaying: (k) => this._onPlayingChanged(!!k),
+      onTick: (pos) => this._onTick(pos, this._playing),
+      onEnded: () => this._onPlayingChanged(false),
+    });
 
     this._unsubAuth = authStore.subscribe(() => this._syncAuth());
     this._syncAuth();
-
-    // 全局播放器镜像：timeupdate 驱动扫光 / 跟随 / 单句循环
-    this._unsubPlayer = playerStore.subscribe((s) => this._onPlayerState(s));
-    this._onPlayerState(playerStore.getState());
 
     this._bootstrap();
   },
 
   /** 单例回退换集刷新（utils/route.singletonNavigateTo 回退/命中本页实例时
-   *  调用；同集 no-op——_bootstrap 重拉不打断播放会话，见 _syncAuth 同款用法） */
+   *  调用；同集 no-op——_bootstrap 重拉，见 _syncAuth 同款用法） */
   singletonReload(query) {
     const id = query && query.id;
     if (!id || String(id) === String(this.data.episodeid)) return;
+    this._playerPause(); // 换集：先收掉当前播放会话再重拉
     this.setData({ episodeid: id });
     this._bootstrap();
   },
@@ -194,9 +204,10 @@ Page({
   onUnload() {
     this._followSeq = (this._followSeq || 0) + 1; // 作废在途跟随测量回调
     if (this._unsubAuth) this._unsubAuth();
-    if (this._unsubPlayer) this._unsubPlayer();
     if (this._toastTimer) clearTimeout(this._toastTimer);
-    // 播放会话保留：返回后由迷你条 / 全屏面板继续控制（对齐 Web 精听页返回行为）
+    // 页内播放会话随页面销毁结束（无跨页后台播放器；stop 会联动
+    // _onPlayingChanged(false) → listening-reporter 冲刷余量）
+    if (this._player) this._player.stop();
   },
 
   noop() {},
@@ -231,7 +242,7 @@ Page({
         throw new Error('暂无字幕数据');
       }
 
-      // 字幕接口带回的 OSS 签名直链回填剧集对象，audioManager 起播免二次拉取
+      // 字幕接口带回的 OSS 签名直链即本页音源（页内播放器直连，免二次拉取）
       if (subBody.audioUrl) episode.audioUrl = subBody.audioUrl;
 
       this._sentences = subtitles;
@@ -272,18 +283,14 @@ Page({
         viewList: this._views.slice(0, this._renderEnd),
       });
 
-      // 带着既有播放会话进页时，按当前进度初始化活动句
-      const st = playerStore.getState();
-      if (
-        st.hasEpisode &&
-        st.currentEpisode &&
-        String(st.currentEpisode.episodeid) === String(episodeid)
-      ) {
-        const initIdx = core.findActiveIndex(this._views, st.currentTime || 0, -1);
-        if (initIdx >= 0) this._setActive(initIdx, st.currentTime || 0);
+      // 页内播放会话：字幕接口带回的签名直链即本页音源（无跨页后台播放器）
+      this._audioUrl = subBody.audioUrl || episode.audioUrl || '';
+      this.setData({ isPlayingHere: true });
+      if (this._audioUrl) {
+        this._playerPlay(0);
+      } else {
+        wx.showToast({ title: '暂时无法播放原声', icon: 'none' });
       }
-
-      this._ensurePlaying(episode);
       this._fetchSaveState();
     } catch (err) {
       this.setData({ error: (err && err.message) || '加载失败', isLoading: false });
@@ -294,23 +301,53 @@ Page({
     this._bootstrap();
   },
 
-  /**
-   * 起播保障：本集未在播 → 互停其他音源后精听起播；已在播 → 补精听标记，
-   * 暂停则续播（对齐 episode 页 onStartListening / 面板 onOpenIntensive 链路）
-   */
-  _ensurePlaying(episode) {
-    const st = playerStore.getState();
-    const same =
-      st.hasEpisode &&
-      st.currentEpisode &&
-      String(st.currentEpisode.episodeid) === String(this.data.episodeid);
-    if (!same) {
-      audioBus.stopAll();
-      audioManager.playEpisode(episode, { intensive: true });
-    } else {
-      audioManager.setIntensiveMode(true);
-      if (!st.isPlaying) audioManager.play();
+  // ==================== 页内播放会话（clip-player 适配） ====================
+
+  /** 起播/重锚起播（seek 即重锚：clip-player 的 startTime 起播锚定无 seek 竞态） */
+  _playerPlay(fromSec) {
+    if (!this._audioUrl) return;
+    const sec = isFinite(fromSec) && fromSec > 0 ? fromSec : 0;
+    this._resumeAt = sec;
+    this._player.playUrl(this._audioUrl, 'episode', { startSec: sec, rate: this._rate });
+  },
+
+  /** 暂停并记住位置（续播从 _resumeAt 起） */
+  _playerPause() {
+    if (!this._playing) return;
+    const pos = this._player.estimatedPos();
+    if (pos != null) this._resumeAt = pos;
+    this._player.stop();
+  },
+
+  /** 暂停态跳句只挪 _resumeAt；在播则重锚到目标句句首 */
+  _playerSeek(sec) {
+    if (this._playing) this._playerPlay(sec);
+    else this._resumeAt = sec;
+  },
+
+  /** clip-player 播放态翻转 → 页面态同步 + 收听时长心跳 + 扫光预热/回落 */
+  _onPlayingChanged(playing) {
+    this._playing = playing;
+    listeningReporter.onPlaybackState(playing); // 打卡时长数据源（原全局播放器接线）
+    if (playing === this.data.isPlaying) return;
+    const patch = { isPlaying: playing };
+    const idx = this.data.activeIndex;
+    if (idx >= 0) {
+      // 暂停时 item.active 回落未读态；恢复时按当前位置就地预热扫光（原
+      // 全局镜像驱动的同款语义，位置源由 timeupdate 换成 _lastPos）
+      patch['viewList[' + idx + '].active'] = playing;
+      if (playing) {
+        const v = this._views[idx];
+        if (this.data.mode === 'read' && this.data.wordSweep && v && v.words.length) {
+          const sw = core.computeWordSweep(v.words, this._lastPos, v.start, v.end);
+          this._lastSwIdx = sw.idx;
+          this._lastSwOn = sw.on;
+          patch['viewList[' + idx + '].swIdx'] = sw.idx;
+          patch['viewList[' + idx + '].swOn'] = sw.on;
+        }
+      }
     }
+    this.setData(patch);
   },
 
   _syncAuth() {
@@ -359,82 +396,22 @@ Page({
       .catch(() => {});
   },
 
-  // ==================== 播放联动（playerStore 镜像驱动） ====================
-
-  _onPlayerState(s) {
-    const wasHere = this.data.isPlayingHere;
-    const wasPlaying = this.data.isPlaying;
-    const here = !!(
-      s.hasEpisode &&
-      s.currentEpisode &&
-      String(s.currentEpisode.episodeid) === String(this.data.episodeid)
-    );
-    const playing = !!(here && s.isPlaying);
-    const patch = {};
-    if (playing !== wasPlaying) patch.isPlaying = playing;
-    if (here !== this.data.isPlayingHere) patch.isPlayingHere = here;
-
-    if (!here) {
-      this._lastActive = -1;
-      this._lastSwIdx = -1;
-      this._lastSwOn = false;
-      const idx = this.data.activeIndex;
-      if (idx !== -1) {
-        patch.activeIndex = -1;
-        patch['viewList[' + idx + '].active'] = false;
-      }
-      if (Object.keys(patch).length) this.setData(patch);
-      // 关闭联动（Bug 1）：本集会话被全局关闭（底部迷你条/全屏面板的 × →
-      // audioManager.close 清空会话）时，精听页失去存在意义，随音频停止一并返回
-      if (wasHere && !s.hasEpisode) this._exitPage();
-      return;
-    }
-
-    // 播放/暂停翻转 → 活动句词光同步：暂停时 item.active 回落全部已读色外
-    // 的未读态（原 WXS 以页面级 isPlaying 短路，现由 item.active 承载须显式
-    // 翻转）；恢复时按当前进度就地预热扫光，免等下一帧 timeupdate
-    if (playing !== wasPlaying) {
-      const idx = this.data.activeIndex;
-      if (idx >= 0) {
-        patch['viewList[' + idx + '].active'] = playing;
-        if (playing) {
-          const v = this._views[idx];
-          if (this.data.mode === 'read' && this.data.wordSweep && v.words.length) {
-            const sw = core.computeWordSweep(v.words, s.currentTime || 0, v.start, v.end);
-            this._lastSwIdx = sw.idx;
-            this._lastSwOn = sw.on;
-            patch['viewList[' + idx + '].swIdx'] = sw.idx;
-            patch['viewList[' + idx + '].swOn'] = sw.on;
-          }
-        }
-      }
-    }
-    if (Object.keys(patch).length) this.setData(patch);
-    this._onTick(s.currentTime || 0, playing);
-  },
-
-  /** 关闭音频联动退出：navigateBack，无上一页（分享直入等）时回首页 */
-  _exitPage() {
-    if (this._exiting) return; // close 会连发 episodeChange + stop，防重复退栈
-    this._exiting = true;
-    wx.navigateBack({
-      fail: () => wx.switchTab({ url: '/pages/home/index' }),
-    });
-  },
+  // ==================== 播放推进（clip-player 位置回调驱动） ====================
 
   /**
-   * 每次 timeupdate/seek 的推进处理：循环回跳 → 句定位 → 词扫光。
-   * BGM timeupdate 约 250-500ms 一帧，词级高亮粒度与之对齐。
+   * 每次位置回调（50ms 看门狗 + onTimeUpdate）的推进处理：循环回跳 →
+   * 句定位 → 词扫光。粒度 50ms，词级高亮比原 BGM timeupdate 更细腻。
    */
   _onTick(t, playing) {
     const views = this._views;
     if (!views.length) return;
+    this._lastPos = t;
 
-    // 游客时长拦截：未登录试听满 180s → 落锁暂停；已落锁后经迷你条/全屏面板
-    // 再点播放或拖进度越界 → 就地再拦（180s 内跳句/循环/听写不受影响）
+    // 游客时长拦截：未登录试听满 180s → 落锁暂停；已落锁后越界续播就地再拦
+    //（180s 内跳句/循环/听写不受影响）
     if (!this.data.isLoggedIn && t >= GUEST_PREVIEW_SECONDS) {
       if (!this.data.guestLimitOn) this._engageGuestLimit();
-      else if (playing) audioManager.pause();
+      else if (playing) this._playerPause();
       return;
     }
 
@@ -445,8 +422,8 @@ Page({
       const sub = views[loopIdx];
       if (core.shouldLoopSeek(t, sub, this._lastSeekAt, Date.now())) {
         this._lastSeekAt = Date.now();
-        audioManager.seek(sub.start);
-        return; // seek 后由新 timeupdate 接管
+        this._playerSeek(sub.start);
+        return; // 重锚后由新位置回调接管
       }
     }
 
@@ -487,11 +464,8 @@ Page({
    */
   _engageGuestLimit() {
     const last = this._views[this._views.length - 1];
-    if (last) {
-      this._lastSeekAt = Date.now();
-      audioManager.seek(last.start);
-    }
-    audioManager.pause();
+    this._playerPause();
+    if (last) this._resumeAt = last.start; // 回退到最后一句句首（登录前仍可反复试听前 180s）
     this.setData({ guestLimitOn: true });
   },
 
@@ -516,7 +490,7 @@ Page({
       patch['viewList[' + idx + '].swOn'] = sw.on;
 
       this._slideWindow(idx, patch);
-      // 跟随滚动改走 _followAnchor 智能判定（完全可见不滚）：在 setData 之后
+      // 跟随滚动改走 _followAnchor 自动判定（完全可见不滚）：在 setData 之后
       // 发起——测量回调以 activeIndex 为陈旧闸，高亮先落、滚动决策随后，
       // 短句连播不再每句跳页
       follow = this.data.autoScroll;
@@ -530,7 +504,7 @@ Page({
   },
 
   /**
-   * 跟随滚动智能判定（Web useTranscriptScroll §4 的"安全带内不滚"语义，
+   * 跟随滚动自动判定（Web useTranscriptScroll §4 的"安全带内不滚"语义，
    * 口径取用户可感的"完全可见"）：
    *   - 活动句完全在 ScrollView 视口内（顶缘不裁、底缘不含迷你播放条遮挡带）
    *     → 页面静止，仅切高亮——短句连播防每句强制对齐的跳动感；
@@ -705,8 +679,10 @@ Page({
     const mode = e.currentTarget.dataset.mode;
     if (mode === this.data.mode) return;
     this.setData({ mode });
-    // 听写降速 0.8 / 精读恢复 1.0（InteractiveTranscript 的 dictate 倍速效应）
-    audioManager.setPlaybackRate(mode === 'dictate' ? 0.8 : 1.0);
+    // 听写降速 0.8 / 精读恢复 1.0（InteractiveTranscript 的 dictate 倍速效应）；
+    // clip-player 倍速须起播时锚定 → 在播则以当前位置重锚续播
+    this._rate = mode === 'dictate' ? 0.8 : 1.0;
+    if (this._playing) this._playerPlay(this._lastPos);
     if (mode === 'dictate' && this.data.activeIndex >= 0) {
       this._resetDictation(this._views[this.data.activeIndex]);
     }
@@ -724,7 +700,7 @@ Page({
     this.setData({ autoScroll });
     this._savePref(PREF_KEYS.autoScroll, autoScroll);
     // 重开跟随：收回自由浏览头部，滑窗回活动句并强制对齐锚点（显式回位
-    // 意图，不受智能滚动"完全可见不滚"约束）
+    // 意图，不受自动滚动"完全可见不滚"约束）
     if (autoScroll) {
       this._freeScroll = false;
       const idx = this.data.activeIndex;
@@ -768,8 +744,7 @@ Page({
         ['viewList[' + idx + '].swOn']: false,
       });
     } else if (this.data.isPlaying && v.words.length) {
-      const st = playerStore.getState();
-      const sw = core.computeWordSweep(v.words, st.currentTime || 0, v.start, v.end);
+      const sw = core.computeWordSweep(v.words, this._lastPos, v.start, v.end);
       this._lastSwIdx = sw.idx;
       this._lastSwOn = sw.on;
       this.setData({
@@ -794,8 +769,7 @@ Page({
     // 点句跳播 = 回到跟随意图（跟随开关关着则保持自由浏览——窗口不跳移，
     // 防止用户视口附近的句子被滑走清屏）；窗口/锚点由下一帧 _setActive 收口
     this._freeScroll = !this.data.autoScroll;
-    audioManager.seek(v.start);
-    audioManager.play();
+    this._playerPlay(v.start);
   },
 
   /** 单句循环开关（SubtitleItem.onToggleLoop + useTranscriptScroll 回跳） */
@@ -825,7 +799,7 @@ Page({
       .trim();
     if (!cleanWord) return;
 
-    if (this.data.isPlaying) audioManager.pause();
+    if (this.data.isPlaying) this._playerPause();
 
     const lower = cleanWord.toLowerCase();
     this.setData({
@@ -1125,9 +1099,9 @@ Page({
     this._lastSeekAt = Date.now();
     const next = this._views[this.data.activeIndex + 1];
     if (next) {
-      audioManager.seek(next.start);
+      this._playerSeek(next.start);
     } else {
-      audioManager.pause();
+      this._playerPause();
     }
   },
 });

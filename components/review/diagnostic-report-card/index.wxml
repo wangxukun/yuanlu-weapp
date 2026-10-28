@@ -1,10 +1,10 @@
-<!-- AI 发音诊断报告卡：复刻 Web DiagnosticReportCard.tsx（Top3 实分+建议 / 模糊锁定 / PRO 曲线） -->
+<!-- 发音弱项剖析报告卡：复刻 Web DiagnosticReportCard.tsx（Top3 实分+建议 / 模糊锁定 / PRO 曲线） -->
 <view class="drc-card {{themeClass}}">
   <view class="drc-head">
     <view class="drc-icon-badge">
       <image class="drc-icon-badge-img" src="{{icons.stethoscope}}" mode="aspectFit" />
     </view>
-    <text class="drc-title">AI 发音诊断报告</text>
+    <text class="drc-title">发音弱项剖析报告</text>
     <view wx:if="{{!isPremium}}" class="drc-pro-badge">
       <image class="drc-pro-lock" src="/assets/icons/lock-white.svg" mode="aspectFit" />
       <text class="drc-pro-text">PRO</text>

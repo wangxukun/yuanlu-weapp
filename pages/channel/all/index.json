@@ -1,7 +1,0 @@
-{
-  "usingComponents": {
-    "mini-player": "/components/player/mini-player/index",
-    "channel-card": "/components/common/channel-card/index"
-  },
-  "navigationBarTitleText": "全部频道"
-}

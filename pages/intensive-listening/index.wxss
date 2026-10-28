@@ -463,7 +463,7 @@
   left: 0;
   right: 0;
   /* 底部让位迷你播放条（Bug 1 挂载后常驻）+ 安全区 */
-  bottom: calc(var(--mini-player-height) + 48rpx + env(safe-area-inset-bottom));
+  bottom: calc(48rpx + env(safe-area-inset-bottom));
   display: flex;
   justify-content: center;
   z-index: var(--z-toast);

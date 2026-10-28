@@ -1,7 +1,4 @@
 {
-  "usingComponents": {
-    "mini-player": "/components/player/mini-player/index",
-    "channel-card": "/components/common/channel-card/index"
-  },
-  "enablePullDownRefresh": true
+  "usingComponents": {},
+  "enablePullDownRefresh": false
 }

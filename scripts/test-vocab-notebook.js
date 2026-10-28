@@ -823,7 +823,7 @@ const WXML_REVIEW = fs.readFileSync(
     assert(reviewCss.includes('0.6s cubic-bezier(0.4, 0, 0.2, 1)'), '翻卡：0.6s cubic-bezier 过渡曲线');
     const nbCss = fs.readFileSync(
       path.join(__dirname, '../components/review/vocab-notebook/index.wxss'), 'utf8');
-    assert(nbCss.includes('--mini-player-height'), 'notebook：底部让位引用迷你条高度变量');
+    assert(nbCss.includes('height: calc(env(safe-area-inset-bottom) + 24rpx)'), 'notebook：底部让位收敛为安全区+24rpx（迷你条高度变量已退役）');
   }
 
   /* ==================== 汇总 ==================== */
