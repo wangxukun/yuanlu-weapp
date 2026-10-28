@@ -647,8 +647,8 @@ function bodies(method, p) {
     const iPaths = WXML_MINE.indexOf('学习路径');
     assert(iStudy >= 0 && iPaths > iStudy, '学习与记录组内序：学习路径在组内');
     // 收听历史/我的收藏入口随整集链路退役暂隐（T5.2 以精研足迹/收藏微剧场回归）
-    assert(WXML_MINE.indexOf('收听历史') < 0 && WXML_MINE.indexOf('我的收藏') < 0,
-      '收听历史/我的收藏入口暂隐（页面注销待 T5.2 重建）');
+    assert(WXML_MINE.indexOf('精研足迹') > 0 && WXML_MINE.indexOf('我的收藏') > 0,
+      '精研足迹/我的收藏入口已随 T5.2 回归（微剧场形态）');
     const iAccount = WXML_MINE.indexOf('订阅与系统设置');
     const iSub = WXML_MINE.indexOf('我的订阅');
     const iConsole = WXML_MINE.indexOf('控制台');

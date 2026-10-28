@@ -10,6 +10,8 @@
     "pages/review/leaderboard/index",
     "pages/mine/index",
     "pages/auth/index",
+    "pages/library/history/index",
+    "pages/library/favorites/index",
     "pages/library/paths/index",
     "pages/library/paths/detail",
     "pages/intensive-listening/index",

@@ -25,6 +25,7 @@ const core = require('../../utils/speech-core');
 const authStore = require('../../store/authStore');
 const audioBus = require('../../utils/audio-bus');
 const tts = require('../../utils/tts');
+const audioClip = require('../../utils/audio-clip');
 const theme = require('../../utils/theme');
 
 const SETTINGS_KEY = 'speechPracticeSettings';
@@ -49,6 +50,17 @@ Page({
     episodeTitle: '',
     audioUrl: '',
     isTrialMode: false,
+    isSceneMode: false, // 微剧场模式（T5.1）
+    // AB 角语境接龙（T5.1，仅微剧场模式）
+    abMode: false,
+    blindMode: false, // 换我接话：隐 B 句英文，仅示中文意图与提示词
+    abPairs: [],
+    abActive: -1,
+    abPhase: 'idle', // idle | playing | countdown | recording | result
+    abCountdown: 0,
+    abResult: null, // { accuracy, fluency, wpmMatch, userSec, nativeWpm }
+    abHints: [],
+    abIntent: '',
     quotaLocked: false, // 评测日池耗尽且非会员：录音面渲染锁定引导卡（eval-card locked 同口径）
 
     // 句子游标与派生态
@@ -91,6 +103,8 @@ Page({
 
   onLoad(query) {
     this._episodeId = query.id || '';
+    this._sceneId = (query && (query.sceneId || query.scene)) || '';
+    this._isSceneMode = !!this._sceneId;
     this._focusSubtitleId = query.focus ? parseInt(query.focus, 10) : null;
 
     this._allSubs = [];      // 全量字幕（过滤输入）
@@ -153,6 +167,10 @@ Page({
       this.setData({ showPremiumModal: true, premiumSource: source });
     });
 
+    if (this._isSceneMode) {
+      this._loadScene();
+      return;
+    }
     if (!this._episodeId) {
       this.setData({ loading: false, loadError: '缺少剧集参数' });
       return;
@@ -160,7 +178,13 @@ Page({
     this._load();
   },
 
+  onHide() {
+    this._abortAb();
+    if (this.data.abPhase === 'recording') this._finishRecording();
+  },
+
   onUnload() {
+    this._abortAb();
     this._destroyed = true; // 录音机的迟到回调不再 setData
     if (this._unbus) this._unbus();
     if (this._unTheme) this._unTheme();
@@ -259,7 +283,164 @@ Page({
   },
 
   onRetry() {
-    this._load();
+    if (this._isSceneMode) this._loadScene();
+    else this._load();
+  },
+
+  /**
+   * 微剧场模式（T5.1）：GET /api/scenes/{id} 一次拉齐 3-6 句（词级时间戳
+   * 已按 clipOffset 归一到切片本地秒），原声=物理切片直链——practice-data
+   * 整集链路零触发（红线 2）。AB 接龙配对同址构建。
+   */
+  _loadScene() {
+    this.setData({ loading: true, loadError: null });
+    get('/api/scenes/' + encodeURIComponent(this._sceneId), null, { showError: false })
+      .then((body) => {
+        if (!body || body.success === false || !body.data || !body.data.scene) {
+          throw new Error((body && body.message) || '微剧场加载失败');
+        }
+        const scene = body.data.scene;
+        this._episodeId = scene.episodeid || this._episodeId; // 评测流水/书签沿用剧集维度
+        this._sceneOffset = Number(body.data.clipOffset) || 0;
+        const parsed = core.parseSceneData(body);
+        this._allSubs = parsed.subtitles;
+        this._absWindows = parsed.absWindows;
+        this._subs = parsed.subtitles; // 微剧场不过滤（3-6 句全量）
+        this.setData({
+          loading: false,
+          audioUrl: parsed.audioUrl || '',
+          episodeTitle: parsed.episodeTitle || '',
+          isTrialMode: false,
+          isSceneMode: true,
+          abPairs: core.buildAbPairs(parsed.subtitles, parsed.absWindows),
+        });
+        this._applySentence(0, null);
+        const cur = parsed.subtitles[0];
+        if (cur) this._restoreFromHistory(cur.id);
+        this._fetchVocabSet();
+        this._fetchSaveState();
+        this._preflightQuota();
+      })
+      .catch((err) => {
+        this.setData({ loading: false, loadError: (err && err.message) || '微剧场加载失败' });
+      });
+  },
+
+  // ==================== AB 角语境接龙（T5.1，仅微剧场模式） ====================
+
+  onToggleAbMode() {
+    if (!this.data.isSceneMode) return;
+    const abMode = !this.data.abMode;
+    this._abortAb('switch');
+    this.setData({ abMode, abPhase: 'idle', abActive: -1, abResult: null });
+  },
+
+  onToggleBlind() {
+    this.setData({ blindMode: !this.data.blindMode });
+  },
+
+  /** 选组（配对卡点击）：预填 B 句提示词（换我接话用） */
+  onAbPick(e) {
+    if (this.data.abPhase === 'recording' || this.data.abPhase === 'countdown') return;
+    const idx = Number(e.currentTarget.dataset.idx);
+    const pair = this.data.abPairs[idx];
+    if (!pair) return;
+    const bSub = this._subs[pair.bIdx];
+    this.setData({
+      abActive: idx,
+      abPhase: 'idle',
+      abResult: null,
+      abHints: core.blindHints(bSub.textEn, 2),
+      abIntent: bSub.textCn || '',
+    });
+  },
+
+  /** 开始接龙：A 原声（切片直连绝对窗口）→ 倒数 3-2-1 → 自动录 B → 到时收音评测 */
+  onAbStart() {
+    if (!this.data.isSceneMode || this.data.abPhase === 'recording') return;
+    const idx = this.data.abActive >= 0 ? this.data.abActive : 0;
+    const pair = this.data.abPairs[idx];
+    if (!pair) return;
+    this._abortAb('restart');
+    this.setData({ abActive: idx, abPhase: 'playing', abResult: null });
+    const aWin = this._absWindows[pair.aIdx] || { start: 0, end: 3 };
+    const self = this;
+    this._abAKey = 'ab:a:' + idx + ':' + Date.now();
+    this._unsubAbA = audioClip.subscribe((st) => {
+      if (st && st.playingKey === null && self.data.abPhase === 'playing') self._abCountdown(idx);
+    });
+    audioClip.play({
+      key: this._abAKey,
+      episodeid: this._episodeId,
+      clipAudioUrl: this.data.audioUrl,
+      clipOffset: this._sceneOffset || 0,
+      startTime: aWin.start,
+      endTime: aWin.end,
+      onBeforePlay: () => { tts.stop(); },
+    });
+    // 兜底：A 句窗口最长 12s，订阅静默（加载失败等）时直接进入倒数
+    this._abFallback = setTimeout(() => {
+      if (self.data.abPhase === 'playing') self._abCountdown(idx);
+    }, Math.max(4, (aWin.end - aWin.start) + 3) * 1000);
+  },
+
+  _abCountdown(pairIdx) {
+    if (this._unsubAbA) { this._unsubAbA(); this._unsubAbA = null; }
+    if (this._abFallback) { clearTimeout(this._abFallback); this._abFallback = null; }
+    const self = this;
+    let n = 3;
+    this.setData({ abPhase: 'countdown', abCountdown: n });
+    this._abCountTimer = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(this._abCountTimer);
+        this._abCountTimer = null;
+        self._abBeginRecording(pairIdx);
+      } else {
+        self.setData({ abCountdown: n });
+      }
+    }, 1000);
+  },
+
+  _abBeginRecording(pairIdx) {
+    const pair = this.data.abPairs[pairIdx];
+    const bSub = this._subs[pair.bIdx];
+    if (!pair || !bSub) return;
+    this._abPending = { pairIdx, subId: bSub.id, pair };
+    this.setData({ abPhase: 'recording' });
+    this._applySentence(pair.bIdx, null); // 评测/生词/书签管线以 B 句为当前句
+    this._startRecording();
+    const self = this;
+    this._abTimer = setTimeout(() => {
+      if (self.data.abPhase === 'recording') self._finishRecording();
+    }, pair.bWindowSec * 1000 + 1800);
+  },
+
+  /** 中止接龙（切开关/退出/手动跳组）：停播停录清计时器 */
+  _abortAb() {
+    if (this._unsubAbA) { this._unsubAbA(); this._unsubAbA = null; }
+    if (this._abFallback) { clearTimeout(this._abFallback); this._abFallback = null; }
+    if (this._abCountTimer) { clearInterval(this._abCountTimer); this._abCountTimer = null; }
+    if (this._abTimer) { clearTimeout(this._abTimer); this._abTimer = null; }
+    this._abPending = null;
+    audioClip.stop();
+  },
+
+  /** 下一组：选中下一对并直接开接龙 */
+  onAbNext() {
+    const next = Math.min(this.data.abActive + 1, this.data.abPairs.length - 1);
+    this._abortAb();
+    this.setData({ abActive: next, abPhase: 'idle', abResult: null }, () => this.onAbPick({ currentTarget: { dataset: { idx: next } } }));
+    setTimeout(() => this.onAbStart(), 0);
+  },
+
+  onAbStop() {
+    if (this.data.abPhase === 'recording') {
+      this._finishRecording();
+      return;
+    }
+    this._abortAb();
+    this.setData({ abPhase: 'idle', abResult: null });
   },
 
   /** 已保存生词表（句内 primary 标色用，与精听页同接口） */
@@ -625,6 +806,12 @@ Page({
     this._finishing = true;
     const frames = this._pcmFrames || [];
     this._pcmFrames = null; // 迟到帧一律丢弃
+    // AB 接龙：用户录音时长（PCM 16bit 单声道 → 秒），吻合度计算用
+    if (this._abPending) {
+      let bytes = 0;
+      for (let i = 0; i < frames.length; i++) bytes += frames[i].byteLength || frames[i].length || 0;
+      this._abUserSec = bytes / (PCM_RATE * 2);
+    }
     try { this._recorder.stop(); } catch (e) { /* stop 失败不影响内存帧评测 */ }
     if (!frames.length && tempFilePath) {
       try {
@@ -689,6 +876,21 @@ Page({
         const evaluated = core.parseEvalResponse(body);
         evaluated.userAudioPath = localPath;
         this._resultCache[sub.id] = evaluated;
+        // AB 接龙结果（T5.1）：三指标卡（准确度/流利度/母语语速吻合度）
+        if (this._abPending && this._abPending.subId === sub.id) {
+          const pair = this._abPending.pair;
+          const wordCount = String(sub.textEn || '').split(/\s+/).filter((w) => w.length > 0).length;
+          const abResult = {
+            accuracy: evaluated.pronunciation,
+            fluency: evaluated.fluency,
+            wpmMatch: core.computeWpmMatch(this._abUserSec, pair.bNativeWpm, wordCount),
+            userSec: Math.round((this._abUserSec || 0) * 10) / 10,
+            nativeWpm: pair.bNativeWpm,
+          };
+          this._abPending = null;
+          if (this._abTimer) { clearTimeout(this._abTimer); this._abTimer = null; }
+          this.setData({ abPhase: 'result', abResult });
+        }
 
         const newRecord = core.parseRecordDto({
           recognitionid: evaluated.recognitionId || Date.now(),

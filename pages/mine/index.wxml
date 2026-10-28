@@ -61,7 +61,7 @@
     </view>
 
     <!-- 学习与记录（Android ProfileScreen MenuCard：仅登录可见）。
-         历史与收藏两入口随整集链路退役暂隐，待 T5.2 以「精研足迹/收藏卡册」形态回归 -->
+         精研足迹/我的收藏两入口已随 T5.2 以微剧场形态回归 -->
     <view class="card menu-card mt-4">
       <text class="menu-title">学习与记录</text>
       <navigator url="/pages/library/paths/index" class="menu-item row center-v tap-scale">
@@ -69,6 +69,20 @@
           <image class="menu-icon" mode="aspectFit" src="{{dark ? '/assets/icons/school-primary-dark.svg' : '/assets/icons/school-primary.svg'}}" />
         </view>
         <text class="menu-label flex-1">学习路径</text>
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </navigator>
+      <navigator url="/pages/library/history/index" class="menu-item row center-v tap-scale">
+        <view class="menu-icon-box menu-icon-box--accent center">
+          <image class="menu-icon" mode="aspectFit" src="/assets/icons/history-accent.svg" />
+        </view>
+        <text class="menu-label flex-1">精研足迹</text>
+        <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
+      </navigator>
+      <navigator url="/pages/library/favorites/index" class="menu-item row center-v tap-scale">
+        <view class="menu-icon-box menu-icon-box--accent-deep center">
+          <image class="menu-icon" mode="aspectFit" src="/assets/icons/bookmark-accent-deep.svg" />
+        </view>
+        <text class="menu-label flex-1">我的收藏</text>
         <image class="menu-chevron" mode="aspectFit" src="{{dark ? '/assets/icons/keyboard-arrow-right-tertiary-dark.svg' : '/assets/icons/keyboard-arrow-right-tertiary.svg'}}" />
       </navigator>
     </view>

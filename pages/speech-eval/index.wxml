@@ -19,6 +19,90 @@
 
   <!-- ══ 卡片区 ══ -->
   <view class="se-body">
+
+  <!-- 模式行（T5.1，仅微剧场模式）：逐句精练 / AB 角接龙 -->
+  <view wx:if="{{isSceneMode && !loading && !loadError && !abMode}}" class="se-mode-row row">
+    <view class="se-mode-chip se-mode-chip--on">逐句精练</view>
+    <view class="se-mode-chip tap-scale" bindtap="onToggleAbMode">AB 角接龙</view>
+  </view>
+
+  <!-- ═══ AB 角语境接龙面板（T5.1） ═══ -->
+  <view wx:if="{{isSceneMode && abMode}}" class="se-ab col">
+    <view class="row between w-full">
+      <view class="row se-ab-headrow">
+        <text class="se-ab-title">AB 角语境接龙</text>
+        <view class="se-ab-blind {{blindMode ? 'se-ab-blind--on' : ''}} tap-scale" bindtap="onToggleBlind">换我接话</view>
+      </view>
+      <view class="se-mode-chip tap-scale" bindtap="onToggleAbMode">切回逐句</view>
+    </view>
+
+    <!-- 配对选择：A → B（横滑） -->
+    <scroll-view class="se-ab-pairs" scroll-x show-scrollbar="{{false}}">
+      <view class="se-ab-pairs-inner row">
+        <view wx:for="{{abPairs}}" wx:key="bIdx"
+              class="se-ab-pair {{abActive === index ? 'se-ab-pair--on' : ''}} tap-scale"
+              data-idx="{{index}}" bindtap="onAbPick">{{item.label}}</view>
+      </view>
+    </scroll-view>
+
+    <!-- 当前组 -->
+    <view class="se-ab-card col" wx:if="{{abActive >= 0}}">
+      <view class="se-ab-role">A · 原声</view>
+      <text class="se-ab-sent">{{subs[abPairs[abActive].aIdx].textEn}}</text>
+      <view class="se-ab-divider"></view>
+      <view class="se-ab-role">B · 由你接上{{blindMode ? '（只给意图与提示词）' : ''}}</view>
+      <text wx:if="{{!blindMode}}" class="se-ab-sent se-ab-sent--b">{{subs[abPairs[abActive].bIdx].textEn}}</text>
+      <block wx:else>
+        <text class="se-ab-intent">{{abIntent}}</text>
+        <view class="row se-ab-hints">
+          <text class="se-ab-hint" wx:for="{{abHints}}" wx:key="*this">{{item}}</text>
+        </view>
+      </block>
+
+      <!-- 阶段区 -->
+      <view class="se-ab-stage col center w-full">
+        <block wx:if="{{abPhase === 'idle'}}">
+          <view class="se-ab-go center tap-scale" bindtap="onAbStart">听 A 句，倒数后接 B 句</view>
+        </block>
+        <block wx:elif="{{abPhase === 'playing'}}">
+          <text class="se-ab-phase">A 原声播放中…</text>
+        </block>
+        <block wx:elif="{{abPhase === 'countdown'}}">
+          <text class="se-ab-count">{{abCountdown}}</text>
+          <text class="se-ab-phase">准备开口</text>
+        </block>
+        <block wx:elif="{{abPhase === 'recording'}}">
+          <view class="se-ab-bars row">
+            <view class="se-ab-bar"></view><view class="se-ab-bar"></view><view class="se-ab-bar"></view><view class="se-ab-bar"></view>
+          </view>
+          <view class="se-ab-stop center tap-scale" bindtap="onAbStop">说完收音</view>
+        </block>
+        <block wx:elif="{{abPhase === 'result'}}">
+          <view class="row se-ab-metrics w-full">
+            <view class="se-ab-metric col center flex-1">
+              <text class="se-ab-m-val">{{abResult.accuracy}}</text>
+              <text class="se-ab-m-key">准确度</text>
+            </view>
+            <view class="se-ab-metric col center flex-1">
+              <text class="se-ab-m-val">{{abResult.fluency}}</text>
+              <text class="se-ab-m-key">流利度</text>
+            </view>
+            <view class="se-ab-metric col center flex-1">
+              <text class="se-ab-m-val">{{abResult.wpmMatch}}</text>
+              <text class="se-ab-m-key">语速吻合</text>
+            </view>
+          </view>
+          <text class="se-ab-note">你用了 {{abResult.userSec}}s · 母语者约 {{abResult.nativeWpm}} 词/分</text>
+          <view class="se-ab-go se-ab-go--ghost center tap-scale" bindtap="onAbNext" wx:if="{{abActive < abPairs.length - 1}}">下一组</view>
+        </block>
+      </view>
+    </view>
+    <view wx:else class="se-ab-empty col center">
+      <text class="t-body text-secondary">这段微剧场只有一句，凑不成对话接龙</text>
+      <view class="se-mode-chip tap-scale" style="margin-top: 24rpx;" bindtap="onToggleAbMode">切回逐句</view>
+    </view>
+  </view>
+
     <!-- 加载态 -->
     <view wx:if="{{loading}}" class="se-center-block col">
       <view class="se-spin"></view>

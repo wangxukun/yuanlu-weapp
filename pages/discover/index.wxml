@@ -64,6 +64,9 @@
         <text class="postcard-en ellipsis-2">{{item.en}}</text>
         <text class="postcard-zh ellipsis" wx:if="{{item.zh}}">{{item.zh}}</text>
         <view class="postcard-foot between w-full">
+          <view class="postcard-fav center tap-scale" data-scene="{{item.sceneid}}" catchtap="onFavToggle">
+            <text class="postcard-fav-ic {{favOn[item.sceneid] ? 'postcard-fav-ic--on' : ''}}">{{favOn[item.sceneid] ? '♥' : '♡'}}</text>
+          </view>
           <view class="postcard-play row" data-scene="{{item.sceneid}}" catchtap="onPosterOpen">
             <image class="postcard-poster-ic" src="/assets/icons/share.svg" />
             <text class="postcard-poster-text">日签</text>

@@ -1,6 +1,3 @@
 {
-  "navigationBarTitleText": "收听历史",
-  "enablePullDownRefresh": true,
-  "usingComponents": {
-  }
+  "navigationBarTitleText": "精研足迹"
 }

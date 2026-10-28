@@ -157,7 +157,7 @@
                 </view>
                 <text wx:if="{{item.zhText}}" class="sn-compact-zh">{{item.zhText}}</text>
                 <view class="sn-compact-meta row">
-                  <view wx:if="{{item.episodeTitle}}" class="sn-compact-ep row" data-episodeid="{{item.episodeid}}" bindtap="onEpisodeTap">
+                  <view wx:if="{{item.episodeTitle}}" class="sn-compact-ep row" data-episodeid="{{item.episodeid}}" data-subtitleid="{{item.subtitleId}}" bindtap="onEpisodeTap">
                     <image class="sn-compact-meta-ic" src="/assets/icons/podcasts-gray.svg" />
                     <text class="sn-compact-meta-ep ellipsis">{{item.episodeTitle}}</text>
                   </view>
@@ -189,7 +189,7 @@
                     class="{{seg.hit ? 'sn-hl' : ''}}">{{seg.text}}</text>
             </view>
             <view class="sn-item-meta row">
-              <view wx:if="{{item.episodeTitle}}" class="sn-item-ep row" data-episodeid="{{item.episodeid}}" bindtap="onEpisodeTap">
+              <view wx:if="{{item.episodeTitle}}" class="sn-item-ep row" data-episodeid="{{item.episodeid}}" data-subtitleid="{{item.subtitleId}}" bindtap="onEpisodeTap">
                 <image class="sn-item-ep-ic" src="/assets/icons/podcasts-gray.svg" />
                 <text class="sn-item-ep-text ellipsis">{{item.episodeTitle}}</text>
               </view>

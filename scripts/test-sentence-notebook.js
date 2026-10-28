@@ -748,9 +748,19 @@ async function driveAttach(opts) {
   idle.onShadowTap({ currentTarget: { dataset: { ok: true, id: 1 } } });
   assert(navCalls[0] === '/pages/review/shadowing/index?id=1', '跟读可用：跳 shadowing?id=');
 
-  // meta 出处胶囊 → 剧集详情
-  idle.onEpisodeTap({ currentTarget: { dataset: { episodeid: 'ep1' } } });
-  assert(navCalls[1] === '/pages/intensive-listening/index?id=ep1', '出处胶囊：跳原声精研页 ?id=');
+  // meta 出处胶囊 → by-clip 反查微剧场（T5.2）：命中 sceneId 直达，未收录回落剧集模式
+  idle.onEpisodeTap({ currentTarget: { dataset: { episodeid: 'ep1', subtitleid: 11 } } });
+  await new Promise((r) => setTimeout(r, 10));
+  assert(requestLog.some((r) => r.path === '/api/scenes/by-clip'), '出处胶囊：GET /api/scenes/by-clip（episodeid+subtitleId）');
+  assert(navCalls[1] === '/pages/intensive-listening/index?id=ep1', '未收录微剧场 → 回落精研页 ?id=');
+
+  // meta 出处胶囊命中分支（T5.2）
+  apiResponses['/api/scenes/by-clip'] = { success: true, data: { sceneid: 'sc9' } };
+  idle.onEpisodeTap({ currentTarget: { dataset: { episodeid: 'ep1', subtitleid: 11 } } });
+  await new Promise((r) => setTimeout(r, 10));
+  assert(navCalls[2] === '/pages/intensive-listening/index?sceneId=sc9', '命中微剧场 → 精研室 ?sceneId= 直达');
+  delete apiResponses['/api/scenes/by-clip'];
+
 
   // 编辑 → 抽屉 sentence 置位
   idle.onEditTap({ currentTarget: { dataset: { id: 1 } } });

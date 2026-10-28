@@ -182,3 +182,21 @@
   background-color: var(--primary-600);
   border-color: var(--primary-600);
 }
+
+/* 收藏心（T5.2） */
+.postcard-fav {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: var(--r-full);
+  background-color: rgba(27, 24, 18, 0.35);
+}
+.postcard-fav-ic {
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.9);
+}
+.postcard-fav-ic--on {
+  color: #ff6b81;
+}
+.postcard-foot {
+  gap: 16rpx;
+}

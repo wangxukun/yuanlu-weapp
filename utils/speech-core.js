@@ -378,6 +378,128 @@ function computeWordSweep(words, t, start, end) {
   return intensiveCore.computeWordSweep(words, t, start, end);
 }
 
+
+// ==================== 微剧场模式 + AB 角接龙（RESHAPE-TASK T5.1） ====================
+
+/**
+ * scenes API（GET /api/scenes/[id]）→ practice-data 同构视图：
+ * 字幕与词级时间戳统一减 clipOffset（切片本地秒），audioUrl=切片直链——
+ * 页内既有窗口播放/扫光/评测管线零改造复用。
+ */
+function parseSceneData(body) {
+  var data = (body && body.data) || {};
+  var scene = data.scene || {};
+  var offset = Number(data.clipOffset) || 0;
+  var shift = function (t) {
+    var v = Number(t);
+    return isFinite(v) ? Math.max(0, v - offset) : 0;
+  };
+  var subtitles = (Array.isArray(scene.clips) ? scene.clips : []).map(function (c) {
+    return {
+      id: (c.subtitleId != null ? c.subtitleId : c.id) | 0,
+      textEn: String(c.textEn || ''),
+      textCn: c.textCn || null,
+      start: shift(c.start),
+      end: shift(c.end != null ? c.end : (Number(c.start) || 0) + 3),
+      speaker: c.speaker || null,
+      words: (Array.isArray(c.words) ? c.words : []).map(function (w) {
+        return { word: w.word, start: shift(w.start), end: shift(w.end) };
+      }),
+    };
+  });
+  return {
+    audioUrl: data.clipAudioUrl || null,
+    episodeTitle: scene.title || null,
+    // 场景绝对窗口（A 句播放走 audio-clip 显式窗口，须用剧集绝对秒）
+    absStart: Number(scene.startTime) || 0,
+    absEnd: Number(scene.endTime) || 0,
+    // 每句剧集绝对窗口（AB 接龙 A/B 播放用）：与 subtitles 同序
+    absWindows: (Array.isArray(scene.clips) ? scene.clips : []).map(function (c) {
+      return {
+        start: Number(c.start) || 0,
+        end: Number(c.end != null ? c.end : (Number(c.start) || 0) + 3),
+      };
+    }),
+    subtitles: subtitles,
+    records: [],
+    isTrialMode: false,
+  };
+}
+
+/** AB 接龙配对：相邻两句一组（i, i+1），B 句母语语速供吻合度对照 */
+var FUNCTION_WORDS_AB = {
+  a: 1, an: 1, the: 1, and: 1, or: 1, but: 1, of: 1, to: 1, in: 1, on: 1,
+  at: 1, for: 1, with: 1, is: 1, are: 1, was: 1, were: 1, be: 1, do: 1,
+  does: 1, did: 1, has: 1, have: 1, had: 1, will: 1, would: 1, can: 1,
+  could: 1, should: 1, it: 1, its: 1, he: 1, she: 1, we: 1, they: 1,
+  you: 1, i: 1, me: 1, my: 1, that: 1, this: 1, there: 1, not: 1, no: 1,
+};
+
+function countContentWords(textEn) {
+  return String(textEn || '')
+    .toLowerCase()
+    .replace(/[^a-z\s']/g, ' ')
+    .split(/\s+/)
+    .filter(function (w) { return w.length > 0 && !FUNCTION_WORDS_AB[w]; }).length;
+}
+
+/** 母语者语速：实词口径（词数/秒 × 60），窗口秒来自切片时长 */
+function nativeWpm(textEn, windowSec) {
+  var sec = Number(windowSec) || 0;
+  if (sec <= 0) return 0;
+  var words = String(textEn || '').split(/\s+/).filter(function (w) { return w.length > 0; }).length;
+  return words / sec * 60;
+}
+
+/**
+ * 语速吻合度：用户录音秒数 vs 母语语速（双向偏离都扣分，100% 封顶）：
+ *   match = min(100, nativeWpm / userWpm * 100)（用户更慢 → <100；
+ *   用户更快按同比例扣分，避免越快越好的误导）。
+ */
+function computeWpmMatch(userSec, native, wordCount) {
+  var sec = Number(userSec) || 0;
+  var nw = Number(native) || 0;
+  var words = Number(wordCount) || 0;
+  if (sec <= 0.2 || nw <= 0 || words <= 0) return 0;
+  var userWpm = words / sec * 60;
+  if (!isFinite(userWpm) || userWpm <= 0) return 0;
+  // 对称惩罚：r = 用户/母语，过快过慢同比例扣分（2 倍偏离 → 50 分）
+  var r = userWpm / nw;
+  return Math.max(0, Math.min(100, Math.round(100 * Math.min(r, 1 / r))));
+}
+
+/** AB 配对表：[{aIdx, bIdx, label, bNativeWpm, bWindowSec}] */
+function buildAbPairs(subs, absWindows) {
+  var pairs = [];
+  for (var i = 0; i + 1 < (subs || []).length; i++) {
+    var b = subs[i + 1];
+    var win = (absWindows || [])[i + 1] || { start: b.start, end: b.end };
+    var windowSec = Math.max(0.5, win.end - win.start);
+    pairs.push({
+      aIdx: i,
+      bIdx: i + 1,
+      label: '第 ' + (i + 1) + ' 组 · ' + String(subs[i].textEn || '').slice(0, 12) + ' →',
+      bWindowSec: Math.round(windowSec * 10) / 10,
+      bNativeWpm: Math.round(nativeWpm(b.textEn, windowSec)),
+    });
+  }
+  return pairs;
+}
+
+/** 换我接话提示词：B 句前 N 个实词（原文大小写保留） */
+function blindHints(textEn, n) {
+  var count = n || 2;
+  var out = [];
+  String(textEn || '')
+    .replace(/[^A-Za-z\s']/g, ' ')
+    .split(/\s+/)
+    .filter(function (w) { return w.length > 0; })
+    .forEach(function (w) {
+      if (out.length < count && !FUNCTION_WORDS_AB[w.toLowerCase()]) out.push(w);
+    });
+  return out;
+}
+
 module.exports = {
   DEFAULT_SETTINGS: DEFAULT_SETTINGS,
   STRICTNESS_OFFSETS: STRICTNESS_OFFSETS,
@@ -403,4 +525,10 @@ module.exports = {
   frameAmplitude: frameAmplitude,
   pcmToWav: pcmToWav,
   computeWordSweep: computeWordSweep,
+  parseSceneData: parseSceneData,
+  buildAbPairs: buildAbPairs,
+  computeWpmMatch: computeWpmMatch,
+  blindHints: blindHints,
+  nativeWpm: nativeWpm,
+  countContentWords: countContentWords,
 };

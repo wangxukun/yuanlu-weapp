@@ -12,6 +12,7 @@
  */
 const { get } = require('../../utils/request');
 const theme = require('../../utils/theme');
+const sceneFavorites = require('../../utils/scene-favorites');
 
 const SEARCH_DEBOUNCE_MS = 400;
 const PAGE_SIZE = 10;
@@ -36,6 +37,7 @@ Page({
     page: 1,
     total: 0,
     noMore: false,
+    favOn: {}, // sceneid → 本地收藏态
     poster: null, // { sceneid, coverUrl, en, zh } 日签海报弹层
     posterSaving: false,
   },
@@ -104,6 +106,8 @@ Page({
           .slice(0, 6)
           .map((x) => ({ name: x.name, coverUrl: x.coverUrl, podcastCount: 0, episodeCount: x.sceneCount }));
       }
+      const favOn = {};
+      cards.forEach((c) => { favOn[c.sceneid] = sceneFavorites.has(c.sceneid); });
       this.setData({
         isLoading: false,
         cards,
@@ -111,6 +115,7 @@ Page({
         page,
         total,
         noMore: cards.length >= total,
+        ...(replace ? { favOn } : {}),
       });
     } catch (e) {
       this.setData({ isLoading: false, ...(replace ? { cards: [], noMore: true } : {}) });
@@ -163,6 +168,27 @@ Page({
     if (sceneid) {
       wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + sceneid });
     }
+  },
+
+  /** 明信片收藏心（T5.2 本地收藏夹）：toggle + 心形反馈 */
+  onFavToggle(e) {
+    const sceneid = e.currentTarget.dataset.scene;
+    const card = this.data.cards.find((c) => c.sceneid === sceneid);
+    if (!card) return;
+    const on = sceneFavorites.toggle({
+      sceneid: card.sceneid,
+      title: card.title,
+      coverUrl: card.coverUrl,
+      en: card.en,
+      zh: card.zh,
+      start: card.start,
+      end: card.end,
+      situationTag: card.situationTag,
+      cefrLabel: card.cefrLabel,
+    });
+    const key = 'favOn.' + sceneid;
+    this.setData({ [key]: on });
+    wx.showToast({ title: on ? '已收进收藏' : '已取消收藏', icon: 'none' });
   },
 
   onPosterOpen(e) {

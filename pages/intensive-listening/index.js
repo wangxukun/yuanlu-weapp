@@ -57,6 +57,7 @@ const { get, post } = require('../../utils/request');
 const { fetchSubtitles } = require('../../utils/subtitle-cache');
 const { createClipPlayer } = require('../../utils/clip-player');
 const listeningReporter = require('../../utils/listening-reporter');
+const footprint = require('../../utils/study-footprint');
 const authStore = require('../../store/authStore');
 const core = require('../../utils/intensive-core');
 const { trackEvent } = require('../../utils/track');
@@ -283,6 +284,15 @@ Page({
         insight: this._buildInsight(scene.deepDive),
         isLoading: false,
         viewList: this._views.slice(0, this._renderEnd),
+      });
+
+      // 精研足迹（T5.2）：进入即记一笔（同 sceneid 去重置顶）
+      footprint.record({
+        sceneid: sceneid,
+        title: scene.title || '原声微剧场',
+        coverUrl: scene.coverUrl || '',
+        duration: scene.duration || 0,
+        situationTag: scene.situationTag || '',
       });
 
       if (d.clipAudioUrl) {
