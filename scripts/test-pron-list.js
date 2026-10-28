@@ -347,7 +347,7 @@ assert(wxml.indexOf('发音达人榜') >= 0, '达人榜入口文案');
 assert(wxml.indexOf('待复习句子') >= 0 && wxml.indexOf('最弱音素') >= 0 && wxml.indexOf('已攻克音素') >= 0, '三统计卡标签逐字');
 assert(wxml.indexOf('复习计划已就绪') >= 0 && wxml.indexOf('开始闯关复习') >= 0, '横幅标题/按钮逐字');
 assert(wxml.indexOf('你有 {{totalErrors}} 个弱项句子需要复习。') >= 0, '横幅副文（N 占位）');
-assert(wxml.indexOf('全部完成了！') >= 0 && wxml.indexOf('你做得很好，目前没有待复习的弱项句子。快去挑战新播客吧。') >= 0, '全部完成卡文案逐字');
+assert(wxml.indexOf('全部完成了！') >= 0 && wxml.indexOf('你做得很好，目前没有待复习的弱项句子。快去挑战新的原声句子吧。') >= 0, '全部完成卡文案逐字');
 assert(wxml.indexOf('薄弱音素诊断雷达') >= 0 && wxml.indexOf('数据积累中') >= 0 && wxml.indexOf('完成更多评测即可解锁雷达图') >= 0, '雷达卡标题/空态逐字');
 assert(wxml.indexOf('待复习弱项句子') >= 0, '列表卡标题逐字');
 assert(wxml.indexOf('还有 {{lockedCount}} 条弱项句子待攻克') >= 0, '锁定卡标题（N 占位）');

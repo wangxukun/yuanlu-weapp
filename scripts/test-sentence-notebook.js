@@ -521,7 +521,7 @@ async function driveAttach(opts) {
   /* ---------- 空态引导：去发现页 ---------- */
   idle.onGoDiscover();
   assert(switchTabCalls.length === 1 && switchTabCalls[0] === '/pages/discover/index',
-    '空态「去浏览播客」switchTab 发现页');
+    '空态「去探索原声」switchTab 发现页');
 
   /* ---------- [SRS] 全部未到期：due=0（横幅切「全部完成了！」卡） ---------- */
   apiResponses['/api/sentences/list'] = {
@@ -557,7 +557,7 @@ async function driveAttach(opts) {
   assert(idle.data.sentenceLimit === 30, '容量上限常量 30 透出（quota-card primaryLimit）');
 
   // 筛选候选派生
-  assert(JSON.stringify(idle.data.episodeNames) === JSON.stringify(['全部播客来源 (3)', '剧集1', '剧集2', '剧集3']),
+  assert(JSON.stringify(idle.data.episodeNames) === JSON.stringify(['全部来源 (3)', '剧集1', '剧集2', '剧集3']),
     '剧集下拉候选：ALL 哨兵 + 首见保序');
   assert(idle.data.tagCloud.length === 2, '标签云落 data（2 个标签）');
   assert(idle.data.filteredList.length === 3 && !idle.data.hasFilter,
@@ -802,16 +802,16 @@ async function driveAttach(opts) {
   assert(WXML.includes('开始复习'), '横幅 CTA 文案（原「卡片复习模式」退役）');
   assert(WXML.includes('全部完成了！') && WXML.includes('sn-allclear'),
     '横幅 due=0：全部完成卡（sn-allclear）');
-  assert(WXML.includes('你做得很好，今日句子复习已清空。快去播客里收藏新句子吧。'),
+  assert(WXML.includes('你做得很好，今日句子复习已清空。快去原声精研页收藏新句子吧。'),
     '完成卡副文案逐字（vocab 句式适配句子本）');
   assert(WXSS.includes('.sn-allclear') && WXSS.includes('.sn-allclear-title'),
     '完成卡样式落位（sn-allclear 块）');
   assert(WXML.includes('check-circle-success-m3.svg'), '完成卡图标（vn-allclear 同款）');
   assert(WXML.includes('句子本暂无匹配内容'), '空态标题逐字');
-  assert(WXML.includes('在收听播客时打开「沉浸式逐字稿」，点击字幕行右侧的“书签”按钮，即可一键收藏精选原句！'),
+  assert(WXML.includes('在精研原声时打开「沉浸式逐字稿」，点击字幕行右侧的“书签”按钮，即可一键收藏精选原句！'),
     '空态描述逐字（含全角引号）');
-  assert(WXML.includes('去浏览播客'), '空态按钮文案逐字');
-  // 空态 CTA 复刻生词本「去发现播客」按钮（.vn-empty-btn 逐值；弃全局 btn-primary）
+  assert(WXML.includes('去探索原声'), '空态按钮文案逐字');
+  // 空态 CTA 复刻生词本「去探索原声」按钮（.vn-empty-btn 逐值；弃全局 btn-primary）
   assert(WXML.includes('class="sn-empty-btn tap-scale"') && !WXML.includes('btn-primary sn-empty-btn'),
     '空态按钮：独立 sn-empty-btn 类（不再叠全局 btn-primary 88rpx 座）');
   assert(WXSS.includes('background: var(--primary-600)') &&

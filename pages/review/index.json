@@ -2,6 +2,6 @@
   "usingComponents": {
     "vocab-notebook": "/components/review/vocab-notebook/index",
     "sentence-notebook": "/components/review/sentence-notebook/index",
-    "pron-notebook": "/components/review/pron-notebook/index",
+    "pron-notebook": "/components/review/pron-notebook/index"
   }
 }

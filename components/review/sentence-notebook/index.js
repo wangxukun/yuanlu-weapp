@@ -64,7 +64,7 @@ Component({
     filterTag: 'ALL',
     viewMode: 'cards', // cards = 卡片详情 / compact = 简洁清单
     tagCloud: [], // [{name, count}] 首见序
-    episodeNames: [], // picker range：[全部播客来源 (N), ...剧集名]
+    episodeNames: [], // picker range：[全部来源 (N), ...剧集名]
     episodeIdx: 0,
     hasFilter: false,
     filteredList: [],
@@ -195,9 +195,9 @@ Component({
       );
       const cloud = sentenceCore.tagCloud(this._sentences);
       const episodes = sentenceCore.episodeOptions(this._sentences);
-      // picker：首项 ALL 哨兵「全部播客来源 (N)」；索引 → episodeid 映射存 JS 侧
+      // picker：首项 ALL 哨兵「全部来源 (N)」；索引 → episodeid 映射存 JS 侧
       this._episodeValues = ['ALL'].concat(episodes.map(function (e) { return e.value; }));
-      const names = ['全部播客来源 (' + episodes.length + ')'].concat(
+      const names = ['全部来源 (' + episodes.length + ')'].concat(
         episodes.map(function (e) { return e.label; }),
       );
       // 当前筛选若已失效（剧集被删）回落 ALL

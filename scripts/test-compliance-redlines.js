@@ -103,6 +103,15 @@ let scanned = 0;
 function scanFile(rel) {
   const src = read(rel);
   scanned += 1;
+  // 结构红线：页面/组件 JSON 必须可解析（删注册行留下的悬空尾逗号曾致编译失败）
+  if (/\.json$/.test(rel)) {
+    try {
+      JSON.parse(src);
+    } catch (e) {
+      console.error('✗ FAIL: ' + rel + ' JSON 解析失败：' + e.message);
+      process.exit(1);
+    }
+  }
   src.split(/\r?\n/).forEach((line, i) => {
     FORBIDDEN.forEach(({ re, label }) => {
       if (re.test(line)) {

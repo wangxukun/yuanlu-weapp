@@ -54,7 +54,7 @@
   <view wx:else class="pl-shell pl-done">
     <image class="pl-done-icon" src="{{icons.checkCircle}}" mode="aspectFit" />
     <text class="pl-done-title">全部完成了！</text>
-    <text class="pl-done-text">你做得很好，目前没有待复习的弱项句子。快去挑战新播客吧。</text>
+    <text class="pl-done-text">你做得很好，目前没有待复习的弱项句子。快去挑战新的原声句子吧。</text>
   </view>
 
   <!-- ③ 薄弱音素诊断雷达（top6 '/音素/'，#4F46E5） -->
