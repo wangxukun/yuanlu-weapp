@@ -63,17 +63,8 @@
         <text>开始精研</text>
       </view>
 
-      <!-- 拥有者：添加剧集 + 更多菜单；非拥有者仅分享（对齐 Web 条件渲染） -->
+      <!-- 拥有者：更多菜单（编辑/删除/分享）；非拥有者仅分享 -->
       <block wx:if="{{detail.isOwner}}">
-        <view class="pd-addchip center tap-scale" bindtap="onOpenAddDialog">
-          <image
-            class="pd-addchip-icon"
-            mode="aspectFit"
-            src="{{dark ? '/assets/icons/playlist-add-onsurface-dark.svg' : '/assets/icons/playlist-add-onsurface.svg'}}"
-          />
-          <text class="pd-addchip-text">添加剧集</text>
-        </view>
-
         <view class="pd-more-wrap">
           <view class="pd-iconbtn center" bindtap="onToggleMoreMenu">
             <image
@@ -106,8 +97,66 @@
       </view>
     </view>
 
-    <!-- 剧集列表 -->
-    <block wx:if="{{detail.itemCount > 0}}">
+    <!-- ═══ 蒙太奇卡册（心愿定制产物，T3.2）：策展人手记 + 原声切片卡流 ═══ -->
+    <block wx:if="{{detail.isMontage}}">
+      <view class="pd-curator card" wx:if="{{detail.curatorIntro}}">
+        <view class="pd-curator-head row">
+          <image class="pd-curator-ic" mode="aspectFit" src="/assets/icons/auto-awesome-primary.svg" />
+          <text class="pd-curator-title">策展人手记</text>
+        </view>
+        <text class="pd-curator-text">{{detail.curatorIntro}}</text>
+      </view>
+
+      <view
+        wx:for="{{detail.items}}"
+        wx:key="itemId"
+        class="pd-clipcard"
+        bindtap="onClipCardTap"
+        data-ep="{{item.episodeid}}"
+      >
+        <view class="pd-clipcard-head row">
+          <text class="pd-clipcard-no">{{item.no}}</text>
+          <view class="pd-clipcard-coverbox">
+            <image class="pd-clipcard-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+          </view>
+          <view class="col flex-1 pd-clipcard-meta">
+            <text class="pd-clipcard-en ellipsis-2">{{item.enText}}</text>
+            <text class="pd-clipcard-zh ellipsis" wx:if="{{item.zhText}}">{{item.zhText}}</text>
+            <text class="pd-clipcard-tags" wx:if="{{item.cefrLabel}}">{{item.cefrLabel}} · {{item.wpm}} 词/分 · {{item.durLabel}}</text>
+          </view>
+        </view>
+
+        <view class="pd-clipcard-note" wx:if="{{item.note}}">
+          <text class="pd-clipcard-note-text">{{item.note}}</text>
+        </view>
+        <view class="pd-clipcard-q" wx:if="{{item.question}}">
+          <text class="pd-clipcard-q-text">练一练 · {{item.question}}</text>
+        </view>
+
+        <view class="pd-clipcard-actions between">
+          <sentence-micro-player
+            episodeid="{{item.episodeid}}"
+            clip-id="{{item.clipid}}"
+            start-time="{{item.startTime}}"
+            end-time="{{item.endTime}}"
+            sentence-id="{{item.clipid}}"
+          />
+          <view class="row">
+            <view class="pd-clip-btn center tap-scale" catchtap="onClipDictation" data-ep="{{item.episodeid}}">
+              <image class="pd-clip-btn-ic" mode="aspectFit" src="/assets/icons/edit.svg" />
+              <text class="pd-clip-btn-text">捕词</text>
+            </view>
+            <view class="pd-clip-btn pd-clip-btn--main center tap-scale" catchtap="onClipShadow" data-ep="{{item.episodeid}}">
+              <image class="pd-clip-btn-ic" mode="aspectFit" src="/assets/icons/mic-filled.svg" />
+              <text class="pd-clip-btn-text">跟读</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 剧集列表（普通路径） -->
+    <block wx:if="{{!detail.isMontage && detail.itemCount > 0}}">
       <view
         wx:for="{{detail.items}}"
         wx:key="itemId"
@@ -162,12 +211,8 @@
         mode="aspectFit"
         src="{{dark ? '/assets/icons/playlist-add-onsurface-dark.svg' : '/assets/icons/playlist-add-onsurface.svg'}}"
       />
-      <text class="pd-empty-title">这条路径还是空的</text>
-      <text class="pd-empty-desc">添加剧集，开始你的学习之旅。</text>
-      <view wx:if="{{detail.isOwner}}" class="pd-empty-cta center tap-scale" bindtap="onOpenAddDialog">
-        <image class="pd-empty-cta-icon" mode="aspectFit" src="/assets/icons/add-white.svg" />
-        <text>添加剧集</text>
-      </view>
+      <text class="pd-empty-title">这份卡册还是空的</text>
+      <text class="pd-empty-desc">去心愿工坊许个愿，为你策展一份专属原声卡册。</text>
     </view>
 
     <!-- 底部留白（防被播放条遮挡） -->
@@ -217,64 +262,6 @@
         <text wx:else>保存</text>
       </view>
     </view>
-  </view>
-</view>
-
-<!-- ===== 添加剧集弹窗（复刻 Web ADD EPISODE MODAL：搜索 + 结果列表） ===== -->
-<view wx:if="{{showAddDialog}}" class="modal-mask" bindtap="onCloseAddDialog">
-  <view class="addcard col" catchtap="noop">
-    <!-- 头部：标题 + 关闭 -->
-    <view class="addcard-head">
-      <text class="addcard-title">添加剧集</text>
-      <view class="addcard-close center" bindtap="onCloseAddDialog">
-        <image class="addcard-close-icon" mode="aspectFit" src="/assets/icons/close.svg" />
-      </view>
-    </view>
-
-    <!-- 搜索框 -->
-    <view class="addcard-searchrow">
-      <image class="addcard-search-icon" mode="aspectFit" src="/assets/icons/search.svg" />
-      <input
-        class="addcard-search-input"
-        value="{{addQuery}}"
-        focus
-        placeholder="搜索..."
-        placeholder-class="field-placeholder"
-        bindinput="onAddQuery"
-      />
-    </view>
-
-    <!-- 结果列表（已在路径中的置灰；scroll-view 须显式 max-height） -->
-    <scroll-view class="addcard-list" scroll-y>
-      <view wx:if="{{isSearching}}" class="addcard-state center">
-        <view class="loading-spinner loading-spinner--sm" />
-      </view>
-      <block wx:elif="{{addResults.length > 0}}">
-        <view
-          wx:for="{{addResults}}"
-          wx:key="episodeid"
-          class="addrow {{item.added ? 'addrow--added' : ''}}"
-          bindtap="{{item.added ? '' : 'onAddEpisode'}}"
-          data-id="{{item.episodeid}}"
-        >
-          <image class="addrow-cover" src="{{item.thumbnailUrl}}" mode="aspectFill" />
-          <view class="addrow-info col flex-1">
-            <text class="addrow-title ellipsis">{{item.title}}</text>
-            <text class="addrow-meta ellipsis">{{item.author}}</text>
-          </view>
-          <image
-            class="addrow-action"
-            mode="aspectFit"
-            src="{{item.added ? '/assets/icons/check-circle.svg' : '/assets/icons/add-primary.svg'}}"
-            style="{{item.added ? 'opacity:0.35;' : ''}}"
-          />
-        </view>
-      </block>
-      <view wx:else class="addcard-state col center">
-        <image class="addcard-state-icon" mode="aspectFit" src="/assets/icons/search.svg" />
-        <text class="addcard-state-text">{{addQuery ? '没有剧集被找到' : '输入剧集标题进行搜索...'}}</text>
-      </view>
-    </scroll-view>
   </view>
 </view>
 

@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "路径详情",
   "usingComponents": {
-    "premium-modal": "/components/premium-modal/index"
+    "premium-modal": "/components/premium-modal/index",
+    "sentence-micro-player": "/components/review/sentence-micro-player/index"
   }
 }

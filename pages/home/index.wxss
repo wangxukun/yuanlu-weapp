@@ -429,3 +429,97 @@
   color: var(--text-tertiary);
   margin-top: 24rpx;
 }
+
+/* ============ 心愿定制签（T3.1） ============ */
+.wish-card {
+  padding: 32rpx;
+}
+.wish-input-wrap {
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+  border-radius: var(--r-full);
+  padding: 8rpx 8rpx 8rpx 28rpx;
+  height: 80rpx;
+  box-sizing: border-box;
+}
+.wish-input {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  height: 64rpx;
+  line-height: 64rpx;
+}
+.wish-placeholder {
+  color: var(--text-tertiary);
+}
+.wish-go {
+  min-width: 152rpx;
+  height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-full);
+  background-color: var(--primary-600);
+}
+.wish-go-text {
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+.wish-chips {
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+.wish-chip {
+  padding: 8rpx 24rpx;
+  border-radius: var(--r-full);
+  background-color: var(--primary-50);
+  color: var(--primary-600);
+  font-size: 24rpx;
+}
+
+/* ============ 今日五分钟处方卡（T3.1） ============ */
+.rx-card {
+  padding: 24rpx;
+  align-items: stretch;
+}
+.rx-cover-wrap {
+  position: relative;
+  width: 120rpx;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.rx-cover {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--r-md);
+}
+.rx-kind-pill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  padding: 4rpx 8rpx;
+  box-sizing: border-box;
+  background-color: rgba(27, 24, 18, 0.6);
+  color: #ffffff;
+  font-size: 20rpx;
+  text-align: center;
+}
+.rx-kind-pill--bare {
+  position: static;
+  width: auto;
+  align-self: flex-start;
+  background-color: var(--primary-50);
+  color: var(--primary-600);
+  padding: 6rpx 18rpx;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+.rx-body {
+  min-width: 0;
+}
+.rx-title {
+  line-height: 1.4;
+}
+.rx-dot {
+  margin: 0 2rpx;
+}

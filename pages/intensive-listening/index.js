@@ -140,9 +140,12 @@ Page({
   },
 
   onLoad(query) {
+    // 深链预选模式（心愿卡册「捕词」入口）：直接进听写（含 0.8 倍速口径）
+    const presetDictate = query && query.mode === 'dictate';
     this.setData({
       episodeid: query.id || '',
       statusBarH: this._statusBarHeight(),
+      ...(presetDictate ? { mode: 'dictate' } : {}),
     });
     // 工具行开关偏好回读：仅显式存过非默认值才覆盖（storage 异常/未存过
     // 均回落默认：逐词/跟随开、译文关）
@@ -177,7 +180,7 @@ Page({
     this._playing = false;
     this._lastPos = 0;   // 最近一次位置回调（秒）
     this._resumeAt = 0;  // 暂停位（续播/暂停态跳句的落点）
-    this._rate = 1;      // 听写降速 0.8 / 精读 1.0
+    this._rate = presetDictate ? 0.8 : 1; // 听写降速 0.8 / 精读 1.0（深链预选含其中）
     this._audioUrl = ''; // 字幕接口带回的签名直链
     this._player = createClipPlayer({
       onPlaying: (k) => this._onPlayingChanged(!!k),

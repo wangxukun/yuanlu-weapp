@@ -654,3 +654,18 @@
 .footer-space {
   height: calc(48rpx + env(safe-area-inset-bottom));
 }
+/* ============ 心愿定制勾选卡（T3.2 弹窗选项） ============ */
+.wish-option {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 20rpx;
+  padding: 20rpx;
+  border-radius: var(--r-md);
+  border: 1rpx solid var(--border-color);
+}
+.wish-option--on {
+  border-color: var(--primary-600);
+  background-color: var(--primary-50);
+}
+

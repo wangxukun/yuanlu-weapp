@@ -148,7 +148,7 @@
   </block>
 </view>
 
-<!-- ===== 心愿定制弹窗（复刻 Web GENERATE MODAL） ===== -->
+<!-- ===== 心愿定制弹窗（复刻 Web GENERATE MODAL；生成走 /api/studio/generate） ===== -->
 <view wx:if="{{showGenerateDialog}}" class="modal-mask" bindtap="onCloseGenerateDialog">
   <view class="modal-card col" catchtap="noop">
     <view class="modal-title-row">
@@ -166,14 +166,35 @@
       placeholder-class="field-placeholder"
       bindinput="onGenerateTopic"
     />
-    <text class="field-hint">生成失败会自动切换到手动创建，主题会帮你预填好。</text>
+
+    <!-- 个人记忆联动（T3.2）：融合待复习生词 / 针对薄弱音素 -->
+    <view class="wish-option {{includeDueVocab ? 'wish-option--on' : ''}}" bindtap="onToggleDueVocab">
+      <view class="public-check-box {{includeDueVocab ? 'public-check-box--on' : ''}}">
+        <image wx:if="{{includeDueVocab}}" class="public-check-tick" mode="aspectFit" src="/assets/icons/check-white.svg" />
+      </view>
+      <view class="col flex-1">
+        <text class="public-check-title">融合我生词本里待复习的词</text>
+        <text class="public-check-desc">策展时优先挑出能让这些词「再见面」的原声句</text>
+      </view>
+    </view>
+    <view class="wish-option {{focusWeakPhoneme ? 'wish-option--on' : ''}}" bindtap="onToggleWeakPhoneme">
+      <view class="public-check-box {{focusWeakPhoneme ? 'public-check-box--on' : ''}}">
+        <image wx:if="{{focusWeakPhoneme}}" class="public-check-tick" mode="aspectFit" src="/assets/icons/check-white.svg" />
+      </view>
+      <view class="col flex-1">
+        <text class="public-check-title">专练我最薄弱的音素</text>
+        <text class="public-check-desc">按发音画像里的弱音挑句，跟读集中攻坚</text>
+      </view>
+    </view>
+
+    <text class="field-hint">定制失败会自动切换到手动创建，主题会帮你预填好。</text>
 
     <view class="modal-actions">
       <view class="modal-btn-cancel center tap-scale" bindtap="onCloseGenerateDialog">取消</view>
       <view class="modal-btn-generate center {{isGenerating ? 'is-busy' : ''}}" bindtap="onSubmitGenerate">
         <view wx:if="{{isGenerating}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
         <image wx:else class="modal-btn-icon" mode="aspectFit" src="/assets/icons/auto-awesome-white.svg" />
-        <text>{{isGenerating ? '正在从原声语料库中甄选切片...' : '开始生成'}}</text>
+        <text>{{isGenerating ? '正在从原声语料库中甄选切片...' : '开始定制'}}</text>
       </view>
     </view>
   </view>

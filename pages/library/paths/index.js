@@ -12,7 +12,8 @@
  *   两 Tab 并行拉取（对齐 Web Promise.all），Tab 切换为本地态切换不重拉；
  *   搜索为本地过滤（路径名忽略大小写包含）。
  *   - POST /api/learning-paths                 创建（免费配额 1 条，403=PATH_QUOTA_EXCEEDED）
- *   - POST /api/learning-paths/generate        心愿定制（PRO 专属，403=PREMIUM_REQUIRED；
+ *   - POST /api/studio/generate                 心愿定制（原声蒙太奇，PRO 专属，403=PREMIUM_REQUIRED；
+ *     T3.2 起走隐形策展：两段式 DeepSeek + corpus_clips 召回；learning-paths/generate 仍服务 Web 端
  *                                              422/429/503=降级手动创建并预填主题）
  * 会员判定：role 展示缓存 + /api/user/subscription/status 校正（deriveDisplayRole 口径）。
  */
@@ -71,6 +72,9 @@ Page({
     // ---- 心愿定制弹窗 ----
     showGenerateDialog: false,
     generateTopic: '',
+    // 个人记忆联动（T3.2）：融合待复习生词 / 针对薄弱音素（随 prompt 提交）
+    includeDueVocab: false,
+    focusWeakPhoneme: false,
     isGenerating: false,
     // ---- 会员转化弹窗 ----
     showPremiumModal: false,
@@ -78,9 +82,13 @@ Page({
     premiumVars: null,
   },
 
-  onLoad() {
+  onLoad(options) {
     this._loading = false;
     this._hasLoaded = false;
+    // 主页「心愿定制签 · 召唤定制」带参进入：预填心愿并自动打开定制弹窗
+    //（登录/会员闸在 onShow 收敛后再开门：暂存心愿，onGenerateClick 消费）
+    const wish = options && options.wish ? decodeURIComponent(options.wish).slice(0, 200) : '';
+    if (wish) this._pendingWish = wish;
   },
 
   onShow() {
@@ -104,6 +112,15 @@ Page({
     else if (getApp().globalData.pathsDirty) {
       getApp().globalData.pathsDirty = false;
       this.fetch({ silent: true });
+    }
+
+    // 主页心愿签带参进入：登录态就绪后自动打开定制弹窗（免费用户直接承接转化窗）
+    if (this._pendingWish) {
+      const wish = this._pendingWish;
+      this._pendingWish = '';
+      // 先开门（onGenerateClick 会清空输入框），再回填心愿
+      this.onGenerateClick();
+      if (this.data.showGenerateDialog) this.setData({ generateTopic: wish });
     }
   },
 
@@ -300,32 +317,57 @@ Page({
   onGenerateTopic(e) {
     this.setData({ generateTopic: e.detail.value });
   },
+  onToggleDueVocab() {
+    this.setData({ includeDueVocab: !this.data.includeDueVocab });
+  },
+  onToggleWeakPhoneme() {
+    this.setData({ focusWeakPhoneme: !this.data.focusWeakPhoneme });
+  },
   onCloseGenerateDialog() {
     if (this.data.isGenerating) return;
     this.setData({ showGenerateDialog: false });
   },
 
-  /** 提交生成：POST /api/learning-paths/generate { topic } */
+  /**
+   * 提交定制：POST /api/studio/generate（DeepSeek 两段式策展，T3.2）
+   * body { prompt, includeDueVocab, focusWeakPhoneme }；成功直达蒙太奇卡册详情。
+   */
   async onSubmitGenerate() {
     if (this.data.isGenerating) return;
     const topic = this.data.generateTopic.trim();
     if (!topic) {
-      wx.showToast({ title: '请先填写学习主题', icon: 'none' });
+      wx.showToast({ title: '请先写下你的心愿', icon: 'none' });
       return;
     }
     this.setData({ isGenerating: true });
     let fallbackToCreate = false;
     try {
-      const res = await post('/api/learning-paths/generate', { topic }, { showError: false });
+      const res = await post(
+        '/api/studio/generate',
+        {
+          prompt: topic,
+          includeDueVocab: this.data.includeDueVocab,
+          focusWeakPhoneme: this.data.focusWeakPhoneme,
+        },
+        { showError: false, timeout: 90000 }
+      );
       if (res && res.success) {
-        this.setData({ isGenerating: false, showGenerateDialog: false, generateTopic: '' });
         const data = res.data || {};
-        wx.showToast({
-          title: '已为你定制「' + (data.pathName || topic) + '」（' + (data.itemCount || 0) + ' 集）',
-          icon: 'none',
+        const cardCount = Array.isArray(data.cards) ? data.cards.length : 0;
+        this.setData({
+          isGenerating: false,
+          showGenerateDialog: false,
+          generateTopic: '',
+          includeDueVocab: false,
+          focusWeakPhoneme: false,
+          activeTab: 'mine',
         });
-        this.setData({ activeTab: 'mine' });
-        this.reloadSilent();
+        getApp().globalData.pathsDirty = true; // 从详情返回时 onShow 静默刷新列表
+        wx.showToast({ title: '已为你策展 ' + cardCount + ' 张原声卡', icon: 'none' });
+        // 直达蒙太奇卡册详情（策展人手记 + 切片卡流）
+        if (data.pathid) {
+          wx.navigateTo({ url: '/pages/library/paths/detail?id=' + data.pathid });
+        }
         return;
       }
       // 200 + success:false 的业务失败（走降级口径）
@@ -338,7 +380,7 @@ Page({
         this.openPremium('path_ai_generate');
         return;
       }
-      // LLM 失败 / 无匹配 / 频率限制 / 网络异常：降级为手动创建（预填主题），不阻断
+      // 策展失败 / 无匹配 / 频率限制 / 网络异常：降级为手动创建（预填主题），不阻断
       wx.showToast({ title: (err && err.message) || '定制失败，已为你切换到手动创建', icon: 'none' });
       fallbackToCreate = true;
     }

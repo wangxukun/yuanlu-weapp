@@ -24,6 +24,9 @@ let vocabPayload = [];   // 可变：/api/vocabulary/all
 let episodeListCalls = 0;
 let historyCalls = 0;
 let enrichCalls = 0;
+let prescriptionPayload = { success: true, data: { cards: [] } };
+const navigations = [];
+const toasts = [];
 
 global.wx = {
   _storage: {},
@@ -39,9 +42,9 @@ global.wx = {
   getAccountInfoSync() {
     return { miniProgram: { envVersion: 'develop' } };
   },
-  showToast() {},
-  navigateTo() {},
-  switchTab() {},
+  showToast: (o) => toasts.push(o.title || ''),
+  navigateTo: (o) => navigations.push(o.url),
+  switchTab: (o) => navigations.push(o.url),
   request(opts) {
     const url = opts.url;
     let data = {};
@@ -60,6 +63,8 @@ global.wx = {
       data = url.includes('weekOffset=1') ? weekLastPayload : weekNowPayload;
     } else if (url.includes('/api/vocabulary/all')) {
       data = vocabPayload;
+    } else if (url.includes('/api/studio/daily-prescription')) {
+      data = prescriptionPayload;
     }
     opts.success({ statusCode: 200, data });
   },
@@ -172,6 +177,81 @@ function mondayOfThisWeek() {
   await page.fetchHomeData(true);
   await settle();
   assert(page.data.bio === '世界很长，慢慢走', 'F bio 兜底文案');
+
+  // —— G. 今日五分钟处方（T3.1：/api/studio/daily-prescription 映射与驱动） ——
+  prescriptionPayload = {
+    success: true,
+    data: {
+      cards: [
+        {
+          type: 'vocab_revival',
+          focus: 'resilient',
+          clipid: 'cA',
+          episodeid: 'epA',
+          enText: 'The resilient team pushed back the timeline',
+          zhText: '坚韧的团队把时间线往后推了',
+          startTime: 10, endTime: 18, duration: 8.4, wpm: 120,
+          cefrLevel: 'B2', coverUrl: 'https://oss/cvA.jpg', sourceLabel: '访谈',
+        },
+        {
+          type: 'weak_phoneme',
+          focus: 'θ',
+          clipid: 'cB',
+          episodeid: 'epB',
+          enText: 'I think this is the right thing',
+          zhText: null,
+          startTime: 30, endTime: 38, duration: 8.2, wpm: 130,
+          cefrLevel: null, coverUrl: null, sourceLabel: null,
+        },
+        {
+          type: 'micro_scene',
+          sceneid: 's9',
+          title: '职场沟通 · 例会上的延期',
+          summaryZh: '一组关于推进与退让的表达',
+          situationTag: '职场',
+          cefrLevel: 'B2',
+          coverUrl: 'https://oss/cvS.jpg',
+          duration: 28,
+        },
+      ],
+    },
+  };
+  await page.fetchHomeData(true); // 触发后 rx 不在这条链上——直接调 _fetchRx
+  await page._fetchRx();
+  const rx = page.data.rxCards;
+  assert(rx.length === 3, 'G 处方卡 3 张（生词重逢/弱音狙击/微剧场）');
+  assert(rx[0].kind === 'clip' && rx[0].tagLabel === '跨语境重逢' && rx[0].focusLabel === 'resilient',
+    'G 生词重逢卡：标签与焦点词');
+  assert(rx[0].durLabel === '8s' && rx[0].cefrLabel === 'B2', 'G 时长/难度预格式化（WXML 零方法调用）');
+  assert(rx[1].tagLabel === '弱音狙击' && rx[1].focusLabel === 'θ', 'G 弱音狙击卡：目标音素');
+  assert(rx[2].kind === 'scene' && rx[2].tagLabel === '今日微剧场' && rx[2].durLabel === '28s',
+    'G 今日微剧场卡');
+  navigations.length = 0;
+  page.onRxCardTap({ currentTarget: { dataset: { episodeid: 'epA' } } });
+  assert(navigations[0] === '/pages/intensive-listening/index?id=epA', 'G 处方卡点击 → 原声精研页');
+
+  // 处方失败/未就绪 → 静默隐藏
+  prescriptionPayload = { success: false };
+  await page._fetchRx();
+  assert(page.data.rxCards.length === 0, 'G 处方未就绪 → 静默清空（区块隐藏）');
+
+  // —— H. 心愿定制签（T3.1：灵感胶囊 + 召唤跳转） ——
+  assert(page.data.wishChips.length === 3 && new Set(page.data.wishChips).size === 3,
+    'H 灵感胶囊 3 枚且不重复');
+  const chip = page.data.wishChips[0];
+  page.onWishChipTap({ currentTarget: { dataset: { chip } } });
+  assert(page.data.wishInput === chip, 'H 胶囊点击回填输入框');
+  page.setData({ wishInput: '' });
+  toasts.length = 0;
+  page.onWishGo();
+  assert(toasts[0] === '先写下一个小心愿吧' && navigations.length === 1, 'H 空心愿 → toast 拦截不跳转');
+  page.onWishGo2 = null;
+  page.setData({ wishInput: '#连读特训' });
+  page.onWishGo();
+  assert(
+    navigations[1] === '/pages/library/paths/index?wish=' + encodeURIComponent('#连读特训'),
+    'H 召唤定制 → 心愿工坊带参（# 前缀安全编码）'
+  );
 
   console.log('----------------------------------------');
   if (failed === 0) {

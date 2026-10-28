@@ -782,3 +782,132 @@
 .footer-space {
   height: calc(48rpx + env(safe-area-inset-bottom));
 }
+
+/* ============ 蒙太奇卡册（心愿定制产物，T3.2） ============ */
+.pd-curator {
+  margin-top: 24rpx;
+  padding: 28rpx;
+  border-radius: var(--r-lg);
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+}
+.pd-curator-head {
+  gap: 10rpx;
+}
+.pd-curator-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
+.pd-curator-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.pd-curator-text {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.pd-clipcard {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: var(--r-lg);
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+}
+.pd-clipcard-head {
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.pd-clipcard-no {
+  min-width: 40rpx;
+  height: 40rpx;
+  border-radius: var(--r-full);
+  background-color: var(--primary-50);
+  color: var(--primary-600);
+  font-size: 22rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 40rpx;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+.pd-clipcard-coverbox {
+  width: 96rpx;
+  flex-shrink: 0;
+}
+.pd-clipcard-cover {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--r-md);
+}
+.pd-clipcard-meta {
+  min-width: 0;
+}
+.pd-clipcard-en {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.pd-clipcard-zh {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.pd-clipcard-tags {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+}
+.pd-clipcard-note {
+  margin-top: 18rpx;
+  padding: 16rpx 20rpx;
+  border-radius: var(--r-md);
+  background-color: var(--primary-50);
+}
+.pd-clipcard-note-text {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.pd-clipcard-q {
+  margin-top: 12rpx;
+  padding: 12rpx 20rpx;
+  border-radius: var(--r-md);
+  border: 1rpx dashed var(--border-color);
+}
+.pd-clipcard-q-text {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+.pd-clipcard-actions {
+  margin-top: 18rpx;
+}
+.pd-clip-btn {
+  gap: 6rpx;
+  height: 60rpx;
+  padding: 0 26rpx;
+  border-radius: var(--r-full);
+  border: 1rpx solid var(--border-color);
+  background-color: var(--card-bg);
+  margin-left: 16rpx;
+}
+.pd-clip-btn--main {
+  background-color: var(--primary-600);
+  border-color: var(--primary-600);
+}
+.pd-clip-btn--main .pd-clip-btn-text {
+  color: #ffffff;
+}
+.pd-clip-btn-ic {
+  width: 28rpx;
+  height: 28rpx;
+}
+.pd-clip-btn-text {
+  font-size: 24rpx;
+  color: var(--text-primary);
+}
+

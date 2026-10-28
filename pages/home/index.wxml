@@ -47,6 +47,26 @@ module.exports = {
       </view>
     </view>
 
+    <!-- 一·五、心愿定制签（T3.1：输入 + 随机灵感胶囊 + 一键召唤） -->
+    <view class="card wish-card mt-4">
+      <view class="between w-full">
+        <text class="t-h3 text-bold">心愿定制</text>
+        <text class="t-caption text-secondary">说出想法，为你策展原声</text>
+      </view>
+      <view class="wish-input-wrap row mt-3">
+        <input class="wish-input flex-1" value="{{wishInput}}" bindinput="onWishInput"
+               placeholder="最近在准备什么场合，或想听哪种心情的英语？"
+               placeholder-class="wish-placeholder" confirm-type="search" bindconfirm="onWishGo" />
+        <view class="wish-go center tap-scale" bindtap="onWishGo">
+          <text class="wish-go-text">召唤定制</text>
+        </view>
+      </view>
+      <view class="wish-chips row mt-3">
+        <view class="wish-chip tap-scale" wx:for="{{wishChips}}" wx:key="*this"
+              data-chip="{{item}}" bindtap="onWishChipTap">{{item}}</view>
+      </view>
+    </view>
+
     <!-- 本周里程卡 -->
     <view class="card mileage-card mt-4">
       <view class="between w-full">
@@ -105,6 +125,41 @@ module.exports = {
         </block>
       </view>
     </view>
+
+    <!-- 三、今日五分钟靶向处方（T3.1：跨语境生词重逢 / 弱音狙击 / 今日微剧场） -->
+    <block wx:if="{{rxCards.length > 0}}">
+      <view class="section-title mt-6 mb-3">
+        <text class="t-h3 text-bold">今日五分钟</text>
+        <text class="t-caption text-secondary ml-2">针对性原声小练习</text>
+      </view>
+      <view class="vertical-list mb-6">
+        <view class="card rx-card row tap-scale" wx:for="{{rxCards}}" wx:key="index"
+              data-episodeid="{{item.episodeid}}" bindtap="onRxCardTap">
+          <view class="rx-cover-wrap center" wx:if="{{item.coverUrl}}">
+            <image class="rx-cover" src="{{item.coverUrl}}" mode="aspectFill" />
+            <view class="rx-kind-pill center">{{item.tagLabel}}</view>
+          </view>
+          <view class="rx-kind-pill rx-kind-pill--bare center" wx:else>{{item.tagLabel}}</view>
+          <view class="col flex-1 ml-3 rx-body">
+            <text class="t-body text-bold ellipsis-2 rx-title">{{item.title}}</text>
+            <text class="t-caption text-secondary ellipsis mt-1" wx:if="{{item.sub}}">{{item.sub}}</text>
+            <view class="row mt-2 between w-full">
+              <view class="row center text-secondary">
+                <text class="t-mini" wx:if="{{item.focusLabel}}">{{item.focusLabel}}</text>
+                <text class="t-mini rx-dot" wx:if="{{item.focusLabel && item.cefrLabel}}"> · </text>
+                <text class="t-mini" wx:if="{{item.cefrLabel}}">{{item.cefrLabel}}</text>
+                <text class="t-mini rx-dot" wx:if="{{item.cefrLabel}}"> · </text>
+                <text class="t-mini">{{item.durLabel}}</text>
+              </view>
+              <sentence-micro-player wx:if="{{item.kind === 'clip'}}"
+                episodeid="{{item.episodeid}}" clip-id="{{item.clipid}}"
+                start-time="{{item.startTime}}" end-time="{{item.endTime}}"
+                sentence-id="{{item.clipid}}" />
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
 
   </block>
 </view>

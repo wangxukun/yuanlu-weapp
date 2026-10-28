@@ -11,16 +11,17 @@
  *   GET    /api/learning-paths/{pathid}                 详情（含签名封面/音频+收听态）
  *   POST   /api/learning-paths/{pathid}                 编辑（wx.request 无 PATCH，走 POST 别名）
  *   DELETE /api/learning-paths/{pathid}                 删除（级联清 items）
- *   POST   /api/learning-paths/{pathid}/episodes        添加剧集（重复=200+success:false）
  *   DELETE /api/learning-paths/{pathid}/episodes/{itemId}
- *   GET    /api/episode/search-for-path?query=          添加弹窗搜索（500ms 防抖）
+ *
+ * [RESHAPE T3.2] 蒙太奇卡册：条目携带 clip（/api/studio/generate 产物）时
+ * 渲染「策展人手记 + 原声切片卡流」（批注/微播放/跟读/捕词入口）；普通
+ * 路径保持剧集行。「添加剧集搜索」随合规重塑（红线 1）整体移除。
  */
 
 const theme = require('../../../utils/theme');
 const { get, post, delete: del } = require('../../../utils/request');
 const authStore = require('../../../store/authStore');
 
-const SEARCH_DEBOUNCE_MS = 500;
 
 /** "M:SS"（对齐 Web formatDuration / Android formatMillis） */
 function formatDuration(seconds) {
@@ -38,13 +39,39 @@ function episodeProgressPercent(episode) {
   return Math.min(100, Math.max(0, Math.round(((Number(episode.progressSeconds) || 0) / duration) * 100)));
 }
 
-/** 详情 DTO → 展示模型（items 已按 order 升序返回） */
+/** 蒙太奇原声卡 → 展示模型（WXML 零方法调用：时长/序号预格式化） */
+function mapClipCard(item, index) {
+  const clip = item.clip || {};
+  return {
+    kind: 'clip',
+    no: index + 1,
+    itemId: item.id,
+    clipid: clip.clipid || '',
+    episodeid: item.episodeid || '',
+    enText: clip.enText || '',
+    zhText: clip.zhText || '',
+    note: item.clipNote || '',
+    question: item.clipQuestion || '',
+    coverUrl: clip.coverUrl || (item.episode && item.episode.coverUrl) || '',
+    sourceLabel: clip.sourceLabel || '',
+    cefrLabel: clip.cefrLevel || '',
+    wpm: clip.wpm || 0,
+    durLabel: (Number(clip.duration) || 0).toFixed(1) + 's',
+    startTime: Number(clip.startTime) || 0,
+    endTime: Number(clip.endTime) || 0,
+  };
+}
+
+/** 详情 DTO → 展示模型（items 已按 order 升序返回；
+ *  携带 clip 的条目（心愿卡册）渲染为蒙太奇原声卡流，其余保持剧集行） */
 function mapDetail(raw, currentUserId) {
   const d = raw || {};
-  const items = (d.items || []).map((item) => {
+  const items = (d.items || []).map((item, idx) => {
+    if (item.clip) return mapClipCard(item, idx);
     const ep = item.episode || {};
     const podcastTitle = (ep.podcast && ep.podcast.title) || '';
     return {
+      kind: 'episode',
       itemId: item.id,
       episodeid: item.episodeid || ep.episodeid || '',
       title: ep.title || '',
@@ -59,6 +86,7 @@ function mapDetail(raw, currentUserId) {
       progressPercent: episodeProgressPercent(ep),
     };
   });
+  const clipCount = items.filter((it) => it.kind === 'clip').length;
   return {
     pathid: d.pathid,
     userid: d.userid || '',
@@ -68,6 +96,9 @@ function mapDetail(raw, currentUserId) {
     coverUrl: d.coverUrl || '',
     creatorName: d.creatorName || '未知用户',
     itemCount: items.length,
+    // 蒙太奇卡册（心愿定制产物）：条目过半为原声切片时切换卡册形态
+    isMontage: clipCount > 0 && clipCount >= Math.ceil(items.length / 2),
+    curatorIntro: (d.description || '').trim(),
     isOwner: !!d.userid && !!currentUserId && d.userid === currentUserId,
     items,
   };
@@ -107,11 +138,6 @@ Page({
     editDesc: '',
     editPublic: false,
     isSaving: false,
-    // ---- 添加剧集弹窗 ----
-    showAddDialog: false,
-    addQuery: '',
-    addResults: [], // [{episodeid,title,author,thumbnailUrl,durationText,added}]
-    isSearching: false,
     // ---- 删除 / 移除在途 ----
     isMutating: false,
     // ---- 会员转化弹窗（专属剧集拦截） ----
@@ -204,8 +230,6 @@ Page({
         needLogin: false,
         detail: mapDetail(res && res.data, userInfo.userid),
       });
-      // 添加弹窗开着时同步一次 added 标记
-      if (this.data.showAddDialog) this.remarkAdded();
     } catch (err) {
       this.setData({
         isLoading: false,
@@ -225,18 +249,6 @@ Page({
   /** 通知列表页静默刷新（对齐 Android LearningPathCenter.notifyChanged） */
   markPathsDirty() {
     getApp().globalData.pathsDirty = true;
-  },
-
-  /** 依据当前详情重算搜索结果的 added 标记 */
-  remarkAdded() {
-    const detail = this.data.detail;
-    const added = {};
-    (detail && detail.items ? detail.items : []).forEach((it) => {
-      added[it.episodeid] = true;
-    });
-    this.setData({
-      addResults: this.data.addResults.map((r) => Object.assign({}, r, { added: !!added[r.episodeid] })),
-    });
   },
 
   // ==================== 逐条精研（原「播放全部/随机」整集连播已随合规重塑退役） ====================
@@ -264,6 +276,26 @@ Page({
 
   onPlayAll() {
     this.playAll(false);
+  },
+
+  // ==================== 蒙太奇原声卡（心愿卡册，T3.2） ====================
+
+  /** 整卡点击 → 原声精研页（点睛批注旁的原文语境） */
+  onClipCardTap(e) {
+    const episodeid = e.currentTarget.dataset.ep;
+    if (episodeid) wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + episodeid });
+  },
+
+  /** 一键跟读 → 语音评测页（原声跟读多维评分） */
+  onClipShadow(e) {
+    const episodeid = e.currentTarget.dataset.ep;
+    if (episodeid) wx.navigateTo({ url: '/pages/speech-eval/index?id=' + episodeid });
+  },
+
+  /** 盲听捕词 → 原声精研页听写模式（盲听捕词闯关） */
+  onClipDictation(e) {
+    const episodeid = e.currentTarget.dataset.ep;
+    if (episodeid) wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + episodeid + '&mode=dictate' });
   },
 
   /** 剧集行点击：专属拦截 → 进入原声精研页（原直接起播） */
@@ -384,84 +416,6 @@ Page({
       wx.navigateBack();
     } catch (err) {
       this.setData({ isMutating: false });
-    }
-  },
-
-  // ==================== 添加剧集弹窗（对齐 Web Add Episode Modal） ====================
-
-  onOpenAddDialog() {
-    // 打开即清搜索态，下次从干净状态开始（对齐 setAddDialogOpen）
-    this.setData({ showAddDialog: true, addQuery: '', addResults: [], isSearching: false });
-    if (this._searchTimer) clearTimeout(this._searchTimer);
-  },
-
-  onCloseAddDialog() {
-    this.setData({ showAddDialog: false });
-    if (this._searchTimer) clearTimeout(this._searchTimer);
-  },
-
-  /** 搜索输入：500ms 防抖（对齐 Web useDebounce / Android updateSearchQuery） */
-  onAddQuery(e) {
-    const query = e.detail.value;
-    this.setData({ addQuery: query });
-    if (this._searchTimer) clearTimeout(this._searchTimer);
-    const trimmed = query.trim();
-    if (!trimmed) {
-      this.setData({ addResults: [], isSearching: false });
-      return;
-    }
-    this._searchTimer = setTimeout(() => this.searchEpisodes(trimmed), SEARCH_DEBOUNCE_MS);
-  },
-
-  async searchEpisodes(query) {
-    const seq = ++this._searchSeq;
-    this.setData({ isSearching: true });
-    try {
-      const res = await get(
-        '/api/episode/search-for-path?query=' + encodeURIComponent(query),
-        undefined,
-        { showError: false }
-      );
-      if (seq !== this._searchSeq) return; // 过期响应丢弃
-      const added = {};
-      ((this.data.detail && this.data.detail.items) || []).forEach((it) => {
-        added[it.episodeid] = true;
-      });
-      const results = ((res && res.data) || []).map((r) => ({
-        episodeid: r.id,
-        title: r.title || '',
-        author: r.author || '未知专栏',
-        thumbnailUrl: r.thumbnailUrl || '',
-        durationText: formatDuration(r.duration),
-        added: !!added[r.id],
-      }));
-      this.setData({ isSearching: false, addResults: results });
-    } catch (err) {
-      if (seq !== this._searchSeq) return;
-      this.setData({ isSearching: false });
-    }
-  },
-
-  /** 添加剧集到路径末尾（客户端先去重置灰，对齐 Web handleAddEpisode） */
-  async onAddEpisode(e) {
-    const episodeid = e.currentTarget.dataset.id;
-    if (!episodeid) return;
-    const detail = this.data.detail;
-    if (detail && detail.items.some((it) => it.episodeid === episodeid)) {
-      wx.showToast({ title: '该剧集已在列表中', icon: 'none' });
-      return;
-    }
-    try {
-      const res = await post('/api/learning-paths/' + this.data.pathId + '/episodes', { episodeid });
-      if (res && res.success === false) {
-        // 业务失败（如已在列表中）直接 toast message
-        wx.showToast({ title: res.message || '添加失败', icon: 'none' });
-        return;
-      }
-      wx.showToast({ title: '已添加到路径', icon: 'success' });
-      this.reloadSilent();
-    } catch (err) {
-      // 403/400 等由 request.js 全局 toast
     }
   },
 

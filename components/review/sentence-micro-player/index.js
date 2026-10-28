@@ -23,6 +23,10 @@ Component({
     episodeid: { type: String, value: '' },
     startTime: { type: Number, value: 0 },
     endTime: { type: Number, value: 0 },
+    /** 语料切片 id（在场即走切片直连：/api/clips/{id}/audio 懒转码+缓存，
+     *  零整集请求——RESHAPE T2.1/T3.x；startTime/endTime 仍为字幕绝对秒，
+     *  由 audio-clip 换算切片内相对窗口） */
+    clipId: { type: String, value: '' },
   },
 
   data: {
@@ -74,6 +78,8 @@ Component({
         episodeid: this.data.episodeid,
         startTime: this.data.startTime,
         endTime: this.data.endTime,
+        // 切片直连（clipId 在场时 audio-clip 零整集字幕请求）
+        clipId: this.data.clipId || undefined,
       });
     },
 

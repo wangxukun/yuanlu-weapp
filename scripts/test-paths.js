@@ -101,6 +101,8 @@ function assert(cond, name) {
   }
 }
 
+const fs = require('fs');
+
 function section(title) {
   console.log(`\n━━━ ${title} ━━━`);
 }
@@ -414,7 +416,7 @@ requestHandler = routeAwareHandler(
   );
 }
 
-section('列表页 · AI 生成路径（会员墙 + 生成 + 降级）');
+section('列表页 · 心愿定制卡册（会员墙 + studio 生成 + 降级）');
 
 resetMock();
 login('USER');
@@ -437,9 +439,17 @@ login('PREMIUM');
 requestHandler = routeAwareHandler(
   listRoutes({
     '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'PREMIUM' } },
-    '/api/learning-paths/generate': {
+    '/api/studio/generate': {
       statusCode: 200,
-      data: { success: true, data: { pathid: 8, pathName: '商务英语入门', itemCount: 6 } },
+      data: {
+        success: true,
+        data: {
+          pathid: 8,
+          pathName: '心愿卡册 · 商务英语入门',
+          curatorIntro: '为你挑了六句既坦诚又留余地的表达',
+          cards: [1, 2, 3, 4, 5, 6].map((i) => ({ clipid: 'c' + i, note: '批注' + i, question: '问题' + i })),
+        },
+      },
     },
   })
 );
@@ -452,17 +462,42 @@ requestHandler = routeAwareHandler(
   page.onGenerateClick();
   assert(page.data.showGenerateDialog === true, '会员点 AI 生成：打开生成弹窗');
   page.onSubmitGenerate();
-  assert(toasts[0] === '请先填写学习主题', '空主题提交被拦截');
-  page.setData({ generateTopic: '商务英语入门' });
+  assert(toasts[0] === '请先写下你的心愿', '空心愿提交被拦截');
+  page.setData({ generateTopic: '商务英语入门', includeDueVocab: true, focusWeakPhoneme: false });
   await page.onSubmitGenerate();
-  const gen = calls.request.find((c) => c.url.indexOf('/api/learning-paths/generate') !== -1);
-  assert(!!gen && gen.data.topic === '商务英语入门', '生成提交 POST /generate { topic }');
-  assert(page.data.showGenerateDialog === false, '生成成功关闭弹窗');
+  const gen = calls.request.find((c) => c.url.indexOf('/api/studio/generate') !== -1);
   assert(
-    toasts.some((t) => t.indexOf('已为你定制「商务英语入门」（6 集）') !== -1),
-    '成功 toast 带「名称 + 集数」'
+    !!gen && gen.data.prompt === '商务英语入门' && gen.data.includeDueVocab === true && gen.data.focusWeakPhoneme === false,
+    '定制提交 POST /studio/generate { prompt, includeDueVocab, focusWeakPhoneme }'
   );
-  assert(page.data.activeTab === 'mine', '生成成功切回「我的集合」并刷新');
+  assert(page.data.showGenerateDialog === false, '定制成功关闭弹窗');
+  assert(page.data.includeDueVocab === false, '定制成功复位联动勾选');
+  assert(
+    toasts.some((t) => t.indexOf('已为你策展 6 张原声卡') !== -1),
+    '成功 toast 带「策展 N 张原声卡」'
+  );
+  assert(page.data.activeTab === 'mine', '定制成功切回「我的集合」');
+  assert(
+    navigations[navigations.length - 1] === '/pages/library/paths/detail?id=8',
+    '定制成功直达蒙太奇卡册详情'
+  );
+}
+
+// 心愿签带参进入（主页「召唤定制」）：?wish= 预填 + 登录会员就绪后自动开弹窗
+resetMock();
+login('PREMIUM');
+requestHandler = routeAwareHandler(
+  listRoutes({
+    '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'PREMIUM' } },
+  })
+);
+{
+  const page = makeListPage();
+  page.onLoad({ wish: encodeURIComponent('委婉解释项目延期') });
+  await page.onShow();
+  await tick();
+  assert(page.data.generateTopic === '委婉解释项目延期', '?wish= 预填心愿文本');
+  assert(page.data.showGenerateDialog === true, '登录会员态下自动打开定制弹窗');
 }
 
 resetMock();
@@ -470,7 +505,7 @@ login('PREMIUM');
 requestHandler = routeAwareHandler(
   listRoutes({
     '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'PREMIUM' } },
-    '/api/learning-paths/generate': {
+    '/api/studio/generate': {
       statusCode: 403,
       data: { success: false, code: 'PREMIUM_REQUIRED', message: 'PRO 专属' },
     },
@@ -494,7 +529,7 @@ login('PREMIUM');
 requestHandler = routeAwareHandler(
   listRoutes({
     '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'PREMIUM' } },
-    '/api/learning-paths/generate': {
+    '/api/studio/generate': {
       statusCode: 503,
       data: { success: false, code: 'LLM_UNAVAILABLE', message: '生成失败，请稍后重试' },
     },
@@ -704,80 +739,97 @@ requestHandler = routeAwareHandler(
   assert(!calls.request.some((c) => c.method === 'DELETE'), '取消确认不发删除请求');
 }
 
-section('详情页 · 添加剧集（防抖搜索 + 业务失败）');
+section('详情页 · 蒙太奇卡册（心愿定制产物）+ 添加剧集链路退役');
+{
+  const detailWxml = fs.readFileSync(path.join(__dirname, '../pages/library/paths/detail.wxml'), 'utf8');
+  const detailJs = fs.readFileSync(path.join(__dirname, '../pages/library/paths/detail.js'), 'utf8');
 
-resetMock();
-login('USER');
-requestHandler = routeAwareHandler(
-  listRoutes({
-    '/api/learning-paths/5': { statusCode: 200, data: { success: true, data: detailDto() } },
-    '/api/episode/search-for-path': {
-      statusCode: 200,
-      data: {
-        success: true,
-        data: [
-          { id: 'ep1', title: 'The Death of Ice', thumbnailUrl: 't1', author: 'BBC', duration: 725 },
-          { id: 'ep9', title: 'Brand New', thumbnailUrl: 't9', author: 'HBR', duration: 61 },
-        ],
+  // 添加剧集链路退役（去整集搜索红线 1）
+  assert(!detailJs.includes('onOpenAddDialog') && !detailJs.includes('search-for-path'),
+    'JS：添加剧集弹窗与剧集搜索接口调用已移除');
+  assert(!detailWxml.includes('addcard') && !detailWxml.includes('pd-addchip'),
+    'WXML：添加剧集 chip 与弹窗已移除');
+
+  // 蒙太奇卡册：条目携带 clip → isMontage + 原声卡视图
+  requestHandler = routeAwareHandler(
+    listRoutes({
+      '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'USER' } },
+      '/api/learning-paths/9': {
+        statusCode: 200,
+        data: {
+          success: true,
+          data: detailDto({
+            pathName: '心愿卡册 · 委婉解释项目延期',
+            description: '为你挑了六句既坦诚又留余地的表达',
+            items: [1, 2, 3, 4, 5, 6].map((i) => ({
+              id: 200 + i,
+              episodeid: 'ep' + i,
+              order: i,
+              addedAt: null,
+              clipId: 'clip' + i,
+              clipNote: '注意第 3.2 秒的 push back',
+              clipQuestion: '主播用了哪个词组代替 delay？',
+              clip: {
+                clipid: 'clip' + i,
+                enText: 'We need to push back the timeline a bit.',
+                zhText: '我们需要把时间线稍微往后推。',
+                startTime: 10 * i,
+                endTime: 10 * i + 8,
+                duration: 8,
+                wpm: 120,
+                cefrLevel: 'B2',
+                coverUrl: 'https://oss.example/cv' + i + '.jpg',
+                sourceLabel: '访谈',
+              },
+              episode: detailDto().items[0].episode,
+            })),
+          }),
+        },
       },
-    },
-  })
-);
-{
-  const page = makeDetailPage();
-  page.onLoad({ id: '5' });
-  await page.onShow();
+    })
+  );
+  const mpage = makeDetailPage();
+  mpage.onLoad({ id: '9' });
+  await mpage.onShow();
   await tick();
-  page.onOpenAddDialog();
-  assert(page.data.addResults.length === 0, '打开弹窗清空搜索态');
-  page.onAddQuery({ detail: { value: 'ice' } });
-  await sleep(200);
+  const md = mpage.data.detail;
+  assert(md.isMontage === true, '条目过半携带 clip → isMontage 卡册形态');
+  assert(md.curatorIntro === '为你挑了六句既坦诚又留余地的表达', '策展人手记 = path.description');
+  assert(md.items.length === 6 && md.items.every((it) => it.kind === 'clip'), '全部条目映射为原声卡');
+  const c1 = md.items[0];
   assert(
-    !calls.request.some((c) => c.url.indexOf('search-for-path') !== -1),
-    '500ms 防抖内不发搜索请求'
+    c1.clipid === 'clip1' && c1.note === '注意第 3.2 秒的 push back' && c1.question.indexOf('delay') !== -1,
+    '原声卡携带 clipid / 点睛批注 / 微互动题'
   );
-  await sleep(450);
-  const search = calls.request.find((c) => c.url.indexOf('search-for-path') !== -1);
-  assert(!!search && search.url.indexOf('query=ice') !== -1, '防抖到期 GET /api/episode/search-for-path?query=');
-  assert(page.data.isSearching === false, '搜索完成收起转圈');
-  const r = page.data.addResults;
-  assert(r.length === 2 && r[0].added === true && r[1].added === false, '已在路径中的结果置灰（added 标记）');
-  assert(r[1].durationText === '1:01', '搜索结果时长格式化');
-
-  // 业务失败：重复添加（200 + success:false + message）
-  calls.request.length = 0;
-  page.onAddEpisode({ currentTarget: { dataset: { id: 'ep1' } } });
-  await tick();
-  assert(toasts[0] === '该剧集已在列表中', '客户端去重先行拦截重复添加');
-}
-
-resetMock();
-login('USER');
-requestHandler = routeAwareHandler(
-  listRoutes({
-    '/api/learning-paths/5': { statusCode: 200, data: { success: true, data: detailDto() } },
-    '/api/learning-paths/5/episodes': {
-      statusCode: 200,
-      data: { success: true, message: '已添加' },
-    },
-  })
-);
-{
-  const page = makeDetailPage();
-  page.onLoad({ id: '5' });
-  await page.onShow();
-  await tick();
-  await page.onAddEpisode({ currentTarget: { dataset: { id: 'ep9' } } });
-  await tick();
-  const add = calls.request.find(
-    (c) => c.url.endsWith('/api/learning-paths/5/episodes') && c.method === 'POST'
-  );
-  assert(!!add && add.data.episodeid === 'ep9', '添加剧集 POST .../episodes { episodeid }');
-  assert(toasts.includes('已添加到路径'), '添加成功 toast');
+  assert(c1.durLabel === '8.0s' && c1.cefrLabel === 'B2' && c1.no === 1, '时长/难度/序号预格式化（WXML 零方法调用）');
+  assert(detailWxml.includes('pd-curator') && detailWxml.includes('pd-clipcard'), 'WXML：策展人手记 + 原声卡流渲染结构');
   assert(
-    calls.request.some((c) => c.url.indexOf('/api/learning-paths/5') !== -1 && c.method === 'GET'),
-    '添加后静默重拉详情'
+    detailWxml.includes('sentence-micro-player') && detailWxml.includes('clip-id="{{item.clipid}}"'),
+    'WXML：微播放器挂 clipId（切片直连零整集）'
   );
+
+  // 卡片交互：跟读 → 语音评测；捕词 → 精研页听写模式；整卡 → 精研页
+  navigations.length = 0;
+  mpage.onClipShadow({ currentTarget: { dataset: { ep: 'ep3' } } });
+  assert(navigations[0] === '/pages/speech-eval/index?id=ep3', '一键跟读 → 语音评测页');
+  mpage.onClipDictation({ currentTarget: { dataset: { ep: 'ep3' } } });
+  assert(navigations[1] === '/pages/intensive-listening/index?id=ep3&mode=dictate', '盲听捕词 → 精研页听写模式（mode=dictate）');
+  mpage.onClipCardTap({ currentTarget: { dataset: { ep: 'ep2' } } });
+  assert(navigations[2] === '/pages/intensive-listening/index?id=ep2', '整卡点击 → 原声精研页');
+
+  // 普通路径（无 clip 条目）不受影响
+  requestHandler = routeAwareHandler(
+    listRoutes({
+      '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'USER' } },
+      '/api/learning-paths/5': { statusCode: 200, data: { success: true, data: detailDto() } },
+    })
+  );
+  const ppage = makeDetailPage();
+  ppage.onLoad({ id: '5' });
+  await ppage.onShow();
+  await tick();
+  assert(ppage.data.detail.isMontage === false && ppage.data.detail.items.every((it) => it.kind === 'episode'),
+    '普通路径：无 clip 条目 → 剧集行形态不变（additive 兼容）');
 }
 
 section('详情页 · 移除剧集 / 分享');

@@ -1,4 +1,5 @@
 const request = require('../../utils/request').request;
+const { get } = require('../../utils/request');
 const authStore = require('../../store/authStore');
 const theme = require('../../utils/theme');
 
@@ -12,6 +13,55 @@ const JOURNEY_COORDS = [
   { x: 78.15, y: 35.4 },
   { x: 92.22, y: 62 }
 ];
+
+// 心愿灵感胶囊池（每次进入随机抽 3 枚；措辞避开口禁区词汇）
+const WISH_POOL = [
+  '#委婉拒绝加班',
+  '#连读特训',
+  '#用我的生词串讲',
+  '#高情商反驳',
+  '#安慰焦虑的朋友',
+  '#学术汇报转折',
+  '#地道美式吐槽',
+  '#闲聊破冰不冷场',
+];
+
+/** 处方卡 → 展示模型（WXML 零方法调用：全部标签/时长预格式化） */
+function mapRxCard(raw) {
+  if (!raw) return null;
+  if (raw.type === 'micro_scene') {
+    return {
+      kind: 'scene',
+      sceneid: raw.sceneid,
+      episodeid: '',
+      tagLabel: '今日微剧场',
+      focusLabel: raw.situationTag || '',
+      title: raw.title || '',
+      sub: raw.summaryZh || '',
+      cefrLabel: raw.cefrLevel || '',
+      durLabel: Math.round(raw.duration) + 's',
+      coverUrl: raw.coverUrl || '',
+      clipid: '',
+      startTime: 0,
+      endTime: 0,
+    };
+  }
+  return {
+    kind: 'clip',
+    sceneid: '',
+    episodeid: raw.episodeid || '',
+    tagLabel: raw.type === 'vocab_revival' ? '跨语境重逢' : '弱音狙击',
+    focusLabel: raw.focus || '',
+    title: raw.enText || '',
+    sub: raw.zhText || '',
+    cefrLabel: raw.cefrLevel || '',
+    durLabel: Math.round(raw.duration) + 's',
+    coverUrl: raw.coverUrl || '',
+    clipid: raw.clipid || '',
+    startTime: raw.startTime || 0,
+    endTime: raw.endTime || 0,
+  };
+}
 
 Page({
   data: {
@@ -27,6 +77,13 @@ Page({
     bio: '世界很长，慢慢走',
     checkInStatus: '今日学习 +15 分钟',
     streakDays: 3,
+
+    // 心愿定制签（输入 + 随机灵感胶囊 + 一键召唤 → 心愿工坊）
+    wishInput: '',
+    wishChips: [],
+
+    // 今日五分钟靶向处方（后端 /api/studio/daily-prescription）
+    rxCards: [],
 
     // 本周里程
     mileage: {
@@ -50,6 +107,14 @@ Page({
 
   onLoad() {
     this._lastToken = undefined;
+
+    // 心愿灵感胶囊：随机抽 3 枚（无重复）
+    const pool = WISH_POOL.slice();
+    const chips = [];
+    while (chips.length < 3 && pool.length > 0) {
+      chips.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    this.setData({ wishChips: chips });
 
     // 监听 authStore：登录/登出/换号自动切换引导态与内容态
     this.unsubscribeAuth = authStore.subscribe(() => {
@@ -97,6 +162,28 @@ Page({
     if (tokenChanged) {
       this.setData({ isLoading: true, error: null });
       this.fetchHomeData(true);
+      this._fetchRx();
+    }
+  },
+
+  /**
+   * 今日五分钟靶向处方（GET /api/studio/daily-prescription）：
+   * 尽力而为——未登录/语料未就绪(422)/网络异常一律静默隐藏区块，
+   * 换号重拉（token 变化时 syncAuthState 触发）。
+   */
+  async _fetchRx() {
+    if (!authStore.getState().isLoggedIn) {
+      if (this.data.rxCards.length) this.setData({ rxCards: [] });
+      return;
+    }
+    try {
+      const body = await get('/api/studio/daily-prescription', null, { showError: false });
+      const cards = (body && body.success && Array.isArray(body.data && body.data.cards))
+        ? body.data.cards.map(mapRxCard).filter(Boolean)
+        : [];
+      this.setData({ rxCards: cards });
+    } catch (e) {
+      if (this.data.rxCards.length) this.setData({ rxCards: [] });
     }
   },
 
@@ -143,6 +230,7 @@ Page({
     this.fetchHomeData(true).then(() => {
       wx.stopPullDownRefresh();
     });
+    this._fetchRx();
   },
 
   async fetchHomeData(silent = false) {
@@ -261,5 +349,40 @@ Page({
   /** 「我的路」右上角 → 学习路径页 */
   onOpenLearningPaths() {
     wx.navigateTo({ url: '/pages/library/paths/index' });
+  },
+
+  // ==================== 心愿定制签（T3.1） ====================
+
+  onWishInput(e) {
+    this.setData({ wishInput: (e.detail && e.detail.value) || '' });
+  },
+
+  /** 灵感胶囊：一键填入输入框（可再改写） */
+  onWishChipTap(e) {
+    const chip = e.currentTarget.dataset.chip || '';
+    this.setData({ wishInput: chip });
+  },
+
+  /** 一键召唤定制：心愿文本带入心愿工坊（生成弹窗预填并自动打开） */
+  onWishGo() {
+    const wish = (this.data.wishInput || '').trim();
+    if (!wish) {
+      wx.showToast({ title: '先写下一个小心愿吧', icon: 'none' });
+      return;
+    }
+    wx.navigateTo({
+      url: '/pages/library/paths/index?wish=' + encodeURIComponent(wish),
+    });
+  },
+
+  // ==================== 今日五分钟处方（T3.1） ====================
+
+  /** 处方卡点击：进入原声精研页继续闯关（微剧场模式随 T4.1 落地） */
+  onRxCardTap(e) {
+    const ds = e.currentTarget.dataset;
+    const episodeid = ds.episodeid;
+    if (episodeid) {
+      wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + episodeid });
+    }
   }
 });

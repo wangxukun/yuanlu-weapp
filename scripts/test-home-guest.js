@@ -11,12 +11,14 @@
  *      游客态 onShow 零请求
  *
  * 每批数据 = 5 路主页聚合（profile/overview/weekNow/weekLast/vocab）+
- * 1 路 authStore.fetchProfile = 6 个请求（episode/history 两路已随去播客化退役）。
+ * 1 路 authStore.fetchProfile + 1 路 daily-prescription = 7 个请求
+ * （episode/history 两路已随合规重塑退役；处方为 T3.1 新增）。
  * 运行：node scripts/test-home-guest.js
  */
 
 let apiCalls = 0;
 let weeklyCalls = 0; // /api/user/stats/weekly-activity 独立计数（onShow 补拉断言）
+const navigations = [];
 
 global.wx = {
   _storage: {},
@@ -33,8 +35,8 @@ global.wx = {
     return { miniProgram: { envVersion: 'develop' } };
   },
   showToast() {},
-  navigateTo() {},
-  switchTab() {},
+  navigateTo: (o) => navigations.push(o.url),
+  switchTab: (o) => navigations.push(o.url),
   request(opts) {
     apiCalls++;
     const url = opts.url;
@@ -89,7 +91,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
   await settle();
   assert(page.data.isLoggedIn === true, 'B 登录后 isLoggedIn=true（内容态恢复）');
   assert(page.data.isLoading === false, 'B 数据拉取完成后 isLoading=false');
-  assert(apiCalls === 6, 'B 恰好一批请求（5 路聚合 + 1 路 fetchProfile），实际 ' + apiCalls);
+  assert(apiCalls === 7, 'B 恰好一批请求（5 路聚合 + fetchProfile + 处方），实际 ' + apiCalls);
   assert(
     typeof page.data.greeting === 'string' && page.data.greeting.includes('朋友'),
     'B 首页数据管线完成（问候语已渲染）',
@@ -114,9 +116,27 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
   page.onShow(); // onShow 通道（模拟登录页 navigateBack 返回）
   await settle();
   assert(page.data.isLoggedIn === true, 'E 重新登录恢复内容态');
-  assert(apiCalls === beforeE + 7, 'E 双通道只拉取一批数据（6 请求 + onShow weekly 1 路），实际 +' + (apiCalls - beforeE));
+  assert(apiCalls === beforeE + 8, 'E 双通道只拉取一批数据（7 请求 + onShow weekly 1 路），实际 +' + (apiCalls - beforeE));
 
-  // —— 场景 F：整集链路退役后的主页形态 ——
+  // —— 场景 F：整集链路退役后的主页形态 + T3.1 心愿签/处方卡 ——
+  assert(page.data.wishChips.length === 3 && page.data.wishChips.every((c) => c.startsWith('#')),
+    'F 心愿灵感胶囊：3 枚且带 # 前缀');
+  const wxmlHome = fs.readFileSync(path.join(__dirname, '../pages/home/index.wxml'), 'utf8');
+  assert(wxmlHome.includes('心愿定制') && wxmlHome.includes('召唤定制') && wxmlHome.includes('onWishGo'),
+    'F 心愿定制签卡片（输入 + 胶囊 + 召唤按钮）');
+  assert(wxmlHome.includes('今日五分钟') && wxmlHome.includes('sentence-micro-player') && wxmlHome.includes('clip-id='),
+    'F 今日五分钟处方卡流（微播放器走切片直连）');
+  const toastsBefore = 0; // 空心愿 → toast 拦截（wishInput 空）
+  page.onWishGo();
+  assert(navigations.length === 0, 'F 空心愿召唤被拦截（零跳转）');
+  page.setData({ wishInput: '委婉解释项目延期' });
+  page.onWishGo();
+  assert(
+    navigations.length === 1 &&
+      navigations[0].indexOf('/pages/library/paths/index?wish=') === 0 &&
+      decodeURIComponent(navigations[0].split('wish=')[1]) === '委婉解释项目延期',
+    'F 召唤定制 → 心愿工坊（?wish= 全文透传）'
+  );
   assert(page.data.continueListening === undefined && page.data.recommended === undefined &&
     page.data.latestEpisodes === undefined && page.data.latestHistory === undefined,
     'F 继续收听/推荐/最近发布数据位已退役（红线 1：零整集列表）');
