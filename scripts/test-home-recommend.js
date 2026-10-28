@@ -25,6 +25,7 @@ let episodeListCalls = 0;
 let historyCalls = 0;
 let enrichCalls = 0;
 let prescriptionPayload = { success: true, data: { cards: [] } };
+let byClipPayload = { success: true, data: { sceneid: 'sceneOfClip' } };
 const navigations = [];
 const toasts = [];
 
@@ -65,6 +66,8 @@ global.wx = {
       data = vocabPayload;
     } else if (url.includes('/api/studio/daily-prescription')) {
       data = prescriptionPayload;
+    } else if (url.includes('/api/scenes/by-clip')) {
+      data = byClipPayload;
     }
     opts.success({ statusCode: 200, data });
   },
@@ -227,12 +230,18 @@ function mondayOfThisWeek() {
   assert(rx[2].kind === 'scene' && rx[2].tagLabel === '今日微剧场' && rx[2].durLabel === '28s',
     'G 今日微剧场卡');
   navigations.length = 0;
-  page.onRxCardTap({ currentTarget: { dataset: { kind: 'clip', episodeid: 'epA' } } });
-  assert(navigations[0] === '/pages/intensive-listening/index?id=epA', 'G 处方卡点击 → 原声精研页');
+  await page.onRxCardTap({ currentTarget: { dataset: { kind: 'clip', episodeid: 'epA', start: 12.3 } } });
+  assert(navigations[0] === '/pages/intensive-listening/index?sceneId=sceneOfClip',
+    'G 处方切片卡点击 → by-clip 反查微剧场直达（不再整集起播）');
+  byClipPayload = { success: false };
+  await page.onRxCardTap({ currentTarget: { dataset: { kind: 'clip', episodeid: 'epB', start: 5 } } });
+  assert(navigations[1] === '/pages/intensive-listening/index?id=epB',
+    'G 反查未收录 → 回落剧集精研页');
+  byClipPayload = { success: true, data: { sceneid: 'sceneOfClip' } };
   page.onRxCardTap({ currentTarget: { dataset: { kind: 'scene', sceneid: 'sceneX', episodeid: '' } } });
-  assert(navigations[1] === '/pages/intensive-listening/index?sceneId=sceneX',
+  assert(navigations[2] === '/pages/intensive-listening/index?sceneId=sceneX',
     'G 微剧场卡点击 → 微剧场精研页（sceneId 深链，修复空 episodeid 点击无效）');
-  navigations.splice(1, 1); // 摘除本断言跳转，还原 H 段按 [0]=精研/[1]=心愿 的既有状态
+  navigations.length = 1; // 截回 1 条，还原 H 段按 length===1 / [1]=心愿 的既有状态
 
   // 处方失败/未就绪 → 静默隐藏
   prescriptionPayload = { success: false };

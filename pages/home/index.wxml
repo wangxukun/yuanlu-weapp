@@ -135,7 +135,7 @@ module.exports = {
       <view class="vertical-list mb-6">
         <view class="card rx-card row tap-scale" wx:for="{{rxCards}}" wx:key="index"
               data-kind="{{item.kind}}" data-episodeid="{{item.episodeid}}" data-sceneid="{{item.sceneid}}"
-              bindtap="onRxCardTap">
+              data-start="{{item.startTime}}" bindtap="onRxCardTap">
           <view class="rx-cover-wrap center" wx:if="{{item.coverUrl}}">
             <image class="rx-cover" src="{{item.coverUrl}}" mode="aspectFill" />
             <view class="rx-kind-pill center">{{item.tagLabel}}</view>

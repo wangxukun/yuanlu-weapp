@@ -380,13 +380,43 @@ Page({
   /** 处方卡点击：进入原声精研页继续闯关（微剧场模式随 T4.1 落地） */
   onRxCardTap(e) {
     const ds = e.currentTarget.dataset;
-    // 微剧场卡（episodeid 为空）走 sceneId 深链，其余切片卡走剧集精研
+    // 微剧场卡（episodeid 为空）走 sceneId 深链；切片卡反查所在微剧场直达
     if (ds.kind === 'scene' && ds.sceneid) {
       wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + ds.sceneid });
       return;
     }
-    if (ds.episodeid) {
+    if (ds.episodeid) return this._openClipScene(ds);
+  },
+
+  /**
+   * 处方切片卡出处直达（对齐句子本出处胶囊口径）：by-clip 按时间戳反查
+   * 包含该句的微剧场，命中 ?sceneId= 进 30 秒语境；未收录/失败回落剧集
+   * 精研页。避免直接 ?id= 整集起播（处方语境是"这一句"而非整集）。
+   */
+  async _openClipScene(ds) {
+    if (this._rxNavBusy) return;
+    this._rxNavBusy = true;
+    const { get } = require('../../utils/request');
+    const fallback = () => {
       wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + ds.episodeid });
+    };
+    try {
+      const t = Number(ds.start) || 0;
+      const body = await get(
+        '/api/scenes/by-clip?episodeid=' + encodeURIComponent(ds.episodeid) + '&t=' + t,
+        null,
+        { showError: false },
+      );
+      const sceneid = body && body.success && body.data && body.data.sceneid;
+      if (sceneid) {
+        wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + sceneid });
+      } else {
+        fallback();
+      }
+    } catch (e) {
+      fallback();
+    } finally {
+      this._rxNavBusy = false;
     }
   }
 });
