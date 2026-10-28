@@ -380,9 +380,13 @@ Page({
   /** 处方卡点击：进入原声精研页继续闯关（微剧场模式随 T4.1 落地） */
   onRxCardTap(e) {
     const ds = e.currentTarget.dataset;
-    const episodeid = ds.episodeid;
-    if (episodeid) {
-      wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + episodeid });
+    // 微剧场卡（episodeid 为空）走 sceneId 深链，其余切片卡走剧集精研
+    if (ds.kind === 'scene' && ds.sceneid) {
+      wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + ds.sceneid });
+      return;
+    }
+    if (ds.episodeid) {
+      wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + ds.episodeid });
     }
   }
 });

@@ -134,7 +134,8 @@ module.exports = {
       </view>
       <view class="vertical-list mb-6">
         <view class="card rx-card row tap-scale" wx:for="{{rxCards}}" wx:key="index"
-              data-episodeid="{{item.episodeid}}" bindtap="onRxCardTap">
+              data-kind="{{item.kind}}" data-episodeid="{{item.episodeid}}" data-sceneid="{{item.sceneid}}"
+              bindtap="onRxCardTap">
           <view class="rx-cover-wrap center" wx:if="{{item.coverUrl}}">
             <image class="rx-cover" src="{{item.coverUrl}}" mode="aspectFill" />
             <view class="rx-kind-pill center">{{item.tagLabel}}</view>
@@ -151,10 +152,6 @@ module.exports = {
                 <text class="t-mini rx-dot" wx:if="{{item.cefrLabel}}"> · </text>
                 <text class="t-mini">{{item.durLabel}}</text>
               </view>
-              <sentence-micro-player wx:if="{{item.kind === 'clip'}}"
-                episodeid="{{item.episodeid}}" clip-id="{{item.clipid}}"
-                start-time="{{item.startTime}}" end-time="{{item.endTime}}"
-                sentence-id="{{item.clipid}}" />
             </view>
           </view>
         </view>

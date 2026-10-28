@@ -124,8 +124,8 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
   const wxmlHome = fs.readFileSync(path.join(__dirname, '../pages/home/index.wxml'), 'utf8');
   assert(wxmlHome.includes('心愿定制') && wxmlHome.includes('召唤定制') && wxmlHome.includes('onWishGo'),
     'F 心愿定制签卡片（输入 + 胶囊 + 召唤按钮）');
-  assert(wxmlHome.includes('今日五分钟') && wxmlHome.includes('sentence-micro-player') && wxmlHome.includes('clip-id='),
-    'F 今日五分钟处方卡流（微播放器走切片直连）');
+  assert(wxmlHome.includes('今日五分钟') && !wxmlHome.includes('sentence-micro-player'),
+    'F 今日五分钟处方卡流（卡内不嵌微播放器，整卡点击进精研）');
   const toastsBefore = 0; // 空心愿 → toast 拦截（wishInput 空）
   page.onWishGo();
   assert(navigations.length === 0, 'F 空心愿召唤被拦截（零跳转）');
