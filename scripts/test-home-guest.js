@@ -157,6 +157,11 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
   await settle();
   assert(apiCalls === apiLoggedOut, 'F 游客态 onShow 零请求');
 
+  // —— 场景 G：下拉刷新链路（手势开关 + 处理函数收口） ——
+  const homeJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/home/index.json'), 'utf8'));
+  assert(homeJson.enablePullDownRefresh === true, 'G 页面 json 开启 enablePullDownRefresh（手势可达）');
+  assert(typeof page.onPullDownRefresh === 'function', 'G onPullDownRefresh 处理函数存在');
+
   console.log('----------------------------------------');
   if (failed === 0) {
     console.log('ALL HOME GUEST-STATE TESTS PASSED');

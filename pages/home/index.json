@@ -1,4 +1,5 @@
 {
+  "enablePullDownRefresh": true,
   "usingComponents": {
     "sentence-micro-player": "/components/review/sentence-micro-player/index"
   }
