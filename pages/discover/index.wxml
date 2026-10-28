@@ -29,14 +29,8 @@
     <view class="section-title mt-4 mb-3"><text class="t-h3 text-bold">主题专栏</text></view>
     <scroll-view class="col-row" scroll-x show-scrollbar="{{false}}">
       <view class="col-row-inner row">
-        <view wx:for="{{columns}}" wx:key="name" class="column-card tap-scale"
-              data-name="{{item.name}}" bindtap="onColumnTap">
-          <image class="column-cover" src="{{item.coverUrl}}" mode="aspectFill" />
-          <view class="column-shade"></view>
-          <view class="column-body col">
-            <text class="column-name ellipsis">{{item.name}}</text>
-            <text class="column-count">{{item.sceneCount}} 段微剧场</text>
-          </view>
+        <view wx:for="{{columns}}" wx:key="name" class="col-item">
+          <channel-card channel="{{item}}" bind:open="onColumnTap" />
         </view>
       </view>
     </scroll-view>

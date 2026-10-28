@@ -99,7 +99,10 @@ Page({
           if (!byTag[tag]) byTag[tag] = { name: tag, coverUrl: c.coverUrl, sceneCount: 0 };
           byTag[tag].sceneCount += 1;
         });
-        columns = Object.values(byTag).slice(0, 6);
+        // 专栏卡复用 channel-card 组件（T4.2 原计划口径：episodeCount 承载微剧场数）
+        columns = Object.values(byTag)
+          .slice(0, 6)
+          .map((x) => ({ name: x.name, coverUrl: x.coverUrl, podcastCount: 0, episodeCount: x.sceneCount }));
       }
       this.setData({
         isLoading: false,
@@ -145,9 +148,9 @@ Page({
     this._fetch(1, true);
   },
 
-  /** 专栏卡点击 → 该标签胶囊筛选（同名 key 直接透传 tag 名） */
+  /** 专栏卡点击（channel-card open 事件携带 name）→ 该标签胶囊筛选 */
   onColumnTap(e) {
-    const name = e.currentTarget.dataset.name;
+    const name = (e.detail && e.detail.name) || e.currentTarget.dataset.name;
     if (!name) return;
     this.setData({ activeTag: this.data.activeTag === name ? '' : name });
     this._fetch(1, true);

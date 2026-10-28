@@ -97,8 +97,8 @@ const tick = () => new Promise((r) => setTimeout(r, 20));
   const c1 = page.data.cards[0];
   ok(c1.sceneid === 's1' && c1.en.indexOf('push back') !== -1 && c1.durText === '28s' && c1.start === 12.5,
     'A 卡片映射：金句/时长/窗口秒（WXML 零方法调用）');
-  ok(page.data.columns.length === 2 && page.data.columns[0].name === '职场' && page.data.columns[0].sceneCount === 1,
-    'A 专栏聚合：situationTag 计数');
+  ok(page.data.columns.length === 2 && page.data.columns[0].name === '职场' && page.data.columns[0].episodeCount === 1,
+    'A 专栏聚合：situationTag 计数（channel-card 口径 episodeCount）');
   ok(page.data.noMore === true && page.data.total === 2, 'A 分页态：total/noMore');
 
   // —— B. 卡片跳转精研室（?sceneId= 微剧场模式） ——
@@ -127,7 +127,7 @@ const tick = () => new Promise((r) => setTimeout(r, 20));
   ok(page.data.activeTag === '' && !calls.request[calls.request.length - 1].includes('tag='), 'D 再点同胶囊取消筛选');
 
   // —— E. 专栏点击 → 胶囊筛选 ——
-  page.onColumnTap({ currentTarget: { dataset: { name: '情感' } } });
+  page.onColumnTap({ detail: { name: '情感' } }); // channel-card open 事件携带 detail.name
   await tick();
   ok(page.data.activeTag === '情感', 'E 专栏点击 → 对应标签筛选');
 
@@ -145,6 +145,7 @@ const tick = () => new Promise((r) => setTimeout(r, 20));
     'G 微播放器走 sceneid 切片直连（零整集）');
   ok(wxml.includes('日签') && wxml.includes('poster-canvas'), 'G 日签海报按钮与画布');
   ok(wxml.includes('主题专栏') && wxml.includes('今日声音明信片'), 'G 双区块：专栏 + 明信片');
+  ok(wxml.includes('<channel-card') && wxml.includes('bind:open="onColumnTap"'), 'G 专栏卡复用 channel-card 组件（open 事件承接）');
 
   console.log('----------------------------------------');
   if (failed === 0) {
