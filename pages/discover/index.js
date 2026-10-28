@@ -16,14 +16,8 @@ const sceneFavorites = require('../../utils/scene-favorites');
 
 const SEARCH_DEBOUNCE_MS = 400;
 const PAGE_SIZE = 10;
-/** 语用场景胶囊（运营策展口径；与语料 situationTag 对齐靠拢） */
-const SCENE_CHIPS = [
-  { key: '职场', label: '#职场博弈' },
-  { key: '日常', label: '#日常破冰' },
-  { key: '情感', label: '#情感疗愈' },
-  { key: '思维', label: '#思维模型' },
-  { key: '连读', label: '#高频连读' },
-];
+/** 场景胶囊上限（后端 tags 聚合下发，客户端页内聚合兜底） */
+const CHIPS_MAX = 8;
 
 Page({
   data: {
@@ -31,7 +25,7 @@ Page({
     isLoading: true,
     query: '',
     activeTag: '',
-    chips: SCENE_CHIPS,
+    chips: [], // 场景胶囊：feed tags 数据驱动（真实 situationTag 词表，点了必有结果）
     cards: [],
     columns: [], // 主题专栏：situationTag 聚合（复用专栏卡视觉）
     page: 1,
@@ -91,8 +85,9 @@ Page({
       const items = (data.items || []).map(this._mapCard).filter((c) => c.sceneid);
       const total = Number(data.total) || 0;
       const cards = replace ? items : this.data.cards.concat(items);
-      // 主题专栏：仅首页且无筛选时按 situationTag 聚合
+      // 主题专栏 + 场景胶囊：仅首页且无筛选时刷新（筛选期保持稳定不闪变）
       let columns = this.data.columns;
+      let chips = this.data.chips;
       if (replace && !q && !this.data.activeTag) {
         const byTag = {};
         cards.forEach((c) => {
@@ -105,6 +100,14 @@ Page({
         columns = Object.values(byTag)
           .slice(0, 6)
           .map((x) => ({ name: x.name, coverUrl: x.coverUrl, podcastCount: 0, episodeCount: x.sceneCount }));
+        // 胶囊数据驱动：后端 tags 全量聚合优先，客户端页内聚合兜底（旧后端）
+        const feedTags = (data.tags || []).filter((t) => t && t.name);
+        const chipSource = feedTags.length > 0
+          ? feedTags.map((t) => ({ name: t.name }))
+          : Object.values(byTag).sort((a, b) => b.sceneCount - a.sceneCount);
+        chips = chipSource
+          .slice(0, CHIPS_MAX)
+          .map((t) => ({ key: t.name, label: '#' + t.name }));
       }
       const favOn = {};
       cards.forEach((c) => { favOn[c.sceneid] = sceneFavorites.has(c.sceneid); });
@@ -112,6 +115,7 @@ Page({
         isLoading: false,
         cards,
         columns,
+        chips,
         page,
         total,
         noMore: cards.length >= total,

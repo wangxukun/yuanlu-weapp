@@ -52,6 +52,10 @@
 }
 .chip {
   flex-shrink: 0;
+  max-width: 340rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 10rpx 28rpx;
   border-radius: var(--r-full);
   background-color: var(--card-bg);

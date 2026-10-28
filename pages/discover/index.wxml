@@ -15,8 +15,8 @@
     </view>
   </view>
 
-  <!-- 语用场景胶囊栏 -->
-  <scroll-view class="chip-row" scroll-x show-scrollbar="{{false}}">
+  <!-- 语用场景胶囊栏（数据驱动：真实 situationTag 词表，点选必有结果） -->
+  <scroll-view wx:if="{{chips.length > 0}}" class="chip-row" scroll-x show-scrollbar="{{false}}">
     <view class="chip-row-inner row">
       <view wx:for="{{chips}}" wx:key="key"
             class="chip {{activeTag === item.key ? 'chip--on' : ''}} tap-scale"
