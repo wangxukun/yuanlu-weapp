@@ -287,10 +287,10 @@ apiResponses['/api/speech/quota'] = {
   const EC_WXML = fs.readFileSync(path.join(__dirname, '../components/voice/eval-card/index.wxml'), 'utf8');
   const EC_WXSS = fs.readFileSync(path.join(__dirname, '../components/voice/eval-card/index.wxss'), 'utf8');
 
-  // 五钮顺序：标准示范 → 原声播放 → 慢速播放 → 收藏书签 → 单句循环（无最近得分）
+  // 五钮顺序：AI朗读 → 原声播放 → 慢速播放 → 收藏书签 → 单句循环（无最近得分）
   const acts = EC_WXML.match(/<text class="ec-act-label">([^<]+)<\/text>/g) || [];
   const labels = acts.map((m) => m.replace(/<[^>]+>/g, ''));
-  assert(labels.join('|') === '标准示范|原声播放|慢速播放|收藏书签|单句循环',
+  assert(labels.join('|') === 'AI朗读|原声播放|慢速播放|收藏书签|单句循环',
     '工具行五钮次序 = 语音评测页同款');
   assert(!EC_WXML.includes('最近得分') && !EC_WXML.includes('leaderboard-primary'),
     '最近得分钮退役（无文案/无图标引用）');

@@ -3,7 +3,7 @@
  * 复刻 Web components/voice/SpeechEvaluationCard.tsx 三段式，播放/录音/
  * 评测内核复用 pages/speech-eval 七轮真机验证链路的底座化版本：
  *
- * - 顶部工具行：标准示范朗读（tts 全链）/ 原声播放 / 慢速播放（0.75，起播后置
+ * - 顶部工具行：AI朗读（tts 全链）/ 原声播放 / 慢速播放（0.75，起播后置
  *   playbackRate）/ 收藏句子书签（事件外抛父页处理）/ 单句循环（原声/慢速
  *   到窗终自动重播）/ 翻译开关 + 英文句（衬线）+ 中文（开关开时）
  * - 录音区四互斥态：配额锁定（橙虚线圆锁 + 皇冠 CTA「解锁无限评测」→
@@ -168,7 +168,7 @@ Component({
     },
 
     _onTtsState(s) {
-      // 标准示范态回流：playing==='ai' 且 TTS 停止 → 复位
+      // AI朗读态回流：playing==='ai' 且 TTS 停止 → 复位
       if (this.data.playing === 'ai' && !(s && (s.playingText || s.playingUrl))) {
         this.setData({ playing: '' });
       }
@@ -176,7 +176,7 @@ Component({
 
     /* ---------------- 顶部工具行 ---------------- */
 
-    /** 标准示范朗读（tts.js 全链：合成→下载中转→降级；状态/配额由 tts 编排） */
+    /** AI朗读（tts.js 全链：合成→下载中转→降级；状态/配额由 tts 编排） */
     onAiReading() {
       if (this.data.phase === 'processing') return;
       if (this.data.playing === 'ai') {

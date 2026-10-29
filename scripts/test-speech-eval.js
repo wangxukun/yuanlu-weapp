@@ -494,8 +494,8 @@ async function runRecordEvalSim() {
     && !SE_WXML.includes('hasLatestRecord') && !SE_WXML.includes('se-flex-gap')
     && !SE_WXML.includes('chart-column'),
     '最近得分钮及联动（hasLatestRecord/se-flex-gap/chart-column 图标）全部移除');
-  ok(['标准示范', '原声播放', '慢速播放', '收藏书签', '单句循环'].every((l) => SE_WXML.includes('>' + l + '</text>')),
-    '顶部圆钮组恰五钮（标准示范/原声播放/慢速播放/收藏书签/单句循环）');
+  ok(['AI朗读', '原声播放', '慢速播放', '收藏书签', '单句循环'].every((l) => SE_WXML.includes('>' + l + '</text>')),
+    '顶部圆钮组恰五钮（AI朗读/原声播放/慢速播放/收藏书签/单句循环）');
 
   // 起录：onStart + 20 帧 × 3200B（2s，> 0.5s 下限）
   recHandlers.start();

@@ -3,14 +3,14 @@
 <!-- components/voice/eval-card — 语音评测卡（复刻 Web SpeechEvaluationCard 三段式） -->
 <view class="ec-card {{themeClass}} col">
 
-  <!-- ══ 1. 顶部工具行：标准示范 / 原声 / 慢速 / 书签 / 单句循环（圆钮 + 下方文字标签；
+  <!-- ══ 1. 顶部工具行：AI朗读 / 原声 / 慢速 / 书签 / 单句循环（圆钮 + 下方文字标签；
        翻译开关在英文句末，Web SpeechEvaluationCard 同款排布；与语音评测页五钮同款） ══ -->
   <view class="ec-actions row">
     <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="onAiReading">
       <view class="ec-act-btn center {{playing === 'ai' ? 'ec-act-btn--on' : ''}}">
         <image class="ec-act-ic" src="{{playing === 'ai' ? '/assets/icons/graphic-eq-white.svg' : '/assets/icons/graphic-eq-primary.svg'}}" />
       </view>
-      <text class="ec-act-label">标准示范</text>
+      <text class="ec-act-label">AI朗读</text>
     </view>
     <view class="ec-act {{phase === 'processing' ? 'ec-act--off' : ''}}" bindtap="_onPlayOriginalTap">
       <view class="ec-act-btn center {{playing === 'original' ? 'ec-act-btn--on' : ''}}">
