@@ -61,8 +61,9 @@
     </view>
     <block wx:elif="{{results.length > 0}}">
       <view class="section-title mt-6 mb-3"><text class="t-h3 text-bold">语境句</text></view>
-      <view class="card result-card col" wx:for="{{results}}" wx:key="sceneid"
-            data-scene="{{item.sceneid}}" bindtap="onResultTap">
+      <view class="card result-card col" wx:for="{{results}}" wx:key="index"
+            data-scene="{{item.sceneid}}" data-clip="{{item.clipid}}" data-query="{{item.query}}"
+            bindtap="onResultTap">
         <view class="row between w-full">
           <text class="result-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
           <text class="t-mini text-secondary">{{item.durText}}</text>

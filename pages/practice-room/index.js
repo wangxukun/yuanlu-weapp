@@ -13,7 +13,7 @@
  * 预取直链填入 eval-card 的 subtitle.audioUrl，词级时间轴按 clipOffset
  * 换算切片相对秒。
  */
-const { get } = require('../../utils/request');
+const { get, post } = require('../../utils/request');
 const theme = require('../../utils/theme');
 const authStore = require('../../store/authStore');
 const audioClip = require('../../utils/audio-clip');
@@ -48,6 +48,8 @@ Page({
 
     if (query && query.sceneId) {
       this._loadScene(query.sceneId);
+    } else if (query && query.query) {
+      this._loadQuerySearch(query.query, query.clipId || '');
     } else if (query && query.word) {
       this._loadWord(query.word, query.clipId || '');
     } else {
@@ -86,6 +88,40 @@ Page({
       this._ready(items, '查单词 · ' + word, String(word));
     } catch (e) {
       this.setData({ loading: false, loadError: '例句加载失败，请重试' });
+    }
+  },
+
+  /**
+   * 语义检索模式（首页「语境句」入口）：与首页同一条 semantic-search 链路，
+   * 响应自带现签切片直链与词级时间轴，直接装配训练队列（服务端短语缓存，
+   * 同词二次请求不重复调 LLM）。
+   */
+  async _loadQuerySearch(q, preferClipId) {
+    try {
+      const body = await post(
+        '/api/scenes/semantic-search',
+        { q },
+        { showError: false, timeout: 30000 },
+      );
+      const items = (body && body.success && body.data && body.data.items) || [];
+      if (!items.length) {
+        this.setData({ loading: false, loadError: '该场景暂无匹配语境，换个说法试试' });
+        return;
+      }
+      let queue = items.filter((it) => it && it.clipid).map((it) => {
+        const m = this._mapItem(it);
+        m.audioUrl = it.clipAudioUrl || '';
+        m.audioOffset = it.clipOffset || 0;
+        m.audioReady = !!it.clipAudioUrl;
+        return m;
+      });
+      if (preferClipId) {
+        const i = queue.findIndex((it) => it.clipid === preferClipId);
+        if (i > 0) queue = [queue[i]].concat(queue.slice(0, i), queue.slice(i + 1));
+      }
+      this._ready(queue, '语境特训 · ' + q, '');
+    } catch (e) {
+      this.setData({ loading: false, loadError: '语境加载失败，请重试' });
     }
   },
 

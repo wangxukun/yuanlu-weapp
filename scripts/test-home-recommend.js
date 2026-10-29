@@ -8,6 +8,18 @@ const toasts = [];
 const navigations = [];
 const posts = [];
 let dictQuota = null;
+let semanticCalls = [];
+let semanticPayload = {
+  success: true,
+  data: {
+    phrases: ['make an appointment', 'schedule a call'],
+    items: [
+      { clipid: 'sc1', episodeid: 'epS', subtitleId: 51, enText: 'I would like to make an appointment.', zhText: '我想预约。', duration: 4.2, cefrLevel: 'A2', clipAudioUrl: 'https://oss/s1.mp3?Signature=x', clipOffset: 12.0, words: [] },
+      { clipid: 'sc2', episodeid: 'epT', subtitleId: 52, enText: 'Schedule a call next week.', zhText: '下周约个电话。', duration: 3.8, cefrLevel: 'B1', clipAudioUrl: null, clipOffset: 0, words: [] },
+      { clipid: 'sc3', episodeid: 'epU', subtitleId: 53, enText: 'Book a table.', zhText: '订个位子。', duration: 2.1, cefrLevel: 'A1', clipAudioUrl: null, clipOffset: 0, words: [] },
+    ],
+  },
+};
 
 global.wx = {
   getStorageSync: () => '',
@@ -26,6 +38,9 @@ global.wx = {
         return;
       }
       data = { success: true, data: { definitions: [], corpusExamples: [] } };
+    } else if (url.includes('/api/scenes/semantic-search')) {
+      semanticCalls.push(opts.data && opts.data.q);
+      data = semanticPayload;
     } else if (url.includes('/api/scenes/feed')) {
       data = { success: true, data: { total: 0, items: [] } };
     } else if (url.includes('/api/vocabulary/add')) {
@@ -80,17 +95,27 @@ function assert(cond, msg) {
     'A 英文单词/短语/撇号 → 词典路径');
   assert(!dictTool.isWordQuery('职场拒绝') && !dictTool.isWordQuery('#查单词: compromise') && !dictTool.isWordQuery(''),
     'A 中文场景/#前缀/空 → 语境检索路径');
+  assert(dictTool.cleanSearchQuery('#电话预约') === '电话预约' &&
+    dictTool.cleanSearchQuery('##机场值机') === '机场值机' &&
+    dictTool.cleanSearchQuery('#查单词: compromise') === 'compromise' &&
+    dictTool.cleanSearchQuery('  面试自我介绍 ') === '面试自我介绍',
+    'A cleanSearchQuery 统一清洗（剥#/保留查单词/去空白）');
 
-  // —— 场景 B：灵感胶囊触发（word 类型直查；scene 类型走 feed） ——
+  // —— 场景 B：灵感胶囊统一链路（word → 词典；scene → 语义检索 POST） ——
   page.onSuggestionTap({ currentTarget: { dataset: { item: { label: '#查单词: deadline', word: 'deadline' } } } });
   await new Promise((r) => setTimeout(r, 0));
   assert(page.data.wordModal.visible === true && page.data.wordModal.word === 'deadline',
-    'B #查单词 胶囊 → 词典弹层');
+    'B #查单词 胶囊 → 词典弹层（#查单词: 语义保留）');
   page.onVocabClose();
-  page.onSuggestionTap({ currentTarget: { dataset: { item: { label: '#面试自我介绍', scene: '面试' } } } });
+  page.onSuggestionTap({ currentTarget: { dataset: { item: { label: '#电话预约', scene: '预约' } } } });
   await new Promise((r) => setTimeout(r, 0));
-  assert(page.data.searchDone === true && page.data.results.length === 0,
-    'B 场景胶囊 → 语境检索（空结果进入空态）');
+  assert(semanticCalls[0] === '电话预约',
+    'B #电话预约 胶囊 → 统一下游剥 # 后进语义检索（q=电话预约 非 label 原文）');
+  assert(page.data.results.length === 3 && page.data.results[0].clipid === 'sc1',
+    'B 语义结果 3 条（含 clipid/直签链路字段）');
+  page.onResultTap({ currentTarget: { dataset: { clip: 'sc2', query: '电话预约', scene: '' } } });
+  assert(navigations[0] === '/pages/practice-room/index?query=' + encodeURIComponent('电话预约') + '&clipId=sc2',
+    'B 语境句点击 → 训练室 query+clipId 深链');
 
   // —— 场景 C：空态文案（仅搜索后渲染） ——
   const wxml = require('node:fs').readFileSync(require('node:path').join(__dirname, '../pages/home/index.wxml'), 'utf8');

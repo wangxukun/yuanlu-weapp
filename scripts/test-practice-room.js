@@ -39,6 +39,8 @@ let clipGatewayPayload = {
   data: { url: 'https://oss/clip.mp3?sig', duration: 6.4, clipOffset: 100.0, clipAudioUrl: null },
 };
 
+let semanticCalls = [];
+let semanticPayload = null;
 global.wx = {
   getStorageSync: () => '',
   setStorageSync() {},
@@ -51,7 +53,10 @@ global.wx = {
   request(opts) {
     const url = opts.url;
     let data = {};
-    if (url.includes('/api/dict/')) { dictCalls++; data = dictPayload; }
+    if (url.includes('/api/scenes/semantic-search')) {
+      semanticCalls.push(opts.data && opts.data.q);
+      data = semanticPayload || { success: true, data: { items: [] } };
+    } else if (url.includes('/api/dict/')) { dictCalls++; data = dictPayload; }
     else if (url.includes('/api/scenes/')) { sceneCalls++; data = scenePayload; }
     else if (url.includes('/api/clips/')) {
       clipResolved.push(url);
@@ -156,6 +161,28 @@ function assert(cond, msg) {
     'F 场景模式装载 2 句（episodeid 场景级回填）');
   assert(page.data.current.parts === undefined && page.data.current.durText === '4s',
     'F 场景模式无命中词高亮 / durText 预格式化');
+
+  // —— 场景 F2：语义检索模式（?query=，首页语境句入口） ——
+  semanticPayload = {
+    success: true,
+    data: {
+      items: [
+        { clipid: 'q1', episodeid: 'epQ', subtitleId: 61, enText: 'Make an appointment please.', zhText: '请预约。', duration: 3.5, clipAudioUrl: 'https://oss/q1.mp3?sig', clipOffset: 8.5, words: [{ word: 'Make', start: 8.5, end: 8.8 }] },
+        { clipid: 'q2', episodeid: 'epR', subtitleId: 62, enText: 'Schedule a call.', zhText: '约电话。', duration: 2.2, clipAudioUrl: null, clipOffset: 0, words: [] },
+      ],
+    },
+  };
+  page.onLoad({ query: '电话预约', clipId: 'q2' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert(semanticCalls[0] === '电话预约' && page.data.total === 2,
+    'F2 query 模式走语义检索装载 2 题');
+  assert(page.data.items[0].clipid === 'q2' && page.data.items[1].clipid === 'q1',
+    'F2 clipId 置顶生效');
+  assert(page.data.items[1].audioReady === true && page.data.items[1].audioUrl.indexOf('sig') !== -1,
+    'F2 响应自带切片直链直接可用（免二次网关）');
+  assert(page.data.current.subtitleId === 62 && page.data.sourceLabel === '语境特训 · 电话预约',
+    'F2 题源标签与定位字段');
+  semanticPayload = null;
 
   // —— 场景 G：错误分支 ——
   dictPayload = { success: true, data: { corpusExamples: [] } };

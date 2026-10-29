@@ -59,6 +59,18 @@ function isWordQuery(q) {
   return /^[a-zA-Z][a-zA-Z'\- ]{0,39}$/.test(String(q || '').trim());
 }
 
+/**
+ * 统一下游 Query（语义搜索改造）：剥离装饰前缀，提取最干净的意图词。
+ * - 任意数量的前导 # 一律剥掉（灵感胶囊 label 直接入检索）
+ * - 「#查单词: xxx / 查单词：xxx」保留查单词语义 → 返回英文词本体
+ */
+function cleanSearchQuery(raw) {
+  const q = String(raw || '').trim();
+  const wordMatch = q.match(/^#+\s*查单词[:：]\s*(.+)$/);
+  if (wordMatch) return wordMatch[1].trim();
+  return q.replace(/^#+\s*/, '').trim();
+}
+
 /* ─────────── 查词记录（本地存储） ─────────── */
 
 function dictHistoryList(storage) {
@@ -99,6 +111,7 @@ module.exports = {
   buildCorpusExampleVms,
   pickSuggestions,
   isWordQuery,
+  cleanSearchQuery,
   dictHistoryList,
   dictHistoryRecord,
   dictHistoryClear,

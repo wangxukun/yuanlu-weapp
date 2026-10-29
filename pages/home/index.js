@@ -13,8 +13,7 @@
  * 登录态双通道同步（authStore.subscribe + onShow）与主题三段式沿用项目口径；
  * 游客可搜索（词典匿名限流/语境 feed 公开），保存生词与打卡问候需登录。
  */
-const { get, post } = require('../../utils/request');
-const theme = require('../../utils/theme');
+const { get, post } = require('../../utils/request');const theme = require('../../utils/theme');
 const authStore = require('../../store/authStore');
 const dictTool = require('../../utils/dict-tool');
 
@@ -162,13 +161,12 @@ Page({
     this.setData({ query: '', results: [], searchDone: false, searching: false });
   },
 
-  /** 灵感胶囊：一键填入并触发对应查询 */
+  /** 灵感胶囊：一键填入并触发查询（与查询按钮同一条统一下游链路） */
   onSuggestionTap(e) {
     const s = e.currentTarget.dataset.item;
     if (!s) return;
     this.setData({ query: s.label });
-    if (s.word) this._lookupWord(s.word);
-    else if (s.scene) this._searchScene(s.scene);
+    this._search();
   },
 
   /** 刷新灵感胶囊：避开当前展示集重抽 */
@@ -177,16 +175,49 @@ Page({
     this.setData({ suggestions: dictTool.pickSuggestions(SUGGESTION_POOL, SUGGESTIONS_SHOW, labels) });
   },
 
+  /** 统一下游 Query：剥 # 前缀（#查单词: 保留查单词语义），英文→词典，场景→语义检索 */
   _search() {
-    const q = (this.data.query || '').trim();
+    const raw = (this.data.query || '').trim();
+    const q = dictTool.cleanSearchQuery(raw);
     if (!q) {
       wx.showToast({ title: '输入一个单词或想练的场景', icon: 'none' });
       return;
     }
-    if (dictTool.isWordQuery(q)) {
-      this._lookupWord(q.replace(/^#查单词:\s*/, ''));
-    } else {
-      this._searchScene(q);
+    if (/^查单词[:：]/.test(q) || dictTool.isWordQuery(q)) {
+      this._lookupWord(dictTool.cleanSearchQuery('#' + q));
+      return;
+    }
+    this._searchSemantic(q);
+  },
+
+  /**
+   * 场景语义检索（POST /api/scenes/semantic-search：DeepSeek 扩词 +
+   * 语料三级召回，返回 3-5 条现签切片例句）。语义未命中/接口不可用
+   * （部署顺序兜底）→ 回落旧 feed 包含检索。
+   */
+  async _searchSemantic(q) {
+    this.setData({ searching: true, searchDone: true, results: [] });
+    try {
+      const body = await post('/api/scenes/semantic-search', { q }, { showError: false, timeout: 30000 });
+      const items = (body && body.success && body.data && body.data.items) || [];
+      if (items.length > 0) {
+        this.setData({
+          searching: false,
+          results: items.map((it) => ({
+            clipid: it.clipid,
+            sceneid: '',
+            query: q,
+            en: it.enText || '',
+            zh: it.zhText || '',
+            tag: it.cefrLevel || '',
+            durText: Math.round(it.duration || 0) + 's',
+          })),
+        });
+        return;
+      }
+      await this._searchScene(q); // 语义未命中 → 旧检索兜底
+    } catch (e) {
+      await this._searchScene(q); // 路由未部署/网络异常 → 旧检索兜底
     }
   },
 
@@ -240,6 +271,7 @@ Page({
         .filter((it) => it.golden && it.golden.en)
         .map((it) => ({
           sceneid: it.sceneid,
+          clipid: '',
           en: it.golden.en,
           zh: it.golden.zh || '',
           tag: it.situationTag || '',
@@ -253,8 +285,15 @@ Page({
   },
 
   onResultTap(e) {
-    const sceneid = e.currentTarget.dataset.scene;
-    if (sceneid) wx.navigateTo({ url: '/pages/practice-room/index?sceneId=' + sceneid });
+    const ds = e.currentTarget.dataset;
+    if (ds.clip) {
+      wx.navigateTo({
+        url: '/pages/practice-room/index?query=' + encodeURIComponent(ds.query || '') +
+          '&clipId=' + encodeURIComponent(ds.clip),
+      });
+      return;
+    }
+    if (ds.scene) wx.navigateTo({ url: '/pages/practice-room/index?sceneId=' + ds.scene });
   },
 
   // ==================== 工具入口 / 查词记录抽屉 ====================
