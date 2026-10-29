@@ -60,6 +60,7 @@ const listeningReporter = require('../../utils/listening-reporter');
 const footprint = require('../../utils/study-footprint');
 const authStore = require('../../store/authStore');
 const core = require('../../utils/intensive-core');
+const dictTool = require('../../utils/dict-tool');
 const { trackEvent } = require('../../utils/track');
 
 const RENDER_CHUNK = 40;   // 首屏渲染句数（窗口右缘初值）
@@ -977,6 +978,7 @@ Page({
         visible: true,
         word: cleanWord,
         dictData: null,
+        corpusExamples: [],
         loading: true,
         saving: false,
         isSaved: !!this._vocabSet[lower],
@@ -992,7 +994,11 @@ Page({
         const m = this.data.wordModal;
         if (!m.visible || m.word !== cleanWord) return;
         if (body && body.success && body.data) {
-          this.setData({ 'wordModal.dictData': body.data, 'wordModal.loading': false });
+          this.setData({
+            'wordModal.dictData': body.data,
+            'wordModal.corpusExamples': dictTool.buildCorpusExampleVms(body.data.corpusExamples, cleanWord),
+            'wordModal.loading': false,
+          });
         } else {
           this.setData({ 'wordModal.loading': false });
         }
@@ -1009,6 +1015,17 @@ Page({
 
   onVocabClose() {
     this.setData({ 'wordModal.visible': false });
+  },
+
+  /** 真实语境例句 → 跟读训练室（携带词与首选例句） */
+  onVocabGoPractice(e) {
+    const ex = e.detail && e.detail.example;
+    if (!ex) return;
+    this.setData({ 'wordModal.visible': false });
+    wx.navigateTo({
+      url: '/pages/practice-room/index?word=' + encodeURIComponent(this.data.wordModal.word || '') +
+        '&clipId=' + encodeURIComponent(ex.clipid),
+    });
   },
 
   // ==================== 词块点读慢放坞（T4.1 显微镜） ====================

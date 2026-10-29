@@ -1,0 +1,68 @@
+<!-- pages/practice-room — 题库式跟读训练室：一题一屏、手动翻页（禁自动连播/手势滑动） -->
+<view class="pr-container pb-page-bottom {{themeClass}}">
+
+  <!-- 加载 / 错误 -->
+  <view wx:if="{{loading}}" class="center" style="height: 50vh;">
+    <view class="loading-spinner"></view>
+  </view>
+  <view wx:elif="{{loadError}}" class="pr-error col center">
+    <text class="t-body text-secondary">{{loadError}}</text>
+    <view class="btn-primary mt-4" bindtap="onBackHome">回到查词首页</view>
+  </view>
+
+  <!-- 完成结算面板 -->
+  <view wx:elif="{{finished}}" class="pr-done col center">
+    <text class="pr-done-emoji">🎉</text>
+    <text class="t-h2 text-bold mt-3">本轮跟读完成</text>
+    <text class="t-caption text-secondary mt-2">共 {{total}} 句 · 平均得分 {{avgText}}</text>
+    <view class="btn-primary pr-done-btn tap-scale" bindtap="onRestart">再来一轮</view>
+    <view class="pr-done-back t-caption text-secondary mt-4" bindtap="onBackHome">回到查词首页</view>
+  </view>
+
+  <!-- 题库主体 -->
+  <block wx:else>
+    <!-- 头部：题源 + 进度 -->
+    <view class="pr-head between">
+      <text class="pr-source ellipsis">{{sourceLabel}}</text>
+      <text class="t-caption text-secondary">第 {{index + 1}} / {{total}} 题</text>
+    </view>
+    <view class="pr-progress">
+      <view class="pr-progress-fill" style="width: {{((index + 1) / total) * 100}}%;"></view>
+    </view>
+
+    <!-- 游客提示（评测需登录；试听不受限） -->
+    <view wx:if="{{!isLoggedIn}}" class="pr-guest between" bindtap="onGoLogin">
+      <text class="t-caption">登录后可录音跟读评测</text>
+      <text class="pr-guest-go">去登录 →</text>
+    </view>
+
+    <!-- 1. 短句文本（word 模式命中词高亮） -->
+    <view class="card pr-sentence col">
+      <text class="pr-sentence-en font-serif"><block wx:if="{{current.parts}}"><block wx:for="{{current.parts}}" wx:for-item="p" wx:key="index"><text class="{{p.hl ? 'pr-hl' : ''}}">{{p.t}}</text></block></block><block wx:else>{{current.textEn}}</block></text>
+      <text wx:if="{{current.textCn}}" class="pr-sentence-zh mt-2">{{current.textCn}}</text>
+    </view>
+
+    <!-- 2. 中央独立播放大按钮（切片直连，首次现切稍候） -->
+    <view class="pr-play-wrap col center">
+      <view class="pr-play-btn center tap-scale {{playState === 'playing' ? 'pr-play-btn--on' : ''}}" bindtap="onPlayTap">
+        <view wx:if="{{playState === 'loading'}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn"></view>
+        <image wx:else class="pr-play-ic" src="/assets/icons/play-circle-white.svg" />
+      </view>
+      <text class="t-caption text-secondary mt-2">{{playState === 'playing' ? '播放中 · 点击停止' : '听原声 · ' + current.durText}}</text>
+    </view>
+
+    <!-- 3. 跟读评测（eval-card 复用：录音→评测→三指标） -->
+    <eval-card subtitle="{{current.evalSubtitle}}"
+               subtitle-id="{{current.subtitleId}}"
+               episode-id="{{current.episodeId}}"
+               episode-title="{{sourceLabel}}"
+               eval-scenario="review"
+               bind:evaluate="onEvaluate" bind:quota="onQuota"
+               bind:phasechange="onPhaseChange" bind:bookmark="onBookmark" />
+
+    <!-- 4. 手动翻页（完成评测后由用户点击，禁止自动连播） -->
+    <view class="pr-next center tap-scale {{lastScore != null ? 'pr-next--done' : ''}}" bindtap="onNext">
+      <text class="pr-next-text">{{index + 1 >= total ? '完成本轮' : (lastScore != null ? '下一句（已得 ' + lastScore + ' 分）' : '跳到下一句')}}</text>
+    </view>
+  </block>
+</view>

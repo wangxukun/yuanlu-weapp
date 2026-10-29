@@ -16,6 +16,8 @@ Component({
     visible: { type: Boolean, value: false },
     word: { type: String, value: '' },
     dictData: { type: Object, value: null }, // DictEntryDTO
+    /** 真实语境例句视图模型：[{clipid, zh, parts:[{t,hl}]}]（静态文本，弹层内不播放） */
+    corpusExamples: { type: Array, value: [] },
     loading: { type: Boolean, value: false },
     saving: { type: Boolean, value: false },
     isSaved: { type: Boolean, value: false },
@@ -77,6 +79,14 @@ Component({
 
     onComplete() {
       this.triggerEvent('complete');
+    },
+
+    /** 前往跟读：携带例句索引外抛（宿主页跳转训练室，弹层不播音频） */
+    onGoPractice(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const example = this.data.corpusExamples[index];
+      if (!example) return;
+      this.triggerEvent('gopractice', { example });
     },
 
     onToggleEty() {

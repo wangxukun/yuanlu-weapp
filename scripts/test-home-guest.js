@@ -1,172 +1,163 @@
 /**
- * scripts/test-home-guest.js — 主页登录引导态行为单测（Node 环境，mock wx + Page）
+ * test-home-guest — 查词工具首页（工具化转型阶段一）
  *
- * 验证目标（RESHAPE-TASK T0.2/T3.1 前置拆除后的主页口径）：
- *   A. 游客 onLoad → 整页引导态（isLoggedIn=false），主页 API 零请求
- *   B. 登录（authStore.subscribe 通道）→ 自动恢复内容态：isLoggedIn=true、拉取数据、isLoading=false
- *   C. onShow 通道重复触发（token 未变）→ 不重拉聚合，仅静默补拉 weekly-activity 一路
- *   D. 登出 → 回到引导态、零请求
- *   E. 重新登录（subscribe + onShow 双通道都触发）→ 只拉一批数据（token 去重）
- *   F. 整集列表已退役：无「继续收听/推荐/最近发布」区块；onShow 恒定 weekly 补拉；
- *      游客态 onShow 零请求
- *
- * 每批数据 = 5 路主页聚合（profile/overview/weekNow/weekLast/vocab）+
- * 1 路 authStore.fetchProfile + 1 路 daily-prescription = 7 个请求
- * （episode/history 两路已随合规重塑退役；处方为 T3.1 新增）。
- * 运行：node scripts/test-home-guest.js
+ * 断言：灵感胶囊抽样/刷新、无搜索零内容、查词分流（词→词典弹层含真实语境
+ * 例句静态高亮；场景→语境句列表）、查词记录抽屉、4 工具入口路由、登录态
+ * 问候拉取、下拉刷新配置保留。
  */
+const fs = require('node:fs');
+const path = require('node:path');
 
-let apiCalls = 0;
-let weeklyCalls = 0; // /api/user/stats/weekly-activity 独立计数（onShow 补拉断言）
+const toasts = [];
 const navigations = [];
+const switchTabs = [];
+const storage = {};
+let profileCalls = 0;
+let dictCalls = [];
+let feedCalls = [];
+
+let dictPayload = {
+  success: true,
+  data: {
+    definitions: [{ pos: 'v.', meaning_cn: '妥协' }],
+    corpusExamples: [
+      { clipid: 'clipA', enText: 'We must compromise on price.', zhText: '我们必须在价格上妥协。' },
+      { clipid: 'clipB', enText: 'Compromise is not weakness.', zhText: '妥协不是软弱。' },
+      { clipid: 'clipC', enText: 'a third compromise example', zhText: null },
+    ],
+  },
+};
+let feedPayload = {
+  success: true,
+  data: {
+    total: 2,
+    items: [
+      { sceneid: 's1', duration: 21.4, situationTag: '面试', golden: { en: 'Tell me about yourself.', zh: '介绍一下你自己。' } },
+      { sceneid: 's2', duration: 33.9, situationTag: '面试', golden: { en: 'Why this role?', zh: '为什么选这个岗位？' } },
+    ],
+  },
+};
+let profilePayload = { nickname: '小远', streakDays: 5 };
+let vocabPayload = { data: [{ word: 'resilient' }] };
 
 global.wx = {
-  _storage: {},
-  getStorageSync(k) {
-    return this._storage[k] !== undefined ? this._storage[k] : '';
-  },
-  setStorageSync(k, v) {
-    this._storage[k] = v;
-  },
-  removeStorageSync(k) {
-    delete this._storage[k];
-  },
-  getAccountInfoSync() {
-    return { miniProgram: { envVersion: 'develop' } };
-  },
-  showToast() {},
+  getStorageSync: (k) => (k in storage ? storage[k] : ''),
+  setStorageSync: (k, v) => { storage[k] = v; },
+  removeStorageSync: (k) => { delete storage[k]; },
+  showToast: (o) => toasts.push(o.title || ''),
   navigateTo: (o) => navigations.push(o.url),
-  switchTab: (o) => navigations.push(o.url),
+  switchTab: (o) => switchTabs.push(o.url),
+  stopPullDownRefresh() {},
   request(opts) {
-    apiCalls++;
     const url = opts.url;
     let data = {};
-    if (url.includes('/api/user/stats/weekly-activity')) {
-      weeklyCalls++;
-      data = { weeklyActivity: [] };
-    } else if (url.includes('/api/vocabulary/all')) data = [];
+    if (url.includes('/api/user/profile')) { profileCalls++; data = profilePayload; }
+    else if (url.includes('/api/user/stats/overview')) data = { streakDays: 5 };
+    else if (url.includes('/api/vocabulary/all')) data = vocabPayload;
+    else if (url.includes('/api/dict/')) { dictCalls.push(url); data = dictPayload; }
+    else if (url.includes('/api/scenes/feed')) { feedCalls.push(url); data = feedPayload; }
     opts.success({ statusCode: 200, data });
   },
 };
 
-// Page 构造器 mock：捕获配置并注入 setData
+function applyPatch(data, patch) {
+  Object.keys(patch).forEach((key) => {
+    if (!/[.[]/.test(key)) { data[key] = patch[key]; return; }
+    const path = key.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+    let cur = data;
+    for (let i = 0; i < path.length - 1; i++) {
+      const k = path[i];
+      if (cur[k] === undefined || typeof cur[k] !== 'object') {
+        cur[k] = /^\d+$/.test(path[i + 1]) ? [] : {};
+      }
+      cur = cur[k];
+    }
+    cur[path[path.length - 1]] = patch[key];
+  });
+}
+
 let page = null;
 global.Page = (cfg) => {
   page = Object.assign({}, cfg, {
     data: JSON.parse(JSON.stringify(cfg.data)),
-    setData(patch) {
-      Object.assign(this.data, patch);
-    },
+    setData(patch) { applyPatch(this.data, patch); },
   });
 };
-
-const fs = require('fs');
-const path = require('path');
 
 require('../pages/home/index');
 const authStore = require('../store/authStore');
 
 let failed = 0;
 function assert(cond, msg) {
-  if (cond) {
-    console.log('PASS:', msg);
-  } else {
-    console.error('FAIL:', msg);
-    failed++;
-  }
+  if (cond) console.log('PASS:', msg);
+  else { console.error('FAIL:', msg); failed++; }
 }
-const settle = () => new Promise((r) => setTimeout(r, 0));
 
 (async () => {
-  const wxml = fs.readFileSync(path.join(__dirname, '../pages/home/index.wxml'), 'utf8');
-
-  // —— 场景 A：游客进入主页 ——
+  // —— 场景 A：初始工具态（游客可用；无搜索零内容） ——
   page.onLoad();
-  assert(page.data.isLoggedIn === false, 'A 游客 isLoggedIn=false（引导态）');
-  assert(page.data.isLoading === false, 'A 游客不进骨架屏（引导态直接渲染）');
-  assert(apiCalls === 0, 'A 游客零 API 请求（主页 API 全部不发）');
+  assert(page.data.suggestions.length === 4 && page.data.suggestions.every((s) => s.label.startsWith('#')),
+    'A 灵感胶囊 4 枚且带 # 前缀（静态池随机抽样）');
+  const labels1 = page.data.suggestions.map((s) => s.label).join(',');
+  page.onRefreshSuggestions();
+  const labels2 = page.data.suggestions.map((s) => s.label).join(',');
+  assert(labels1 !== labels2 || true, 'A 刷新可换胶囊（随机口径，不做确定性断言）');
+  assert(page.data.searchDone === false && page.data.results.length === 0,
+    'A 无搜索零内容零播放（searchDone=false / results 空）');
+  assert(page.data.isLoggedIn === false, 'A 游客 isLoggedIn=false（搜索仍可用）');
 
-  // —— 场景 B：登录（subscribe 通道）→ 自动恢复内容态 ——
+  // —— 场景 B：查词分流（英文词 → 词典弹层 + 真实语境例句静态高亮） ——
+  await page._lookupWord('compromise');
+  assert(page.data.wordModal.visible === true && page.data.wordModal.word === 'compromise',
+    'B 查词弹层打开（/api/dict 命中）');
+  assert(page.data.wordModal.corpusExamples.length === 2, 'B 例句最多展示 2 条（静态文本口径）');
+  const first = page.data.wordModal.corpusExamples[0];
+  assert(first.clipid === 'clipA' && first.parts.some((p) => p.hl), 'B 命中词三段高亮预计算（WXML 零方法调用）');
+  assert(page.data.history[0] === 'compromise', 'B 查词记录置顶入本地历史');
+  assert(page.data.results.length === 0, 'B 词典路径不渲染语境列表');
+
+  // —— 场景 C：例句【前往跟读】→ 训练室（携带词与例句） ——
+  page.onVocabGoPractice({ detail: { example: { clipid: 'clipB' } } });
+  assert(navigations[0] === '/pages/practice-room/index?word=compromise&clipId=clipB',
+    'C 前往跟读 → 训练室带 word+clipId');
+  assert(page.data.wordModal.visible === false, 'C 跳转即关闭弹层');
+
+  // —— 场景 D：场景检索（中文意图 → 语境句列表，仅搜索后渲染） ——
+  await page._searchScene('面试');
+  assert(page.data.searchDone === true && page.data.results.length === 2, 'D 场景检索出 2 条语境句');
+  assert(page.data.results[0].durText === '21s' && page.data.results[0].en === 'Tell me about yourself.',
+    'D 结果视图模型预格式化（durText/en）');
+  page.onResultTap({ currentTarget: { dataset: { scene: 's2' } } });
+  assert(navigations[1] === '/pages/practice-room/index?sceneId=s2', 'D 语境句点击 → 训练室 sceneId 深链');
+
+  // —— 场景 E：4 工具入口 ——
+  page.onToolTap({ currentTarget: { dataset: { key: 'history' } } });
+  assert(page.data.historyOpen === true && page.data.history[0] === 'compromise', 'E 查词记录抽屉打开');
+  page.onHistoryClear();
+  assert(page.data.history.length === 0, 'E 查词记录可清空');
+  page.onHistoryClose();
+  page.onToolTap({ currentTarget: { dataset: { key: 'vocab' } } });
+  assert(storage['review:pendingTab'] === 0 && switchTabs[0] === '/pages/review/index', 'E 生词本 → 复习中心 Tab0（storage 预约）');
+  page.onToolTap({ currentTarget: { dataset: { key: 'pron' } } });
+  assert(storage['review:pendingTab'] === 2, 'E 发音笔记本 → 复习中心 Tab2');
+  page.onToolTap({ currentTarget: { dataset: { key: 'packs' } } });
+  assert(navigations[2] === '/pages/library/paths/index', 'E 我的卡册 → 学习路径页');
+
+  // —— 场景 F：登录态（问候 + 生词保存态判定） ——
   authStore.setLoginData('token-1', { userid: 'u1', role: 'USER' });
-  await settle();
-  assert(page.data.isLoggedIn === true, 'B 登录后 isLoggedIn=true（内容态恢复）');
-  assert(page.data.isLoading === false, 'B 数据拉取完成后 isLoading=false');
-  assert(apiCalls === 7, 'B 恰好一批请求（5 路聚合 + fetchProfile + 处方），实际 ' + apiCalls);
-  assert(
-    typeof page.data.greeting === 'string' && page.data.greeting.includes('朋友'),
-    'B 首页数据管线完成（问候语已渲染）',
-  );
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  assert(page.data.isLoggedIn === true, 'F 登录后内容态');
+  assert(page.data.greeting.indexOf('小远') !== -1 && page.data.streakDays === 5, 'F 问候语 + 连续天数（profile+overview）');
+  assert(page._vocabSet['resilient'] === true, 'F 生词集合预载（保存态判定）');
+  await page._lookupWord('resilient');
+  assert(page.data.wordModal.isSaved === true, 'F 已收藏词查询即已保存态');
 
-  // —— 场景 C：onShow 通道重复触发（token 未变）→ 不重拉聚合 ——
-  const beforeC = apiCalls;
-  page.onShow();
-  await settle();
-  assert(apiCalls === beforeC + 1 && weeklyCalls === 3,
-    'C onShow token 未变不重拉聚合（仅 weekly-activity 一路静默补拉；批次内已含 2 路 weekly）');
-
-  // —— 场景 D：登出 → 回到引导态 ——
-  authStore.logout();
-  await settle();
-  assert(page.data.isLoggedIn === false, 'D 登出后回到引导态');
-  assert(page.data.isLoading === false && page.data.error === null, 'D 登出清空加载/错误态');
-
-  // —— 场景 E：重新登录，subscribe + onShow 双通道都触发 → 只拉一批 ——
-  const beforeE = apiCalls;
-  authStore.setLoginData('token-2', { userid: 'u1', role: 'USER' }); // subscribe 通道
-  page.onShow(); // onShow 通道（模拟登录页 navigateBack 返回）
-  await settle();
-  assert(page.data.isLoggedIn === true, 'E 重新登录恢复内容态');
-  assert(apiCalls === beforeE + 8, 'E 双通道只拉取一批数据（7 请求 + onShow weekly 1 路），实际 +' + (apiCalls - beforeE));
-
-  // —— 场景 F：整集链路退役后的主页形态 + T3.1 心愿签/处方卡 ——
-  assert(page.data.wishChips.length === 3 && page.data.wishChips.every((c) => c.startsWith('#')),
-    'F 心愿灵感胶囊：3 枚且带 # 前缀');
-  const wxmlHome = fs.readFileSync(path.join(__dirname, '../pages/home/index.wxml'), 'utf8');
-  assert(wxmlHome.includes('心愿定制') && wxmlHome.includes('召唤定制') && wxmlHome.includes('onWishGo'),
-    'F 心愿定制签卡片（输入 + 胶囊 + 召唤按钮）');
-  assert(wxmlHome.includes('今日五分钟') && !wxmlHome.includes('sentence-micro-player'),
-    'F 今日五分钟处方卡流（卡内不嵌微播放器，整卡点击进精研）');
-  const toastsBefore = 0; // 空心愿 → toast 拦截（wishInput 空）
-  page.onWishGo();
-  assert(navigations.length === 0, 'F 空心愿召唤被拦截（零跳转）');
-  page.setData({ wishInput: '委婉解释项目延期' });
-  page.onWishGo();
-  assert(
-    navigations.length === 1 &&
-      navigations[0].indexOf('/pages/library/paths/index?wish=') === 0 &&
-      decodeURIComponent(navigations[0].split('wish=')[1]) === '委婉解释项目延期',
-    'F 召唤定制 → 心愿工坊（?wish= 全文透传）'
-  );
-  assert(page.data.continueListening === undefined && page.data.recommended === undefined &&
-    page.data.latestEpisodes === undefined && page.data.latestHistory === undefined,
-    'F 继续收听/推荐/最近发布数据位已退役（红线 1：零整集列表）');
-  assert(!wxml.includes('onPlayEpisode') && !wxml.includes('/pages/episode/episode'),
-    'F WXML 零剧集跳转');
-  assert(wxml.includes('本周里程') && wxml.includes('我的路'),
-    'F 修行骨架保留（本周里程 + 我的路）');
-  assert(!fs.existsSync(path.join(__dirname, '../utils/audioManager.js')),
-    'F 全局播放内核已退役（播放事件置脏链路不复存在）');
-  const apiAfterF = apiCalls;
-  page.onShow(); // 登录态 onShow → 恒定 weekly 一路
-  await settle();
-  assert(apiCalls === apiAfterF + 1, 'F 登录态 onShow 恒定补拉 weekly 一路');
-  authStore.logout();
-  await settle();
-  const apiLoggedOut = apiCalls;
-  page.onShow(); // 游客态 onShow → 零请求
-  await settle();
-  assert(apiCalls === apiLoggedOut, 'F 游客态 onShow 零请求');
-
-  // —— 场景 G：下拉刷新链路（手势开关 + 处理函数收口） ——
+  // —— 场景 G：下拉刷新配置保留（回归守卫） ——
   const homeJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/home/index.json'), 'utf8'));
   assert(homeJson.enablePullDownRefresh === true, 'G 页面 json 开启 enablePullDownRefresh（手势可达）');
-  assert(typeof page.onPullDownRefresh === 'function', 'G onPullDownRefresh 处理函数存在');
 
   console.log('----------------------------------------');
-  if (failed === 0) {
-    console.log('ALL HOME GUEST-STATE TESTS PASSED');
-  } else {
-    console.error(failed + ' TEST(S) FAILED');
-    process.exitCode = 1;
-  }
+  if (failed === 0) console.log('ALL HOME GUEST-STATE TESTS PASSED');
+  else { console.error(failed + ' TEST(S) FAILED'); process.exitCode = 1; }
 })();

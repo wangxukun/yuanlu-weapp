@@ -212,10 +212,12 @@
 
   <!-- ═══ 生词收藏全屏弹窗 ═══ -->
   <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
-                    dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
+                    dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.corpusExamples}}"
+                    loading="{{wordModal.loading}}"
                     saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
                     episode-title="{{episode ? episode.title : ''}}"
-                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete"
+                    bind:gopractice="onVocabGoPractice" />
 
   <!-- ═══ 句子完善收藏抽屉 ═══ -->
   <sentence-tag-drawer sentence="{{drawerSentence}}"

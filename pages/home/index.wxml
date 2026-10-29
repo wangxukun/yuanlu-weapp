@@ -1,162 +1,116 @@
-<wxs module="math">
-module.exports = {
-  round: function(num) { return Math.round(num); },
-  ceil: function(num) { return Math.ceil(num); },
-  floor: function(num) { return Math.floor(num); },
-  padZero: function(num) { return num < 10 ? '0' + num : num; },
-  formatBio: function(str) {
-    if (!str) return '';
-    return str.length > 15 ? str.substring(0, 15) + '...' : str;
-  }
-}
-</wxs>
+<!--
+  pages/home — 远路语境词典 · 查词工具首页（工具化转型阶段一）
+  巨型搜索框 + 灵感胶囊 + 4 纯工具入口；无搜索零内容零播放（合规口径）
+-->
 <view class="home-container pb-page-bottom {{themeClass}}">
-  <!-- 未登录：整页登录引导态（tabBar 页等价 Web redirect("/")），
-       图标与排布对齐 Web 端 PodcastAuthPrompt（标题上、大图标裸露、描述与按钮在下） -->
-  <view wx:if="{{!isLoggedIn}}" class="guest-guide">
-    <text class="guest-title t-h2">登录后开启你的远路</text>
-    <image class="guest-icon" src="/assets/icons/podcasts-primary.svg" mode="aspectFit" />
-    <text class="guest-desc t-caption">同步学习里程、生词本与句子本，多端进度实时一致。</text>
-    <view class="btn-primary guest-btn tap-scale" bindtap="onGoLogin">去登录</view>
-    <text class="guest-hint t-mini">支持手机验证码 / 邮箱密码登录</text>
+
+  <!-- ── 顶部轻问候（登录态：问候+连续天数；游客：登录引导） ── -->
+  <view class="tool-header between">
+    <view class="col">
+      <text class="t-h2 text-bold">{{greeting}}</text>
+      <text class="t-caption text-secondary mt-1">查一个词，或描述你想练的场景</text>
+    </view>
+    <view wx:if="{{isLoggedIn}}" class="streak-pill center">
+      <text class="streak-pill-text">🔥 {{streakDays}} 天</text>
+    </view>
+    <view wx:else class="login-btn center tap-scale" bindtap="onGoLogin">
+      <text class="login-btn-text">登录</text>
+    </view>
   </view>
 
-  <block wx:elif="{{isLoading}}">
-    <view class="center" style="height: 50vh;">
+  <!-- ── 巨型查词/场景搜索框（工具核心） ── -->
+  <view class="hero-search row">
+    <image class="hero-search-ic" src="/assets/icons/search.svg" />
+    <input class="hero-search-input flex-1" value="{{query}}" bindinput="onSearchInput"
+           placeholder="查一个词，或描述你想练的场景" placeholder-class="hero-search-ph"
+           confirm-type="search" bindconfirm="onSearchConfirm" />
+    <view wx:if="{{query}}" class="hero-search-clear center tap-scale" bindtap="onClearSearch">
+      <image class="hero-search-clear-ic" src="/assets/icons/close.svg" />
+    </view>
+    <view class="hero-search-go center tap-scale" bindtap="onSearchConfirm">
+      <text class="hero-search-go-text">查询</text>
+    </view>
+  </view>
+
+  <!-- ── 灵感胶囊（随机标签 + 刷新） ── -->
+  <view class="sug-row row">
+    <view class="sug-chips row flex-1">
+      <view class="sug-chip tap-scale" wx:for="{{suggestions}}" wx:key="label"
+            data-item="{{item}}" bindtap="onSuggestionTap">{{item.label}}</view>
+    </view>
+    <view class="sug-refresh center tap-scale" bindtap="onRefreshSuggestions">
+      <image class="sug-refresh-ic" src="/assets/icons/refresh-gray.svg" />
+    </view>
+  </view>
+
+  <!-- ── 4 个纯工具入口 ── -->
+  <view class="tool-grid row between">
+    <view class="tool-item col center tap-scale" wx:for="{{tools}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="onToolTap">
+      <view class="tool-icon-wrap center">
+        <image class="tool-icon" src="{{item.icon}}" />
+      </view>
+      <text class="tool-label t-caption mt-2">{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- ── 场景检索结果（仅搜索后渲染；无搜索零内容） ── -->
+  <block wx:if="{{searchDone}}">
+    <view wx:if="{{searching}}" class="center" style="padding: 96rpx 0;">
       <view class="loading-spinner"></view>
     </view>
-  </block>
-
-  <block wx:elif="{{error}}">
-    <view class="error-box">
-      <text class="t-body">{{error}}</text>
-      <button class="btn-primary mt-4" bindtap="fetchHomeData">重试</button>
-    </view>
-  </block>
-
-  <block wx:else>
-    <!-- 一、头部状态区 -->
-    <view class="header between">
-      <view class="header-left col">
-        <text class="t-h1 text-bold ellipsis-2">{{greeting}}</text>
-        <text class="t-body text-secondary ellipsis mt-1">{{math.formatBio(bio)}}</text>
-      </view>
-      <view class="streak-badge col center">
-        <text class="status-text ellipsis">{{checkInStatus}}</text>
-        <text class="streak-text">🔥 连续 {{streakDays}} 天</text>
-      </view>
-    </view>
-
-    <!-- 一·五、心愿定制签（T3.1：输入 + 随机灵感胶囊 + 一键召唤） -->
-    <view class="card wish-card mt-4">
-      <view class="between w-full">
-        <text class="t-h3 text-bold">心愿定制</text>
-        <text class="t-caption text-secondary">说出想法，为你策展原声</text>
-      </view>
-      <view class="wish-input-wrap row mt-3">
-        <input class="wish-input flex-1" value="{{wishInput}}" bindinput="onWishInput"
-               placeholder="最近在准备什么场合，或想听哪种心情的英语？"
-               placeholder-class="wish-placeholder" confirm-type="search" bindconfirm="onWishGo" />
-        <view class="wish-go center tap-scale" bindtap="onWishGo">
-          <text class="wish-go-text">召唤定制</text>
+    <block wx:elif="{{results.length > 0}}">
+      <view class="section-title mt-6 mb-3"><text class="t-h3 text-bold">语境句</text></view>
+      <view class="card result-card col" wx:for="{{results}}" wx:key="sceneid"
+            data-scene="{{item.sceneid}}" bindtap="onResultTap">
+        <view class="row between w-full">
+          <text class="result-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
+          <text class="t-mini text-secondary">{{item.durText}}</text>
         </view>
-      </view>
-      <view class="wish-chips row mt-3">
-        <view class="wish-chip tap-scale" wx:for="{{wishChips}}" wx:key="*this"
-              data-chip="{{item}}" bindtap="onWishChipTap">{{item}}</view>
-      </view>
-    </view>
-
-    <!-- 本周里程卡 -->
-    <view class="card mileage-card mt-4">
-      <view class="between w-full">
-        <text class="t-h3 text-bold">本周里程</text>
-        <view class="mileage-badge {{mileage.weeklyProgress >= 0 ? 'positive' : 'negative'}} center px-2 py-1" style="border-radius: 50rpx; background: {{mileage.weeklyProgress >= 0 ? 'var(--primary-100)' : 'rgba(224, 64, 63, 0.12)'}};">
-          <text class="t-mini text-bold" style="color: {{mileage.weeklyProgress >= 0 ? 'var(--primary-600)' : 'var(--error)'}};">{{mileage.weeklyProgress >= 0 ? '+' : ''}}{{mileage.weeklyProgress}}%</text>
-        </view>
-      </view>
-
-      <view class="row align-bottom mt-3">
-        <text class="t-display text-bold">{{math.round(mileage.kmCurrent * 10) / 10}}</text>
-        <text class="t-body text-secondary ml-1 mb-1">/ {{mileage.kmGoal}} km</text>
-      </view>
-
-      <view class="progress-bar-bg mt-3">
-        <view class="progress-bar-fill" style="width: {{(mileage.kmCurrent / mileage.kmGoal) * 100}}%;"></view>
-      </view>
-
-      <text class="t-mini text-secondary mt-2">{{mileage.remainingMins <= 0 ? '本周目标已达成，走得漂亮！' : '再走 ' + mileage.remainingMins + ' 分钟达成周目标'}}</text>
-
-      <view class="between w-full mt-5">
-        <text class="t-caption text-secondary">词汇路标</text>
-        <text class="t-caption text-bold" style="color: var(--ink-800);">{{mileage.wordsCurrent}} / {{mileage.wordsGoal}}</text>
-      </view>
-
-      <view class="progress-bar-bg mt-2">
-        <view class="progress-bar-fill" style="width: {{(mileage.wordsCurrent / mileage.wordsGoal) * 100}}%; background: #F5A623;"></view>
-      </view>
-    </view>
-
-    <!-- 我的路 -->
-    <view class="card road-card">
-      <view class="between w-full mb-1">
-        <text class="t-h3 text-bold">我的路</text>
-        <text class="t-caption text-primary text-bold" bindtap="onOpenLearningPaths">查看学习路径 →</text>
-      </view>
-      <view class="journey-strip">
-        <!-- 蜿蜒起伏的虚线小径背景 -->
-        <image class="journey-curve-bg" src="/assets/icons/journey-curve.svg" mode="scaleToFill" />
-
-        <!-- 7日节点 -->
-        <block wx:for="{{journeyDays}}" wx:key="label">
-          <view class="journey-node" style="left: {{item.x}}%; top: {{item.y}}%;">
-            <!-- 学习日插小旗 (Android 规范: 曙光橙) -->
-            <image class="node-flag" src="/assets/icons/journey-flag.svg" wx:if="{{item.minutes > 0}}" />
-
-            <!-- 今天外层虚线圆环 (Android 规范: Accent400) -->
-            <view class="today-halo" wx:if="{{item.isToday}}"></view>
-
-            <!-- 节点圆圈: 学习日实心远青，未学习白底灰边 -->
-            <view class="node-circle {{item.minutes > 0 ? 'studied' : 'unstudied'}}"></view>
-
-            <!-- 日期文本: 随节点高低起伏，今天强调突出 -->
-            <text class="node-label {{item.isToday ? 'today-label' : ''}}">{{item.isToday ? '今天' : item.label}}</text>
-          </view>
-        </block>
-      </view>
-    </view>
-
-    <!-- 三、今日五分钟靶向处方（T3.1：跨语境生词重逢 / 弱音狙击 / 今日微剧场） -->
-    <block wx:if="{{rxCards.length > 0}}">
-      <view class="section-title mt-6 mb-3">
-        <text class="t-h3 text-bold">今日五分钟</text>
-        <text class="t-caption text-secondary ml-2">针对性原声小练习</text>
-      </view>
-      <view class="vertical-list mb-6">
-        <view class="card rx-card row tap-scale" wx:for="{{rxCards}}" wx:key="index"
-              data-kind="{{item.kind}}" data-episodeid="{{item.episodeid}}" data-sceneid="{{item.sceneid}}"
-              data-start="{{item.startTime}}" bindtap="onRxCardTap">
-          <view class="rx-cover-wrap center" wx:if="{{item.coverUrl}}">
-            <image class="rx-cover" src="{{item.coverUrl}}" mode="aspectFill" />
-            <view class="rx-kind-pill center">{{item.tagLabel}}</view>
-          </view>
-          <view class="rx-kind-pill rx-kind-pill--bare center" wx:else>{{item.tagLabel}}</view>
-          <view class="col flex-1 ml-3 rx-body">
-            <text class="t-body text-bold ellipsis-2 rx-title">{{item.title}}</text>
-            <text class="t-caption text-secondary ellipsis mt-1" wx:if="{{item.sub}}">{{item.sub}}</text>
-            <view class="row mt-2 between w-full">
-              <view class="row center text-secondary">
-                <text class="t-mini" wx:if="{{item.focusLabel}}">{{item.focusLabel}}</text>
-                <text class="t-mini rx-dot" wx:if="{{item.focusLabel && item.cefrLabel}}"> · </text>
-                <text class="t-mini" wx:if="{{item.cefrLabel}}">{{item.cefrLabel}}</text>
-                <text class="t-mini rx-dot" wx:if="{{item.cefrLabel}}"> · </text>
-                <text class="t-mini">{{item.durLabel}}</text>
-              </view>
-            </view>
-          </view>
+        <text class="result-en ellipsis-2 mt-2">{{item.en}}</text>
+        <text class="result-zh ellipsis mt-1" wx:if="{{item.zh}}">{{item.zh}}</text>
+        <view class="row result-go mt-2">
+          <image class="result-go-ic" src="/assets/icons/mic-ink.svg" />
+          <text class="result-go-text">去跟读</text>
         </view>
       </view>
     </block>
-
+    <view wx:else class="empty-tip col center">
+      <text class="t-body text-secondary">没找到相关语境，换个说法试试</text>
+    </view>
   </block>
+
+  <!-- ── 查词记录抽屉（本地存储） ── -->
+  <view wx:if="{{historyOpen}}" class="history-mask" bindtap="onHistoryClose">
+    <view class="history-panel col" catchtap="noop">
+      <view class="between w-full mb-3">
+        <text class="t-h3 text-bold">查词记录</text>
+        <view class="row">
+          <text class="t-caption text-secondary mr-4" bindtap="onHistoryClear">清空</text>
+          <image class="history-close-ic" src="/assets/icons/close.svg" bindtap="onHistoryClose" />
+        </view>
+      </view>
+      <scroll-view class="history-scroll" scroll-y>
+        <view wx:if="{{history.length === 0}}" class="empty-tip col center">
+          <text class="t-body text-secondary">还没有查过词</text>
+        </view>
+        <view class="history-word row between" wx:for="{{history}}" wx:key="*this"
+              data-word="{{item}}" bindtap="onHistoryWordTap">
+          <text class="history-word-text">{{item}}</text>
+          <text class="t-mini text-secondary">再查</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ── 词典弹层（真实语境例句静态文本 + 前往跟读） ── -->
+  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.corpusExamples}}"
+                    loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    episode-title=""
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete"
+                    bind:gopractice="onVocabGoPractice" />
+
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
 </view>

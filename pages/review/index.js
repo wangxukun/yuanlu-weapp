@@ -53,6 +53,16 @@ Page({
     // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
     this.setData({ themeClass: theme.rootClass() });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
+    // 首页工具入口预约 Tab（switchTab 不能带参，经存储传递：0 生词本 / 2 发音本）
+    try {
+      const pending = wx.getStorageSync('review:pendingTab');
+      if (pending === 0 || pending === 1 || pending === 2) {
+        this.setData({ activeTab: pending });
+        wx.removeStorageSync('review:pendingTab');
+      }
+    } catch (e) {
+      /* 存储异常忽略 */
+    }
     // 从复习/剧集等子页返回时通知各 notebook 重拉数据（vocab-notebook 等
     // swiper 常驻组件无法感知页面 onShow，经 refreshSeq 属性变化触发）
     if (this.data.isLoggedIn) {

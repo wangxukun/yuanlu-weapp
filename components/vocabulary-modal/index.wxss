@@ -300,3 +300,30 @@
   font-weight: 500;
   color: var(--primary-600);
 }
+
+/* ── 真实语境例句（隔离式：静态文本 + 前往跟读） ── */
+.vm-corpus-item {
+  padding: 20rpx 0 8rpx;
+  border-bottom: 1rpx solid var(--border-color);
+}
+.vm-corpus-hl {
+  color: var(--primary-600);
+  font-weight: 600;
+}
+.vm-corpus-go {
+  align-self: flex-end;
+  gap: 8rpx;
+  padding: 10rpx 24rpx;
+  margin-top: 8rpx;
+  border: 1rpx solid var(--primary-600);
+  border-radius: var(--r-full, 999rpx);
+}
+.vm-corpus-go-ic {
+  width: 28rpx;
+  height: 28rpx;
+}
+.vm-corpus-go-text {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--primary-600);
+}

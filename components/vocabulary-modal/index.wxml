@@ -90,6 +90,19 @@
               <text class="vm-ex-cn">{{item.cn}}</text>
             </view>
           </view>
+
+          <!-- ── 真实语境例句（隔离式结合：静态文本 + 前往跟读，弹层内不播放） ── -->
+          <view wx:if="{{corpusExamples.length > 0}}" class="vm-defs">
+            <text class="vm-label">真实语境 · 原声出处</text>
+            <view wx:for="{{corpusExamples}}" wx:key="clipid" class="vm-corpus-item">
+              <text class="vm-ex-en font-serif"><block wx:for="{{item.parts}}" wx:for-item="p" wx:key="index"><text class="{{p.hl ? 'vm-corpus-hl' : ''}}">{{p.t}}</text></block></text>
+              <text wx:if="{{item.zh}}" class="vm-ex-cn">{{item.zh}}</text>
+              <view class="vm-corpus-go row" data-index="{{index}}" bindtap="onGoPractice">
+                <image class="vm-corpus-go-ic" src="/assets/icons/mic-ink.svg" />
+                <text class="vm-corpus-go-text">前往跟读</text>
+              </view>
+            </view>
+          </view>
         </block>
 
         <!-- ── 无数据态 ── -->

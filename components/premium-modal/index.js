@@ -40,7 +40,7 @@ const SCENARIOS = {
   dictionary_quota: {
     title: '今日免费词典查询已用完',
     description:
-      '免费用户每天可查 30 次。查词是精读的刚需——PRO 会员词典查询不限量。',
+      '免费用户每天可查 30 次。查词是精读的刚需——PRO 词典查询不限量。',
     benefits: ['词典无限查询', '生词无限收藏', '无限语音评测'],
     priceAnchor: WEEKLY_ANCHOR,
     cta: '解锁无限查询',
@@ -103,7 +103,7 @@ const SCENARIOS = {
     cta: '解锁完整诊断',
   },
   stats_report: {
-    title: '学习报表是 PRO 会员专属',
+    title: '学习报表是 PRO 高级功能',
     description:
       '免费层可见近 7 天学习简报。PRO：月/季/年趋势报表 + 全年学习热力图 + 阶段复盘建议，看清每一步积累。',
     benefits: ['月/季/年趋势报表', '全年学习热力图', '阶段复盘建议'],
@@ -115,7 +115,7 @@ const SCENARIOS = {
   episode_deep_dive: {
     title: '深度拆解这段原声',
     description:
-      '难点词汇预扫、长难句逐层拆解、跟读句推荐、理解测验——把这段原声变成一节精研课。PRO 专属。',
+      '难点词汇预扫、长难句逐层拆解、跟读句推荐、理解测验——把这段原声拆成一次精研练习。PRO 专属。',
     benefits: ['难点词汇预扫 + 长难句拆解', '本集跟读句推荐', '理解测验即时检验'],
     priceAnchor: 'PRO ' + YEARLY_ANCHOR,
     cta: '解锁语境精析',
@@ -139,22 +139,22 @@ const SCENARIOS = {
     cta: '解锁心愿定制',
   },
   exclusive_play: {
-    title: '这是会员专享剧集',
-    description: '专享剧集向 PRO 会员开放。已有会员？登录后即可直接精研。',
-    benefits: ['专享剧集畅研', '心愿卡册无限定制', '无限跟读评测'],
+    title: '这是 PRO 专属语料',
+    description: '高阶原声语料向 PRO 开放。已解锁权益？登录后即可直接练习。',
+    benefits: ['高阶语料全量使用', '心愿卡册无限定制', '无限跟读评测'],
     priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
-    cta: '解锁专享剧集',
+    cta: '解锁 PRO 权益',
   },
 };
 
-/** 未知 source / 未传 source 时的通用兜底（对齐 Web DEFAULT_SCENARIO） */
+/** 未知 source / 未传 source 时的通用兜底（对齐 Web DEFAULT_SCENARIO；微信内工具权益口径） */
 const DEFAULT_SCENARIO = {
-  title: '这里是会员专享内容',
+  title: '这里是 PRO 高级工具功能',
   description:
-    '为了支持网站长期高质量运转，此内容仅向赞助会员开放。如果您喜欢这里的内容，欢迎加入我们的会员社区，享受专属权益。',
+    '免费版已覆盖日常查词与跟读练习。升级 PRO 解锁无限次发音评测、词典不限量等高级工具权益，也支持我们把工具持续打磨得更好。',
   benefits: ['无限语音评测', '词典与生词不限量', '心愿卡册无限定制'],
   priceAnchor: WEEKLY_ANCHOR + ' · ' + YEARLY_ANCHOR,
-  cta: '去看看赞助方案',
+  cta: '解锁高级权益',
 };
 
 /**

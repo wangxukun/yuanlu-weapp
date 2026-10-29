@@ -1,422 +1,370 @@
-const request = require('../../utils/request').request;
-const { get } = require('../../utils/request');
-const authStore = require('../../store/authStore');
+/**
+ * pages/home/index — 远路语境词典 · 查词工具首页（工具化转型阶段一）
+ *
+ * 极致工具化（像背单词 App）：巨型查词/场景搜索框 + 灵感胶囊（静态池
+ * 随机抽样、可刷新）+ 4 个纯工具入口（查词记录/生词本/发音笔记本/我的卡册）。
+ * 用户不主动搜索（或不点灵感胶囊）→ 页面不展示任何播放内容（合规口径）。
+ *
+ * 搜索分流：
+ *   - 英文单词/短语 → GET /api/dict/[word] → 词典弹层（真实语境例句为
+ *     静态文本 + 【前往跟读】→ 训练室；弹层内零播放，隔离式结合）
+ *   - 场景/中文意图 → GET /api/scenes/feed?q= → 语境句列表 → 训练室
+ *
+ * 登录态双通道同步（authStore.subscribe + onShow）与主题三段式沿用项目口径；
+ * 游客可搜索（词典匿名限流/语境 feed 公开），保存生词与打卡问候需登录。
+ */
+const { get, post } = require('../../utils/request');
 const theme = require('../../utils/theme');
+const authStore = require('../../store/authStore');
+const dictTool = require('../../utils/dict-tool');
 
-// 一周 7 天节点坐标（对齐 Android HomeScreen 及 Web JourneyStrip 的波浪起伏路径）
-const JOURNEY_COORDS = [
-  { x: 7.78, y: 62 },
-  { x: 21.85, y: 34 },
-  { x: 35.93, y: 59.2 },
-  { x: 50.00, y: 34 },
-  { x: 64.07, y: 57.8 },
-  { x: 78.15, y: 35.4 },
-  { x: 92.22, y: 62 }
+const SUGGESTIONS_SHOW = 4;
+/** 灵感胶囊静态池：查单词（词典直达）+ 场景（语境检索），数十条随机取样 */
+const SUGGESTION_POOL = [
+  { label: '#查单词: compromise', word: 'compromise' },
+  { label: '#查单词: resilient', word: 'resilient' },
+  { label: '#查单词: negotiate', word: 'negotiate' },
+  { label: '#查单词: appreciate', word: 'appreciate' },
+  { label: '#查单词: deadline', word: 'deadline' },
+  { label: '#查单词: feedback', word: 'feedback' },
+  { label: '#查单词: adventure', word: 'adventure' },
+  { label: '#查单词: perspective', word: 'perspective' },
+  { label: '#查单词: efficient', word: 'efficient' },
+  { label: '#查单词: gorgeous', word: 'gorgeous' },
+  { label: '#职场拒绝', scene: '职场' },
+  { label: '#机场值机', scene: '机场' },
+  { label: '#酒店入住', scene: '酒店' },
+  { label: '#面试自我介绍', scene: '面试' },
+  { label: '#点咖啡', scene: '咖啡' },
+  { label: '#和医生描述症状', scene: '医生' },
+  { label: '#表达歉意', scene: '道歉' },
+  { label: '#安慰朋友', scene: '安慰' },
+  { label: '#谈论天气', scene: '天气' },
+  { label: '#购物比价', scene: '购物' },
+  { label: '#问路指路', scene: '问路' },
+  { label: '#电话预约', scene: '预约' },
+  { label: '#连读发音技巧', scene: '连读' },
+  { label: '#日常寒暄', scene: '寒暄' },
+  { label: '#旅行计划', scene: '旅行' },
+  { label: '#健身运动', scene: '健身' },
+  { label: '#开会发言', scene: '会议' },
+  { label: '#校园生活', scene: '校园' },
+  { label: '#科技数码', scene: '科技' },
+  { label: '#餐厅点餐', scene: '餐厅' },
 ];
 
-// 心愿灵感胶囊池（每次进入随机抽 3 枚；措辞避开口禁区词汇）
-const WISH_POOL = [
-  '#委婉拒绝加班',
-  '#连读特训',
-  '#用我的生词串讲',
-  '#高情商反驳',
-  '#安慰焦虑的朋友',
-  '#学术汇报转折',
-  '#地道美式吐槽',
-  '#闲聊破冰不冷场',
+/** 4 个纯工具入口（grid 定义；查词记录=页内抽屉，其余跳既有页） */
+const TOOL_ENTRIES = [
+  { key: 'history', label: '查词记录', icon: '/assets/icons/manage-search.svg' },
+  { key: 'vocab', label: '生词本', icon: '/assets/icons/menu-book-primary.svg' },
+  { key: 'pron', label: '发音笔记本', icon: '/assets/icons/mic-ink.svg' },
+  { key: 'packs', label: '我的卡册', icon: '/assets/icons/layers-primary.svg' },
 ];
-
-/** 处方卡 → 展示模型（WXML 零方法调用：全部标签/时长预格式化） */
-function mapRxCard(raw) {
-  if (!raw) return null;
-  if (raw.type === 'micro_scene') {
-    return {
-      kind: 'scene',
-      sceneid: raw.sceneid,
-      episodeid: '',
-      tagLabel: '今日微剧场',
-      focusLabel: raw.situationTag || '',
-      title: raw.title || '',
-      sub: raw.summaryZh || '',
-      cefrLabel: raw.cefrLevel || '',
-      durLabel: Math.round(raw.duration) + 's',
-      coverUrl: raw.coverUrl || '',
-      clipid: '',
-      startTime: 0,
-      endTime: 0,
-    };
-  }
-  return {
-    kind: 'clip',
-    sceneid: '',
-    episodeid: raw.episodeid || '',
-    tagLabel: raw.type === 'vocab_revival' ? '跨语境重逢' : '弱音狙击',
-    focusLabel: raw.focus || '',
-    title: raw.enText || '',
-    sub: raw.zhText || '',
-    cefrLabel: raw.cefrLevel || '',
-    durLabel: Math.round(raw.duration) + 's',
-    coverUrl: raw.coverUrl || '',
-    clipid: raw.clipid || '',
-    startTime: raw.startTime || 0,
-    endTime: raw.endTime || 0,
-  };
-}
 
 Page({
   data: {
     themeClass: '',
-    // 登录态：未登录渲染整页引导（tabBar 页等价 Web redirect("/")），双通道同步见 syncAuthState
     isLoggedIn: false,
-    isLoading: true,
-    error: null,
-    isRefreshing: false,
+    greeting: '你好，远路人',
+    streakDays: 0,
 
-    // Header 数据
-    greeting: '早上好，远路人',
-    bio: '世界很长，慢慢走',
-    checkInStatus: '今日学习 +15 分钟',
-    streakDays: 3,
+    // 巨型搜索 + 灵感胶囊
+    query: '',
+    suggestions: [],
+    tools: TOOL_ENTRIES,
 
-    // 心愿定制签（输入 + 随机灵感胶囊 + 一键召唤 → 心愿工坊）
-    wishInput: '',
-    wishChips: [],
+    // 场景检索结果（仅搜索后渲染；无搜索零内容）
+    searching: false,
+    searchDone: false,
+    results: [],
 
-    // 今日五分钟靶向处方（后端 /api/studio/daily-prescription）
-    rxCards: [],
-
-    // 本周里程
-    mileage: {
-      weeklyProgress: 12,
-      kmCurrent: 5.2,
-      kmGoal: 10,
-      remainingMins: 45,
-      wordsCurrent: 120,
-      wordsGoal: 300
+    // 词典弹层（真实语境例句为静态文本，播放隔离到训练室）
+    wordModal: {
+      visible: false, word: '', dictData: null, corpusExamples: [],
+      loading: false, saving: false, isSaved: false,
     },
 
-    // 学习小径 (7天带波浪坐标)
-    journeyDays: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, i) => ({
-      label,
-      minutes: 0,
-      isToday: i === ((new Date().getDay() + 6) % 7),
-      x: JOURNEY_COORDS[i].x,
-      y: JOURNEY_COORDS[i].y
-    }))
+    // 查词记录抽屉（本地存储）
+    historyOpen: false,
+    history: [],
+
+    showPremiumModal: false,
+    premiumSource: 'dictionary_quota',
   },
 
   onLoad() {
     this._lastToken = undefined;
-
-    // 心愿灵感胶囊：随机抽 3 枚（无重复）
-    const pool = WISH_POOL.slice();
-    const chips = [];
-    while (chips.length < 3 && pool.length > 0) {
-      chips.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-    }
-    this.setData({ wishChips: chips });
-
-    // 监听 authStore：登录/登出/换号自动切换引导态与内容态
-    this.unsubscribeAuth = authStore.subscribe(() => {
-      this.syncAuthState();
-    });
-
-    // 首次同步：已登录直接拉数据；未登录进引导态（不发任何请求）
+    this._vocabSet = {};
+    this.setData({ suggestions: dictTool.pickSuggestions(SUGGESTION_POOL, SUGGESTIONS_SHOW, []) });
+    this.unsubscribeAuth = authStore.subscribe(() => this.syncAuthState());
     this.syncAuthState();
   },
 
   onShow() {
-    // 双通道之二：从登录页 navigateBack 返回时由此恢复内容态
     this.syncAuthState();
     this.setData({ themeClass: theme.rootClass() });
-    theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏（@navBg 只随系统）
-    // 精研/复习产生的学习时长可能推进打卡与学习小径 → 静默补拉本周活动
-    //（仅 weekly-activity 一路，不重拉主页聚合；失败保留旧数据）
-    if (this.data.isLoggedIn) this._refreshWeekly();
+    theme.applyChrome();
   },
 
   onUnload() {
     if (this.unsubscribeAuth) this.unsubscribeAuth();
   },
 
-  /**
-   * 登录态同步（authStore.subscribe + onShow 双通道）：
-   * - 未登录：整页引导态，不发主页 API（游客请求全部 401）
-   * - 登录返回/换号（token 变化）：自动拉取数据恢复内容态
-   */
+  onPullDownRefresh() {
+    const labels = this.data.suggestions.map((s) => s.label);
+    this.setData({ suggestions: dictTool.pickSuggestions(SUGGESTION_POOL, SUGGESTIONS_SHOW, labels) });
+    this._fetchHeader().then(() => wx.stopPullDownRefresh());
+  },
+
+  /** 登录态同步（token 变化才重拉问候/生词集） */
   syncAuthState() {
     const { isLoggedIn } = authStore.getState();
     const currentToken = wx.getStorageSync('token');
     const tokenChanged = this._lastToken !== currentToken;
     this._lastToken = currentToken;
-
-    if (isLoggedIn !== this.data.isLoggedIn) {
-      this.setData({ isLoggedIn });
-    }
-    if (!isLoggedIn) {
-      if (this.data.isLoading || this.data.error) {
-        this.setData({ isLoading: false, error: null });
-      }
-      return;
-    }
-    if (tokenChanged) {
-      this.setData({ isLoading: true, error: null });
-      this.fetchHomeData(true);
-      this._fetchRx();
-    }
+    if (isLoggedIn !== this.data.isLoggedIn) this.setData({ isLoggedIn });
+    if (isLoggedIn && tokenChanged) this._fetchHeader();
   },
 
-  /**
-   * 今日五分钟靶向处方（GET /api/studio/daily-prescription）：
-   * 尽力而为——未登录/语料未就绪(422)/网络异常一律静默隐藏区块，
-   * 换号重拉（token 变化时 syncAuthState 触发）。
-   */
-  async _fetchRx() {
-    if (!authStore.getState().isLoggedIn) {
-      if (this.data.rxCards.length) this.setData({ rxCards: [] });
-      return;
-    }
-    try {
-      const body = await get('/api/studio/daily-prescription', null, { showError: false });
-      const cards = (body && body.success && Array.isArray(body.data && body.data.cards))
-        ? body.data.cards.map(mapRxCard).filter(Boolean)
-        : [];
-      this.setData({ rxCards: cards });
-    } catch (e) {
-      if (this.data.rxCards.length) this.setData({ rxCards: [] });
-    }
-  },
-
-  /**
-   * 静默补拉本周活动（onShow 触发 / 下拉刷新之外的低成本刷新）：
-   * 打卡时间/学习小径今日分钟/里程，失败保留旧数据不打扰用户。
-   */
-  async _refreshWeekly() {
-    if (this._weeklyFetching) return;
-    this._weeklyFetching = true;
-    try {
-      const { get } = require('../../utils/request');
-      const weekRes = await get('/api/user/stats/weekly-activity?weekOffset=0').catch(() => null);
-      if (weekRes) {
-        // 打卡时间/学习小径今日分钟/里程与收听时长心跳同源（listeningSeconds）
-        const weekNow = weekRes?.weeklyActivity || weekRes || [];
-        if (Array.isArray(weekNow) && weekNow.length === 7) {
-          const todayIndex = (new Date().getDay() + 6) % 7;
-          const todayMinutes = weekNow[todayIndex]?.minutes || 0;
-          const patch = {
-            journeyDays: weekNow.map((d, i) => ({
-              label: d.day || this.data.journeyDays[i]?.label,
-              minutes: d.minutes || 0,
-              isToday: i === todayIndex,
-              x: this.data.journeyDays[i]?.x || 0,
-              y: this.data.journeyDays[i]?.y || 0,
-            })),
-          };
-          if (this.data.checkInStatus && this.data.checkInStatus.indexOf('今日打卡') === 0) {
-            const dailyGoalMins = this._dailyGoalMins || 20;
-            patch.checkInStatus = todayMinutes >= dailyGoalMins
-              ? '今日打卡完成'
-              : `今日打卡还差 ${dailyGoalMins - todayMinutes} 分钟`;
-          }
-          this.setData(patch);
-        }
-      }
-    } finally {
-      this._weeklyFetching = false;
-    }
-  },
-
-  onPullDownRefresh() {
-    this.fetchHomeData(true).then(() => {
-      wx.stopPullDownRefresh();
+  /** 问候语 + 连续天数 + 生词集合（保存态判定用），全部静默降级 */
+  async _fetchHeader() {
+    if (!authStore.getState().isLoggedIn) return;
+    const [profileRes, statsRes, vocabRes] = await Promise.all([
+      get('/api/user/profile').catch(() => null),
+      get('/api/user/stats/overview').catch(() => null),
+      get('/api/vocabulary/all').catch(() => null),
+    ]);
+    const profile = profileRes || {};
+    const hour = new Date().getHours();
+    const timeGreeting = hour <= 11 ? '早上好' : hour <= 17 ? '下午好' : '晚上好';
+    const vocabList = (vocabRes && (vocabRes.data || vocabRes)) || [];
+    this._vocabSet = {};
+    (Array.isArray(vocabList) ? vocabList : []).forEach((v) => {
+      this._vocabSet[String(v.word || '').toLowerCase()] = true;
     });
-    this._fetchRx();
+    this.setData({
+      greeting: timeGreeting + '，' + (profile.nickname || '朋友'),
+      streakDays: (statsRes && statsRes.streakDays) || profile.streakDays || 0,
+    });
   },
 
-  async fetchHomeData(silent = false) {
-    // 登录守卫：未登录不发请求（主页 API 对游客全部 401），停在引导态
-    if (!authStore.getState().isLoggedIn) {
-      this.setData({ isLoading: false });
+  // ==================== 搜索（查词 / 场景分流） ====================
+
+  onSearchInput(e) {
+    this.setData({ query: (e.detail && e.detail.value) || '' });
+  },
+
+  onSearchConfirm() {
+    this._search();
+  },
+
+  onClearSearch() {
+    this.setData({ query: '', results: [], searchDone: false, searching: false });
+  },
+
+  /** 灵感胶囊：一键填入并触发对应查询 */
+  onSuggestionTap(e) {
+    const s = e.currentTarget.dataset.item;
+    if (!s) return;
+    this.setData({ query: s.label });
+    if (s.word) this._lookupWord(s.word);
+    else if (s.scene) this._searchScene(s.scene);
+  },
+
+  /** 刷新灵感胶囊：避开当前展示集重抽 */
+  onRefreshSuggestions() {
+    const labels = this.data.suggestions.map((s) => s.label);
+    this.setData({ suggestions: dictTool.pickSuggestions(SUGGESTION_POOL, SUGGESTIONS_SHOW, labels) });
+  },
+
+  _search() {
+    const q = (this.data.query || '').trim();
+    if (!q) {
+      wx.showToast({ title: '输入一个单词或想练的场景', icon: 'none' });
       return;
     }
-    if (!silent) this.setData({ isLoading: true, error: null });
+    if (dictTool.isWordQuery(q)) {
+      this._lookupWord(q.replace(/^#查单词:\s*/, ''));
+    } else {
+      this._searchScene(q);
+    }
+  },
+
+  /** 查词 → 词典弹层（例句静态文本；记录查词历史） */
+  async _lookupWord(rawWord) {
+    const word = String(rawWord || '').trim().replace(/[.,!?;:"()]/g, '');
+    if (!word) return;
+    const lower = word.toLowerCase();
+    this.setData({
+      wordModal: {
+        visible: true, word, dictData: null, corpusExamples: [],
+        loading: true, saving: false, isSaved: !!this._vocabSet[lower],
+      },
+      history: dictTool.dictHistoryRecord(word),
+      results: [],
+      searchDone: true,
+    });
     try {
-      const { get } = require('../../utils/request');
-
-      // 聚合并发（对齐 Android HomeViewModel 的 coroutineScope；整集列表已
-      // 随合规重塑退役，保留个人学习资产四路）
-      const [
-        profileRes,
-        overviewRes,
-        weekNowRes,
-        weekLastRes,
-        vocabRes
-      ] = await Promise.all([
-        get('/api/user/profile').catch(() => null),
-        get('/api/user/stats/overview').catch(() => null),
-        get('/api/user/stats/weekly-activity?weekOffset=0').catch(() => null),
-        get('/api/user/stats/weekly-activity?weekOffset=1').catch(() => null),
-        get('/api/vocabulary/all').catch(() => null)
-      ]);
-
-      const profile = profileRes || {};
-      const stats = overviewRes || {};
-      const weekNow = weekNowRes?.weeklyActivity || weekNowRes || [];
-      const weekLast = weekLastRes?.weeklyActivity || weekLastRes || [];
-      const vocabList = vocabRes?.data || vocabRes || [];
-
-      // 计算本周里程
-      const thisWeekMinutes = weekNow.reduce((acc, curr) => acc + curr.minutes, 0);
-      const lastWeekMinutes = weekLast.reduce((acc, curr) => acc + curr.minutes, 0);
-      const goalHours = Math.max(profile.weeklyListeningGoalHours || 2, 0);
-
-      let weeklyProgress = 0;
-      if (lastWeekMinutes > 0) {
-        weeklyProgress = Math.floor((thisWeekMinutes - lastWeekMinutes) * 100 / lastWeekMinutes);
-      } else if (thisWeekMinutes > 0) {
-        weeklyProgress = 100;
+      const body = await get('/api/dict/' + encodeURIComponent(lower), null, { showError: false });
+      if (!this.data.wordModal.visible || this.data.wordModal.word.toLowerCase() !== lower) return;
+      if (body && body.success && body.data) {
+        this.setData({
+          'wordModal.dictData': body.data,
+          'wordModal.corpusExamples': dictTool.buildCorpusExampleVms(body.data.corpusExamples, word),
+          'wordModal.loading': false,
+        });
+      } else {
+        this.setData({ 'wordModal.loading': false });
       }
-
-      const wordsGoal = Math.max(profile.weeklyWordsGoal || 50, 0);
-
-      // 计算本周新增单词数
-      let wordsCurrent = 0;
-      if (vocabList.length > 0) {
-        const now = new Date();
-        // 找到本周一 00:00:00 的时间戳
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const monday = new Date(now.setDate(diff));
-        monday.setHours(0, 0, 0, 0);
-        const weekStart = monday.getTime();
-
-        wordsCurrent = vocabList.filter(v => {
-          if (!v.addedDate) return false;
-          const time = new Date(v.addedDate).getTime();
-          return !isNaN(time) && time >= weekStart;
-        }).length;
-      }
-
-      // 计算问候语
-      const hour = new Date().getHours();
-      let timeGreeting = '晚上好';
-      if (hour >= 0 && hour <= 11) timeGreeting = '早上好';
-      else if (hour >= 12 && hour <= 17) timeGreeting = '下午好';
-      const displayName = profile.nickname || '朋友';
-
-      // 今日打卡
-      const todayIndex = (new Date().getDay() + 6) % 7;
-      const todayMinutes = weekNow[todayIndex]?.minutes || 0;
-      const dailyGoalMins = Math.max(profile.dailyStudyGoalMins || 20, 0);
-      this._dailyGoalMins = dailyGoalMins; // _refreshWeekly 增量刷新打卡文案用
-      const checkInStatus = todayMinutes >= dailyGoalMins ? '今日打卡完成' : `今日打卡还差 ${dailyGoalMins - todayMinutes} 分钟`;
-
-      const rawBio = (profile.bio && profile.bio.trim()) ? profile.bio.trim() : '世界很长，慢慢走';
-      const formattedBio = rawBio.length > 15 ? rawBio.slice(0, 15) + '...' : rawBio;
-
-      this.setData({
-        greeting: `${timeGreeting}，${displayName}。`,
-        bio: formattedBio,
-        checkInStatus,
-        streakDays: stats.streakDays || profile.streakDays || 0,
-        mileage: {
-          weeklyProgress,
-          kmCurrent: (thisWeekMinutes / 60) * 5.0,
-          kmGoal: goalHours * 5.0,
-          remainingMins: Math.max(goalHours * 60 - thisWeekMinutes, 0),
-          wordsCurrent,
-          wordsGoal
-        },
-        journeyDays: (weekNow.length === 7 ? weekNow : ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map(label => ({ day: label, minutes: 0 }))).map((d, i) => ({
-          label: d.day || d.label,
-          minutes: d.minutes || 0,
-          isToday: i === todayIndex,
-          x: JOURNEY_COORDS[i].x,
-          y: JOURNEY_COORDS[i].y
-        })),
-        isLoading: false
-      });
     } catch (err) {
-      this.setData({ error: err.message || '加载失败', isLoading: false });
+      if (!this.data.wordModal.visible) return;
+      this.setData({ 'wordModal.loading': false });
+      if (err && err.code === 'DICTIONARY_QUOTA_EXCEEDED') {
+        this.setData({ showPremiumModal: true });
+      } else {
+        wx.showToast({ title: (err && err.message) || '查询失败，请重试', icon: 'none' });
+      }
     }
   },
 
-  /** 未登录引导：去登录页，登录成功 navigateBack 后 onShow 自动恢复内容态 */
-  onGoLogin() {
-    wx.navigateTo({ url: '/pages/auth/index' });
-  },
-
-  /** 「我的路」右上角 → 学习路径页 */
-  onOpenLearningPaths() {
-    wx.navigateTo({ url: '/pages/library/paths/index' });
-  },
-
-  // ==================== 心愿定制签（T3.1） ====================
-
-  onWishInput(e) {
-    this.setData({ wishInput: (e.detail && e.detail.value) || '' });
-  },
-
-  /** 灵感胶囊：一键填入输入框（可再改写） */
-  onWishChipTap(e) {
-    const chip = e.currentTarget.dataset.chip || '';
-    this.setData({ wishInput: chip });
-  },
-
-  /** 一键召唤定制：心愿文本带入心愿工坊（生成弹窗预填并自动打开） */
-  onWishGo() {
-    const wish = (this.data.wishInput || '').trim();
-    if (!wish) {
-      wx.showToast({ title: '先写下一个小心愿吧', icon: 'none' });
-      return;
-    }
-    wx.navigateTo({
-      url: '/pages/library/paths/index?wish=' + encodeURIComponent(wish),
-    });
-  },
-
-  // ==================== 今日五分钟处方（T3.1） ====================
-
-  /** 处方卡点击：进入原声精研页继续闯关（微剧场模式随 T4.1 落地） */
-  onRxCardTap(e) {
-    const ds = e.currentTarget.dataset;
-    // 微剧场卡（episodeid 为空）走 sceneId 深链；切片卡反查所在微剧场直达
-    if (ds.kind === 'scene' && ds.sceneid) {
-      wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + ds.sceneid });
-      return;
-    }
-    if (ds.episodeid) return this._openClipScene(ds);
-  },
-
-  /**
-   * 处方切片卡出处直达（对齐句子本出处胶囊口径）：by-clip 按时间戳反查
-   * 包含该句的微剧场，命中 ?sceneId= 进 30 秒语境；未收录/失败回落剧集
-   * 精研页。避免直接 ?id= 整集起播（处方语境是"这一句"而非整集）。
-   */
-  async _openClipScene(ds) {
-    if (this._rxNavBusy) return;
-    this._rxNavBusy = true;
-    const { get } = require('../../utils/request');
-    const fallback = () => {
-      wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + ds.episodeid });
-    };
+  /** 场景检索 → 语境句列表（点行进训练室） */
+  async _searchScene(q) {
+    this.setData({ searching: true, searchDone: true, results: [] });
     try {
-      const t = Number(ds.start) || 0;
       const body = await get(
-        '/api/scenes/by-clip?episodeid=' + encodeURIComponent(ds.episodeid) + '&t=' + t,
+        '/api/scenes/feed?page=1&pageSize=10&q=' + encodeURIComponent(q),
         null,
         { showError: false },
       );
-      const sceneid = body && body.success && body.data && body.data.sceneid;
-      if (sceneid) {
-        wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + sceneid });
-      } else {
-        fallback();
-      }
+      const items = ((body && body.success && body.data && body.data.items) || [])
+        .filter((it) => it.golden && it.golden.en)
+        .map((it) => ({
+          sceneid: it.sceneid,
+          en: it.golden.en,
+          zh: it.golden.zh || '',
+          tag: it.situationTag || '',
+          durText: Math.round(it.duration || 0) + 's',
+        }));
+      this.setData({ searching: false, results: items });
     } catch (e) {
-      fallback();
-    } finally {
-      this._rxNavBusy = false;
+      this.setData({ searching: false, results: [] });
+      wx.showToast({ title: '检索失败，请重试', icon: 'none' });
     }
-  }
+  },
+
+  onResultTap(e) {
+    const sceneid = e.currentTarget.dataset.scene;
+    if (sceneid) wx.navigateTo({ url: '/pages/practice-room/index?sceneId=' + sceneid });
+  },
+
+  // ==================== 工具入口 / 查词记录抽屉 ====================
+
+  onToolTap(e) {
+    const key = e.currentTarget.dataset.key;
+    if (key === 'history') {
+      this.setData({ historyOpen: true, history: dictTool.dictHistoryList() });
+      return;
+    }
+    if (key === 'vocab' || key === 'pron') {
+      // 复习中心是 tabBar 页（switchTab 不带参）→ 存储预约 Tab，onShow 消费
+      wx.setStorageSync('review:pendingTab', key === 'vocab' ? 0 : 2);
+      wx.switchTab({ url: '/pages/review/index' });
+      return;
+    }
+    if (key === 'packs') {
+      wx.navigateTo({ url: '/pages/library/paths/index' });
+    }
+  },
+
+  onHistoryClose() {
+    this.setData({ historyOpen: false });
+  },
+
+  onHistoryWordTap(e) {
+    const word = e.currentTarget.dataset.word;
+    this.setData({ historyOpen: false });
+    if (word) this._lookupWord(word);
+  },
+
+  onHistoryClear() {
+    this.setData({ history: dictTool.dictHistoryClear() });
+  },
+
+  // ==================== 词典弹层（保存/完成/前往跟读） ====================
+
+  onVocabClose() {
+    this.setData({ 'wordModal.visible': false });
+  },
+
+  onVocabComplete() {
+    this.setData({ 'wordModal.visible': false });
+  },
+
+  onVocabGoPractice(e) {
+    const ex = e.detail && e.detail.example;
+    if (!ex) return;
+    this.setData({ 'wordModal.visible': false });
+    wx.navigateTo({
+      url: '/pages/practice-room/index?word=' + encodeURIComponent(this.data.wordModal.word || '') +
+        '&clipId=' + encodeURIComponent(ex.clipid),
+    });
+  },
+
+  onVocabSave() {
+    const m = this.data.wordModal;
+    const word = m.word;
+    if (!word || m.saving) return;
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '登录后可保存生词', icon: 'none' });
+      wx.navigateTo({ url: '/pages/auth/index' });
+      return;
+    }
+    this.setData({ 'wordModal.saving': true });
+    const d = m.dictData || {};
+    const definition = (d.definitions || [])
+      .map((x) => '[' + x.pos + '] ' + x.meaning_cn)
+      .join('; ');
+    post('/api/vocabulary/add', {
+      word,
+      definition,
+      contextSentence: '',
+      translation: '',
+      episodeid: null,
+      timestamp: null,
+      speakUrl: (d.audio_urls && d.audio_urls.us) || '',
+      dictUrl: '',
+      webUrl: '',
+      mobileUrl: '',
+    }, { showError: false })
+      .then(() => {
+        this._vocabSet[word.toLowerCase()] = true;
+        this.setData({ 'wordModal.saving': false, 'wordModal.isSaved': true });
+        wx.showToast({ title: '已加入生词本', icon: 'none' });
+      })
+      .catch((err) => {
+        this.setData({ 'wordModal.saving': false });
+        if (err && err.statusCode === 400) {
+          this._vocabSet[word.toLowerCase()] = true;
+          this.setData({ 'wordModal.isSaved': true });
+          return;
+        }
+        if (err && err.code === 'VOCABULARY_QUOTA_EXCEEDED') {
+          this.setData({ showPremiumModal: true, premiumSource: 'vocabulary_total' });
+          return;
+        }
+        if (err && err.code === 'VOCABULARY_DAILY_QUOTA_EXCEEDED') {
+          this.setData({ showPremiumModal: true, premiumSource: 'vocabulary_daily' });
+          return;
+        }
+        wx.showToast({ title: (err && err.message) || '保存失败，请重试', icon: 'none' });
+      });
+  },
+
+  onPremiumClose() {
+    this.setData({ showPremiumModal: false });
+  },
+
+  onGoLogin() {
+    wx.navigateTo({ url: '/pages/auth/index' });
+  },
 });

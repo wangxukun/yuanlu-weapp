@@ -98,7 +98,7 @@ assert(modal.data.scenario.title === '深度拆解这段原声', 'A episode_deep
 
 // A2 下载门禁场景已随整集下载链路退役（RESHAPE-TASK 红线 2）：未知 source 走通用兜底
 fire(modal, false, 'episode_audio_download', null);
-assert(modal.data.scenario.title === '这里是会员专享内容', 'A episode_audio_download 场景已移除（回落 DEFAULT_SCENARIO）');
+assert(modal.data.scenario.title === '这里是 PRO 高级工具功能', 'A episode_audio_download 场景已移除（回落 DEFAULT_SCENARIO 工具口径）');
 
 // —— 场景 B：占位符插值 ——
 fire(modal, true, 'pronunciation_locked', { totalErrors: 7, worstPhoneme: 'θ' });
@@ -126,7 +126,7 @@ assert(
 );
 
 fire(modal, true, 'nonexistent_source', null);
-assert(modal.data.scenario.title === '这里是会员专享内容', 'C 未知 source → DEFAULT_SCENARIO');
+assert(modal.data.scenario.title === '这里是 PRO 高级工具功能', 'C 未知 source → DEFAULT_SCENARIO');
 
 // —— 场景 D：打开埋点（去重/复位） ——
 trackRequests.length = 0;
@@ -189,6 +189,39 @@ assert(
   navigateCalls[navigateCalls.length - 1] === '/pages/subscription/index?source=unknown',
   'F source 缺省兜底 unknown',
 );
+
+
+// —— 场景 G：虚拟支付入口合规（工具化转型阶段四）——
+// 支付弹窗/订阅页零内容订阅字眼，付费名义=工具高级权益；闭环 100% 走站内 wx.requestVirtualPayment
+{
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const forbidden = ['专享剧集', '购买剧集', '解锁播客', '赞助方案', '会员专享', '订阅内容', '精研课'];
+  const targets = [
+    'components/premium-modal/index.js',
+    'components/premium-modal/index.wxml',
+    'pages/subscription/index.wxml',
+    'pages/subscription/agreement.js',
+  ];
+  let hits = 0;
+  targets.forEach((rel) => {
+    const text = fs.readFileSync(path.join(__dirname, '../', rel), 'utf8');
+    forbidden.forEach((w) => {
+      if (text.includes(w)) {
+        hits += 1;
+        console.error('  违禁词命中:', w, '@', rel);
+      }
+    });
+  });
+  assert(hits === 0, 'G 支付文案零内容订阅字眼（专享剧集/赞助方案/精研课等全禁）');
+  const premiumJs = fs.readFileSync(path.join(__dirname, '../components/premium-modal/index.js'), 'utf8');
+  assert(premiumJs.includes('无限语音评测') && premiumJs.includes('词典与生词不限量'),
+    'G 收费名义=工具高级权益（无限评测/词典不限量）');
+  const wxpay = fs.readFileSync(path.join(__dirname, '../utils/wxpay.js'), 'utf8');
+  const subJs = fs.readFileSync(path.join(__dirname, '../pages/subscription/index.js'), 'utf8');
+  assert(wxpay.includes('requestVirtualPayment') && subJs.includes('wxpay'),
+    'G 支付闭环 100% 站内 wx.requestVirtualPayment（无外部引流）');
+}
 
 console.log('----------------------------------------');
 if (failed === 0) {

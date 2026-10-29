@@ -1,0 +1,120 @@
+/* pages/practice-room — 题库式跟读训练室（根类自声明 color；深浅双轨令牌） */
+.pr-container {
+  min-height: 100vh;
+  padding: 24rpx 32rpx 0;
+  box-sizing: border-box;
+  color: var(--ink-900);
+  background-color: var(--bg-page, var(--page-bg));
+}
+
+/* 头部：题源 + 进度 */
+.pr-head {
+  padding: 16rpx 0 20rpx;
+}
+.pr-source {
+  max-width: 60%;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.pr-progress {
+  height: 10rpx;
+  border-radius: var(--r-full, 999rpx);
+  background-color: var(--fill-secondary, rgba(0, 0, 0, 0.06));
+  overflow: hidden;
+}
+.pr-progress-fill {
+  height: 100%;
+  border-radius: var(--r-full, 999rpx);
+  background-color: var(--primary-600);
+  transition: width 0.24s ease;
+}
+
+/* 游客提示条 */
+.pr-guest {
+  margin-top: 24rpx;
+  padding: 20rpx 28rpx;
+  border-radius: 20rpx;
+  background-color: var(--primary-100, rgba(47, 100, 84, 0.1));
+}
+.pr-guest-go {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--primary-600);
+}
+
+/* 1. 短句文本 */
+.pr-sentence {
+  margin-top: 24rpx;
+  padding: 36rpx 32rpx;
+}
+.pr-sentence-en {
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ink-900);
+}
+.pr-sentence-zh {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.pr-hl {
+  color: var(--primary-600);
+  font-weight: 700;
+}
+
+/* 2. 中央独立播放大按钮 */
+.pr-play-wrap {
+  padding: 40rpx 0 24rpx;
+}
+.pr-play-btn {
+  width: 152rpx;
+  height: 152rpx;
+  border-radius: 50%;
+  background-color: var(--primary-600);
+  box-shadow: 0 12rpx 36rpx rgba(47, 100, 84, 0.28);
+}
+.pr-play-btn--on {
+  background-color: var(--ink-800, #2f3e37);
+}
+.pr-play-ic {
+  width: 64rpx;
+  height: 64rpx;
+  margin-left: 6rpx;
+}
+
+/* 4. 手动翻页 */
+.pr-next {
+  margin: 32rpx 0 40rpx;
+  padding: 28rpx 0;
+  border-radius: var(--r-full, 999rpx);
+  border: 2rpx solid var(--primary-600);
+}
+.pr-next--done {
+  background-color: var(--primary-600);
+}
+.pr-next-text {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--primary-600);
+}
+.pr-next--done .pr-next-text {
+  color: #ffffff;
+}
+
+/* 完成结算 */
+.pr-done {
+  padding: 160rpx 0 0;
+}
+.pr-done-emoji {
+  font-size: 88rpx;
+}
+.pr-done-btn {
+  margin-top: 56rpx;
+  padding: 24rpx 96rpx;
+  border-radius: var(--r-full, 999rpx);
+}
+
+.pr-error {
+  padding: 160rpx 0 0;
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "跟读训练室",
+  "usingComponents": {
+    "eval-card": "/components/voice/eval-card/index"
+  }
+}

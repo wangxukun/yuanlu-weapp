@@ -1,525 +1,210 @@
+/* pages/home — 远路语境词典 · 查词工具首页（工具化转型阶段一）
+   巨型搜索框 + 灰底灵感胶囊 + 4 工具入口 + 检索结果；根类自声明 color（三段式双轨见组件内） */
+
 .home-container {
-  padding: var(--page-padding);
-  background-color: var(--page-bg);
   min-height: 100vh;
+  padding: 32rpx 32rpx 0;
   box-sizing: border-box;
+  color: var(--ink-900);
+  background-color: var(--bg-page, var(--page-bg));
 }
 
-.header {
-  margin-bottom: 48rpx;
+/* ── 顶部轻问候 ── */
+.tool-header {
+  padding: 24rpx 0 8rpx;
 }
-
-.header-left {
-  flex: 1;
-  margin-right: 24rpx;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* 曙光橙色板 (对应 Android Accent) */
-.text-accent-700 { color: var(--accent-700); }
-.text-accent-300 { color: var(--accent-300); }
-.bg-accent-100 { background-color: var(--accent-100); }
-.bg-accent-400 { background-color: var(--accent-400); }
-
-.streak-badge {
-  background-color: var(--accent-100);
-  padding: 16rpx 24rpx;
-  border-radius: 32rpx;
-  min-width: 160rpx;
-}
-
-.status-text {
-  font-size: 24rpx;
-  font-weight: 500;
-  color: var(--accent-700);
-  margin-bottom: 4rpx;
-}
-
-.streak-text {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: var(--accent-700);
-}
-
-.card {
-  margin-bottom: 48rpx;
-}
-
-.resume-card {
-  padding: 32rpx;
-}
-
-.empty-resume {
-  padding: 40rpx;
-}
-
-.btn-discover {
-  margin-top: 32rpx;
-  background-color: var(--color-primary);
-  color: #fff;
-  border-radius: 999rpx;
-  font-size: 28rpx;
-  font-weight: 600;
-  padding: 20rpx 48rpx;
-  border: none;
-  width: max-content;
-}
-
-.cover-wrap {
-  position: relative;
-  width: 100%;
-  padding-bottom: 56.25%; /* 16:9 ratio */
-  border-radius: 20rpx;
-  overflow: hidden;
-}
-
-.cover-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--ink-200);
-  display: block;
-}
-
-.resume-cover-badge {
-  position: absolute;
-  top: 16rpx;
-  right: 16rpx;
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 50%;
-  background-color: var(--card-bg);
-  padding: 4rpx;
-}
-
-.resume-author-icon {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background-color: var(--ink-200);
-}
-
-.resume-eyebrow {
-  font-size: 24rpx;
-  color: var(--text-tertiary);
-  font-weight: 500;
-}
-
-.resume-title {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #111827;
-  line-height: 1.4;
-}
-
-.resume-subtitle {
-  font-size: 24rpx;
-  color: var(--text-secondary);
-}
-
-.resume-divider {
-  width: 100%;
-  height: 2rpx;
-  background-color: var(--border-color);
-}
-
-.resume-time-left {
-  font-size: 24rpx;
-  color: var(--text-secondary);
-}
-
-.btn-resume {
-  background-color: var(--primary-600); /* Darker green */
-  color: #ffffff;
-  padding: 12rpx 32rpx;
-  border-radius: 999rpx;
-  display: flex;
-  align-items: center;
-}
-
-.btn-resume-icon {
-  font-size: 24rpx;
-}
-
-.btn-resume-text {
-  font-size: 26rpx;
-  font-weight: 600;
-  margin-left: 8rpx;
-}
-
-.progress-bar-bg {
-  width: 100%;
-  height: 8rpx;
-  background-color: var(--ink-200);
-  border-radius: 4rpx;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background-color: var(--color-primary);
-  border-radius: 4rpx;
-}
-
-.accent-fill {
-  background-color: var(--accent-500);
-}
-
-.mileage-card {
-  padding: 40rpx;
-}
-
-.mileage-badge {
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-}
-
-.mileage-badge.positive {
-  background-color: var(--primary-100);
-  color: var(--color-primary);
-}
-
-.mileage-badge.negative {
-  background-color: rgba(210, 80, 63, 0.12);
-  color: var(--error-500);
-}
-
-.road-card {
-  padding: 32rpx;
-}
-
-.journey-strip {
-  position: relative;
-  width: 100%;
-  height: 200rpx;
-  margin-top: 16rpx;
-}
-
-.journey-curve-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.journey-node {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.node-circle {
-  width: 22rpx;
-  height: 22rpx;
-  border-radius: 50%;
-  box-sizing: border-box;
-}
-
-.node-circle.unstudied {
-  background-color: var(--card-bg);
-  border: 3.5rpx solid #CBD5E1;
-}
-
-.node-circle.studied {
-  background-color: var(--primary-600);
-  border: none;
-}
-
-/* 今天外层虚线圆圈 (Accent400) */
-.today-halo {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 44rpx;
-  height: 44rpx;
-  border-radius: 50%;
-  border: 3rpx dashed #E59D2E;
-  box-sizing: border-box;
-  pointer-events: none;
-}
-
-/* 学习日里程碑小旗 (Accent500) */
-.node-flag {
-  position: absolute;
-  bottom: calc(50% + 11rpx);
-  left: calc(50% - 2rpx);
-  width: 22rpx;
-  height: 26rpx;
-  pointer-events: none;
-}
-
-/* 日期标签（紧随节点上下起伏） */
-.node-label {
-  position: absolute;
-  top: calc(50% + 16rpx);
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 22rpx;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.node-label.today-label {
-  color: var(--accent-700);
-  font-weight: bold;
-}
-
-.horizontal-scroll {
-  width: 100%;
-  white-space: nowrap;
-}
-
-.scroll-row {
-  display: inline-flex;
-  padding-bottom: 20rpx;
-}
-
-.continue-card {
-  width: 600rpx;
-  margin-right: 24rpx;
-  margin-bottom: 0;
-  padding: 24rpx;
-  border-radius: 24rpx;
-}
-
-.continue-cover {
-  width: 256rpx;
-  height: 144rpx;
-  border-radius: 16rpx;
-  background-color: var(--ink-200);
-  flex-shrink: 0;
-}
-
-.vertical-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.episode-card-h {
-  padding: 16rpx;
-  margin-bottom: 24rpx;
-  border-radius: 24rpx;
-  background-color: var(--card-bg);
-  align-items: flex-start;
-}
-
-.episode-cover-wrap {
-  position: relative;
-  width: 256rpx;
-  height: 144rpx;
-  flex-shrink: 0;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.episode-cover-169 {
-  width: 100%;
-  height: 100%;
-  background-color: var(--ink-200);
-  display: block;
-}
-
-.episode-badge-tr {
-  position: absolute;
-  top: 8rpx;
-  right: 8rpx;
-  background-color: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 20rpx;
-  font-weight: bold;
-  padding: 2rpx 8rpx;
-  border-radius: 8rpx;
-}
-
-.episode-badge-br {
-  position: absolute;
-  bottom: 8rpx;
-  right: 8rpx;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: #ffffff;
-  font-size: 20rpx;
-  padding: 4rpx 8rpx;
-  border-radius: 8rpx;
-}
-
-.badge-icon-clock {
-  width: 20rpx;
-  height: 20rpx;
-  margin-right: 6rpx;
-  display: block;
-}
-
-.badge-icon-headphones {
-  width: 24rpx;
-  height: 24rpx;
-  margin-right: 6rpx;
-  display: block;
-}
-
-.badge-icon-lock {
-  width: 22rpx;
-  height: 22rpx;
-  margin-left: 8rpx;
-  display: block;
-}
-
-.icon-tiny {
-  font-size: 20rpx;
-}
-
-.tag-pill {
-  background-color: var(--primary-100);
-  color: var(--color-primary);
-  font-size: 20rpx;
-  font-weight: 500;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-}
-
-.h-full { height: 100%; }
-
-.align-bottom {
-  align-items: flex-end;
-}
-
-.w-full {
-  width: 100%;
-}
-
-/* ===== 未登录整页引导态（tabBar 页等价 Web redirect("/")） ===== */
-.guest-guide {
-  min-height: calc(100vh - 200rpx);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0 60rpx;
-  text-align: center;
-}
-/* 大图标裸露呈现（对齐 Web PodcastAuthPrompt：无背景容器，品牌绿 320rpx ≈ w-40） */
-.guest-icon {
-  width: 320rpx;
-  height: 320rpx;
-  margin-top: 48rpx;
-  margin-bottom: 16rpx;
-}
-.guest-title {
-  color: var(--text-primary);
-}
-.guest-desc {
-  color: var(--text-secondary);
-  margin-top: 16rpx;
-}
-.guest-btn {
-  width: 400rpx;
-  margin-top: 64rpx;
-}
-.guest-hint {
-  color: var(--text-tertiary);
-  margin-top: 24rpx;
-}
-
-/* ============ 心愿定制签（T3.1） ============ */
-.wish-card {
-  padding: 32rpx;
-}
-.wish-input-wrap {
+.streak-pill {
+  padding: 10rpx 24rpx;
+  border-radius: var(--r-full, 999rpx);
   background-color: var(--card-bg);
   border: 1rpx solid var(--border-color);
-  border-radius: var(--r-full);
-  padding: 8rpx 8rpx 8rpx 28rpx;
-  height: 80rpx;
-  box-sizing: border-box;
 }
-.wish-input {
-  font-size: 28rpx;
-  color: var(--text-primary);
-  height: 64rpx;
-  line-height: 64rpx;
+.streak-pill-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
 }
-.wish-placeholder {
-  color: var(--text-tertiary);
-}
-.wish-go {
-  min-width: 152rpx;
-  height: 64rpx;
-  padding: 0 24rpx;
-  border-radius: var(--r-full);
+.login-btn {
+  padding: 12rpx 36rpx;
+  border-radius: var(--r-full, 999rpx);
   background-color: var(--primary-600);
 }
-.wish-go-text {
+.login-btn-text {
+  font-size: 26rpx;
+  font-weight: 500;
   color: #ffffff;
-  font-size: 24rpx;
-  font-weight: 600;
-}
-.wish-chips {
-  flex-wrap: wrap;
-  gap: 14rpx;
-}
-.wish-chip {
-  padding: 8rpx 24rpx;
-  border-radius: var(--r-full);
-  background-color: var(--primary-50);
-  color: var(--primary-600);
-  font-size: 24rpx;
 }
 
-/* ============ 今日五分钟处方卡（T3.1） ============ */
-.rx-card {
-  padding: 24rpx;
-  align-items: stretch;
+/* ── 巨型查词/场景搜索框（工具核心，占屏约 1/3 视觉锚点） ── */
+.hero-search {
+  margin-top: 40rpx;
+  padding: 36rpx 32rpx;
+  border-radius: 32rpx;
+  background-color: var(--card-bg);
+  border: 2rpx solid var(--primary-600);
+  box-shadow: 0 8rpx 32rpx rgba(47, 100, 84, 0.12);
 }
-.rx-cover-wrap {
-  position: relative;
-  width: 120rpx;
-  border-radius: var(--r-md);
-  overflow: hidden;
+.hero-search-ic {
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 20rpx;
+}
+.hero-search-input {
+  height: 72rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--ink-900);
+}
+.hero-search-ph {
+  color: var(--ink-300);
+  font-size: 30rpx;
+  font-weight: 400;
+}
+.hero-search-clear {
+  width: 56rpx;
+  height: 56rpx;
+  margin-left: 12rpx;
+}
+.hero-search-clear-ic {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.5;
+}
+.hero-search-go {
+  margin-left: 20rpx;
+  padding: 18rpx 36rpx;
+  border-radius: var(--r-full, 999rpx);
+  background-color: var(--primary-600);
+}
+.hero-search-go-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* ── 灵感胶囊（灰底文本胶囊 + 刷新） ── */
+.sug-row {
+  margin-top: 32rpx;
+  gap: 16rpx;
+}
+.sug-chips {
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+.sug-chip {
+  padding: 14rpx 28rpx;
+  border-radius: var(--r-full, 999rpx);
+  background-color: var(--fill-secondary, rgba(0, 0, 0, 0.05));
+  color: var(--text-secondary);
+  font-size: 25rpx;
+}
+.sug-refresh {
+  width: 72rpx;
+  height: 72rpx;
   flex-shrink: 0;
+  border-radius: 50%;
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
 }
-.rx-cover {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: var(--r-md);
+.sug-refresh-ic {
+  width: 36rpx;
+  height: 36rpx;
 }
-.rx-kind-pill {
+
+/* ── 4 个纯工具入口 ── */
+.tool-grid {
+  margin-top: 48rpx;
+  padding: 36rpx 24rpx;
+  border-radius: 28rpx;
+  background-color: var(--card-bg);
+  border: 1rpx solid var(--border-color);
+}
+.tool-item {
+  flex: 1;
+}
+.tool-icon-wrap {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  background-color: var(--primary-100, rgba(47, 100, 84, 0.1));
+}
+.tool-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+.tool-label {
+  color: var(--text-secondary);
+}
+
+/* ── 场景检索结果 ── */
+.result-card {
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+}
+.result-tag {
+  padding: 6rpx 18rpx;
+  border-radius: var(--r-full, 999rpx);
+  background-color: var(--primary-100, rgba(47, 100, 84, 0.1));
+  color: var(--primary-600);
+  font-size: 22rpx;
+}
+.result-en {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ink-900);
+  line-height: 1.5;
+}
+.result-zh {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.result-go {
+  align-self: flex-end;
+  gap: 8rpx;
+}
+.result-go-ic {
+  width: 28rpx;
+  height: 28rpx;
+}
+.result-go-text {
+  font-size: 24rpx;
+  color: var(--primary-600);
+  font-weight: 500;
+}
+
+.empty-tip {
+  padding: 96rpx 0;
+}
+
+/* ── 查词记录抽屉 ── */
+.history-mask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+}
+.history-panel {
   position: absolute;
   left: 0;
+  right: 0;
   bottom: 0;
-  width: 100%;
-  padding: 4rpx 8rpx;
-  box-sizing: border-box;
-  background-color: rgba(27, 24, 18, 0.6);
-  color: #ffffff;
-  font-size: 20rpx;
-  text-align: center;
+  max-height: 60vh;
+  padding: 40rpx 32rpx calc(40rpx + env(safe-area-inset-bottom));
+  border-radius: 32rpx 32rpx 0 0;
+  background-color: var(--card-bg);
 }
-.rx-kind-pill--bare {
-  position: static;
-  width: auto;
-  align-self: flex-start;
-  background-color: var(--primary-50);
-  color: var(--primary-600);
-  padding: 6rpx 18rpx;
-  border-radius: var(--r-full);
-  flex-shrink: 0;
+.history-close-ic {
+  width: 36rpx;
+  height: 36rpx;
 }
-.rx-body {
-  min-width: 0;
+.history-scroll {
+  max-height: 46vh;
 }
-.rx-title {
-  line-height: 1.4;
+.history-word {
+  padding: 26rpx 8rpx;
+  border-bottom: 1rpx solid var(--border-color);
 }
-.rx-dot {
-  margin: 0 2rpx;
+.history-word-text {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--ink-900);
 }
