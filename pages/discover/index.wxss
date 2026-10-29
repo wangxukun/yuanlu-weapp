@@ -1,11 +1,10 @@
 /* pages/discover — 专项特训（第二 Tab）：三段静态骨架；根类自声明 color。
-   底部间距口径：原生 tabBar 不与内容重叠（视口已排除），本页不用
-   pb-page-bottom 整段避让，卡片底 margin-bottom 与顶 margin-top 对称（48rpx） */
+   底部间距口径：原生 tabBar 视口已排除内容，不用 pb-page-bottom 整段避让；
+   底距用容器 padding-bottom 48rpx（与卡片顶距对称）——末子元素的
+   margin-bottom 会在无底 padding 的容器上折叠逃逸，实踩勿回退 */
 .train-container {
   min-height: 100vh;
-  padding-top: 32rpx;
-  padding-left: 32rpx;
-  padding-right: 32rpx;
+  padding: 32rpx 32rpx 48rpx;
   box-sizing: border-box;
   color: var(--ink-900);
   background-color: var(--bg-page, var(--page-bg));
@@ -73,7 +72,6 @@
 .daily-card {
   height: 420rpx;
   margin-top: 48rpx;
-  margin-bottom: 48rpx;
   padding: 48rpx 40rpx;
   border-radius: 32rpx;
   background: linear-gradient(135deg, #1f7a5c 0%, #155e46 100%);
