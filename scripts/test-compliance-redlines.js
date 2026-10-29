@@ -87,8 +87,7 @@ compRefs.forEach((rel) => scanTargets.push(rel));
 
 // 字样门禁：AI 词边界（前后均非字母，防 EMAIL/btn-ai-text 误伤）+ 中文敏感词
 const FORBIDDEN = [
-  // 2026-10-29 用户拍板：TTS 功能标签「AI朗读」放行，其余 AI 用法仍禁（个人主体口径微调）
-  { re: /(^|[^A-Za-z])AI(?!朗读)([^A-Za-z]|$)/, label: '「AI」字眼（AI朗读 白名单外）' },
+  { re: /(^|[^A-Za-z])AI([^A-Za-z]|$)/, label: '「AI」字眼' },
   { re: /大模型/, label: '「大模型」字眼' },
   { re: /智能/, label: '「智能」字眼' },
   { re: /播客/, label: '「播客」字眼' },

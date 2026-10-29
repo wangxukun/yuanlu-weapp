@@ -8,7 +8,7 @@
  *   仅作 60s 时限自动停止的兜底入口（_finishing 防重）。
  *   phase: idle | recording | evaluating | result（录音面/结果面条件渲染 + 入场翻动动画）
  *   playing: 页内音频（原声/慢速/录音回放/词级四路）单 InnerAudioContext 互斥；
- *   AI朗读复用 utils/tts（真机 504 修复的下载中转 + dictvoice 降级 + 配额弹窗自持）
+ *   发音示范复用 utils/tts（真机 504 修复的下载中转 + dictvoice 降级 + 配额弹窗自持）
  *   原声/慢速切片 = Android MediaPlayer 等价移植：startTime 起播锚定 +
  *   onTimeUpdate 精确锚点 + 墙钟外推 50ms 看门狗到句尾即停（currentTime 是
  *   250~500ms 快照，直接轮询判停必然串进下一句开头）
@@ -153,7 +153,7 @@ Page({
     this._unbus = audioBus.register(() => this._stopPlayback());
     theme.applyChrome(); // 深色下把胶囊刷成深底白图标（frontColor 联动，见 _onThemeChange 注释）
 
-    // AI朗读走 tts.js 全链（真机 504 修复的 downloadFile 中转 + dictvoice 降级）：
+    // 发音示范走 tts.js 全链（真机 504 修复的 downloadFile 中转 + dictvoice 降级）：
     // 订阅其播放态点亮 'ai'；配额弹窗自持（入栈保存宿主 handler、退栈恢复）
     this._unsubTts = tts.subscribe((s) => {
       if (s.playingText != null) {
@@ -570,7 +570,7 @@ Page({
     const subs = this._subs;
     if (index < 0 || index >= subs.length || index === this.data.index) return;
     this._stopPlayback();
-    tts.stop(); // AI朗读随切句停止（单一时间轴）
+    tts.stop(); // 发音示范随切句停止（单一时间轴）
     this._cancelAdvance();
     if (this.data.phase === 'recording') {
       this._pcmFrames = null;
@@ -780,7 +780,7 @@ Page({
 
   _startRecording() {
     this._stopPlayback();
-    tts.stop(); // 录音期间静音（AI朗读/回放一并停）
+    tts.stop(); // 录音期间静音（发音示范/回放一并停）
     this._cancelAdvance();
     try {
       this._recorder.start({
@@ -1210,7 +1210,7 @@ Page({
     }
   },
 
-  /** AI朗读（tts.js 全链：有道 TTS 合成 → 下载中转 → 流播/短文本 dictvoice 降级） */
+  /** 发音示范（tts.js 全链：有道 TTS 合成 → 下载中转 → 流播/短文本 dictvoice 降级） */
   onAiReading() {
     if (this.data.phase === 'evaluating') return;
     if (this.data.playing === 'ai') {

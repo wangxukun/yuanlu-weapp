@@ -123,13 +123,13 @@
     <scroll-view wx:else class="se-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view class="se-card col">
 
-        <!-- ── 顶部操作栏：AI朗读 / 原声播放 / 慢速播放 / 收藏书签 / 单句循环 ── -->
+        <!-- ── 顶部操作栏：发音示范 / 原声播放 / 慢速播放 / 收藏书签 / 单句循环 ── -->
         <view class="se-actions row">
           <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onAiReading">
             <view class="se-act-btn center {{playing === 'ai' ? 'se-act-btn--on' : ''}}">
               <image class="se-act-ic" src="{{playing === 'ai' ? '/assets/icons/graphic-eq-white.svg' : (dark ? '/assets/icons/graphic-eq-dark.svg' : '/assets/icons/graphic-eq-primary.svg')}}" />
             </view>
-            <text class="se-act-label">AI朗读</text>
+            <text class="se-act-label">发音示范</text>
           </view>
           <view class="se-act col {{phase === 'evaluating' ? 'se-act--off' : ''}}" bindtap="onPlayOriginal">
             <view class="se-act-btn center {{playing === 'original' ? 'se-act-btn--on' : ''}}">
