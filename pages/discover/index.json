@@ -1,7 +1,3 @@
 {
-  "usingComponents": {
-    "sentence-micro-player": "/components/review/sentence-micro-player/index",
-    "channel-card": "/components/common/channel-card/index"
-  },
-  "enablePullDownRefresh": true
+  "navigationBarTitleText": "专项特训"
 }

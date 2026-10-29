@@ -20,7 +20,7 @@
 | Tab | Android 对应 | Material 图标 | 文件（默认 / 激活） | 状态 |
 |-----|-------------|--------------|---------------------|------|
 | 主页 | 底部导航「首页」`Icons.Filled.Home` | `home` | `home.png`（#a79e8a）/ `home-active.png`（#1f7a5c） | ✅ 已替换（lucide 房子 → Material Home） |
-| 发现 | 底部导航「发现」`Icons.Filled.Explore` | `explore` | `explore.png` / `explore-active.png` | ✅ 已替换（lucide 指南针 compass → Material Explore） |
+| 特训（原发现） | 特训库 Tab（工具化转型，2026-10-29） | `layers` | `layers.png`（#a79e8a）/ `layers-active.png`（#1f7a5c） | ✅ 已替换（Explore 随发现页重构退役删除；layers 复用 tmp-material-bake.py raster_png 81×81 烘焙） |
 | 复习 | Android 无此 Tab（最接近：生词本 `Icons.Filled.MenuBook`） | `menu_book` | `menu-book.png` / `menu-book-active.png` | ✅ 已替换（lucide book-open → Material MenuBook） |
 | 我的 | 底部导航「我的」`Icons.Filled.Person` | `person` | `person.png` / `person-active.png` | ✅ 已替换（lucide user → Material Person） |
 

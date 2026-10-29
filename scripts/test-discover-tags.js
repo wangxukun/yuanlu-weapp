@@ -1,157 +1,92 @@
 /**
- * scripts/test-discover-tags.js — 探索画廊（T4.2）自动化测试
+ * test-discover-tags — 专项特训页（第二 Tab 重构，工具化转型）
  *
- * 覆盖：feed 拉取与卡片映射、搜索防抖（q 透传）、场景胶囊 toggle、
- * 专栏聚合与点击、明信片卡跳转精研室（?sceneId=）、日签海报开合、
- * 零禁用接口（episode/podcast/channels 全退役）。
- * 运行：node scripts/test-discover-tags.js
+ * 断言：tabBar 标签/图标替换、页面标题、三段骨架（发音急救箱/语境卡册书架/
+ * 今日一测）、零旧信息流残留（scroll-view/channel-card/明信片）、按钮路由。
  */
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
-const calls = { request: [] };
-let feedPayload = null;
-const navigations = [];
-
-global.wx = {
-  getStorageSync: () => '',
-  setStorageSync: () => {},
-  removeStorageSync: () => {},
-  showToast: () => {},
-  showModal: () => {},
-  navigateTo: (o) => navigations.push(o.url),
-  switchTab: () => {},
-  navigateBack: () => {},
-  stopPullDownRefresh: () => {},
-  getWindowInfo: () => ({ pixelRatio: 2 }),
-  getSystemInfoSync: () => ({ pixelRatio: 2, statusBarHeight: 20, theme: 'light' }),
-  getImageInfo: (o) => o.fail && o.fail({}),
-  canvasToTempFilePath: (o) => o.fail && o.fail({}),
-  createSelectorQuery: () => ({ in: () => ({ select: () => ({ fields: () => ({ exec: (cb) => cb([null]) }) }) }) }),
-  request: (opts) => {
-    calls.request.push(opts.url);
-    const res = feedPayload || {
-      statusCode: 200,
-      data: {
-        success: true,
-        data: {
-          page: 1, pageSize: 10, total: 0, items: [],
-        },
-      },
-    };
-    opts.success(res);
-  },
-};
-
-global.Page = (cfg) => (global.__discoverCfg = cfg);
-
-require(path.join(__dirname, '../pages/discover/index.js'));
-const pageConfig = global.__discoverCfg;
+const read = (rel) => fs.readFileSync(path.join(__dirname, '../', rel), 'utf8');
 
 let failed = 0;
-function ok(cond, msg) {
+function assert(cond, msg) {
   if (cond) console.log('PASS:', msg);
-  else {
-    console.error('FAIL:', msg);
-    failed++;
-  }
+  else { console.error('FAIL:', msg); failed++; }
 }
-const tick = () => new Promise((r) => setTimeout(r, 20));
+
+// —— 场景 A：tabBar 替换（app.json） ——
+const app = JSON.parse(read('app.json'));
+const tab = app.tabBar.list.find((t) => t.pagePath === 'pages/discover/index');
+assert(!!tab && tab.text === '特训', 'A tabBar 文案「发现」→「特训」');
+assert(tab.iconPath === 'assets/icons/layers.png' && tab.selectedIconPath === 'assets/icons/layers-active.png',
+  'A tabBar 图标换 layers 双态（81×81 PNG，原生 tabBar 不支持 SVG）');
+assert(fs.existsSync(path.join(__dirname, '../assets/icons/layers.png')) &&
+  fs.existsSync(path.join(__dirname, '../assets/icons/layers-active.png')), 'A layers 图标资产存在');
+
+// —— 场景 B：页面清理与标题 ——
+const json = JSON.parse(read('pages/discover/index.json'));
+assert(json.navigationBarTitleText === '专项特训', 'B 页面标题「专项特训」');
+assert(!json.usingComponents || !json.usingComponents['channel-card'], 'B channel-card 注册移除（组件已退役）');
+assert(json.enablePullDownRefresh !== true, 'B 静态骨架无下拉刷新');
+
+// —— 场景 C：三段骨架 UI ——
+const wxml = read('pages/discover/index.wxml');
+const wxss = read('pages/discover/index.wxss');
+assert(wxml.includes('发音急救箱') && wxml.includes('weakPhoneme') && wxml.includes('立即攻克'),
+  'C 发音急救箱：诊断卡 + mock 音素 + 立即攻克按钮');
+assert(wxml.includes('语境卡册书架') && wxml.includes('《') && wxml.includes('percent'),
+  'C 语境卡册书架：书名 + 进度条');
+assert(wxss.includes('display: grid') && wxss.includes('repeat(2, 1fr)'),
+  'C 书架为手写两列 grid（弃用旧专栏卡组件）');
+assert(wxml.includes('今日微剧场听写') && wxml.includes('开始测试'),
+  'C 今日一测：固定单卡 + 开始测试大按钮');
+
+// —— 场景 D：零旧信息流残留 ——
+assert(!wxml.includes('scroll-view') && !wxml.includes('postcard') && !wxml.includes('channel-card'),
+  'D 零滚动信息流/明信片/旧组件残留');
+const js = read('pages/discover/index.js');
+['播客', '频道', '专栏', '节目'].forEach((w) => {
+  assert(!js.includes(w) && !wxml.includes(w), 'D 代码与文案零「' + w + '」字眼');
+});
+
+// —— 场景 E：mock 状态与路由 ——
+const navigations = [];
+global.wx = {
+  getStorageSync: () => '',
+  setStorageSync() {},
+  removeStorageSync() {},
+  showToast() {},
+  navigateTo: (o) => navigations.push(o.url),
+  switchTab() {},
+  request(o) {
+    o.success({ statusCode: 200, data: { success: true, data: { items: [{ sceneid: 'latest1' }] } } });
+  },
+};
+let page = null;
+global.Page = (cfg) => {
+  page = Object.assign({}, cfg, {
+    data: JSON.parse(JSON.stringify(cfg.data)),
+    setData(patch) { Object.assign(this.data, patch); },
+  });
+};
+require('../pages/discover/index');
 
 (async () => {
-  const page = Object.assign({}, pageConfig, {
-    data: JSON.parse(JSON.stringify(pageConfig.data)),
-    setData(patch) {
-      Object.assign(this.data, patch);
-    },
-  });
-
-  // —— A. feed 拉取与卡片映射 ——
-  feedPayload = {
-    statusCode: 200,
-    data: {
-      success: true,
-      data: {
-        page: 1, pageSize: 10, total: 2,
-        items: [
-          {
-            sceneid: 's1', title: '例会上的延期', coverUrl: 'https://oss/cv1.jpg',
-            situationTag: '职场', cefrLevel: 'B2', duration: 28.4, clipCount: 4,
-            golden: { en: 'We need to push back the timeline.', zh: '我们需要把时间线往后推。', start: 12.5, end: 15.8 },
-          },
-          {
-            sceneid: 's2', title: '深夜慢速独白', coverUrl: '', situationTag: '情感',
-            cefrLevel: '', duration: 33, clipCount: 5,
-            golden: { en: 'It is okay to feel lost.', zh: null, start: 40, end: 43 },
-          },
-        ],
-      },
-    },
-  };
   page.onLoad();
-  await tick();
-  ok(calls.request.some((u) => u.indexOf('/api/scenes/feed') !== -1), 'A 首载请求 /api/scenes/feed');
-  ok(calls.request.every((u) => !u.includes('/api/podcast/') && !u.includes('/api/episode/') && !u.includes('/api/channels')),
-    'A 零禁用接口（节目/剧集/频道全退役）');
-  ok(page.data.cards.length === 2, 'A 卡片 2 张');
-  const c1 = page.data.cards[0];
-  ok(c1.sceneid === 's1' && c1.en.indexOf('push back') !== -1 && c1.durText === '28s' && c1.start === 12.5,
-    'A 卡片映射：金句/时长/窗口秒（WXML 零方法调用）');
-  ok(page.data.columns.length === 2 && page.data.columns[0].name === '职场' && page.data.columns[0].episodeCount === 1,
-    'A 专栏聚合：situationTag 计数（channel-card 口径 episodeCount）');
-  ok(page.data.noMore === true && page.data.total === 2, 'A 分页态：total/noMore');
-
-  // —— B. 卡片跳转精研室（?sceneId= 微剧场模式） ——
-  navigations.length = 0;
-  page.onCardTap({ currentTarget: { dataset: { scene: 's1' } } });
-  ok(navigations[0] === '/pages/intensive-listening/index?sceneId=s1', 'B 明信片卡 → 精研室微剧场模式');
-
-  // —— C. 搜索防抖（q 透传；清空恢复） ——
-  calls.request.length = 0;
-  page.onSearchInput({ detail: { value: '委婉' } });
-  ok(calls.request.length === 0, 'C 防抖窗口内零请求');
-  await new Promise((r) => setTimeout(r, 450));
-  ok(calls.request.some((u) => u.indexOf('q=' + encodeURIComponent('委婉')) !== -1), 'C 防抖到期带 q 请求');
-  calls.request.length = 0;
-  page.onClearSearch();
-  await tick();
-  ok(calls.request.some((u) => u.indexOf('q=') === -1), 'C 清空搜索恢复全量');
-
-  // —— D. 场景胶囊 toggle ——
-  calls.request.length = 0;
-  page.onChipTap({ currentTarget: { dataset: { key: '职场' } } });
-  await tick();
-  ok(page.data.activeTag === '职场' && calls.request.some((u) => u.indexOf('tag=') !== -1), 'D 胶囊选中带 tag 请求');
-  page.onChipTap({ currentTarget: { dataset: { key: '职场' } } });
-  await tick();
-  ok(page.data.activeTag === '' && !calls.request[calls.request.length - 1].includes('tag='), 'D 再点同胶囊取消筛选');
-
-  // —— E. 专栏点击 → 胶囊筛选 ——
-  page.onColumnTap({ detail: { name: '情感' } }); // channel-card open 事件携带 detail.name
-  await tick();
-  ok(page.data.activeTag === '情感', 'E 专栏点击 → 对应标签筛选');
-
-  // —— F. 日签海报开合（canvas 环境缺失时静默降级） ——
-  page.onPosterOpen({ currentTarget: { dataset: { scene: 's1' } } });
-  ok(page.data.poster && page.data.poster.sceneid === 's1' && page.data.poster.en.indexOf('push back') !== -1,
-    'F 打开日签弹层（携带封面与金句）');
-  page.onPosterReady(); // canvas 探测失败 → 不抛错
-  page.onPosterClose();
-  ok(page.data.poster === null, 'F 关闭弹层');
-
-  // —— G. WXML 结构红线 ——
-  const wxml = fs.readFileSync(path.join(__dirname, '../pages/discover/index.wxml'), 'utf8');
-  ok(wxml.includes('sentence-micro-player') && wxml.includes('clip-id="{{item.sceneid}}"'),
-    'G 微播放器走 sceneid 切片直连（零整集）');
-  ok(wxml.includes('日签') && wxml.includes('poster-canvas'), 'G 日签海报按钮与画布');
-  ok(wxml.includes('主题专栏') && wxml.includes('今日声音明信片'), 'G 双区块：专栏 + 明信片');
-  ok(wxml.includes('<channel-card') && wxml.includes('bind:open="onColumnTap"'), 'G 专栏卡复用 channel-card 组件（open 事件承接）');
+  assert(page.data.weakPhoneme === '/θ/ 齿间音', 'E mock 薄弱音素状态');
+  assert(page.data.books.length === 4 && page.data.books[0].title === '职场高频句',
+    'E 书架四册静态骨架');
+  page.onPhonemeGo();
+  assert(navigations[0] === '/pages/review/practice/index', 'E 立即攻克 → 发音闯关');
+  page.onBookTap();
+  assert(navigations[1] === '/pages/library/paths/index', 'E 书架卡片 → 我的卡册');
+  await page.onDailyTestTap();
+  assert(navigations[2] === '/pages/intensive-listening/index?sceneId=latest1',
+    'E 开始测试 → 最新微语境精研（feed 取最新）');
+  assert(page.data.testBusy === false, 'E 测试按钮忙碌态复位');
 
   console.log('----------------------------------------');
-  if (failed === 0) {
-    console.log('ALL DISCOVER GALLERY TESTS PASSED');
-  } else {
-    console.error(failed + ' TEST(S) FAILED');
-    process.exitCode = 1;
-  }
+  if (failed === 0) console.log('ALL TRAINING-TAB TESTS PASSED');
+  else { console.error(failed + ' TEST(S) FAILED'); process.exitCode = 1; }
 })();

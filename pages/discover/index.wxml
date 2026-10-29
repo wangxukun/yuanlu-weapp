@@ -1,99 +1,43 @@
 <!--
-  探索画廊（RESHAPE-TASK T4.2）：搜索 + 声音明信片卡流 + 场景胶囊/专栏 + 日签海报
+  pages/discover — 专项特训（第二 Tab，工具化转型重构）
+  发音急救箱 / 语境卡册书架 / 今日一测；三段静态骨架，无信息流无滚动容器
 -->
-<view class="discover-container pb-page-bottom {{themeClass}}">
-  <!-- 搜索栏：搜表达、场景、中文意图或单词（防抖 400ms） -->
-  <view class="search-bar row">
-    <view class="search-input-wrap row flex-1">
-      <image class="search-icon-img" src="/assets/icons/search.svg" />
-      <input class="search-input flex-1" value="{{query}}" bindinput="onSearchInput"
-             placeholder="搜表达、场景、中文意图或单词" placeholder-class="search-placeholder"
-             confirm-type="search" />
-      <view wx:if="{{query}}" class="search-clear center" bindtap="onClearSearch">
-        <image class="search-clear-ic" src="/assets/icons/close.svg" />
-      </view>
+<view class="train-container pb-page-bottom {{themeClass}}">
+
+  <!-- ── 1. 发音急救箱（薄弱音素诊断卡） ── -->
+  <view class="card aid-card col">
+    <view class="row between w-full">
+      <text class="t-h3 text-bold">发音急救箱</text>
+      <text class="aid-tag">诊断</text>
+    </view>
+    <text class="aid-desc mt-3">系统诊断：你的 {{weakPhoneme}} 易混淆</text>
+    <view class="aid-go center tap-scale" bindtap="onPhonemeGo">
+      <text class="aid-go-text">立即攻克</text>
     </view>
   </view>
 
-  <!-- 语用场景胶囊栏（数据驱动：真实 situationTag 词表，点选必有结果） -->
-  <scroll-view wx:if="{{chips.length > 0}}" class="chip-row" scroll-x show-scrollbar="{{false}}">
-    <view class="chip-row-inner row">
-      <view wx:for="{{chips}}" wx:key="key"
-            class="chip {{activeTag === item.key ? 'chip--on' : ''}} tap-scale"
-            data-key="{{item.key}}" bindtap="onChipTap">{{item.label}}</view>
-    </view>
-  </scroll-view>
-
-  <!-- 主题微剧场专栏（situationTag 聚合；复用专栏卡视觉） -->
-  <block wx:if="{{columns.length > 0 && !query}}">
-    <view class="section-title mt-4 mb-3"><text class="t-h3 text-bold">主题专栏</text></view>
-    <scroll-view class="col-row" scroll-x show-scrollbar="{{false}}">
-      <view class="col-row-inner row">
-        <view wx:for="{{columns}}" wx:key="name" class="col-item">
-          <channel-card channel="{{item}}" bind:open="onColumnTap" />
-        </view>
+  <!-- ── 2. 语境卡册书架（两列网格） ── -->
+  <view class="section-title mt-6 mb-3"><text class="t-h3 text-bold">语境卡册书架</text></view>
+  <view class="shelf-grid">
+    <view class="card book-card col" wx:for="{{books}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="onBookTap">
+      <view class="book-cover center">
+        <image class="book-cover-ic" src="{{item.cover}}" mode="aspectFit" />
       </view>
-    </scroll-view>
-  </block>
-
-  <!-- 声音明信片卡流 -->
-  <view class="section-title mt-4 mb-3 between">
-    <text class="t-h3 text-bold">今日声音明信片</text>
-    <text class="t-caption text-secondary" wx:if="{{total > 0}}">{{total}} 段</text>
+      <text class="book-title ellipsis mt-2">《{{item.title}}》</text>
+      <progress class="book-progress mt-2" percent="{{item.progress}}" stroke-width="6"
+                activeColor="#1f7a5c" backgroundColor="rgba(0,0,0,0.08)" border-radius="3" />
+      <text class="t-mini text-secondary mt-1">已练 {{item.progress}}%</text>
+    </view>
   </view>
 
-  <block wx:if="{{isLoading && cards.length === 0}}">
-    <view class="center" style="height: 30vh;"><view class="loading-spinner"></view></view>
-  </block>
-  <block wx:elif="{{cards.length === 0}}">
-    <view class="empty col center">
-      <text class="t-body text-secondary">{{query ? '没有找到贴近日签的原声，换个说法试试' : '原声语料正在筹备中，稍后再来逛逛'}}</text>
-    </view>
-  </block>
-  <block wx:else>
-    <view class="postcard" wx:for="{{cards}}" wx:key="sceneid"
-          data-scene="{{item.sceneid}}" bindtap="onCardTap">
-      <image class="postcard-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
-      <view class="postcard-shade"></view>
-      <view class="postcard-body col">
-        <view class="row postcard-tags" wx:if="{{item.situationTag || item.cefrLabel}}">
-          <text class="postcard-pill" wx:if="{{item.situationTag}}">{{item.situationTag}}</text>
-          <text class="postcard-pill" wx:if="{{item.cefrLabel}}">{{item.cefrLabel}}</text>
-          <text class="postcard-pill">{{item.durText}}</text>
-        </view>
-        <text class="postcard-en ellipsis-2">{{item.en}}</text>
-        <text class="postcard-zh ellipsis" wx:if="{{item.zh}}">{{item.zh}}</text>
-        <view class="postcard-foot between w-full">
-          <view class="postcard-fav center tap-scale" data-scene="{{item.sceneid}}" catchtap="onFavToggle">
-            <text class="postcard-fav-ic {{favOn[item.sceneid] ? 'postcard-fav-ic--on' : ''}}">{{favOn[item.sceneid] ? '♥' : '♡'}}</text>
-          </view>
-          <view class="postcard-play row" data-scene="{{item.sceneid}}" catchtap="onPosterOpen">
-            <image class="postcard-poster-ic" src="/assets/icons/share.svg" />
-            <text class="postcard-poster-text">日签</text>
-          </view>
-          <sentence-micro-player
-            episodeid="" clip-id="{{item.sceneid}}" sentence-id="{{item.sceneid}}"
-            start-time="{{item.start}}" end-time="{{item.end}}" />
-        </view>
-      </view>
-    </view>
-    <view wx:if="{{isLoading}}" class="center" style="padding: 32rpx 0;">
-      <view class="loading-spinner loading-spinner--sm"></view>
-    </view>
-    <view wx:elif="{{noMore}}" class="t-mini text-secondary center" style="padding: 32rpx 0;">— 已经逛到底啦 —</view>
-  </block>
-</view>
-
-<!-- ═══ 日签海报弹层（Canvas：封面 + 金句 + 品牌落款） ═══ -->
-<view wx:if="{{poster}}" class="poster-mask" bindtap="onPosterClose">
-  <view class="poster-card col center" catchtap="noop">
-    <canvas id="poster-canvas" type="2d" class="poster-canvas" bindinit="onPosterReady" />
-    <view class="row poster-actions">
-      <view class="poster-btn center tap-scale" bindtap="onPosterClose">关闭</view>
-      <view class="poster-btn poster-btn--main center tap-scale {{posterSaving ? 'is-busy' : ''}}" bindtap="onPosterSave">
-        <view wx:if="{{posterSaving}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn" />
-        <text wx:else>保存到相册</text>
-      </view>
+  <!-- ── 3. 今日一测（固定高度单卡，不滚动） ── -->
+  <view class="daily-card col center">
+    <text class="t-h2 text-bold">今日微剧场听写</text>
+    <text class="t-caption text-secondary mt-2">一段 30 秒真实语境 · 听音记句 · 即时校对</text>
+    <view class="daily-go center tap-scale {{testBusy ? 'is-busy' : ''}}" bindtap="onDailyTestTap">
+      <view wx:if="{{testBusy}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn"></view>
+      <text wx:else class="daily-go-text">开始测试</text>
     </view>
   </view>
 </view>

@@ -47,9 +47,9 @@
       },
       {
         "pagePath": "pages/discover/index",
-        "text": "发现",
-        "iconPath": "assets/icons/explore.png",
-        "selectedIconPath": "assets/icons/explore-active.png"
+        "text": "特训",
+        "iconPath": "assets/icons/layers.png",
+        "selectedIconPath": "assets/icons/layers-active.png"
       },
       {
         "pagePath": "pages/review/index",

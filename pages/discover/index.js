@@ -1,329 +1,70 @@
 /**
- * pages/discover/index — 探索画廊 · 声音明信片与主题专栏（RESHAPE-TASK T4.2）
+ * pages/discover — 专项特训（第二 Tab，工具化转型重构）
  *
- * 数据源 = GET /api/scenes/feed（阶段 1 后端语料原子化产物）：
- *   - 顶部搜索：搜表达、场景、中文意图或单词（400ms 防抖，q 透传 feed）
- *   - 声音明信片卡流：剧集封面 + 金句原文/译文 + 微播放器切片直连试听
- *     （clipId=sceneid，窗口=金句字幕绝对秒，audio-clip 换算切片内相对）
- *   - 语用场景胶囊栏 + 主题微剧场专栏（首页按 situationTag 聚合，点选过滤）
- *   - 日签海报：Canvas 绘制封面+金句+品牌落款，保存相册（尺寸自算+DPR
- *     缩放+图片先行下载，真机 canvas 三坑全防）
- * 分页：onReachBottom 追加（feed page/pageSize/total）。
+ * 三段式静态骨架（无信息流、无滚动容器）：
+ *   1. 发音急救箱：薄弱音素诊断卡（mock 画像，接入语音评测画像后替换）
+ *      →「立即攻克」进发音闯关
+ *   2. 语境卡册书架：两列网格（display: grid），方形封面 + 书名 + 进度条
+ *      → 点卡片进我的卡册（学习路径）
+ *   3. 今日一测：固定高度单卡「今日微剧场听写」→「开始测试」取最新微场景
+ *      进精研室（听写语境）
  */
-const { get } = require('../../utils/request');
 const theme = require('../../utils/theme');
-const sceneFavorites = require('../../utils/scene-favorites');
+const { get } = require('../../utils/request');
 
-const SEARCH_DEBOUNCE_MS = 400;
-const PAGE_SIZE = 10;
-/** 场景胶囊上限（后端 tags 聚合下发，客户端页内聚合兜底） */
-const CHIPS_MAX = 8;
+/** 书架空壳数据（骨架期静态；进度在卡册资产接入后改由接口下发） */
+const SHELF_BOOKS = [
+  { key: 'work', title: '职场高频句', cover: '/assets/icons/workspace-premium-amber.svg', progress: 20 },
+  { key: 'daily', title: '日常开口说', cover: '/assets/icons/local-fire-department-primary.svg', progress: 45 },
+  { key: 'travel', title: '旅行出行', cover: '/assets/icons/layers-primary.svg', progress: 10 },
+  { key: 'campus', title: '校园课堂', cover: '/assets/icons/school-primary.svg', progress: 0 },
+];
 
 Page({
   data: {
     themeClass: '',
-    isLoading: true,
-    query: '',
-    activeTag: '',
-    chips: [], // 场景胶囊：feed tags 数据驱动（真实 situationTag 词表，点了必有结果）
-    cards: [],
-    columns: [], // 主题专栏：situationTag 聚合（复用专栏卡视觉）
-    page: 1,
-    total: 0,
-    noMore: false,
-    favOn: {}, // sceneid → 本地收藏态
-    poster: null, // { sceneid, coverUrl, en, zh } 日签海报弹层
-    posterSaving: false,
+    // 发音急救箱（骨架期 mock 画像；语音评测画像接入后替换）
+    weakPhoneme: '/θ/ 齿间音',
+    books: SHELF_BOOKS,
+    testBusy: false,
   },
 
   onLoad() {
-    this._searchTimer = null;
-    this._fetch(1, true);
+    this.setData({ themeClass: theme.rootClass() });
   },
 
   onShow() {
-    // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
     this.setData({ themeClass: theme.rootClass() });
-    theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
+    theme.applyChrome();
   },
 
-  onPullDownRefresh() {
-    this._fetch(1, true).then(() => wx.stopPullDownRefresh());
+  /** 发音急救箱 → 发音闯关（薄弱音素专项） */
+  onPhonemeGo() {
+    wx.navigateTo({ url: '/pages/review/practice/index' });
   },
 
-  onReachBottom() {
-    if (this.data.noMore || this.data.isLoading) return;
-    this._fetch(this.data.page + 1, false);
+  /** 书架卡片 → 我的卡册（学习路径） */
+  onBookTap() {
+    wx.navigateTo({ url: '/pages/library/paths/index' });
   },
 
-  /** 卡片视图模型（WXML 零方法调用：时长/标签预格式化） */
-  _mapCard(item) {
-    const golden = item && item.golden;
-    return {
-      sceneid: item.sceneid,
-      title: item.title || '',
-      coverUrl: item.coverUrl || '',
-      situationTag: item.situationTag || '',
-      cefrLabel: item.cefrLevel || '',
-      durText: Math.round(item.duration || 0) + 's',
-      en: (golden && golden.en) || (item.title || ''),
-      zh: (golden && golden.zh) || '',
-      start: (golden && golden.start) || 0,
-      end: (golden && golden.end) || 0,
-    };
-  },
-
-  async _fetch(page, replace) {
-    this.setData({ isLoading: true });
+  /** 今日一测：取最新微场景进精研室听写（失败 toast，不中断骨架） */
+  async onDailyTestTap() {
+    if (this.data.testBusy) return;
+    this.setData({ testBusy: true });
     try {
-      const params = ['page=' + page, 'pageSize=' + PAGE_SIZE];
-      if (this.data.activeTag) params.push('tag=' + encodeURIComponent(this.data.activeTag));
-      const q = this.data.query.trim();
-      if (q) params.push('q=' + encodeURIComponent(q));
-      const body = await get('/api/scenes/feed?' + params.join('&'), null, { showError: false });
-      const data = (body && body.success && body.data) || {};
-      const items = (data.items || []).map(this._mapCard).filter((c) => c.sceneid);
-      const total = Number(data.total) || 0;
-      const cards = replace ? items : this.data.cards.concat(items);
-      // 主题专栏 + 场景胶囊：仅首页且无筛选时刷新（筛选期保持稳定不闪变）
-      let columns = this.data.columns;
-      let chips = this.data.chips;
-      if (replace && !q && !this.data.activeTag) {
-        const byTag = {};
-        cards.forEach((c) => {
-          const tag = c.situationTag;
-          if (!tag) return;
-          if (!byTag[tag]) byTag[tag] = { name: tag, coverUrl: c.coverUrl, sceneCount: 0 };
-          byTag[tag].sceneCount += 1;
-        });
-        // 专栏卡复用 channel-card 组件（T4.2 原计划口径：episodeCount 承载微剧场数）
-        columns = Object.values(byTag)
-          .slice(0, 6)
-          .map((x) => ({ name: x.name, coverUrl: x.coverUrl, podcastCount: 0, episodeCount: x.sceneCount }));
-        // 胶囊数据驱动：后端 tags 全量聚合优先，客户端页内聚合兜底（旧后端）
-        const feedTags = (data.tags || []).filter((t) => t && t.name);
-        const chipSource = feedTags.length > 0
-          ? feedTags.map((t) => ({ name: t.name }))
-          : Object.values(byTag).sort((a, b) => b.sceneCount - a.sceneCount);
-        chips = chipSource
-          .slice(0, CHIPS_MAX)
-          .map((t) => ({ key: t.name, label: '#' + t.name }));
+      const body = await get('/api/scenes/feed?page=1&pageSize=1', null, { showError: false });
+      const sceneid = body && body.success && body.data && body.data.items
+        && body.data.items[0] && body.data.items[0].sceneid;
+      if (sceneid) {
+        wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + sceneid });
+      } else {
+        wx.showToast({ title: '今日题库准备中，稍后再来', icon: 'none' });
       }
-      const favOn = {};
-      cards.forEach((c) => { favOn[c.sceneid] = sceneFavorites.has(c.sceneid); });
-      this.setData({
-        isLoading: false,
-        cards,
-        columns,
-        chips,
-        page,
-        total,
-        noMore: cards.length >= total,
-        ...(replace ? { favOn } : {}),
-      });
     } catch (e) {
-      this.setData({ isLoading: false, ...(replace ? { cards: [], noMore: true } : {}) });
+      wx.showToast({ title: '题库加载失败，请重试', icon: 'none' });
+    } finally {
+      this.setData({ testBusy: false });
     }
-  },
-
-  // ==================== 搜索（400ms 防抖） ====================
-
-  onSearchInput(e) {
-    const query = (e.detail && e.detail.value) || '';
-    this.setData({ query });
-    if (this._searchTimer) clearTimeout(this._searchTimer);
-    const trimmed = query.trim();
-    if (!trimmed) {
-      // 清空搜索恢复全量（保留胶囊筛选）
-      this._searchTimer = setTimeout(() => this._fetch(1, true), SEARCH_DEBOUNCE_MS);
-      return;
-    }
-    this._searchTimer = setTimeout(() => this._fetch(1, true), SEARCH_DEBOUNCE_MS);
-  },
-
-  onClearSearch() {
-    if (this._searchTimer) clearTimeout(this._searchTimer);
-    this.setData({ query: '' });
-    this._fetch(1, true);
-  },
-
-  // ==================== 胶囊 / 专栏 ====================
-
-  /** 场景胶囊：再点同标签取消（对齐 toggle 语义） */
-  onChipTap(e) {
-    const key = e.currentTarget.dataset.key || '';
-    const activeTag = this.data.activeTag === key ? '' : key;
-    this.setData({ activeTag });
-    this._fetch(1, true);
-  },
-
-  /** 专栏卡点击（channel-card open 事件携带 name）→ 该标签胶囊筛选 */
-  onColumnTap(e) {
-    const name = (e.detail && e.detail.name) || e.currentTarget.dataset.name;
-    if (!name) return;
-    this.setData({ activeTag: this.data.activeTag === name ? '' : name });
-    this._fetch(1, true);
-  },
-
-  // ==================== 卡片 / 日签海报 ====================
-
-  onCardTap(e) {
-    const sceneid = e.currentTarget.dataset.scene;
-    if (sceneid) {
-      wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + sceneid });
-    }
-  },
-
-  /** 明信片收藏心（T5.2 本地收藏夹）：toggle + 心形反馈 */
-  onFavToggle(e) {
-    const sceneid = e.currentTarget.dataset.scene;
-    const card = this.data.cards.find((c) => c.sceneid === sceneid);
-    if (!card) return;
-    const on = sceneFavorites.toggle({
-      sceneid: card.sceneid,
-      title: card.title,
-      coverUrl: card.coverUrl,
-      en: card.en,
-      zh: card.zh,
-      start: card.start,
-      end: card.end,
-      situationTag: card.situationTag,
-      cefrLabel: card.cefrLabel,
-    });
-    const key = 'favOn.' + sceneid;
-    this.setData({ [key]: on });
-    wx.showToast({ title: on ? '已收进收藏' : '已取消收藏', icon: 'none' });
-  },
-
-  onPosterOpen(e) {
-    const ds = e.currentTarget.dataset;
-    const card = this.data.cards.find((c) => c.sceneid === ds.scene);
-    if (!card) return;
-    this.setData({ poster: { sceneid: card.sceneid, coverUrl: card.coverUrl, en: card.en, zh: card.zh } });
-  },
-
-  onPosterClose() {
-    if (this.data.posterSaving) return;
-    this.setData({ poster: null });
-  },
-
-  /** Canvas 绘制：尺寸显式自算（不信 fields）+ DPR 缩放 + 图片先行下载 */
-  onPosterReady() {
-    const poster = this.data.poster;
-    if (!poster || this._posterDrawn === poster.sceneid) return;
-    this._posterDrawn = poster.sceneid;
-    this._drawPoster(poster).catch(() => {
-      wx.showToast({ title: '海报生成失败，请重试', icon: 'none' });
-    });
-  },
-
-  async _drawPoster(poster) {
-    const W = 600;
-    const H = 860;
-    const query = wx.createSelectorQuery().in(this);
-    const field = await new Promise((resolve) => {
-      query.select('#poster-canvas').fields({ node: true, size: true }).exec((res) => resolve(res && res[0]));
-    });
-    if (!field || !field.node) throw new Error('canvas 未挂载');
-    const canvas = field.node;
-    const dpr = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()).pixelRatio || 2;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-
-    // 底色
-    ctx.fillStyle = '#1b1812';
-    ctx.fillRect(0, 0, W, H);
-
-    // 封面（先行下载；失败则以底色继续）
-    const CH = 420;
-    try {
-      const info = await new Promise((resolve, reject) => {
-        wx.getImageInfo({ src: poster.coverUrl, success: resolve, fail: reject });
-      });
-      const img = canvas.createImage();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = info.path;
-      });
-      ctx.drawImage(img, 0, 0, W, CH);
-      const grad = ctx.createLinearGradient(0, CH - 160, 0, CH);
-      grad.addColorStop(0, 'rgba(27,24,18,0)');
-      grad.addColorStop(1, 'rgba(27,24,18,0.9)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, CH - 160, W, 160);
-    } catch (e) {
-      ctx.fillStyle = '#2e5d4a';
-      ctx.fillRect(0, 0, W, CH);
-    }
-
-    // 金句（手动折行）
-    const wrap = (text, maxChars, maxLines) => {
-      const lines = [];
-      let line = '';
-      for (const ch of String(text || '')) {
-        if (ch === '\n' || line.length >= maxChars) {
-          lines.push(line);
-          line = ch === '\n' ? '' : ch;
-          if (lines.length >= maxLines) return lines;
-        } else {
-          line += ch;
-        }
-      }
-      if (line && lines.length < maxLines) lines.push(line);
-      return lines;
-    };
-
-    let y = CH + 70;
-    ctx.fillStyle = '#f3efe4';
-    ctx.font = '600 34px serif';
-    wrap(poster.en, 26, 4).forEach((ln) => {
-      ctx.fillText(ln, 48, y);
-      y += 50;
-    });
-    if (poster.zh) {
-      y += 14;
-      ctx.fillStyle = 'rgba(243,239,228,0.72)';
-      ctx.font = '26px sans-serif';
-      wrap(poster.zh, 22, 2).forEach((ln) => {
-        ctx.fillText(ln, 48, y);
-        y += 40;
-      });
-    }
-
-    // 品牌落款
-    ctx.fillStyle = 'rgba(243,239,228,0.55)';
-    ctx.font = '22px sans-serif';
-    ctx.fillText('远路听说 · 今日声音日签', 48, H - 60);
-
-    this._posterCanvas = canvas;
-  },
-
-  onPosterSave() {
-    if (this.data.posterSaving || !this._posterCanvas) return;
-    this.setData({ posterSaving: true });
-    wx.canvasToTempFilePath({
-      canvas: this._posterCanvas,
-      success: (res) => {
-        wx.saveImageToPhotosAlbum({
-          filePath: res.tempFilePath,
-          success: () => {
-            wx.showToast({ title: '日签已存入相册', icon: 'none' });
-            this.setData({ posterSaving: false, poster: null });
-            this._posterDrawn = null;
-          },
-          fail: () => {
-            this.setData({ posterSaving: false });
-            wx.showToast({ title: '未授权保存到相册，可在设置中开启', icon: 'none' });
-          },
-        });
-      },
-      fail: () => {
-        this.setData({ posterSaving: false });
-        wx.showToast({ title: '海报导出失败', icon: 'none' });
-      },
-    });
   },
 });
