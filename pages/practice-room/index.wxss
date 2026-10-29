@@ -1,7 +1,10 @@
 /* pages/practice-room — 题库式跟读训练室（根类自声明 color；深浅双轨令牌） */
 .pr-container {
   min-height: 100vh;
-  padding: 24rpx 32rpx 0;
+  /* 底边不声明：pb-page-bottom 统一避让（简写 padding 会覆盖其为 0） */
+  padding-top: 24rpx;
+  padding-left: 32rpx;
+  padding-right: 32rpx;
   box-sizing: border-box;
   color: var(--ink-900);
   background-color: var(--bg-page, var(--page-bg));
