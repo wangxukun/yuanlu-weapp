@@ -33,8 +33,9 @@
 
   <!-- ── 3. 今日一测（固定高度单卡，不滚动） ── -->
   <view class="daily-card col center">
-    <text class="t-h2 text-bold">今日微剧场听写</text>
-    <text class="t-caption text-secondary mt-2">一段 30 秒真实语境 · 听音记句 · 即时校对</text>
+    <view class="daily-tag center"><text class="daily-tag-text">每天 1 题</text></view>
+    <text class="daily-title">今日微剧场听写</text>
+    <text class="daily-sub">一段 30 秒真实语境 · 听音记句 · 即时校对</text>
     <view class="daily-go center tap-scale {{testBusy ? 'is-busy' : ''}}" bindtap="onDailyTestTap">
       <view wx:if="{{testBusy}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn"></view>
       <text wx:else class="daily-go-text">开始测试</text>

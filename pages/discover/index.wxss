@@ -65,23 +65,46 @@
   width: 100%;
 }
 
-/* ── 3. 今日一测（固定高度单卡，不滚动） ── */
+/* ── 3. 今日一测（固定高度单卡，不滚动）：深绿渐变底 + 纯白标题 + 半透白简介 ── */
 .daily-card {
   height: 420rpx;
   margin-top: 48rpx;
   padding: 48rpx 40rpx;
   border-radius: 32rpx;
-  background-color: var(--primary-600);
+  background: linear-gradient(135deg, #1f7a5c 0%, #155e46 100%);
   overflow: hidden;
+}
+.daily-tag {
+  padding: 8rpx 24rpx;
+  border-radius: var(--r-full, 999rpx);
+  background-color: rgba(255, 255, 255, 0.16);
+}
+.daily-tag-text {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+.daily-title {
+  margin-top: 24rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 2rpx;
+}
+.daily-sub {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.6;
 }
 .daily-go {
   margin-top: 40rpx;
   padding: 24rpx 96rpx;
   border-radius: var(--r-full, 999rpx);
   background-color: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.18);
 }
 .daily-go-text {
   font-size: 32rpx;
   font-weight: 700;
-  color: var(--primary-600);
+  color: #1f7a5c;
 }
