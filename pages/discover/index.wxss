@@ -69,6 +69,7 @@
 .daily-card {
   height: 420rpx;
   margin-top: 48rpx;
+  margin-bottom: 48rpx;
   padding: 48rpx 40rpx;
   border-radius: 32rpx;
   background: linear-gradient(135deg, #1f7a5c 0%, #155e46 100%);
