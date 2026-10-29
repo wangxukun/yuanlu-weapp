@@ -27,6 +27,19 @@
 > weapp 底栏为 Web 端结构（主页/发现/复习/我的），Android 为 首页/发现/生词本/我的；
 > 图标字形按 Android 同名 Tab 一一对应，复习 Tab 取 Android 生词本 Feature 图标 MenuBook。
 
+### 一·一、语境卡册书架专属批（2026-10-29，专项特训 Tab 重构，+4）
+
+| 书册 | Material 字形 | 文件 | 色值 |
+|------|--------------|------|------|
+| 职场高频句 | `work` | `work-primary.svg` | #1f7a5c（四枚统一） |
+| 日常开口说 | `record_voice_over` | `record-voice-over-primary.svg` | #1f7a5c |
+| 旅行出行 | `flight` | `flight-primary.svg` | #1f7a5c |
+| 校园课堂 | `history_edu` | `history-edu-primary.svg` | #1f7a5c |
+
+> 仅书架封面使用，不与任何存量图标重复（借图 batch：workspace-premium-amber /
+> local-fire-department-primary / layers-primary（与 Tab 图标撞形）/ school-primary 已撤）。
+> 烘焙驱动同第七节取源链路（版本回退 + 全幅矩形过滤）。
+
 ## 二、我的页菜单（pages/mine，对照 Android ProfileScreen.kt；2026-10-01 重构为分组列表，见第九节）
 
 | 菜单项 | Android（ProfileScreen.kt 原值） | Material 图标 | weapp 文件 | 状态 |

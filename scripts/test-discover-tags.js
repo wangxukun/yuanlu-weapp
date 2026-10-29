@@ -77,6 +77,17 @@ require('../pages/discover/index');
   assert(page.data.weakPhoneme === '/θ/ 齿间音', 'E mock 薄弱音素状态');
   assert(page.data.books.length === 4 && page.data.books[0].title === '职场高频句',
     'E 书架四册静态骨架');
+  const covers = page.data.books.map((b) => b.cover);
+  assert(covers.every((c) => c.endsWith('-primary.svg')),
+    'E 封面图标四枚统一 #1f7a5c（书架专属批）');
+  assert(fs.existsSync(path.join(__dirname, '../assets/icons/work-primary.svg')) &&
+    fs.existsSync(path.join(__dirname, '../assets/icons/record-voice-over-primary.svg')) &&
+    fs.existsSync(path.join(__dirname, '../assets/icons/flight-primary.svg')) &&
+    fs.existsSync(path.join(__dirname, '../assets/icons/history-edu-primary.svg')),
+    'E 四枚专属字形资产存在（work/record_voice_over/flight/history_edu）');
+  assert(!covers.includes('/assets/icons/layers-primary.svg') &&
+    !covers.includes('/assets/icons/workspace-premium-amber.svg'),
+    'E 封面零存量图标复用（含 Tab layers 与琥珀色借图）');
   page.onPhonemeGo();
   assert(navigations[0] === '/pages/review/practice/index', 'E 立即攻克 → 发音闯关');
   page.onBookTap();

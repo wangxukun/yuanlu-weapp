@@ -12,12 +12,14 @@
 const theme = require('../../utils/theme');
 const { get } = require('../../utils/request');
 
-/** 书架空壳数据（骨架期静态；进度在卡册资产接入后改由接口下发） */
+/** 书架空壳数据（骨架期静态；进度在卡册资产接入后改由接口下发）。
+ *  封面图标为书架专属批（work/record_voice_over/flight/history_edu，
+ *  统一 #1f7a5c，不与任何存量图标重复） */
 const SHELF_BOOKS = [
-  { key: 'work', title: '职场高频句', cover: '/assets/icons/workspace-premium-amber.svg', progress: 20 },
-  { key: 'daily', title: '日常开口说', cover: '/assets/icons/local-fire-department-primary.svg', progress: 45 },
-  { key: 'travel', title: '旅行出行', cover: '/assets/icons/layers-primary.svg', progress: 10 },
-  { key: 'campus', title: '校园课堂', cover: '/assets/icons/school-primary.svg', progress: 0 },
+  { key: 'work', title: '职场高频句', cover: '/assets/icons/work-primary.svg', progress: 20 },
+  { key: 'daily', title: '日常开口说', cover: '/assets/icons/record-voice-over-primary.svg', progress: 45 },
+  { key: 'travel', title: '旅行出行', cover: '/assets/icons/flight-primary.svg', progress: 10 },
+  { key: 'campus', title: '校园课堂', cover: '/assets/icons/history-edu-primary.svg', progress: 0 },
 ];
 
 Page({
