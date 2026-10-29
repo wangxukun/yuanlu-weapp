@@ -1,7 +1,6 @@
 /* pages/discover — 专项特训（第二 Tab）：三段静态骨架；根类自声明 color。
-   注意：底部 padding 不在此声明（简写会把 pb-page-bottom 的
-   padding-bottom 覆盖为 0，卡片将顶到 tabBar 底下），底边由
-   app.wxss 的 .pb-page-bottom 统一避让 tabBar + 安全区 */
+   底部间距口径：原生 tabBar 不与内容重叠（视口已排除），本页不用
+   pb-page-bottom 整段避让，卡片底 margin-bottom 与顶 margin-top 对称（48rpx） */
 .train-container {
   min-height: 100vh;
   padding-top: 32rpx;

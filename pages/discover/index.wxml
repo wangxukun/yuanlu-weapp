@@ -2,7 +2,7 @@
   pages/discover — 专项特训（第二 Tab，工具化转型重构）
   发音急救箱 / 语境卡册书架 / 今日一测；三段静态骨架，无信息流无滚动容器
 -->
-<view class="train-container pb-page-bottom {{themeClass}}">
+<view class="train-container {{themeClass}}">
 
   <!-- ── 1. 发音急救箱（薄弱音素诊断卡） ── -->
   <view class="card aid-card col">
