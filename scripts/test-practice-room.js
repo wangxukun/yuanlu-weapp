@@ -115,22 +115,21 @@ function assert(cond, msg) {
   assert(page.data.items[0].clipid === 'c3' && page.data.items[1].clipid === 'c1',
     'A clipId 参数置顶该例句');
   assert(page.data.sourceLabel === '查单词 · compromise' && page.data.word === 'compromise', 'A 题源标签与命中词');
-  assert(Array.isArray(page.data.current.parts) && page.data.current.parts.some((p) => p.hl),
-    'A 命中词三段高亮（WXML 零方法调用）');
+  assert(page.data.current.parts === undefined,
+    'A 页级短句文本已除（无 parts 高亮，句子展示归 eval-card）');
   assert(page.data.current.evalSubtitle.textEn === page.data.items[0].textEn, 'A eval-card subtitle 同步当前题');
 
   // —— 场景 B：切片直链预取 + 词级时间轴 clipOffset 换算 ——
   await new Promise((r) => setTimeout(r, 0));
   assert(page.data.items[0].audioReady === true && page.data.items[0].audioUrl.indexOf('sig') !== -1,
-    'B 切片直链经 /api/clips 网关预取');
+    'B 切片直链经 /api/clips 网关预取（供 eval-card 原声播放）');
   const rebased = page.data.current.evalSubtitle.words[0];
   assert(Math.abs(rebased.start - 0.2) < 1e-6 && Math.abs(rebased.end - 1.4) < 1e-6,
     'B 词级时间轴按 clipOffset 换算切片相对秒（100.2-100≈0.2，浮点容差）');
 
-  // —— 场景 C：中央播放钮（audio-clip 打桩验证调用口径） ——
-  page.onPlayTap();
-  assert(playCalls[0] && playCalls[0].clipId === 'c3' && playCalls[0].key === 'pr:c3',
-    'C 播放钮走切片直连（key=pr:{clipid}）');
+  // —— 场景 C：独立播放钮已除（播放归 eval-card 卡内控件） ——
+  assert(playCalls.length === 0 && typeof page.onPlayTap === 'undefined',
+    'C 页面无独立播放钮（audio-clip 单例零起播）');
 
   // —— 场景 D：评测回填 + 手动翻页（禁自动连播） ——
   page.onEvaluate({ detail: { score: 87 } });
@@ -155,7 +154,7 @@ function assert(cond, msg) {
   await new Promise((r) => setTimeout(r, 0));
   assert(sceneCalls === 1 && page.data.total === 2 && page.data.items[1].episodeid === 'ep9',
     'F 场景模式装载 2 句（episodeid 场景级回填）');
-  assert(page.data.current.parts === null && page.data.current.durText === '4s',
+  assert(page.data.current.parts === undefined && page.data.current.durText === '4s',
     'F 场景模式无命中词高亮 / durText 预格式化');
 
   // —— 场景 G：错误分支 ——
@@ -171,6 +170,8 @@ function assert(cond, msg) {
   const wxml = require('node:fs').readFileSync(path.join(__dirname, '../pages/practice-room/index.wxml'), 'utf8');
   assert(!wxml.includes('<swiper'), 'H 题库式无 swiper（禁手势滑动连播）');
   assert(wxml.includes('bindtap="onNext"'), 'H 【下一句】为手动点击翻页');
+  assert(!wxml.includes('pr-sentence') && !wxml.includes('pr-play'),
+    'H 无页顶短句卡/独立播放钮（重设计口径回归守卫）');
 
   authStore.logout && authStore.logout();
   console.log('----------------------------------------');

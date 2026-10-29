@@ -1,24 +1,21 @@
 /**
- * pages/practice-room — 题库式跟读训练室（工具化转型阶段三）
+ * pages/practice-room — 题库式跟读训练室（工具化转型阶段三·精简版）
  *
  * 摒弃无限上滑卡片流：一题一屏、手动【下一句】翻页，禁止自动连播/手势滑动。
+ * 页面不重复展示短句文本、无独立播放钮——eval-card 即答题卡（自带句子
+ * 展示 + 原声/慢速/示范朗读播放 + 录音评测三指标 + 逐词音素诊断）。
  * 入参（二选一）：
  *   ?word=resilient&clipId=xx  词典例句队列（/api/dict corpusExamples；
  *                              clipId 把该例句置顶）
  *   ?sceneId=xx                 语境句队列（/api/scenes/[sceneid] clips）
  *
- * 每题结构（自上而下）：
- *   1. 短句文本（word 模式命中词三段高亮）
- *   2. 中央独立播放大按钮（audio-clip 切片直连：/api/clips/{id}/audio 现切
- *      ≤45s 硬闸；loading/playing/idle 三态）
- *   3. eval-card 跟读评测（录音→评测→三指标，复用发音闯关同款组件；词级
- *      时间轴按 clipOffset 换算切片相对秒）
- *   4. 底部【下一句】手动翻页（评测完成不自动切换）
+ * 切片音频经 /api/clips/{id}/audio 网关按需现切（≤45s 服务端硬闸），
+ * 预取直链填入 eval-card 的 subtitle.audioUrl，词级时间轴按 clipOffset
+ * 换算切片相对秒。
  */
 const { get } = require('../../utils/request');
 const theme = require('../../utils/theme');
 const authStore = require('../../store/authStore');
-const dictTool = require('../../utils/dict-tool');
 const audioClip = require('../../utils/audio-clip');
 
 Page({
@@ -30,14 +27,13 @@ Page({
 
     sourceLabel: '',
     word: '',
-    items: [],       // [{clipid, episodeid, subtitleId, textEn, textCn, duration, words, audioUrl, audioOffset, audioReady, parts}]
+    items: [],       // [{clipid, episodeid, subtitleId, textEn, textCn, duration, words, audioUrl, audioOffset, audioReady}]
     index: 0,
     total: 0,
 
     // 当前题视图模型（WXML 零方法调用：全部预计算）
-    current: null,   // {textEn, textCn, parts, durText, evalSubtitle, subtitleId, episodeId}
+    current: null,   // {textEn, textCn, durText, evalSubtitle, subtitleId, episodeId}
 
-    playState: 'idle', // idle | loading | playing
     lastScore: null,
     scores: [],
     finished: false,
@@ -45,7 +41,6 @@ Page({
   },
 
   onLoad(query) {
-    this._unsubClip = audioClip.subscribe(() => this._syncPlayState());
     this._unsubAuth = authStore.subscribe(() => {
       this.setData({ isLoggedIn: authStore.getState().isLoggedIn });
     });
@@ -66,8 +61,6 @@ Page({
   },
 
   onUnload() {
-    audioClip.stop();
-    if (this._unsubClip) this._unsubClip();
     if (this._unsubAuth) this._unsubAuth();
   },
 
@@ -131,14 +124,10 @@ Page({
       audioUrl: '',
       audioOffset: 0,
       audioReady: false,
-      parts: null,
     };
   },
 
   _ready(items, label, word) {
-    items.forEach((it) => {
-      it.parts = word ? dictTool.splitHighlight(it.textEn, word) : null;
-    });
     this.setData({
       loading: false,
       loadError: '',
@@ -152,7 +141,7 @@ Page({
       lastScore: null,
     });
     this._applyCurrent();
-    // 首题预取切片直链（中央播放与 eval-card 原声共用；失败由播放态兜底）
+    // 首题预取切片直链（eval-card 原声/慢速/词级播放共用；失败由卡片内提示兜底）
     this._ensureAudio(items[0]);
   },
 
@@ -174,7 +163,6 @@ Page({
         clipid: it.clipid,
         textEn: it.textEn,
         textCn: it.textCn,
-        parts: it.parts,
         durText: Math.round(it.duration) + 's',
         subtitleId: it.subtitleId,
         episodeId: it.episodeid,
@@ -187,7 +175,6 @@ Page({
           end: it.duration,
         },
       },
-      playState: 'idle',
       lastScore: this.data.scores[this.data.index] != null ? this.data.scores[this.data.index] : null,
     });
   },
@@ -210,29 +197,6 @@ Page({
     } catch (e) {
       /* 静默：中央播放钮的失败分支已兜底提示 */
     }
-  },
-
-  // ==================== 中央独立播放钮（切片直连，≤45s 服务端硬闸） ====================
-
-  onPlayTap() {
-    const it = this.data.items[this.data.index];
-    if (!it) return;
-    audioClip.play({
-      key: 'pr:' + it.clipid,
-      clipId: it.clipid,
-      clipDuration: it.duration,
-      clipOffset: 0,
-    });
-    this._ensureAudio(it);
-  },
-
-  _syncPlayState() {
-    const st = audioClip.getState() || {};
-    const it = this.data.items[this.data.index];
-    const key = st.loadingKey || st.playingKey || '';
-    const mine = it && key === 'pr:' + it.clipid;
-    const playState = mine ? (st.loadingKey === key ? 'loading' : 'playing') : 'idle';
-    if (playState !== this.data.playState) this.setData({ playState });
   },
 
   // ==================== 评测回调 / 手动翻页（禁止自动连播） ====================
@@ -263,18 +227,15 @@ Page({
       const avg = scores.length
         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
         : 0;
-      audioClip.stop();
       this.setData({ finished: true, avgText: scores.length ? avg + ' 分' : '—' });
       return;
     }
-    audioClip.stop();
     this.setData({ index: this.data.index + 1 });
     this._applyCurrent();
     this._ensureAudio(this.data.items[this.data.index]);
   },
 
   onRestart() {
-    audioClip.stop();
     this.setData({ index: 0, scores: [], finished: false, lastScore: null });
     this._applyCurrent();
     this._ensureAudio(this.data.items[0]);

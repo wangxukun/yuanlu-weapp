@@ -43,46 +43,6 @@
   color: var(--primary-600);
 }
 
-/* 1. 短句文本 */
-.pr-sentence {
-  margin-top: 24rpx;
-  padding: 36rpx 32rpx;
-}
-.pr-sentence-en {
-  font-size: 34rpx;
-  font-weight: 600;
-  line-height: 1.6;
-  color: var(--ink-900);
-}
-.pr-sentence-zh {
-  font-size: 26rpx;
-  color: var(--text-secondary);
-}
-.pr-hl {
-  color: var(--primary-600);
-  font-weight: 700;
-}
-
-/* 2. 中央独立播放大按钮 */
-.pr-play-wrap {
-  padding: 40rpx 0 24rpx;
-}
-.pr-play-btn {
-  width: 152rpx;
-  height: 152rpx;
-  border-radius: 50%;
-  background-color: var(--primary-600);
-  box-shadow: 0 12rpx 36rpx rgba(47, 100, 84, 0.28);
-}
-.pr-play-btn--on {
-  background-color: var(--ink-800, #2f3e37);
-}
-.pr-play-ic {
-  width: 64rpx;
-  height: 64rpx;
-  margin-left: 6rpx;
-}
-
 /* 4. 手动翻页 */
 .pr-next {
   margin: 32rpx 0 40rpx;
