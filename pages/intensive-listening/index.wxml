@@ -189,20 +189,19 @@
           <text class="il-hero-title ellipsis-2">{{scene.title}}</text>
           <view class="row between w-full il-hero-foot">
             <text class="il-hero-dur">微剧场 · 约 {{scene.duration}}s</text>
-            <view class="il-hero-play center tap-scale" bindtap="onHeroToggle">
-              <view wx:if="{{isPlaying}}" class="il-hero-bars row">
-                <view class="il-hero-bar"></view><view class="il-hero-bar"></view><view class="il-hero-bar"></view>
+            <view class="row il-hero-ops">
+              <view class="il-hero-fav center tap-scale {{sceneFav ? 'il-hero-fav--on' : ''}}" bindtap="onSceneFavToggle">
+                <text class="il-hero-fav-icon">{{sceneFav ? '♥' : '♡'}}</text>
               </view>
-              <image wx:else class="il-hero-play-ic" src="/assets/icons/play-filled-ink.svg" />
+              <view class="il-hero-play center tap-scale" bindtap="onHeroToggle">
+                <view wx:if="{{isPlaying}}" class="il-hero-bars row">
+                  <view class="il-hero-bar"></view><view class="il-hero-bar"></view><view class="il-hero-bar"></view>
+                </view>
+                <image wx:else class="il-hero-play-ic" src="/assets/icons/play-filled-ink.svg" />
+              </view>
             </view>
           </view>
         </view>
-      </view>
-
-      <!-- ── 游客试听墙：字幕流尾部解锁按钮（Web InteractiveTranscript 同名按钮复刻：
-                未登录字幕止于 180s + 播放时长满 180s 落锁，点击进登录页，成功自动返回解锁） ── -->
-      <view wx:if="{{!isLoggedIn && !isSceneMode}}" class="il-unlock">
-        <view class="il-unlock-btn tap-scale" bindtap="onUnlockLogin">登录后解锁全部字幕</view>
       </view>
 
       <!-- 底部让位（键盘 / 安全区） -->
@@ -215,7 +214,7 @@
                     dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.corpusExamples}}"
                     loading="{{wordModal.loading}}"
                     saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
-                    episode-title="{{episode ? episode.title : ''}}"
+                    episode-title="{{scene ? scene.title : ''}}"
                     bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete"
                     bind:gopractice="onVocabGoPractice" />
 
@@ -244,45 +243,40 @@
 
   <!-- ═══ 语境精析面板（T4.1 第三 Tab） ═══ -->
   <view wx:if="{{mode === 'insight'}}" class="il-insight">
-    <block wx:if="{{isSceneMode}}">
-      <view wx:if="{{insight}}">
-        <view class="ii-sec" wx:if="{{insight.vocabulary.length > 0}}">
-          <text class="ii-sec-title">重点词汇</text>
-          <view class="ii-vocab row" wx:for="{{insight.vocabulary}}" wx:key="word">
-            <view class="col flex-1">
-              <view class="row">
-                <text class="ii-vocab-word">{{item.word}}</text>
-                <text class="ii-vocab-ph" wx:if="{{item.phonetic}}">{{item.phonetic}}</text>
-              </view>
-              <text class="ii-vocab-meaning">{{item.meaning}}{{item.reason ? ' · ' + item.reason : ''}}</text>
+    <view wx:if="{{insight}}">
+      <view class="ii-sec" wx:if="{{insight.vocabulary.length > 0}}">
+        <text class="ii-sec-title">重点词汇</text>
+        <view class="ii-vocab row" wx:for="{{insight.vocabulary}}" wx:key="word">
+          <view class="col flex-1">
+            <view class="row">
+              <text class="ii-vocab-word">{{item.word}}</text>
+              <text class="ii-vocab-ph" wx:if="{{item.phonetic}}">{{item.phonetic}}</text>
             </view>
-          </view>
-        </view>
-        <view class="ii-sec" wx:if="{{insight.sentences.length > 0}}">
-          <text class="ii-sec-title">长难句拆解</text>
-          <view class="ii-sent col" wx:for="{{insight.sentences}}" wx:key="text">
-            <text class="ii-sent-en">{{item.text}}</text>
-            <text class="ii-sent-an">{{item.analysis}}</text>
-          </view>
-        </view>
-        <view class="ii-sec" wx:if="{{insight.quiz.length > 0}}">
-          <text class="ii-sec-title">随堂小测</text>
-          <view class="ii-quiz col" wx:for="{{insight.quiz}}" wx:key="idx" wx:for-index="qi">
-            <text class="ii-quiz-q">{{qi + 1}}. {{item.question}}</text>
-            <view class="ii-quiz-opt {{quizPick[item.idx] === oi ? (oi === item.answerIndex ? 'ii-quiz-opt--ok' : 'ii-quiz-opt--bad') : ''}}"
-                  wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="oi" wx:key="oi"
-                  data-q="{{item.idx}}" data-o="{{oi}}" bindtap="onQuizPick">{{opt}}</view>
-            <text class="ii-quiz-ex" wx:if="{{quizPick[item.idx] !== undefined}}">{{item.explanation}}</text>
+            <text class="ii-vocab-meaning">{{item.meaning}}{{item.reason ? ' · ' + item.reason : ''}}</text>
           </view>
         </view>
       </view>
-      <view wx:else class="ii-empty col center">
-        <text class="t-body text-secondary">这段微剧场暂无精析内容，先去扫光页精研吧</text>
+      <view class="ii-sec" wx:if="{{insight.sentences.length > 0}}">
+        <text class="ii-sec-title">长难句拆解</text>
+        <view class="ii-sent col" wx:for="{{insight.sentences}}" wx:key="text">
+          <text class="ii-sent-en">{{item.text}}</text>
+          <text class="ii-sent-an">{{item.analysis}}</text>
+        </view>
       </view>
-    </block>
-    <block wx:else>
-      <ai-deep-dive episode-id="{{episodeid}}" />
-    </block>
+      <view class="ii-sec" wx:if="{{insight.quiz.length > 0}}">
+        <text class="ii-sec-title">随堂小测</text>
+        <view class="ii-quiz col" wx:for="{{insight.quiz}}" wx:key="idx" wx:for-index="qi">
+          <text class="ii-quiz-q">{{qi + 1}}. {{item.question}}</text>
+          <view class="ii-quiz-opt {{quizPick[item.idx] === oi ? (oi === item.answerIndex ? 'ii-quiz-opt--ok' : 'ii-quiz-opt--bad') : ''}}"
+                wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="oi" wx:key="oi"
+                data-q="{{item.idx}}" data-o="{{oi}}" bindtap="onQuizPick">{{opt}}</view>
+          <text class="ii-quiz-ex" wx:if="{{quizPick[item.idx] !== undefined}}">{{item.explanation}}</text>
+        </view>
+      </view>
+    </view>
+    <view wx:else class="ii-empty col center">
+      <text class="t-body text-secondary">这段微剧场暂无精析内容，先去扫光页精研吧</text>
+    </view>
   </view>
 
   <!-- ═══ 会员转化弹窗（配额墙） ═══ -->

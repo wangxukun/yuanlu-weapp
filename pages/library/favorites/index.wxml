@@ -1,5 +1,5 @@
 <!-- pages/library/favorites/index.wxml — 我的收藏（RESHAPE-TASK T5.2 重建）
-  双 Tab：收藏的微剧场（本地收藏夹，探索画廊一键收藏）/ 我的特训卡册（心愿工坊产物）。
+  双 Tab：收藏的微剧场（本地收藏夹，精研室画报 ♥ 一键收藏）/ 我的特训卡册（心愿工坊产物）。
   顶部返回 + 标题由原生导航栏提供。 -->
 
 <view class="fav-page {{themeClass}}">
@@ -16,8 +16,8 @@
   <block wx:if="{{activeTab === 'scenes'}}">
     <view wx:if="{{scenes.length === 0}}" class="state-box col center">
       <text class="t-body text-secondary">还没有收藏微剧场</text>
-      <text class="t-caption text-tertiary mt-2">去探索画廊，点亮明信片上的心，把喜欢的 30 秒收进这里</text>
-      <view class="go-btn center tap-scale" bindtap="onGoDiscover">去探索画廊</view>
+      <text class="t-caption text-tertiary mt-2">在微剧场精研室点亮画报右上角的心，把喜欢的 30 秒收进这里</text>
+      <view class="go-btn center tap-scale" bindtap="onGoDiscover">去特训逛逛</view>
     </view>
     <block wx:else>
       <view wx:for="{{scenes}}" wx:key="sceneid" class="scene-card row tap-scale"
@@ -29,9 +29,7 @@
           <text class="scene-tag" wx:if="{{item.tagLabel}}">{{item.tagLabel}}</text>
         </view>
         <view class="col center scene-side">
-          <sentence-micro-player episodeid="" clip-id="{{item.sceneid}}"
-                                 sentence-id="{{item.sceneid}}"
-                                 start-time="{{item.start}}" end-time="{{item.end}}" />
+          <view class="scene-go center tap-scale" catchtap="onSceneTap" data-scene="{{item.sceneid}}">重研</view>
           <view class="scene-remove center tap-scale" catchtap="onSceneRemove" data-scene="{{item.sceneid}}">
             <image class="scene-remove-ic" src="/assets/icons/delete-error.svg" />
           </view>

@@ -1,6 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "premium-modal": "/components/premium-modal/index"
-  }
-}

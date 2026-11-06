@@ -152,6 +152,10 @@ function makeSentence(id, extra) {
     tags: id === 1 ? ['地道表达'] : id === 2 ? ['写作素材'] : [],
     createAt: '2026-09-0' + ((id % 9) + 1) + 'T00:00:00.000Z',
     updateAt: '2026-09-20T00:00:00.000Z',
+    clipId: 'clip-' + id,
+    clipAudioUrl: 'https://oss.example.com/ep.m4a',
+    clipOffset: 0,
+    clipDuration: 30,
   }, extra || {});
 }
 
@@ -251,9 +255,6 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
 
   // 右滑超阈值 → 重听原音（当前 index 1 → 第 2 句 startTime=12）
   audioInstances.length = 0;
-  apiResponses['/api/episode/subtitles'] = {
-    success: true, audioUrl: 'https://oss.example.com/ep.m4a', data: [],
-  };
   p.setData({ currentIndex: 1 });
   p.onCardTouchStart(touch(100, 300));
   p.onCardTouchMove(touch(260, 300)); // dx = +160

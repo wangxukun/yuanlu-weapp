@@ -2,8 +2,8 @@
  * pages/intensive-listening/index — 独立精听工作流页
  *
  * 复刻 Web 端 components/episode/InteractiveTranscript.tsx 的移动端全屏精听体验
- * （对齐 Android IntensiveListeningScreen 的页面定位），承接全屏播放面板
- * 「精听模式」胶囊入口与本页 ?id= 直达。
+ * 复刻 Web 端 components/episode/InteractiveTranscript.tsx 的移动端全屏精听体验
+ * （对齐 Android IntensiveListeningScreen 的页面定位），承接微剧场场景精研直达（?sceneId=）。
  *
  * 核心机制（对应 Web 源）：
  *   - 字幕流 + 词级扫光：页内 clip-player 位置回调 → intensive-core.findActiveIndex
@@ -19,7 +19,7 @@
  *     → /api/vocabulary/add 落库；
  *   - 配额墙统一走 premium-modal（sentence_quota / vocabulary_total /
  *     vocabulary_daily / dictionary_quota 场景文案已在组件内置）；
- *   - 游客试听墙：未登录字幕裁至前 180s（后端 /api/episode/subtitles 裁 +
+ *   - 游客试听墙：未登录字幕裁至前 180s（微剧场接口裁 +
  *     前端同口径兜底），播放时长满 180s 落锁暂停，字幕流尾部常驻
  *     「登录后解锁全部字幕」按钮（InteractiveTranscript 同名按钮复刻）。
  *
@@ -54,10 +54,10 @@
 
 const theme = require('../../utils/theme');
 const { get, post } = require('../../utils/request');
-const { fetchSubtitles } = require('../../utils/subtitle-cache');
 const { createClipPlayer } = require('../../utils/clip-player');
 const listeningReporter = require('../../utils/listening-reporter');
 const footprint = require('../../utils/study-footprint');
+const sceneFavorites = require('../../utils/scene-favorites');
 const authStore = require('../../store/authStore');
 const core = require('../../utils/intensive-core');
 const dictTool = require('../../utils/dict-tool');
@@ -70,7 +70,6 @@ const WINDOW_BEHIND = 8;   // 跟随窗口：活动句后方保留句数（上�
 const WINDOW_AHEAD = 40;   // 跟随窗口：活动句前方保留句数（窗口右缘目标）
 const FOLLOW_VISIBLE_TOL = 4; // 跟随自动滚动：完全可见判定容差（px，吸收亚像素/取整误差）
 const TOAST_DURATION = 4000; // 收藏成功 toast 驻留（对齐 sonner 默认 4s）
-const GUEST_PREVIEW_SECONDS = 180; // 游客试听墙：未登录可听时长（与后端字幕裁剪同口径）
 // 工具行开关偏好 key（跨会话记忆）：逐词/跟随默认开、译文默认关——
 // 只存显式翻转值，onLoad 仅在存值偏离默认时覆盖
 const PREF_KEYS = {
@@ -87,7 +86,8 @@ Page({
     episodeid: '',
     sceneid: '', // 微剧场模式（?sceneId=）：30 秒精研室（T4.1）
     scene: null,
-    isSceneMode: false,
+    sceneFav: false, // 微剧场本地收藏态（scene-favorites，2026-11-05 入口复活）
+    isSceneMode: true,
     rateLabel: '1x',
     phrase: null, // 词块点读坞：{ index, startWi, endWi, text, durText }
     phrasePlaying: '',
@@ -103,7 +103,7 @@ Page({
     // 词扫光态随活动句视图字段 viewList[activeIndex] 下发（swIdx/swOn/active），
     // 高频路径补丁只让活动句的绑定重算——不再放页面级标量（见文件头性能口径）
     isPlaying: false,
-    isPlayingHere: false, // 全局播放器当前会话即本集（对齐 isPlayingThisEpisode）
+    isPlayingHere: false, // 页内播放会话已就绪
     autoScroll: true, // 跟随开关（默认开；偏好持久化，见 PREF_KEYS）
     showTranslation: false, // 译文开关（默认关；偏好持久化，见 PREF_KEYS）
     wordSweep: true, // 词级扫光开关（平台性扩展；关闭仅留句级高亮，见文件头）
@@ -112,7 +112,6 @@ Page({
     scrollIntoView: '',
 
     isLoggedIn: false,
-    guestLimitOn: false, // 游客试听墙已落锁（播放时长满 180s 拦截暂停）
     savedMap: {}, // subtitleId -> SavedSentenceItem | true（书签态 + 最新收藏记录）
 
     // 收藏成功 toast：{ type:'saved'|'removed', quote, sentence }
@@ -153,12 +152,12 @@ Page({
   onLoad(query) {
     // 深链预选模式（心愿卡册「捕词」入口）：直接进听写（含 0.8 倍速口径）
     const presetDictate = query && query.mode === 'dictate';
-    // 微剧场模式（?sceneId=）：30 秒精研室（T4.1）；与 ?id= 剧集模式并存
+    // 微剧场精研室唯一入口契约（?sceneId=）
     const sceneId = (query && (query.sceneId || query.scene)) || '';
     this.setData({
-      episodeid: query.id || '',
+      episodeid: '',
       sceneid: sceneId,
-      isSceneMode: !!sceneId,
+      isSceneMode: true,
       statusBarH: this._statusBarHeight(),
       ...(presetDictate ? { mode: 'dictate' } : {}),
     });
@@ -197,7 +196,7 @@ Page({
     this._lastPos = 0;   // 最近一次位置回调（秒）
     this._resumeAt = 0;  // 暂停位（续播/暂停态跳句的落点）
     this._rate = presetDictate ? 0.8 : 1; // 听写降速 0.8 / 精读 1.0（深链预选含其中）
-    this._audioUrl = ''; // 字幕接口带回的签名直链
+    this._audioUrl = ''; // 物理切片直链
     this._player = createClipPlayer({
       onPlaying: (k) => this._onPlayingChanged(!!k),
       onTick: (pos) => this._onTick(pos, this._playing),
@@ -213,18 +212,7 @@ Page({
     this._unsubAuth = authStore.subscribe(() => this._syncAuth());
     this._syncAuth();
 
-    if (this.data.isSceneMode) this._bootstrapScene(this.data.sceneid);
-    else this._bootstrap();
-  },
-
-  /** 单例回退换集刷新（utils/route.singletonNavigateTo 回退/命中本页实例时
-   *  调用；同集 no-op——_bootstrap 重拉，见 _syncAuth 同款用法） */
-  singletonReload(query) {
-    const id = query && query.id;
-    if (!id || String(id) === String(this.data.episodeid)) return;
-    this._playerPause(); // 换集：先收掉当前播放会话再重拉
-    this.setData({ episodeid: id });
-    this._bootstrap();
+    this._bootstrapScene(this.data.sceneid);
   },
 
   onUnload() {
@@ -259,7 +247,11 @@ Page({
    * _timeBase：播放位置 + timeBase = 原剧集时间轴，扫光/跟随/循环全复用。
    */
   async _bootstrapScene(sceneid) {
-    this.setData({ isLoading: true, error: null, guestLimitOn: false });
+    if (!sceneid) {
+      this.setData({ error: '缺少微剧场参数', isLoading: false });
+      return;
+    }
+    this.setData({ isLoading: true, error: null });
     try {
       const body = await get('/api/scenes/' + encodeURIComponent(sceneid), null, { showError: false });
       if (!body || !body.success || !body.data || !body.data.scene) {
@@ -272,7 +264,22 @@ Page({
 
       this._timeBase = Number(d.clipOffset) || 0;
       this._buildViews(clips);
+      // 本地收藏快照（scene-favorites 契约）：金句文本取首句，时长定位取整段
+      const firstClip = clips[0] || {};
+      this._favSnapshot = {
+        sceneid: sceneid,
+        title: scene.title || '原声微剧场',
+        coverUrl: scene.coverUrl || '',
+        en: firstClip.textEn || '',
+        zh: firstClip.textCn || '',
+        start: Number(firstClip.start) || 0,
+        end: Number(firstClip.end) || Number(scene.duration) || 0,
+        situationTag: scene.situationTag || '',
+        cefrLabel: scene.cefrLevel || '',
+      };
       this.setData({
+        episodeid: scene.episodeid || '',
+        isPlayingHere: true,
         scene: {
           episodeid: scene.episodeid || '',
           title: scene.title || '原声微剧场',
@@ -282,6 +289,7 @@ Page({
           coverUrl: scene.coverUrl || '',
           duration: scene.duration || d.clipDuration || 0,
         },
+        sceneFav: sceneFavorites.has(sceneid),
         insight: this._buildInsight(scene.deepDive),
         isLoading: false,
         viewList: this._views.slice(0, this._renderEnd),
@@ -315,7 +323,7 @@ Page({
     }
   },
 
-  /** 字幕句（episode/scene 同构）→ 视图模型 + 连读词块标记（T4.1） */
+  /** 字幕句（微剧场片段）→ 视图模型 + 连读词块标记（T4.1） */
   _buildViews(subtitles) {
     this._views = subtitles.map((sv, i) => {
       const words = Array.isArray(sv.words) ? sv.words : [];
@@ -380,67 +388,13 @@ Page({
     };
   },
 
-  async _bootstrap() {
-    const { episodeid } = this.data;
-    if (!episodeid) {
-      this.setData({ error: '缺少剧集参数', isLoading: false });
-      return;
-    }
-    this.setData({ isLoading: true, error: null, guestLimitOn: false });
-    try {
-      const [episode, subBody] = await Promise.all([
-        get(`/api/episode/detail?id=${episodeid}`),
-        fetchSubtitles(episodeid),
-      ]);
-      const subtitles = (subBody && subBody.data) || [];
-      if (!Array.isArray(subtitles) || subtitles.length === 0) {
-        throw new Error('暂无字幕数据');
-      }
-
-      // 字幕接口带回的 OSS 签名直链即本页音源（页内播放器直连，免二次拉取）
-      if (subBody.audioUrl) episode.audioUrl = subBody.audioUrl;
-
-      this._sentences = subtitles;
-      this._buildViews(subtitles);
-      // 游客试听墙（对齐 Web 端口径）：后端未登录时已把字幕裁至前 180s
-      // （start < 180），前端同口径再裁一次防后端放开后泄漏；音频不受此裁剪
-      // 影响（detail 接口对游客仍签发直链、整集连播），越界续播由 _onTick
-      // 的时长拦截兜底
-      if (!authStore.getState().isLoggedIn) {
-        const cutLen = this._views.findIndex(
-          (v) => v.start >= GUEST_PREVIEW_SECONDS
-        );
-        if (cutLen > 0) this._views = this._views.slice(0, cutLen);
-      }
-
-      this.setData({
-        episode,
-        isLoading: false,
-        viewList: this._views.slice(0, this._renderEnd),
-      });
-
-      // 页内播放会话：字幕接口带回的签名直链即本页音源（无跨页后台播放器）
-      this._audioUrl = subBody.audioUrl || episode.audioUrl || '';
-      this.setData({ isPlayingHere: true });
-      if (this._audioUrl) {
-        this._playerPlay(0);
-      } else {
-        wx.showToast({ title: '暂时无法播放原声', icon: 'none' });
-      }
-      this._fetchSaveState();
-    } catch (err) {
-      this.setData({ error: (err && err.message) || '加载失败', isLoading: false });
-    }
-  },
-
   onRetry() {
-    this._bootstrap();
+    this._bootstrapScene(this.data.sceneid);
   },
 
   // ==================== 页内播放会话（clip-player 适配） ====================
 
-  /** 起播/重锚起播（seek 即重锚）。fromSec 为切片本地秒；剧集模式
-   *  _timeBase=0 时与原剧集时间轴等价 */
+  /** 起播/重锚起播（seek 即重锚）。fromSec 为切片本地秒 */
   _playerPlay(fromSec) {
     if (!this._audioUrl) return;
     const sec = isFinite(fromSec) && fromSec > 0 ? fromSec : 0;
@@ -499,13 +453,6 @@ Page({
     const changed = s.isLoggedIn !== this.data.isLoggedIn;
     this.setData({ isLoggedIn: s.isLoggedIn });
     if (!changed) return; // profile 刷新等非登录态翻转不重复拉书签/生词表
-    if (!this.data.isLoading && this._views.length) {
-      // 登录态翻转 → 180s 试听墙口径切换（全量 ↔ 裁剪），重拉字幕与书签态；
-      // 播放会话不打断（_ensurePlaying 同集只补精听标记/续播，拦截点续播）
-      if (!s.isLoggedIn) this.setData({ savedMap: {} });
-      this._bootstrap();
-      return;
-    }
     if (s.isLoggedIn) {
       this._fetchSaveState();
     } else {
@@ -552,13 +499,6 @@ Page({
     this._lastPos = t; // 切片本地秒（重锚/词块坞共用）
     const at = t + (this._timeBase || 0); // 剧集时间轴绝对秒（扫光/跟随/循环）
 
-    // 游客时长拦截（仅剧集模式；微剧场切片 ≤40s 天然合规，游客可完整体验）
-    if (!this.data.isSceneMode && !this.data.isLoggedIn && at >= GUEST_PREVIEW_SECONDS) {
-      if (!this.data.guestLimitOn) this._engageGuestLimit();
-      else if (playing) this._playerPause();
-      return;
-    }
-
     // 单句循环：听写模式锁活动句，精读模式锁 loopIndex（useTranscriptScroll loopTarget）
     const loopIdx =
       this.data.mode === 'dictate' ? this.data.activeIndex : this.data.loopIndex;
@@ -599,18 +539,6 @@ Page({
         });
       }
     }
-  },
-
-  /**
-   * 游客试听墙落锁：回退到最后一句句首（登录前仍可反复试听前 180s）并暂停。
-   * 解锁按钮由 WXML 按 !isLoggedIn 常驻字幕流尾部（对齐 Web
-   * InteractiveTranscript「登录后解锁全部字幕」的渲染条件）。
-   */
-  _engageGuestLimit() {
-    const last = this._views[this._views.length - 1];
-    this._playerPause();
-    if (last) this._resumeAt = this._absToLocal(last.start); // 回退句首（登录前可反复试听）
-    this.setData({ guestLimitOn: true });
   },
 
   _setActive(idx, t) {
@@ -884,6 +812,21 @@ Page({
   onHeroToggle() {
     if (this._playing) this._playerPause();
     else this._playerPlay(this._resumeAt || 0);
+  },
+
+  /**
+   * 微剧场 ♥ 本地收藏（2026-11-05 入口复活：探索画廊明信片♥随信息流全清
+   * 下线后，favorites 页「收藏的微剧场」唯一写入口收归精研室画报头卡）。
+   */
+  onSceneFavToggle() {
+    if (!this.data.sceneid || !this._favSnapshot) return;
+    const added = sceneFavorites.toggle(this._favSnapshot);
+    this.setData({ sceneFav: added });
+    wx.showToast({
+      title: added ? '已收进收藏' : '已取消收藏',
+      icon: 'none',
+      duration: 1500,
+    });
   },
 
   /**

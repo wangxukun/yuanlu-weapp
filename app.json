@@ -29,7 +29,7 @@
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "@navBgColor",
-    "navigationBarTitleText": "远路听说",
+    "navigationBarTitleText": "远路播客",
     "navigationBarTextStyle": "@navTxtStyle",
     "backgroundColor": "@bgColor"
   },

@@ -792,17 +792,17 @@ function reportBrief(days) {
   };
 }
 
-/** 智能学习建议（规则派生零 LLM，Web 逐字文案；命中多条时取前 3） */
+/** 个性化学习建议（规则派生零 LLM，Web 逐字文案；命中多条时取前 3） */
 function reportSuggestions(brief, streakDays, dailyGoalMins) {
   const b = brief || {};
   const streak = Math.max(0, Math.round(Number(streakDays) || 0));
   const goal = Number(dailyGoalMins) > 0 ? Math.round(Number(dailyGoalMins)) : 20;
   const list = [];
   if (streak >= 3) {
-    list.push('连续打卡 ' + streak + ' 天，节奏已经成型——保持“每天一集短播客”的惯性比时长更重要。');
+    list.push('连续打卡 ' + streak + ' 天，节奏已经成型——保持“每天一段短原声”的惯性比时长更重要。');
   }
   if (b.avgMins > 0 && b.avgMins < goal) {
-    list.push('近 7 天日均 ' + b.avgMins + ' 分钟，低于目标 ' + goal + ' 分钟——通勤时打开自动连播，碎片时间就能补齐。');
+    list.push('近 7 天日均 ' + b.avgMins + ' 分钟，低于目标 ' + goal + ' 分钟——通勤时练几段微剧场，碎片时间就能补齐。');
   }
   if (b.activeDays >= 5) {
     list.push('近 7 天学习 ' + b.activeDays + ' 天，稳定性很好——可以把每日目标上调 10% 挑战一下自己。');

@@ -1,5 +1,5 @@
 /**
- * app.js — 远路听说小程序入口
+ * app.js — 远路播客小程序入口
  */
 const theme = require("./utils/theme");
 const listeningReporter = require("./utils/listening-reporter");

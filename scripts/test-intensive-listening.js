@@ -218,8 +218,27 @@ let toggleResponse = { statusCode: 200, data: { success: true, saved: true, mess
 let vocabAddResponse = { statusCode: 200, data: { success: true } };
 
 routeHandler = (p, method) => {
-  if (p === '/api/episode/detail') return { statusCode: 200, data: EPISODE };
-  if (p === '/api/episode/subtitles') return { statusCode: 200, data: { success: true, data: SUBS, audioUrl: 'https://oss/signed.m4a' } };
+  if (p === '/api/scenes/s0') {
+    return {
+      statusCode: 200,
+      data: {
+        success: true,
+        data: {
+          scene: {
+            sceneid: 's0',
+            episodeid: 'ep1',
+            title: EPISODE.title,
+            coverUrl: EPISODE.coverUrl,
+            duration: 15,
+            clips: SUBS,
+          },
+          clipAudioUrl: 'https://oss/signed.m4a',
+          clipOffset: 0,
+          clipDuration: 15,
+        },
+      },
+    };
+  }
   if (p === '/api/sentences/keys') return { statusCode: 200, data: { success: true, data: { subtitleIds: [10], allTags: ['地道表达'] } } };
   if (p === '/api/vocabulary/words') return { statusCode: 200, data: { success: true, data: ['free'] } };
   if (p.indexOf('/api/dict/') === 0) return { statusCode: 200, data: { success: true, data: DICT_FREE } };
@@ -443,21 +462,22 @@ setFollowRects({ top: 100, bottom: 800 }, {
   'sub-10': { top: 700, bottom: 900 },
   'sub-11': { top: 780, bottom: 950 },
 });
-page.onLoad({ id: 'ep1' });
+page.onLoad({ sceneId: 's0' });
 await tick(); await tick(); await tick(); await tick();
 
-assert(page.data.isLoading === false && page.data.error === null, 'onLoad → 详情+字幕双请求就绪');
+assert(page.data.isLoading === false && page.data.error === null, 'onLoad → 微剧场请求就绪');
 assert(page.data.viewList.length === 3, '字幕视图模型建立（3 句）');
 assert(page.data.viewList[1].tsLabel === '00:05', '视图模型 tsLabel 预格式化（00:05）');
 assert(page.data.viewList[1].zhClean === '她答应了。', 'zhClean 去说话人标记');
-assert(page.data.episode.audioUrl === 'https://oss/signed.m4a', 'subtitles 签名直链回填剧集对象');
+assert(page.data.scene && page.data.scene.title === EPISODE.title, '微剧场标题回填 scene 对象');
 
-// 精听起播：互停 + intensive 标记 + 直链复用（无二次 subtitles 拉取）
+// 精听起播：互停 + intensive 标记 + 直链复用
 assert(stopAllCalls >= 1, '起播前 audioBus.stopAll 互停（clip-player 内建）');
 assert(innerAudios.length >= 1 && innerAudios[innerAudios.length - 1].src === 'https://oss/signed.m4a',
-  '页内播放器直连签名直链（免二次拉取，零全局 BGM）');
+  '页内播放器直连物理切片直链（免二次拉取，零全局 BGM）');
 assert(page.data.isPlayingHere === true, '页内播放会话置位（isPlayingHere）');
-assert(requestCalls.filter((c) => c.path === '/api/episode/subtitles').length === 1, 'subtitles 仅请求一次');
+assert(requestCalls.filter((c) => c.path === '/api/scenes/s0').length === 1, 'scenes 仅请求一次');
+assert(requestCalls.filter((c) => c.path.indexOf('/api/episode/') === 0).length === 0, '零整集接口请求');
 
 await tick(); await tick();
 assert(page.data.savedMap[10] === true, 'sentences/keys → 书签态回填（句 10 已收藏）');
@@ -669,8 +689,27 @@ for (let i = 0; i < 100; i++) {
   });
 }
 routeHandler = (p) => {
-  if (p === '/api/episode/subtitles') return { statusCode: 200, data: { success: true, data: LONG_SUBS, audioUrl: 'https://oss/long.m4a' } };
-  if (p === '/api/episode/detail') return { statusCode: 200, data: Object.assign({}, EPISODE, { episodeid: 'epLong' }) };
+  if (p === '/api/scenes/sLong') {
+    return {
+      statusCode: 200,
+      data: {
+        success: true,
+        data: {
+          scene: {
+            sceneid: 'sLong',
+            episodeid: 'epLong',
+            title: EPISODE.title,
+            coverUrl: EPISODE.coverUrl,
+            duration: 500,
+            clips: LONG_SUBS,
+          },
+          clipAudioUrl: 'https://oss/long.m4a',
+          clipOffset: 0,
+          clipDuration: 500,
+        },
+      },
+    };
+  }
   if (p === '/api/sentences/keys') return { statusCode: 200, data: { success: true, data: { subtitleIds: [], allTags: [] } } };
   if (p === '/api/vocabulary/words') return { statusCode: 200, data: { success: true, data: [] } };
   if (p === '/api/user/profile') return { statusCode: 200, data: { User: {} } };
@@ -679,7 +718,7 @@ routeHandler = (p) => {
 
 const page2 = makePage();
 curPage = page2;
-page2.onLoad({ id: 'epLong' });
+page2.onLoad({ sceneId: 'sLong' });
 await tick(); await tick(); await tick(); await tick();
 assert(page2.data.viewList.length === 40, '长字幕首屏渲染 40 句');
 
@@ -866,16 +905,35 @@ const hlGray = fs.readFileSync(path.join(__dirname, '../assets/icons/highlight-g
 assert(hlPrimary.indexOf('M6 14l3 3v5h6v-5l3-3V9H6') >= 0 && hlPrimary.indexOf('#1f7a5c') >= 0, '图标：Material 官方 highlight v1 path 烘焙 primary（#1f7a5c）');
 assert(hlGray.indexOf('M6 14l3 3v5h6v-5l3-3V9H6') >= 0 && hlGray.indexOf('#a79e8a') >= 0, '图标：gray 变体同 path（#a79e8a）');
 
-// 行为：重开一集页面（page2 会话已在 Bug1 回归 close）
+// 行为：重开微剧场页面（page2 会话已在 Bug1 回归 close）
 routeHandler = (p, method) => {
-  if (p === '/api/episode/detail') return { statusCode: 200, data: EPISODE };
-  if (p === '/api/episode/subtitles') return { statusCode: 200, data: { success: true, data: SUBS, audioUrl: 'https://oss/signed.m4a' } };
+  if (p === '/api/scenes/s0') {
+    return {
+      statusCode: 200,
+      data: {
+        success: true,
+        data: {
+          scene: {
+            sceneid: 's0',
+            episodeid: 'ep1',
+            title: EPISODE.title,
+            coverUrl: EPISODE.coverUrl,
+            duration: 15,
+            clips: SUBS,
+          },
+          clipAudioUrl: 'https://oss/signed.m4a',
+          clipOffset: 0,
+          clipDuration: 15,
+        },
+      },
+    };
+  }
   if (p === '/api/sentences/keys') return { statusCode: 200, data: { success: true, data: { subtitleIds: [], allTags: [] } } };
   if (p === '/api/vocabulary/words') return { statusCode: 200, data: { success: true, data: [] } };
   return { statusCode: 200, data: { success: true } };
 };
 const page3 = makePage();
-page3.onLoad({ id: 'ep1' });
+page3.onLoad({ sceneId: 's0' });
 await tick(); await tick(); await tick(); await tick();
 assert(page3.data.wordSweep === true, '默认词扫光开启');
 
@@ -911,7 +969,7 @@ assert(storageSets[storageSets.length - 1].value === true, '重开 → 偏好落
 const origGetStorage = global.wx.getStorageSync;
 global.wx.getStorageSync = (k) => (k === 'intensiveWordSweep' ? false : origGetStorage(k));
 const page4 = makePage();
-page4.onLoad({ id: 'ep1' });
+page4.onLoad({ sceneId: 's0' });
 await tick(); await tick(); await tick(); await tick();
 global.wx.getStorageSync = origGetStorage;
 assert(page4.data.wordSweep === false, '偏好回读：storage=false → onLoad 默认关');
@@ -940,7 +998,7 @@ global.wx.getStorageSync = (k) => {
   return origGetStorage(k);
 };
 const page5 = makePage();
-page5.onLoad({ id: 'ep1' });
+page5.onLoad({ sceneId: 's0' });
 await tick(); await tick(); await tick(); await tick();
 global.wx.getStorageSync = origGetStorage;
 assert(page5.data.autoScroll === false && page5.data.showTranslation === true && page5.data.wordSweep === false, '偏好回读：跟随关/译文开/逐词关 → onLoad 三开关按偏好初始化');
@@ -1165,7 +1223,7 @@ function sceneRoute(p2) {
   assert(WXML.indexOf('il-hero') >= 0 && WXML.indexOf('onRatePick') >= 0, 'WXML：画报头卡 + 倍速切换');
   assert(WXML.indexOf('onToggleLinkRead') >= 0 && WXML.indexOf('w-flash-mark') >= 0, 'WXML：显微镜开关 + 块首标');
   assert(WXML.indexOf('triple') >= 0 && WXML.indexOf('il-dock') >= 0, 'WXML：词块点读坞（三连放）');
-  assert(WXML.indexOf('精析') >= 0 && WXML.indexOf('ai-deep-dive') >= 0, 'WXML：三 Tab + 剧集模式内嵌精析组件');
+  assert(WXML.indexOf('精析') >= 0 && WXML.indexOf('ai-deep-dive') === -1, 'WXML：三 Tab + 微剧场精析面板（ai-deep-dive 已退役）');
 }
 
 

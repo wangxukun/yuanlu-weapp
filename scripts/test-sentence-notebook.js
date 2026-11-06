@@ -629,19 +629,19 @@ async function driveAttach(opts) {
 
   /* ==================== 7c. T2.3：audio-clip 显式窗口 / 循环 / 进度 ==================== */
 
-  section('T2.3 audio-clip 扩展（微播放器底座）');
+  section('T2.3 audio-clip 扩展（微播放器底座·切片直连）');
 
-  apiResponses['/api/episode/subtitles'] = {
-    success: true, audioUrl: 'https://oss.example.com/ep.m4a', data: [],
+  apiResponses['/api/clips/c-mp/audio'] = {
+    success: true, data: { url: 'https://oss.example.com/clip-mp.mp3', duration: 20, clipOffset: 0 },
   };
   let lastCtx = () => audioInstances[audioInstances.length - 1];
 
-  // a) 显式窗口：免文本定位，直接 seek startTime
-  await audioClip.play({ key: 'epA:s1', episodeid: 'epA', startTime: 12, endTime: 15 });
+  // a) 显式窗口：切片直连，直接 seek startTime - clipOffset
+  await audioClip.play({ key: 'epA:s1', episodeid: 'epA', startTime: 12, endTime: 15, clipAudioUrl: 'https://oss.example.com/ep.m4a', clipOffset: 0, clipDuration: 20 });
   await settle(6);
   lastCtx().__fire('canplay'); // 真机由 src 加载完成触发
-  assert(lastCtx().src === 'https://oss.example.com/ep.m4a', '显式窗口：字幕源直链注入 ctx.src');
-  assert(lastCtx().seeks.includes(12), '显式窗口：seek 到 startTime（免文本定位）');
+  assert(lastCtx().src === 'https://oss.example.com/ep.m4a', '显式窗口：切片直链注入 ctx.src');
+  assert(lastCtx().seeks.includes(12), '显式窗口：seek 到相对起点（免文本定位）');
   assert(audioClip.getState().playingKey === 'epA:s1', '播放中 playingKey 置位');
 
   // b) 进度订阅：timeupdate → progress（key/start/end/currentTime）
@@ -660,7 +660,7 @@ async function driveAttach(opts) {
     '无循环：到窗终自动停止 + 进度清空');
 
   // d) 单句循环：到窗终回 seek 句首续播（600ms 静默窗防陈旧快照误触发）
-  await audioClip.play({ key: 'epA:s2', episodeid: 'epA', startTime: 20, endTime: 23 });
+  await audioClip.play({ key: 'epA:s2', episodeid: 'epA', startTime: 20, endTime: 23, clipAudioUrl: 'https://oss.example.com/ep.m4a', clipOffset: 0, clipDuration: 30 });
   await settle(6);
   lastCtx().__fire('canplay');
   audioClip.setLoop(true);
@@ -678,10 +678,10 @@ async function driveAttach(opts) {
   assert(audioClip.getState().playingKey === null, '关闭循环后：窗终恢复自动停止');
 
   // e) 同 key toggle
-  await audioClip.play({ key: 'epA:s3', episodeid: 'epA', startTime: 1, endTime: 2 });
+  await audioClip.play({ key: 'epA:s3', episodeid: 'epA', startTime: 1, endTime: 2, clipAudioUrl: 'https://oss.example.com/ep.m4a' });
   await settle(6);
   lastCtx().__fire('canplay');
-  await audioClip.play({ key: 'epA:s3', episodeid: 'epA', startTime: 1, endTime: 2 });
+  await audioClip.play({ key: 'epA:s3', episodeid: 'epA', startTime: 1, endTime: 2, clipAudioUrl: 'https://oss.example.com/ep.m4a' });
   assert(audioClip.getState().playingKey === null, '同 key 再点 = 停止（toggle）');
 
   /* ==================== 7d. T2.3：微播放器组件 ==================== */
@@ -693,6 +693,7 @@ async function driveAttach(opts) {
   mp.data.episodeid = 'epB';
   mp.data.startTime = 12;
   mp.data.endTime = 15;
+  mp.data.clipId = 'c-mp';
   // setData 同值守卫观测：值未变的广播不得触发本实例 setData（列表 N 实例广播放大防线）
   let mpSetDataCalls = 0;
   const rawSetData = mp.setData.bind(mp);
@@ -701,18 +702,18 @@ async function driveAttach(opts) {
 
   // 别人的 key 开始播放：广播到达但本实例值不变 → 零 setData
   const callsBefore = mpSetDataCalls;
-  await audioClip.play({ key: 'epZ:s99', episodeid: 'epZ', startTime: 1, endTime: 2 });
+  await audioClip.play({ key: 'epZ:s99', episodeid: 'epZ', startTime: 1, endTime: 2, clipAudioUrl: 'https://oss.example.com/ep.m4a' });
   await settle(6);
   lastCtx().__fire('canplay');
   assert(mpSetDataCalls === callsBefore, '同值守卫：他人 key 的播放广播零 setData');
   audioClip.stop();
 
-  // onTogglePlay → audio-clip 播放（请求字幕源 + seek）
+  // onTogglePlay → audio-clip 播放（请求语料切片源 + seek）
   requestLog.length = 0;
   mp.onTogglePlay();
   await settle(6);
   lastCtx().__fire('canplay');
-  assert(requestLog.some((r) => r.path === '/api/episode/subtitles'), '点播放拉取字幕源（缓存复用）');
+  assert(requestLog.some((r) => r.path === '/api/clips/c-mp/audio'), '点播放拉取语料切片源（零整集请求）');
   assert(audioClip.getState().playingKey === 'epB:s9', '播放 key = episodeid:s{id}（两视图共享态）');
   assert(mp.data.playing === true && mp.data.loading === false, '订阅状态：playing 同步');
 
@@ -748,17 +749,21 @@ async function driveAttach(opts) {
   idle.onShadowTap({ currentTarget: { dataset: { ok: true, id: 1 } } });
   assert(navCalls[0] === '/pages/review/shadowing/index?id=1', '跟读可用：跳 shadowing?id=');
 
-  // meta 出处胶囊 → by-clip 反查微剧场（T5.2）：命中 sceneId 直达，未收录回落剧集模式
+  // meta 出处胶囊 → by-clip 反查微剧场（T5.2 + 2026-11-05 合规收敛）：命中
+  // sceneId 直达；未收录/零场景剧集 → toast 承接，不再回落 ?id= 整集模式
+  toastCalls.length = 0;
+  navCalls.length = 0;
   idle.onEpisodeTap({ currentTarget: { dataset: { episodeid: 'ep1', subtitleid: 11 } } });
   await new Promise((r) => setTimeout(r, 10));
   assert(requestLog.some((r) => r.path === '/api/scenes/by-clip'), '出处胶囊：GET /api/scenes/by-clip（episodeid+subtitleId）');
-  assert(navCalls[1] === '/pages/intensive-listening/index?id=ep1', '未收录微剧场 → 回落精研页 ?id=');
+  assert(toastCalls.includes('这句话所在的原声还未编排微剧场') && navCalls.length === 0,
+    '未收录微剧场 → toast 承接零跳转（?id= 整集回落已退役）');
 
   // meta 出处胶囊命中分支（T5.2）
   apiResponses['/api/scenes/by-clip'] = { success: true, data: { sceneid: 'sc9' } };
   idle.onEpisodeTap({ currentTarget: { dataset: { episodeid: 'ep1', subtitleid: 11 } } });
   await new Promise((r) => setTimeout(r, 10));
-  assert(navCalls[2] === '/pages/intensive-listening/index?sceneId=sc9', '命中微剧场 → 精研室 ?sceneId= 直达');
+  assert(navCalls[0] === '/pages/intensive-listening/index?sceneId=sc9', '命中微剧场 → 精研室 ?sceneId= 直达');
   delete apiResponses['/api/scenes/by-clip'];
 
 
@@ -872,9 +877,9 @@ async function driveAttach(opts) {
     '标签胶囊 indigo-500/10 底 + indigo-600 字（Web 原值）');
   assert(WXSS.includes('font-size: 32rpx') && WXSS.includes('font-weight: 700'),
     '卡片原句 text-base 粗体（32rpx/700）');
-  assert(fs.existsSync(path.join(__dirname, '../assets/icons/podcasts-gray.svg')) &&
-    fs.readFileSync(path.join(__dirname, '../assets/icons/podcasts-gray.svg'), 'utf8').includes('M14,12c0,0.74'),
-    'podcasts-gray.svg：Material Podcasts 官方 path 烘焙（原 lucide Radio 全局换装 Material）');
+  assert(fs.existsSync(path.join(__dirname, '../assets/icons/mic-wave-gray.svg')) &&
+    fs.readFileSync(path.join(__dirname, '../assets/icons/mic-wave-gray.svg'), 'utf8').includes('M14,12c0,0.74'),
+    'mic-wave-gray.svg：Material 麦克风声波官方 path 烘焙（2026-11-05 由 podcasts-gray 更名，去英文字样）');
 
   // T2.3 结构：微播放器（裸图标形态）/ 操作坞 / 折叠区 / 抽屉挂载
   const MPWXML = fs.readFileSync(

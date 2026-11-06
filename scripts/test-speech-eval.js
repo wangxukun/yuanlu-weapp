@@ -408,15 +408,23 @@ async function runRecordEvalSim() {
       }), 10);
       return;
     }
-    if (opt.url.indexOf('/api/speech/practice-data') >= 0) {
+    if (opt.url.indexOf('/api/scenes/s_eval') >= 0) {
       setTimeout(() => opt.success({
         statusCode: 200,
         data: {
           success: true,
           data: {
-            episode: { title: 'EP', audioUrl: 'https://oss/a.m4a' },
-            subtitles: [{ id: 3, textEn: "I'm Neil.", textCn: '我是尼尔。', startSeconds: 5, endSeconds: 6.2 }],
-            previousRecords: [], isTrialMode: false,
+            scene: {
+              sceneid: 's_eval',
+              episodeid: 'ep1',
+              title: 'EP',
+              clips: [
+                { subtitleId: 3, textEn: "I'm Neil.", textCn: '我是尼尔。', start: 5, end: 6.2 },
+              ],
+            },
+            clipAudioUrl: 'https://oss/a.m4a',
+            clipOffset: 5,
+            clipDuration: 1.2,
           },
         },
       }), 10);
@@ -433,9 +441,9 @@ async function runRecordEvalSim() {
     setData(p) { Object.assign(store, p); },
     data: store,
   });
-  page.onLoad({ id: 'ep1' });
-  await new Promise((r) => setTimeout(r, 40)); // 等练习数据落地
-  ok(page._subs.length === 1 && store.indexLabel === '1 / 1', '字幕集就绪（1/1）');
+  page.onLoad({ sceneId: 's_eval' });
+  await new Promise((r) => setTimeout(r, 40)); // 等微剧场数据落地
+  ok(page._subs.length === 1 && store.subs.length === 1 && store.indexLabel === '1 / 1', '字幕集就绪且 subs 写入 data（1/1）');
   ok(navBarColorCalls.length >= 1,
     'onLoad 调 applyChrome（深色下胶囊深底白图标依赖 frontColor 联动——走查修复）');
   ok(require('fs').readFileSync(require('path').join(__dirname, '../pages/speech-eval/index.wxml'), 'utf8')

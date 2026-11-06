@@ -296,8 +296,10 @@ function bodies(method, p) {
 
   section('三、resolveTarget（Web 路由 → 小程序路由）');
   {
-    assert(core.resolveTarget('/episode/abc123') === '/pages/intensive-listening/index?id=abc123',
-      '/episode/{id} → 剧集页');
+    assert(core.resolveTarget('/episode/abc123') === '',
+      '/episode/{id} 整集深链已退役（零整集导航）');
+    assert(core.resolveTarget('/scene/sc123') === '/pages/intensive-listening/index?sceneId=sc123',
+      '/scene/{id} → 微剧场精研页');
     assert(core.resolveTarget('/charts') === '/pages/profile/learning-report/index',
       '/charts → 学习报表页（存量口径保留）');
     assert(core.resolveTarget('/charts?tab=week') === '/pages/profile/learning-report/index',
@@ -313,12 +315,12 @@ function bodies(method, p) {
   section('四、mapItem / mapList / filterByTab');
   {
     const item = core.mapItem(
-      dto(7, { type: 'LIKE', isRead: true, notificationAt: null, targetUrl: '/episode/xyz' }),
+      dto(7, { type: 'LIKE', isRead: true, notificationAt: null, targetUrl: '/scene/xyz' }),
       new Date()
     );
     assert(item.typeLabel === '点赞' && item.badge === 'like', 'LIKE 类型标签+徽章映射');
     assert(item.timeText === '' && item.isRead === true, '空时间 → 空文案；isRead 透传');
-    assert(item.target === '/pages/intensive-listening/index?id=xyz', 'target 路由预派生');
+    assert(item.target === '/pages/intensive-listening/index?sceneId=xyz', 'target 路由预派生');
 
     const unknown = core.mapItem(dto(8, { type: 'PROMO' }), new Date());
     assert(unknown.typeLabel === 'PROMO' && unknown.badge === 'neutral', '未知类型 → 原值标签 + neutral 徽章');
@@ -433,7 +435,7 @@ function bodies(method, p) {
     requestHandler = routeAwareHandler({
       '/api/notification/list': {
         statusCode: 200,
-        data: { unreadCount: 1, notifications: [dto(9, { type: 'EPISODE_UPDATE', targetUrl: '/episode/ep-42' })] },
+        data: { unreadCount: 1, notifications: [dto(9, { type: 'EPISODE_UPDATE', targetUrl: '/scene/sc-42' })] },
       },
       '/api/notification/read': { statusCode: 200, data: { success: true } },
     });
@@ -442,8 +444,8 @@ function bodies(method, p) {
     await tick();
     page.onItemTap({ currentTarget: { dataset: { id: 9 } } });
     await tick();
-    assert(navigations[0] === '/pages/intensive-listening/index?id=ep-42',
-      '/episode 深链 → wx.navigateTo 剧集页');
+    assert(navigations[0] === '/pages/intensive-listening/index?sceneId=sc-42',
+      '/scene 深链 → wx.navigateTo 微剧场精研页');
     assert(page.data.items[0].isRead === true, '跳转同时乐观置已读');
   }
 

@@ -309,14 +309,14 @@ const clipRequests = () => requests.filter((u) => u.indexOf('/api/clips/') !== -
   clip.stop();
   unsub();
 
-  // ══════════ D. 剧集链路回归（无切片参数） ══════════
-  // wx.request mock 对 /api/episode/subtitles 返回 {success:true,data:[]}，
-  // audioUrl 缺省 → 走「暂时无法播放原声」分支，证明链路仍可达且未被切片逻辑破坏
+  // ══════════ D. 切片参数缺失容错（整集字幕链路已退役） ══════════
+  // 无切片参数不再回落 /api/episode/subtitles，直接 toast「暂时无法播放原声」，
+  // 杜绝整集音频/字幕接口调用
   toasts.length = 0;
   await clip.play({ key: 'e9:x', episodeid: 'e9', timestamp: 1 });
   await settle2();
-  assert(episodeSubtitleRequests().length > 0, 'D 无切片参数仍走剧集字幕链路');
-  assert(lastToast() === '暂时无法播放原声', 'D 剧集链路 audioUrl 缺省提示口径不变');
+  assert(episodeSubtitleRequests().length === 0, 'D 无切片参数不再走整集字幕链路（零整集请求）');
+  assert(lastToast() === '暂时无法播放原声', 'D 缺省切片提示口径保持');
 
   console.log('----------------------------------------');
   if (failed === 0) {

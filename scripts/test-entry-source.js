@@ -8,7 +8,7 @@
  *   - captureFromQuery 返回本次新捕获值（自然打开返回 ''，不触发直达）
  *
  * 直达（T2）：handleEntry 仅对新来源发起 GET /api/wxacode 解析；
- *   targetType=episode → navigateTo /pages/intensive-listening/index?id=；follow/404/网络失败
+ *   targetType=scene → navigateTo /pages/intensive-listening/index?sceneId=；episode/follow/404/网络失败
  *   一律静默不导航；冷启动 onLaunch+onShow 同参双触发 10s 去重；
  *   navigateTo 冷启动竞态 fail 时退避重试（最多 2 次）。
  *
@@ -91,15 +91,25 @@ async function main() {
   storage.delete('entrySource');
   ok(entrySource.get() === '', '无来源时 get() 返回空串');
 
-  // ── T2 剧集直达 ──
+  // ── T2 场景直达 ──
   requestResponder = () => ({
     statusCode: 200,
-    data: { success: true, data: { scene: 'gzh_w5_b', targetType: 'episode', episodeId: 'cmivwgyal_ep5' } },
+    data: { success: true, data: { scene: 'gzh_w5_b', targetType: 'scene', sceneId: 'cmivwgyal_sc5' } },
   });
   entrySource.handleEntry({ scene: 'gzh_w5_b' });
   await sleep(20);
-  ok(navigations[navigations.length - 1] === '/pages/intensive-listening/index?id=cmivwgyal_ep5', 'episode 型 scene 解析后直达原声精研页');
+  ok(navigations[navigations.length - 1] === '/pages/intensive-listening/index?sceneId=cmivwgyal_sc5', 'scene 型 scene 解析后直达原声微剧场精研页');
   ok(entrySource.get() === 'gzh_w5_b', '直达与归因互不干扰（storage 已更新）');
+
+  // episode 历史类型：只归因不导航（合规退役整集）
+  requestResponder = () => ({
+    statusCode: 200,
+    data: { success: true, data: { scene: 'gzh_ep_legacy', targetType: 'episode', episodeId: 'ep_old' } },
+  });
+  const navCountEpBefore = navigations.length;
+  entrySource.handleEntry({ scene: 'gzh_ep_legacy' });
+  await sleep(20);
+  ok(navigations.length === navCountEpBefore, 'episode 历史类型（整集退役）只归因不导航');
 
   // follow 类型：只归因不导航
   requestResponder = () => ({
@@ -109,19 +119,19 @@ async function main() {
   const navCountBefore = navigations.length;
   entrySource.handleEntry({ scene: 'gzh_follow2' });
   await sleep(20);
-  ok(navigations.length === navCountBefore, 'follow 类型（无剧集目标）不导航');
+  ok(navigations.length === navCountBefore, 'follow 类型（无场景目标）不导航');
 
   // 冷启动同参双触发去重
   requestResponder = () => ({
     statusCode: 200,
-    data: { success: true, data: { scene: 'gzh_w6_b', targetType: 'episode', episodeId: 'ep6' } },
+    data: { success: true, data: { scene: 'gzh_w6_b', targetType: 'scene', sceneId: 'sc6' } },
   });
   const reqBefore = requests.length;
   entrySource.handleEntry({ scene: 'gzh_w6_b' }); // 模拟 onLaunch
   entrySource.handleEntry({ scene: 'gzh_w6_b' }); // 模拟紧随其后的 onShow
   await sleep(20);
   ok(requests.length - reqBefore === 1, '冷启动 onLaunch+onShow 双触发只解析一次');
-  ok(navigations.filter((u) => u === '/pages/intensive-listening/index?id=ep6').length === 1, '精研页只被压栈一次');
+  ok(navigations.filter((u) => u === '/pages/intensive-listening/index?sceneId=sc6').length === 1, '微剧场精研页只被压栈一次');
 
   // 404 / 网络失败：静默不导航不抛错
   requestResponder = () => ({ statusCode: 404, data: { success: false, error: '短码不存在' } });
@@ -136,7 +146,7 @@ async function main() {
   ok(navigations.length === nav404, '网络失败静默不导航不抛错');
 
   // 自然打开（无新来源）不发起任何解析请求
-  requestResponder = () => ({ statusCode: 200, data: { success: true, data: { targetType: 'episode', episodeId: 'x' } } });
+  requestResponder = () => ({ statusCode: 200, data: { success: true, data: { targetType: 'scene', sceneId: 'x' } } });
   const reqNatural = requests.length;
   entrySource.handleEntry({});
   entrySource.handleEntry(undefined);
@@ -147,11 +157,11 @@ async function main() {
   navigateFailCount = 2;
   requestResponder = () => ({
     statusCode: 200,
-    data: { success: true, data: { scene: 'gzh_w9_b', targetType: 'episode', episodeId: 'ep9' } },
+    data: { success: true, data: { scene: 'gzh_w9_b', targetType: 'scene', sceneId: 'sc9' } },
   });
   entrySource.handleEntry({ scene: 'gzh_w9_b' });
   await sleep(2000);
-  ok(navigations.filter((u) => u === '/pages/intensive-listening/index?id=ep9').length === 3, '首页未就绪时退避重试直达（2 次失败后成功）');
+  ok(navigations.filter((u) => u === '/pages/intensive-listening/index?sceneId=sc9').length === 3, '首页未就绪时退避重试直达（2 次失败后成功）');
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);

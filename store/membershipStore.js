@@ -15,7 +15,7 @@
  *   membership.ensureFresh(true).then(...)         // 强制刷新（购买/支付回调后）
  *
  * 服务端 403 PREMIUM_REQUIRED 门禁是最终兜底：本服务仅保证 UI 呈现口径，
- * 校正失败时保持乐观值，越权请求仍会被服务端拦下（对齐 ai-deep-dive 模式）。
+ * 校正失败时保持乐观值，越权请求仍会被服务端拦下（对齐微剧场精研模式）。
  */
 const Store = require('./core.js');
 const authStore = require('./authStore');
@@ -77,7 +77,7 @@ class MembershipStore extends Store {
       checked: false,
       expiryDate: null,
     });
-    // 后台静默校正（对齐 ai-deep-dive syncAuthState → refreshMembership）
+    // 后台静默校正（syncAuthState → refreshMembership）
     this.ensureFresh();
   }
 

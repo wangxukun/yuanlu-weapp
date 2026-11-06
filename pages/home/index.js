@@ -363,13 +363,14 @@ Page({
     const definition = (d.definitions || [])
       .map((x) => '[' + x.pos + '] ' + x.meaning_cn)
       .join('; ');
+    const rawEx0 = (Array.isArray(d.corpusExamples) && d.corpusExamples[0]) || null;
     post('/api/vocabulary/add', {
       word,
       definition,
-      contextSentence: '',
-      translation: '',
-      episodeid: null,
-      timestamp: null,
+      contextSentence: (rawEx0 && rawEx0.enText) || '',
+      translation: (rawEx0 && rawEx0.zhText) || '',
+      episodeid: (rawEx0 && rawEx0.episodeid) || null,
+      timestamp: (rawEx0 && rawEx0.startSeconds != null) ? Math.floor(rawEx0.startSeconds) : null,
       speakUrl: (d.audio_urls && d.audio_urls.us) || '',
       dictUrl: '',
       webUrl: '',

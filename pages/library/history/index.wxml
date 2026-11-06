@@ -13,7 +13,7 @@
   <view wx:if="{{total === 0}}" class="fp-empty col center">
     <text class="t-body text-secondary">还没有精研足迹</text>
     <text class="t-caption text-tertiary mt-2">每进入一段微剧场精研室，都会在这里留下脚印</text>
-    <view class="fp-go center tap-scale" bindtap="onGoDiscover">去探索画廊</view>
+    <view class="fp-go center tap-scale" bindtap="onGoDiscover">去特训开始今日一测</view>
   </view>
 
   <block wx:else>

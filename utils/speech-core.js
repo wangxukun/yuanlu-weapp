@@ -104,7 +104,7 @@ function parseRecordDto(dto) {
   };
 }
 
-/** GET /api/speech/practice-data 响应 → 领域形状 */
+/** 历史练习数据响应 → 领域形状（兼容旧结构） */
 function parsePracticeData(body) {
   var data = (body && body.data) || {};
   var episode = data.episode || {};

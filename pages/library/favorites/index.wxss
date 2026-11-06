@@ -77,6 +77,14 @@
   flex-shrink: 0;
   gap: 16rpx;
 }
+.scene-go {
+  padding: 10rpx 24rpx;
+  border-radius: var(--r-full, 999rpx);
+  background-color: var(--primary-100, rgba(47, 100, 84, 0.1));
+  color: var(--primary-600, #1f7a5c);
+  font-size: 24rpx;
+  font-weight: 600;
+}
 .scene-remove {
   width: 48rpx;
   height: 48rpx;

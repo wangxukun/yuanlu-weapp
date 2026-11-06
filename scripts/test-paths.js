@@ -264,7 +264,7 @@ requestHandler = routeAwareHandler(listRoutes());
   assert(page.data.isLoading === false && !page.data.error, '加载完成进入内容态');
   const mapped = page.data.myPaths[0];
   assert(mapped.badge === 'PUBLIC' && mapped.badgeIcon === 'public', '公开路径映射 PUBLIC 角标');
-  assert(mapped.itemCountText === '12 集' && mapped.creatorName === '远路漫漫', '集数与创建者文案');
+  assert(mapped.itemCountText === '12 项' && mapped.creatorName === '远路漫漫', '条目数与创建者文案（「N 项」中性口径）');
   assert(mapped.progress === 8 && mapped.description.indexOf('冰川') !== -1, '进度与描述透传');
   assert(page.data.displayPaths.length === 1, '默认渲染「我的集合」列表');
   assert(page.data.isPremium === false, 'subscription/status 校正后为非会员');
@@ -562,7 +562,7 @@ requestHandler = routeAwareHandler(listRoutes());
 
 /* ==================== 详情页 ===================== */
 
-section('详情页 · 加载与映射');
+section('详情页 · 加载与映射（2026-11-05 合规收敛：存量剧集行下线 → legacy 提示态）');
 
 resetMock();
 login('USER');
@@ -577,13 +577,11 @@ requestHandler = routeAwareHandler(
   assert(page.data.isLoading === false && !!page.data.detail, '详情加载完成');
   const d = page.data.detail;
   assert(d.isOwner === true, 'userid 与当前用户一致 → isOwner（管理入口渲染条件）');
-  assert(d.itemCount === 3, '集数统计');
-  const [ep1, ep2, ep3] = d.items;
-  assert(ep1.durationText === '12:05', '时长格式化 M:SS（725s → 12:05）');
-  assert(ep1.progressPercent === 14, '进行中集按进度换算百分比（100.4/725 → 14）');
-  assert(ep2.progressPercent === 100, '已听完集百分比 100');
-  assert(ep2.isExclusive === true, '专属剧集标记透传');
-  assert(ep3.podcastTitle === '' && ep3.progressPercent === 0, '无播客名/无时长集零进度兜底');
+  // 存量网页版路径（条目无 clip）：剧集行不再渲染（红线 1），转 legacy 提示态
+  assert(d.isMontage === false && d.isLegacy === true, '无 clip 条目 → isLegacy 提示态（剧集行下线）');
+  assert(d.items.length === 0 && d.itemCount === 0 && d.itemCountRaw === 3,
+    '渲染条目清零（itemCount=0），原始条目数保留（itemCountRaw=3）');
+  assert(d.metaText === '3 个条目 · 网页版创建', '头部 meta 为「N 个条目 · 网页版创建」');
 }
 
 resetMock();
@@ -604,7 +602,7 @@ requestHandler = routeAwareHandler(
   assert(page.data.detail.isOwner === false, '非拥有者（发现 Tab 进入）无管理入口');
 }
 
-section('详情页 · 逐条精研（专属过滤 + 拦截；整集连播已随红线 2 退役）');
+section('详情页 · 开始精研（legacy 无 clip 条目 → 零跳转；?id= 整集链路全量退役）');
 
 resetMock();
 login('USER');
@@ -619,61 +617,11 @@ requestHandler = routeAwareHandler(
   await page.onPlayAll();
   await tick();
   assert(
-    navigations[navigations.length - 1] === '/pages/intensive-listening/index?id=ep1',
-    '非会员「开始精研」：过滤专属剧集，从第一个可研条目进入精研页'
+    navigations.every((u) => u.indexOf('/pages/intensive-listening') === -1 && u.indexOf('speech-eval') === -1),
+    'legacy 路径「开始精研」零跳转（items 空 → no-op，不再回落 ?id= 剧集模式）'
   );
-}
-
-resetMock();
-login('USER');
-requestHandler = routeAwareHandler(
-  listRoutes({
-    '/api/learning-paths/5': {
-      statusCode: 200,
-      data: {
-        success: true,
-        data: detailDto({
-          items: [
-            { id: 1, episodeid: 'epX', order: 1, episode: { episodeid: 'epX', title: 'X', duration: 60, isExclusive: true, coverUrl: 'c', audioUrl: 'a' } },
-          ],
-        }),
-      },
-    },
-  })
-);
-{
-  const page = makeDetailPage();
-  page.onLoad({ id: '5' });
-  await page.onShow();
-  await tick();
-  await page.onPlayAll();
-  await tick();
-  assert(
-    page.data.showPremiumModal === true && page.data.premiumSource === 'exclusive_play',
-    '全部为专属且无权限：触发 exclusive_play 会员窗（对齐 Web checkExclusivePlay 兜底）'
-  );
-  assert(navigations.every((u) => u.indexOf('/pages/intensive-listening') === -1), '无可研剧集不跳转');
-}
-
-resetMock();
-login('PREMIUM');
-requestHandler = routeAwareHandler(
-  listRoutes({
-    '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'PREMIUM' } },
-    '/api/learning-paths/5': { statusCode: 200, data: { success: true, data: detailDto() } },
-  })
-);
-{
-  const page = makeDetailPage();
-  page.onLoad({ id: '5' });
-  await page.onShow();
-  await tick();
-  await page.onPlayEpisode({ currentTarget: { dataset: { id: 'ep2' } } });
-  await tick();
-  assert(
-    navigations[navigations.length - 1] === '/pages/intensive-listening/index?id=ep2',
-    '会员点专属剧集行 → 直达精研页（会员放行）'
-  );
+  assert(!('isPremium' in page.data) && !page.data.showPremiumModal,
+    '专属剧集拦截链路随剧集行下线（exclusive/premium 状态已移除）');
 }
 
 section('详情页 · 编辑 / 删除（PATCH 的 POST 别名）');
@@ -808,16 +756,55 @@ section('详情页 · 蒙太奇卡册（心愿定制产物）+ 添加剧集链�
     'WXML：微播放器挂 clipId（切片直连零整集）'
   );
 
-  // 卡片交互：跟读 → 语音评测；捕词 → 精研页听写模式；整卡 → 精研页
+  // 卡片交互（2026-11-05 合规收敛）：全部 by-clip 反查微剧场，零 ?id= 整集链路
+  requestHandler = routeAwareHandler(
+    listRoutes({
+      '/api/learning-paths/9': null, // 保持既有 9 号路由（下方合并重设）
+      '/api/scenes/by-clip': { statusCode: 200, data: { success: true, data: { sceneid: 'sc-ep3' } } },
+    })
+  );
   navigations.length = 0;
-  mpage.onClipShadow({ currentTarget: { dataset: { ep: 'ep3' } } });
-  assert(navigations[0] === '/pages/speech-eval/index?id=ep3', '一键跟读 → 语音评测页');
-  mpage.onClipDictation({ currentTarget: { dataset: { ep: 'ep3' } } });
-  assert(navigations[1] === '/pages/intensive-listening/index?id=ep3&mode=dictate', '盲听捕词 → 精研页听写模式（mode=dictate）');
-  mpage.onClipCardTap({ currentTarget: { dataset: { ep: 'ep2' } } });
-  assert(navigations[2] === '/pages/intensive-listening/index?id=ep2', '整卡点击 → 原声精研页');
+  mpage.onClipShadow({ currentTarget: { dataset: { clip: 'clip3' } } });
+  await tick();
+  assert(
+    navigations.some((u) => u === '/pages/speech-eval/index?sceneId=sc-ep3'),
+    '一键跟读 → by-clip 反查微剧场评测室（sceneId 直达）'
+  );
+  mpage.onClipDictation({ currentTarget: { dataset: { clip: 'clip3' } } });
+  await tick();
+  assert(
+    navigations.some((u) => u === '/pages/intensive-listening/index?sceneId=sc-ep3&mode=dictate'),
+    '盲听捕词 → 微剧场精研室听写模式（sceneId + mode=dictate）'
+  );
+  mpage.onClipCardTap({ currentTarget: { dataset: { clip: 'clip2' } } });
+  await tick();
+  assert(
+    navigations.some((u) => u === '/pages/intensive-listening/index?sceneId=sc-ep3'),
+    '整卡点击 → 微剧场精研室（sceneId 直达）'
+  );
+  assert(
+    navigations.every((u) => u.indexOf('?id=') === -1),
+    '全部交互零 ?id= 剧集模式跳转（红线 2）'
+  );
+  // by-clip 反查带 t= 切片起点
+  assert(
+    calls.request.some((c) => c.url.indexOf('/api/scenes/by-clip') !== -1 && c.url.indexOf('t=') !== -1),
+    'by-clip 反查携带切片起点 t=startTime'
+  );
+  // 落空分支：零场景剧集 → toast 承接零跳转
+  toasts.length = 0;
+  navigations.length = 0;
+  requestHandler = routeAwareHandler(
+    listRoutes({ '/api/scenes/by-clip': { statusCode: 200, data: { success: true, data: {} } } })
+  );
+  mpage.onClipCardTap({ currentTarget: { dataset: { clip: 'clip1' } } });
+  await tick();
+  assert(
+    navigations.length === 0 && toasts.includes('这段暂未编排成微剧场，可先在卡片上试听'),
+    'by-clip 落空 → toast 承接零跳转（不回落 ?id=）'
+  );
 
-  // 普通路径（无 clip 条目）不受影响
+  // 普通路径（无 clip 条目）→ legacy 提示态（剧集行已下线）
   requestHandler = routeAwareHandler(
     listRoutes({
       '/api/user/subscription/status': { statusCode: 200, data: { success: true, role: 'USER' } },
@@ -828,11 +815,11 @@ section('详情页 · 蒙太奇卡册（心愿定制产物）+ 添加剧集链�
   ppage.onLoad({ id: '5' });
   await ppage.onShow();
   await tick();
-  assert(ppage.data.detail.isMontage === false && ppage.data.detail.items.every((it) => it.kind === 'episode'),
-    '普通路径：无 clip 条目 → 剧集行形态不变（additive 兼容）');
+  assert(ppage.data.detail.isMontage === false && ppage.data.detail.isLegacy === true,
+    '普通路径：无 clip 条目 → legacy 提示态（不渲染剧集列表）');
 }
 
-section('详情页 · 移除剧集 / 分享');
+section('详情页 · 分享');
 
 resetMock();
 login('USER');
@@ -846,16 +833,8 @@ requestHandler = routeAwareHandler(
   page.onLoad({ id: '5' });
   await page.onShow();
   await tick();
-  modalConfirm = true;
-  calls.request.length = 0;
-  page.onRemoveEpisode({ currentTarget: { dataset: { item: '102', ep: 'ep2' } } });
-  await tick(); // 确认回调 → doRemoveEpisode 异步链
-  const del = calls.request.find(
-    (c) => c.method === 'DELETE' && c.url.endsWith('/api/learning-paths/5/episodes/102')
-  );
-  assert(!!del, '移除确认 → DELETE .../episodes/{itemId}（learning_path_items.id）');
-  assert(toasts.includes('已从路径移除'), '移除成功 toast');
-
+  assert(!('onRemoveEpisode' in page) && !('doRemoveEpisode' in page),
+    '移除剧集链路随剧集行下线（onRemoveEpisode 已移除）');
   page.onShare();
   assert(
     clipboard === 'https://www.wxkzd.com/library/learning-paths/5',

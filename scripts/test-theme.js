@@ -206,12 +206,8 @@ const theme = require('../utils/theme');
   });
   ok(brokenReq.length === 0, 'theme require 全部可解析（' + (brokenReq[0] || '无错位路径') + '）');
   // 语音评测接入全局主题（私有存储键退役）
-  // 语境精析 chip 不得再用纯白/Slate 硬编码底（联系我们表单风格；剧集页已退役）
-  const ddCss = fs.readFileSync('components/ai-deep-dive/index.wxss', 'utf8');
-  ok(!/background-color: #ffffff/.test(ddCss) && !/rgba\(34, 31, 24/.test(ddCss),
-    '语境精析 chip/分割线令牌化（无纯白底与透明黑描边）');
-  ok(!/#(1f2937|374151|6b7280|9ca3af)/.test(ddCss), '语境精析展开态文本令牌化（无 Tailwind 灰硬编码，深色可读）');
-  ok(/\.dd-opt \{[^}]*border: 1px solid var\(--border-color\)/.test(ddCss), '测验选项描边令牌化（深色降亮）');
+  // 语境精析组件已退役清理
+  ok(!fs.existsSync('components/ai-deep-dive'), '语境精析组件已随整集链路彻底退役删除');
   ok(!fs.readFileSync('pages/speech-eval/index.js', 'utf8').includes('THEME_KEY'),
     '语音评测废弃私有主题存储（走 utils/theme）');
 

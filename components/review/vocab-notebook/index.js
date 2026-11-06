@@ -87,7 +87,10 @@ Component({
     },
     refreshSeq() {
       this._syncTheme(); // 每次回到生词本同步外观（用户可能在别处切换主题）
-      if (this.data.active && this.data.loaded) this.refresh();
+      if (this.data.active) {
+        this.registerQuotaHandler();
+        if (this.data.loaded) this.refresh();
+      }
     },
   },
 

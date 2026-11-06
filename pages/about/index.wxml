@@ -1,4 +1,4 @@
-<!-- pages/about — 关于远路听说 + 公众号关注承接（04 清单 T4）
+<!-- pages/about — 关于远路播客 + 公众号关注承接（04 清单 T4）
      <official-account /> 由微信按平台规则渲染：公众号与小程序同主体且已关联、
      用户未关注时显示关注横幅；不满足条件（已关注/未关联/PC 与开发者工具）时
      组件不渲染且不占位，关注卡的文案兜底仍然成立。 -->
@@ -6,12 +6,12 @@
 
   <!-- ── 品牌卡 ── -->
   <view class="ab-card col center">
-    <image class="ab-brand-logo" mode="aspectFit" src="/assets/icons/podcasts-primary.svg" />
-    <text class="ab-brand-eyebrow">YUANLU PODCAST</text>
-    <text class="ab-brand-name">远路听说</text>
+    <image class="ab-brand-logo" mode="aspectFit" src="/assets/icons/mic-wave-primary.svg" />
+    <text class="ab-brand-eyebrow">YUANLU ENGLISH</text>
+    <text class="ab-brand-name">远路播客</text>
     <view class="ab-slogan row center-v">
       <view class="ab-slogan-bar"></view>
-      <text class="ab-slogan-text">英语精听，就到远路听说。</text>
+      <text class="ab-slogan-text">英语精听，就到远路播客。</text>
     </view>
     <text class="ab-intro">把原声语境做成逐词高亮的"卡拉OK"式精研工具：听到哪亮到哪，单句循环、点词查词、句子收藏、听写判卷、原声跟读多维评分，生词自动进复习。小程序 / 网站 / App 进度实时同步。</text>
   </view>
@@ -22,7 +22,7 @@
       <image class="ab-sec-icon" mode="aspectFit" src="{{dark ? '/assets/icons/campaign-primary-dark.svg' : '/assets/icons/campaign-primary.svg'}}" />
       <text class="ab-sec-title">关注公众号</text>
     </view>
-    <text class="ab-sec-desc">新节目上线、精听方法与学习心得，第一时间推送给你。</text>
+    <text class="ab-sec-desc">内容更新、精听方法与学习心得，第一时间推送给你。</text>
     <view class="ab-follow">
       <!-- bind:load/bind:error：official-account 排查诊断（vConsole 看错误码：
            3=关联解除或未选中 4=未开启功能 5=场景值错误，其余见官方文档） -->
@@ -34,7 +34,7 @@
     <view class="ab-qr col center">
       <image class="ab-qr-img" src="/assets/images/official-account-qr.jpg" mode="aspectFit"
              show-menu-by-longpress="{{true}}" />
-      <text class="ab-qr-hint">长按识别二维码，关注「远路听说」</text>
+      <text class="ab-qr-hint">长按识别二维码，关注「远路播客」</text>
     </view>
   </view>
 

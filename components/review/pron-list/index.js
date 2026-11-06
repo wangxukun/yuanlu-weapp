@@ -12,14 +12,16 @@
  *   <3 点 → 「数据积累中 / 完成更多评测即可解锁雷达图」
  * ④ WeakSentenceListCard：IconBadge(EmojiEvents secondary) + 弱项句行
  *   （56dp 封面 10dp 圆角 / 剧集名 labelSmall 700 @osv70 / 原句 bodyMedium 500 /
- *   得分徽章 tone@0.12 底三档「上次得分: N」/ 中文日期）行点击 → speech-eval
- *   深链 ?id={episodeid}&focus={subtitleId}（对齐 Android onOpenSpeechEval）；
+ *   得分徽章 tone@0.12 底三档「上次得分: N」/ 中文日期）行点击 → by-clip
+ *   反查微剧场 → speech-eval ?sceneId={sceneid}&focus={subtitleId}（2026-11-05
+ *   合规收敛，零整集链路；对齐 Android onOpenSpeechEval 的场景化等价）；
  *   非会员 lockedCount>0 → primary@0.05 锁定卡（Android 为 toast，小程序按
  *   REVIEW-TASK 权限表升级为 premium-modal(pronunciation_locked, {totalErrors})）；
  *   errors 空 → 「太棒了！/ 您目前没有待复习的弱项句子」
  */
 const pronCore = require('../../../utils/pron-core');
 const theme = require('../../../utils/theme');
+const { get } = require('../../../utils/request');
 
 Component({
   options: { styleIsolation: 'apply-shared' },
@@ -167,7 +169,7 @@ Component({
 
     /* ── 导航（Android Route 回调的小程序等价） ── */
 
-    /** 发音达人榜（社区功能，所有用户开放）→ T4.5 排行榜页 */
+    /** 发音达人榜（榜单功能，所有用户开放）→ T4.5 排行榜页 */
     openLeaderboard() {
       wx.navigateTo({ url: '/pages/review/leaderboard/index' });
     },
@@ -177,14 +179,31 @@ Component({
       wx.navigateTo({ url: '/pages/review/practice/index' });
     },
 
-    /** 弱项句行 → 语音评测页定位该句（Android onOpenSpeechEval；focus=subtitleId） */
+    /**
+     * 弱项句行 → 微剧场评测室定位该句（2026-11-05 合规收敛）：by-clip 反查
+     * 该句所在微剧场，命中 ?sceneId= 直达并 focus 定位；落空 toast 承接，
+     * 不再走 ?id= 整集链路（红线 2）。
+     */
     openSpeechEval(e) {
       const i = e.currentTarget.dataset.index;
       const row = this.data.rows[i];
       if (!row || !row.episodeid) return;
-      let url = '/pages/speech-eval/index?id=' + row.episodeid;
-      if (row.subtitleId !== null) url += '&focus=' + row.subtitleId;
-      wx.navigateTo({ url });
+      const params = ['episodeid=' + encodeURIComponent(row.episodeid)];
+      if (row.subtitleId !== null) params.push('subtitleId=' + row.subtitleId);
+      get('/api/scenes/by-clip?' + params.join('&'), null, { showError: false })
+        .then((body) => {
+          const sceneid = body && body.success && body.data && body.data.sceneid;
+          if (!sceneid) {
+            wx.showToast({ title: '这句所在的原声还未编排微剧场', icon: 'none' });
+            return;
+          }
+          let url = '/pages/speech-eval/index?sceneId=' + sceneid;
+          if (row.subtitleId !== null) url += '&focus=' + row.subtitleId;
+          wx.navigateTo({ url });
+        })
+        .catch(() => {
+          wx.showToast({ title: '原声定位失败，稍后再试', icon: 'none' });
+        });
     },
 
     /** 锁定卡 → premium-modal（pronunciation_locked，Android 为 toast 的小程序升级口径） */

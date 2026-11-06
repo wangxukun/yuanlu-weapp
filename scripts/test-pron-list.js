@@ -208,11 +208,11 @@ section('decorateWeakRow（lastScore=overall??accuracy + 徽章/日期预计算�
   assert(rows[1].lastScore === 70 && rows[1].tone === 'mid', 'overall null → accuracy 70 mid');
   assert(rows[2].lastScore === 82 && rows[2].tone === 'good', 'overall 82 good（accuracy null 不干扰）');
   assert(rows[0].dateText === '2026年9月7日', '中文日期预计算');
-  assert(rows[2].episodeTitle === '未知播客' && rows[1].subtitleId === null, '空剧集名兜底 / subtitleId null 保持');
+  assert(rows[2].episodeTitle === '未知出处' && rows[1].subtitleId === null, '空剧集名兜底 / subtitleId null 保持');
 })();
 (function () {
   const r = pronCore.decorateWeakRow(null);
-  assert(r.lastScore === 0 && r.tone === 'bad' && r.episodeTitle === '未知播客', 'null 记录全兜底');
+  assert(r.lastScore === 0 && r.tone === 'bad' && r.episodeTitle === '未知出处', 'null 记录全兜底');
 })();
 
 /* ==================== 2. pron-list 组件 ==================== */
@@ -272,20 +272,32 @@ fireObserver(inst, 'popupOpen', false);
 await new Promise((r) => setTimeout(r, 150));
 assert(radarQueries > radarQueriesBefore, '弹窗关闭 → 画布重挂载后延时重绘（120ms 兜底）');
 
-// 导航：达人榜 / 闯关 / 弱项句行深链
+// 导航：达人榜 / 闯关 / 弱项句行 by-clip 反查微剧场深链（2026-11-05 合规收敛）
 navCalls.length = 0;
+toastCalls.length = 0;
 inst.openLeaderboard();
 inst.openPractice();
+apiResponses['/api/scenes/by-clip'] = { success: true, data: { sceneid: 'sc1' } };
 inst.openSpeechEval({ currentTarget: { dataset: { index: 0 } } });
 inst.openSpeechEval({ currentTarget: { dataset: { index: 1 } } }); // subtitleId null → 不带 focus
+await new Promise((r) => setTimeout(r, 10));
 assert(
   navCalls[0] === '/pages/review/leaderboard/index' && navCalls[1] === '/pages/review/practice/index',
   '达人榜/闯关导航（T4.5 页面）',
 );
-assert(navCalls[2] === '/pages/speech-eval/index?id=ep1&focus=55', '弱项句行深链 id + focus=subtitleId');
-assert(navCalls[3] === '/pages/speech-eval/index?id=ep2', 'subtitleId null → 深链不带 focus');
+assert(navCalls[2] === '/pages/speech-eval/index?sceneId=sc1&focus=55', '弱项句行深链 sceneId + focus=subtitleId（by-clip 反查）');
+assert(navCalls[3] === '/pages/speech-eval/index?sceneId=sc1', 'subtitleId null → 深链不带 focus');
+// 零场景剧集落空 → toast 承接零跳转（?id= 整集链路已退役）
+navCalls.length = 0;
+apiResponses['/api/scenes/by-clip'] = { success: true, data: {} };
+inst.openSpeechEval({ currentTarget: { dataset: { index: 0 } } });
+await new Promise((r) => setTimeout(r, 10));
+assert(navCalls.length === 0 && toastCalls.includes('这句所在的原声还未编排微剧场'),
+  '零场景剧集 → toast 承接零跳转（?id= 已退役）');
+delete apiResponses['/api/scenes/by-clip'];
 navCalls.length = 0;
 inst.openSpeechEval({ currentTarget: { dataset: { index: 99 } } });
+await new Promise((r) => setTimeout(r, 10));
 assert(navCalls.length === 0, '越界行 no-op');
 
 // 锁定卡弹窗

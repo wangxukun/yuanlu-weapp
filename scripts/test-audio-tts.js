@@ -63,10 +63,9 @@ global.wx = {
   request(opts) {
     setTimeout(() => {
       const url = opts.url;
-      if (url.indexOf('/api/episode/subtitles') !== -1) {
-        const id = decodeURIComponent(
-          url.split('id=')[1] || '',
-        );
+      if (url.indexOf('/api/clips/') !== -1 && url.indexOf('/audio') !== -1) {
+        const m = url.match(/\/api\/clips\/([^/?]+)\/audio/);
+        const id = decodeURIComponent((m && m[1]) || '');
         subtitlesRequestCount[id] = (subtitlesRequestCount[id] || 0) + 1;
         const fix = episodeFixtures[id];
         if (fix === 'FAIL_500') {
@@ -75,7 +74,14 @@ global.wx = {
         }
         opts.success({
           statusCode: 200,
-          data: { success: true, data: fix.subtitles, audioUrl: fix.audioUrl },
+          data: {
+            success: true,
+            data: {
+              url: fix ? fix.audioUrl : null,
+              duration: (fix && fix.duration) || 8,
+              clipOffset: (fix && fix.clipOffset) || 0,
+            },
+          },
         });
         return;
       }
@@ -135,26 +141,13 @@ const lastCtx = () => audioContexts[audioContexts.length - 1];
 // 等待 downloadFile 中转链完成（mock 的 success 走 setTimeout 0）
 const dlWait = () => new Promise((r) => setTimeout(r, 30));
 
-// ---- 字幕夹具 ----
+// ---- 语料切片夹具 ----
 episodeFixtures = {
-  e1: {
-    audioUrl: 'https://oss/e1.m4a',
-    subtitles: [
-      {
-        start: 1, end: 3, textEn: 'Hello, World!',
-        words: [
-          { word: 'Hello', start: 1.2, end: 1.6 },
-          { word: 'World', start: 2.3, end: 2.8 },
-        ],
-      },
-      { start: 38, end: 42, textEn: 'Second sentence here', words: [] },
-      { start: 60, textEn: 'no end timestamp line' },
-    ],
-  },
-  e2: { audioUrl: null, subtitles: [] }, // token 失效场景
-  e3: { audioUrl: 'https://oss/e3.m4a', subtitles: [{ start: 1, end: 2, textEn: 'abc' }] },
-  e4: { audioUrl: 'https://oss/e4.m4a', subtitles: [{ start: 1, end: 2, textEn: 'abc' }] },
-  e5: { audioUrl: 'https://oss/e5.m4a', subtitles: [{ start: 1, end: 2, textEn: 'ok' }] },
+  c1: { audioUrl: 'https://oss/c1.mp3', duration: 6, clipOffset: 10 },
+  c2: { audioUrl: null, duration: 0, clipOffset: 0 }, // 无音频场景
+  c3: { audioUrl: 'https://oss/c3.mp3', duration: 4, clipOffset: 0 },
+  c4: { audioUrl: 'https://oss/c4.mp3', duration: 4, clipOffset: 0 },
+  c5: { audioUrl: 'https://oss/c5.mp3', duration: 4, clipOffset: 0 },
 };
 
 (async () => {
@@ -162,81 +155,76 @@ episodeFixtures = {
   const n = clip.normalizeText('  "Hello,—World!" (again)  ');
   assert(n === 'hello world again', 'A 归一化：去标点/引号/压空格/小写 → "' + n + '"');
 
-  // —— B2 + C：文本定位（标点差异）+ 词级窗口 + 终点自停 ——
+  // —— B + C：clipId 切片直连 + 显式窗口换算（startTime - clipOffset）+ 终点自停 ——
   toasts.length = 0;
-  let p = clip.play({ key: 'e1:hello', episodeid: 'e1', contextSentence: 'hello world', timestamp: 999999 });
-  assert(clip.getState().loadingKey === 'e1:hello', 'B 请求期间 loadingKey 置位');
+  let p = clip.play({ key: 'c1:hello', clipId: 'c1', startTime: 11.2, endTime: 12.8 });
+  assert(clip.getState().loadingKey === 'c1:hello', 'B 请求期间 loadingKey 置位');
   await settle2();
   const ctx1 = lastCtx();
   ctx1._h.canplay && ctx1._h.canplay();
-  assert(clip.getState().playingKey === 'e1:hello', 'B 文本匹配定位成功（标点差异可命中）');
-  assert(ctx1.seekedTo === 1.2 && ctx1.played, 'C 词级窗口起点 seek(1.2) 并 play');
+  assert(clip.getState().playingKey === 'c1:hello', 'B 语料切片解析并开播');
+  assert(Math.abs(ctx1.seekedTo - 1.2) < 0.01 && ctx1.played, 'C 显式窗口按 clipOffset(10) 换算相对起点 seek(1.2) 并 play');
   ctx1.currentTime = 2.9;
   ctx1._h.timeupdate && ctx1._h.timeupdate();
-  assert(clip.getState().playingKey === null && ctx1.destroyed, 'C 到词级窗口终点 2.8s 后自动停止销毁');
+  assert(clip.getState().playingKey === null && ctx1.destroyed, 'C 到切片相对终点 2.8s 后自动停止销毁');
 
-  // —— B3：timestamp 兜底 + 句级窗口（end 存在）——
-  p = clip.play({ key: 'e1:s2', episodeid: 'e1', timestamp: 40 });
+  // —— B2：内联 clipAudioUrl 免请求直播 ——
+  p = clip.play({ key: 'inline:s2', clipAudioUrl: 'https://oss/inline.mp3', clipOffset: 30, clipDuration: 15, startTime: 38, endTime: 42 });
   await settle2();
   const ctx2 = lastCtx();
   ctx2._h.canplay && ctx2._h.canplay();
-  assert(ctx2.seekedTo === 38, 'B timestamp=40 落句兜底 → 句级窗口起点 38');
-  ctx2.currentTime = 42.1;
+  assert(ctx2.seekedTo === 8, 'B 内联 clipAudioUrl 相对起点 38 - 30 = 8');
+  ctx2.currentTime = 12.1;
   ctx2._h.timeupdate && ctx2._h.timeupdate();
-  assert(clip.getState().playingKey === null, 'C 句级窗口终点 42s 自动停止');
+  assert(clip.getState().playingKey === null, 'C 相对终点 12s 自动停止');
 
-  // —— C：end 缺省 = start + 3 ——
-  p = clip.play({ key: 'e1:s3', episodeid: 'e1', timestamp: 61 });
+  // —— C：无显式 startTime/endTime 时按 duration 整段播放 ——
+  p = clip.play({ key: 'c1:full', clipId: 'c1' });
   await settle2();
   const ctx3 = lastCtx();
   ctx3._h.canplay && ctx3._h.canplay();
-  ctx3.currentTime = 62.9;
+  ctx3.currentTime = 5.5;
   ctx3._h.timeupdate && ctx3._h.timeupdate();
-  assert(clip.getState().playingKey === 'e1:s3', 'C end 缺省时窗口 = start+3s（62.9 < 63 仍在播）');
+  assert(clip.getState().playingKey === 'c1:full', 'C 无显式窗口时窗口 = 0~duration（5.5 < 6 仍在播）');
   clip.stop();
 
-  // —— B4：均未命中 ——
+  // —— B4：无 clipId 且无 clipAudioUrl → 拒绝整集回退，toast 提示 ——
   toasts.length = 0;
   await clip.play({ key: 'e3:x', episodeid: 'e3', contextSentence: 'zzz nothing matches', timestamp: 999 });
-  assert(lastToast() === '未找到该句的原声位置', 'B 文本与时间戳均未命中 → 未找到该句的原声位置');
-
-  // —— D：audioUrl=null ——
-  toasts.length = 0;
-  await clip.play({ key: 'e2:x', episodeid: 'e2', timestamp: 0 });
-  assert(lastToast() === '暂时无法播放原声', 'D audioUrl=null（token 失效）→ 暂时无法播放原声');
+  assert(lastToast() === '暂时无法播放原声', 'B 缺失语料切片标识 → 暂时无法播放原声（零整集回退）');
 
   // —— D：缓存去重 ——
   subtitlesRequestCount = {};
-  await clip.play({ key: 'e5:a', episodeid: 'e5', timestamp: 1 });
+  await clip.play({ key: 'c5:a', clipId: 'c5' });
   clip.stop();
-  await clip.play({ key: 'e5:b', episodeid: 'e5', timestamp: 1 });
+  await clip.play({ key: 'c5:b', clipId: 'c5' });
   clip.stop();
-  assert(subtitlesRequestCount.e5 === 1, 'D 新剧集两次播放只发一次字幕请求（全局缓存去重）');
-  assert((subtitlesRequestCount.e1 || 0) === 0, 'D 更早场景预热过的 e1 零新请求（模块级全局缓存）');
+  assert(subtitlesRequestCount.c5 === 1, 'D 同一 clipId 两次播放只发一次请求（全局缓存去重）');
+  assert((subtitlesRequestCount.c1 || 0) === 0, 'D 更早场景预热过的 c1 零新请求（模块级全局缓存）');
 
   // —— E：toggle ——
-  await clip.play({ key: 'e1:t', episodeid: 'e1', timestamp: 2 });
+  await clip.play({ key: 'c1:t', clipId: 'c1' });
   const ctxT = lastCtx();
   ctxT._h.canplay && ctxT._h.canplay();
-  assert(clip.getState().playingKey === 'e1:t', 'E 播放中');
-  await clip.play({ key: 'e1:t', episodeid: 'e1', timestamp: 0 });
+  assert(clip.getState().playingKey === 'c1:t', 'E 播放中');
+  await clip.play({ key: 'c1:t', clipId: 'c1' });
   assert(clip.getState().playingKey === null && ctxT.destroyed, 'E 同 key 再点 = 停止（toggle）');
 
   // —— D：失败不缓存可重试 ——
-  episodeFixtures.e4 = 'FAIL_500';
-  subtitlesRequestCount.e4 = 0;
+  episodeFixtures.c4 = 'FAIL_500';
+  subtitlesRequestCount.c4 = 0;
   toasts.length = 0;
-  await clip.play({ key: 'e4:x', episodeid: 'e4', timestamp: 1 });
-  assert(lastToast() === '原声信息加载失败', 'H 字幕请求失败 → 原声信息加载失败');
-  episodeFixtures.e4 = { audioUrl: 'https://oss/e4.m4a', subtitles: [{ start: 1, end: 2, textEn: 'abc' }] };
+  await clip.play({ key: 'c4:x', clipId: 'c4' });
+  assert(lastToast() === '原声信息加载失败', 'H 切片请求失败 → 原声信息加载失败');
+  episodeFixtures.c4 = { audioUrl: 'https://oss/c4.mp3', duration: 4, clipOffset: 0 };
   toasts.length = 0;
-  await clip.play({ key: 'e4:x', episodeid: 'e4', timestamp: 1 });
-  assert(subtitlesRequestCount.e4 === 2 && lastToast() !== '原声信息加载失败', 'D 失败后缓存已清除，重试成功');
+  await clip.play({ key: 'c4:x', clipId: 'c4' });
+  assert(subtitlesRequestCount.c4 === 2 && lastToast() !== '原声信息加载失败', 'D 失败后缓存已清除，重试成功');
   clip.stop();
 
   // —— H：clip onError ——
   toasts.length = 0;
-  await clip.play({ key: 'e1:err', episodeid: 'e1', timestamp: 2 });
+  await clip.play({ key: 'c1:err', clipId: 'c1' });
   const ctxE = lastCtx();
   ctxE._h.error && ctxE._h.error();
   assert(lastToast() === '原声加载失败' && clip.getState().playingKey === null, 'H 音频加载错误 → 原声加载失败并停止');
@@ -373,11 +361,11 @@ episodeFixtures = {
   await tts.speak('mutex');
   const ttsM = lastCtx();
   assert(tts.getState().playingText === 'mutex', 'F TTS 播放中');
-  await clip.play({ key: 'e1:m', episodeid: 'e1', timestamp: 2 });
+  await clip.play({ key: 'c1:m', clipId: 'c1' });
   const clipM = lastCtx();
   clipM._h.canplay && clipM._h.canplay();
   assert(ttsM.destroyed && tts.getState().playingText === null, 'F 原声开播 → TTS 被总线停止');
-  assert(clip.getState().playingKey === 'e1:m', 'F 原声接管播放');
+  assert(clip.getState().playingKey === 'c1:m', 'F 原声接管播放');
   youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/mutex2.mp3' } };
   await tts.speak('mutex2');
   assert(clipM.destroyed && clip.getState().playingKey === null, 'F TTS 开播 → 原声被总线停止');

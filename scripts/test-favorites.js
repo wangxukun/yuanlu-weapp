@@ -98,8 +98,11 @@ ok(navigations[0] === '/pages/library/paths/detail?id=8', 'C 卡册跳详情（�
 // —— D. WXML 结构红线 ——
 const wxml = fs.readFileSync(path.join(__dirname, '../pages/library/favorites/index.wxml'), 'utf8');
 ok(wxml.includes('微剧场') && wxml.includes('特训卡册'), 'D 双 Tab 文案');
-ok(wxml.includes('sentence-micro-player') && wxml.includes('clip-id="{{item.sceneid}}"'), 'D 微播放器切片直连');
-ok(!wxml.includes('/api/podcast') && !wxml.includes('播客'), 'D 零退役文案');
+// 2026-11-05：行内微播放器退役（sceneid 误作 clipid 会 404），改「重研」直达精研室
+ok(!wxml.includes('sentence-micro-player') && wxml.includes('scene-go') && wxml.includes('重研'),
+  'D 行侧「重研」直达精研室（微播放器 sceneid/clipid 错配修复）');
+ok(wxml.includes('在微剧场精研室点亮画报右上角的心'), 'D 空态引导指向精研室 ♥（收藏写入口复活）');
+ok(!wxml.includes('/api/podcast') && !wxml.includes('播客') && !wxml.includes('探索画廊'), 'D 零退役文案/零已下线画廊口径');
 
 console.log('----------------------------------------');
 if (failed === 0) {

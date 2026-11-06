@@ -8,6 +8,7 @@
  * 运行：node scripts/test-reshape-utilities.js
  */
 const path = require('path');
+const fs = require('fs');
 
 const storage = new Map();
 global.wx = {
@@ -89,6 +90,18 @@ console.log('━━━ B. scene-favorites 本地收藏夹 ━━━');
 
   sceneFavorites.remove('a');
   ok(sceneFavorites.list().length === 1 && sceneFavorites.list()[0].sceneid === 'b', 'B remove 生效');
+
+  // 2026-11-05 入口复活：微剧场精研室画报头卡 ♥ 是唯一写入口（探索画廊♥已随信息流下线）
+  const ilWxml = fs.readFileSync(
+    path.join(__dirname, '../pages/intensive-listening/index.wxml'), 'utf8'
+  );
+  const ilJs = fs.readFileSync(
+    path.join(__dirname, '../pages/intensive-listening/index.js'), 'utf8'
+  );
+  ok(ilWxml.includes('onSceneFavToggle') && ilWxml.includes('il-hero-fav'),
+    'B 精研室画报头卡挂 ♥ 收藏按钮（onSceneFavToggle/il-hero-fav）');
+  ok(ilJs.includes('sceneFavorites.toggle(this._favSnapshot)') && ilJs.includes('sceneFav: sceneFavorites.has(sceneid)'),
+    'B 精研室接线 scene-favorites（进入回显收藏态 + 点击 toggle）');
 }
 
 console.log('━━━ C. study-footprint 精研足迹 ━━━');

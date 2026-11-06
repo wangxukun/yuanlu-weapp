@@ -124,22 +124,32 @@ function makeSentence(id, extra) {
   }, extra || {});
 }
 
-const S1 = makeSentence(1); // ep1 / subtitleId 10
-const S2 = makeSentence(2); // ep2 / subtitleId 20（跨集）
-const S3 = makeSentence(3, { subtitleId: null }); // 无字幕定位句
+const S1 = makeSentence(1, {
+  enText: 'Subtitle text one.',
+  zhText: '字幕译文一',
+  startTime: 12.1,
+  endTime: 15.2,
+  clipId: 'c1',
+  clipAudioUrl: 'https://oss/clip1.mp3',
+  clipOffset: 11.85,
+  clipDuration: 3.7,
+  clipWords: [{ word: 'Subtitle', start: 12.1, end: 12.5 }],
+}); // ep1 / subtitleId 10（内联 clipAudioUrl）
+const S2 = makeSentence(2, {
+  enText: 'Subtitle text two.',
+  zhText: null,
+  startTime: 22,
+  endTime: 25,
+  clipId: 'c2',
+  clipAudioUrl: '',
+  clipWords: [],
+}); // ep2 / subtitleId 20（仅 clipId，走 /api/clips/c2/audio 懒取）
+const S3 = makeSentence(3, { subtitleId: null }); // 无切片定位句
 
 apiResponses['/api/sentences/list'] = { success: true, data: [S1, S2, S3] };
-apiResponses['/api/episode/subtitles?id=ep1'] = {
-  success: true, audioUrl: 'https://oss/ep1.m4a',
-  data: [{ id: 10, start: 12.1, end: 15.2, textEn: 'Subtitle text one.', textCn: '字幕译文一',
-    words: [{ word: 'Subtitle', start: 12.1, end: 12.5 }] }],
-};
-apiResponses['/api/episode/subtitles?id=ep2'] = {
-  success: true, audioUrl: 'https://oss/ep2.m4a',
-  data: [{ id: 20, start: 22, end: 25, textEn: 'Subtitle text two.', textCn: null, words: [] }],
-};
-apiResponses['/api/episode/subtitles?id=ep3'] = {
-  success: true, audioUrl: 'https://oss/ep3.m4a', data: [],
+apiResponses['/api/clips/c2/audio'] = {
+  success: true,
+  data: { url: 'https://oss/clip2.mp3', duration: 3.6, clipOffset: 21.75 },
 };
 apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, exhausted: false } };
 
@@ -147,27 +157,29 @@ apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, 
 
 (async () => {
   /* ---------- 1. 深链定位与 subtitle 组装 ---------- */
-  section('深链定位 + subtitle 注入');
+  section('深链定位 + 语料切片注入');
 
   const p = makePage();
-  p.onLoad({ id: '2' }); // id 优先 → 第 2 句（ep2/subtitleId 20）
+  p.onLoad({ id: '2' }); // id 优先 → 第 2 句（ep2/subtitleId 20，clipId=c2 懒取）
   await settle(10);
   assert(p.data.index === 1 && p.data.loading === false, '深链 id=2 → index 1');
   assert(p.data.episodeId === 'ep2' && p.data.subtitleId === 20, '当前句：ep2 / subtitleId 20');
-  assert(p.data.subtitle.audioUrl === 'https://oss/ep2.m4a', 'subtitle.audioUrl = 全集直链');
-  assert(p.data.subtitle.textEn === 'Subtitle text two.', '文本用字幕口径（命中 subtitleId=20）');
+  assert(p.data.subtitle.audioUrl === 'https://oss/clip2.mp3', 'subtitle.audioUrl = 语料切片直链（懒取 c2）');
+  assert(p.data.subtitle.textEn === 'Subtitle text two.', '文本用收藏句原句（subtitleId=20）');
   assert(p.data.cardKey === 'sh-2', '卡片 key 按句 id 重挂');
   assert(p.data.total === 3 && Math.abs(p.data.progressPercent - 66.67) < 0.1,
     '进度 (2/3)');
 
-  // subtitleId 兜底
+  // subtitleId 兜底（第 1 句已带内联 clipAudioUrl + clipOffset=11.85）
   const p2 = makePage();
   p2.onLoad({ subtitleId: '10' });
   await settle(10);
   assert(p2.data.index === 0 && p2.data.subtitle.words.length === 1,
-    '深链 subtitleId=10 → 第 1 句（词级时间戳注入）');
-  assert(p2.data.subtitle.textEn === 'Subtitle text one.' && p2.data.subtitle.start === 12.1,
-    '命中字幕：start/textEn/words 全字幕口径');
+    '深链 subtitleId=10 → 第 1 句（clipWords 词级时间戳注入）');
+  assert(p2.data.subtitle.textEn === 'Subtitle text one.' &&
+    Math.abs(p2.data.subtitle.start - 0.25) < 0.01 &&
+    Math.abs(p2.data.subtitle.words[0].start - 0.25) < 0.01,
+    '命中内联切片：start 与 words 按 clipOffset 对齐切片本地时间轴');
 
   // 非零位深链（deck 跟读场景：只传 subtitleId；回归锁死——index 初始 0 会把
   // subtitleId 兜底分支短路，恒落第 1 句致卡片与跟读句错位）
@@ -185,15 +197,15 @@ apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, 
   await settle(10);
   assert(p3.data.index === 0, '深链未命中 → 回落 0');
 
-  /* ---------- 2. subtitleId null 兜底 + 字幕失败降级 ---------- */
-  section('无字幕定位句 / 降级');
+  /* ---------- 2. 无切片定位句 / 降级 ---------- */
+  section('无切片定位句 / 降级');
 
   const p4 = makePage();
-  p4.onLoad({ id: '3' }); // subtitleId null → ep3 字幕空 → 收藏句字段兜底
+  p4.onLoad({ id: '3' }); // 无 clipId/clipAudioUrl → 收藏句字段兜底
   await settle(10);
   assert(p4.data.subtitle.textEn === 'Saved text 3.' && p4.data.subtitle.words.length === 0,
-    'subtitleId null：收藏句字段兜底（words 空）');
-  assert(p4.data.subtitle.audioUrl === 'https://oss/ep3.m4a', 'audioUrl 仍取全集直链');
+    '无切片句：收藏句字段兜底（words 空）');
+  assert(p4.data.subtitle.audioUrl === '', '无切片句：audioUrl 为空串（零整集回退）');
 
   /* ---------- 3. quota 预检与事件 ---------- */
   section('quota 预检 / 触墙置锁');
@@ -247,23 +259,23 @@ apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, 
   assert(navBackCalls.length === 1 && appGlobal.globalData.deckFocusSubtitleId === '10',
     '完成跟读：带回当前句 subtitleId=10（deck onShow 消费定位）');
 
-  /* ---------- 6. 跨集切句重拉字幕 ---------- */
-  section('跨集切句');
+  /* ---------- 6. 跨句切卡与切片缓存复用 ---------- */
+  section('跨句切卡与切片缓存复用');
 
   requestLog.length = 0;
   const p7 = makePage();
   p7.onLoad({ id: '1' });
   await settle(10);
   requestLog.length = 0;
-  p7.onNext(); // ep1 → ep2
+  p7.onNext(); // S1 → S2 (c2)
   await settle(10);
-  assert(p7.data.subtitle.audioUrl === 'https://oss/ep2.m4a',
-    '跨集切句：重拉 ep2 字幕注入');
-  const ep2Fetches = requestLog.filter((r) => r.path === '/api/episode/subtitles').length;
-  p7.onPrev(); await settle(10); // 回 ep1（缓存命中）
-  p7.onNext(); await settle(10);
-  assert(requestLog.filter((r) => r.path === '/api/episode/subtitles').length === ep2Fetches,
-    '按集缓存：回访已拉剧集零重复请求');
+  assert(p7.data.subtitle.audioUrl === 'https://oss/clip2.mp3',
+    '跨句切卡：注入 S2 语料切片直链');
+  const clipFetches = requestLog.filter((r) => r.path === '/api/clips/c2/audio').length;
+  p7.onPrev(); await settle(10); // 回 S1
+  p7.onNext(); await settle(10); // 再到 S2（clipCache 命中）
+  assert(requestLog.filter((r) => r.path === '/api/clips/c2/audio').length === clipFetches,
+    '切片缓存：回访已解析 clipId 零重复请求');
 
   /* ---------- 7. 空句库 ---------- */
   section('空句库');

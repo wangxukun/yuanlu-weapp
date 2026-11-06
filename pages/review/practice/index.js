@@ -24,6 +24,7 @@
 // - 解锁 CTA：Android 为 toast「订阅功能即将上线」+ 返回；小程序按 T4.4 权限
 //   表口径升级为 premium-modal(pronunciation_locked)
 const core = require('../../../utils/pron-core');
+const audioClip = require('../../../utils/audio-clip');
 const theme = require('../../../utils/theme');
 const { get } = require('../../../utils/request');
 
@@ -151,6 +152,7 @@ Page({
     this.setData({ subtitle: null });
     const card = core.buildPracticeCard(rec);
     const completed = this._completed.has(index);
+    const seq = (this._qSeq = (this._qSeq || 0) + 1);
     this.setData({
       index,
       total: this._records.length,
@@ -166,6 +168,30 @@ Page({
       cardKey: 'pr-' + rec.recognitionid,
     });
     this._syncSettlement();
+    if (!card.subtitle.audioUrl && card.clipId) {
+      const p = audioClip.resolveClipSource({ clipId: card.clipId });
+      if (p) {
+        p.then((resolved) => {
+          if (seq !== this._qSeq || !resolved || !resolved.url) return;
+          const off = typeof resolved.offset === 'number' ? resolved.offset : 0;
+          const start = Math.max(0, card.rawStart - off);
+          const end = Math.max(start + 0.5, card.rawEnd - off);
+          const words = (card.rawWords || []).map((w) => ({
+            word: w.word,
+            start: Math.max(0, (Number(w.start) || 0) - off),
+            end: Math.max(0, (Number(w.end) || 0) - off),
+          }));
+          this.setData({
+            subtitle: Object.assign({}, card.subtitle, {
+              audioUrl: resolved.url,
+              start,
+              end,
+              words,
+            }),
+          });
+        }).catch(() => {});
+      }
+    }
   },
 
   /* ---------------- 配额（Web [P3-c] 口径恢复） ---------------- */

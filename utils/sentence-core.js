@@ -57,6 +57,12 @@ function normalizeSentence(item) {
     nextReviewAt: src.nextReviewAt || null,
     createAt: src.createAt || '',
     updateAt: src.updateAt || '',
+    // [RESHAPE] 语料切片字段（/api/sentences/list additive 装饰）
+    clipId: src.clipId ? String(src.clipId) : '',
+    clipAudioUrl: src.clipAudioUrl ? String(src.clipAudioUrl) : '',
+    clipOffset: typeof src.clipOffset === 'number' ? src.clipOffset : 0,
+    clipDuration: typeof src.clipDuration === 'number' ? src.clipDuration : 0,
+    clipWords: Array.isArray(src.clipWords) ? src.clipWords : null,
   };
 }
 

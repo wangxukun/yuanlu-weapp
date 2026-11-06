@@ -2,7 +2,7 @@
  * scripts/test-compliance-redlines.js — 个人主体提审合规红线门禁（RESHAPE-TASK T0.3）
  *
  * 走查范围（动态解析，增删页面/组件自动跟随）：
- *   A. app.json：无 requiredBackgroundModes；标题=远路听说；未注册任何已退役
+ *   A. app.json：无 requiredBackgroundModes；标题=远路播客；未注册任何已退役
  *      整集/播客目录页（podcast/episode/search/channel + 暂隐的 favorites/history）
  *   B. 全部已注册页面（app.json pages 解析出的目录，.wxml/.js/.json）与
  *      页面引用的全部组件（usingComponents 传递闭包）：
@@ -41,7 +41,7 @@ function exists(p) {
 // ---- A. app.json 全局配置 ----
 const app = JSON.parse(read('app.json'));
 ok(!('requiredBackgroundModes' in app), 'A app.json 不含 requiredBackgroundModes（后台音频权限退役）');
-ok(app.window && app.window.navigationBarTitleText === '远路听说', 'A 全局标题 = 远路听说');
+ok(app.window && app.window.navigationBarTitleText === '远路播客', 'A 全局标题 = 远路播客');
 
 const RETIRED_PAGES = [
   'pages/podcast/podcast',
@@ -86,16 +86,25 @@ app.pages.forEach((p) => {
 compRefs.forEach((rel) => scanTargets.push(rel));
 
 // 字样门禁：AI 词边界（前后均非字母，防 EMAIL/btn-ai-text 误伤）+ 中文敏感词
+// + 英文 podcast（2026-11-05 补：about 眉标 YUANLU PODCAST 曾漏网——中文「播客」
+//   不覆盖英文；PodcastWave 这类驼峰连续字母不触发词边界，安全）
 const FORBIDDEN = [
   { re: /(^|[^A-Za-z])AI([^A-Za-z]|$)/, label: '「AI」字眼' },
   { re: /大模型/, label: '「大模型」字眼' },
   { re: /智能/, label: '「智能」字眼' },
-  { re: /播客/, label: '「播客」字眼' },
+  { re: /(?<!远路)播客/, label: '非品牌名「播客」字眼' },
+  { re: /电台/, label: '「电台」字眼' },
+  { re: /(^|[^A-Za-z])podcasts?([^A-Za-z]|$)/i, label: '英文「podcast」字眼' },
   { re: /mini-player|player-panel/, label: '整集播放器组件残留' },
   { re: /audioManager|playerStore/, label: '整集播放内核残留' },
   { re: /download-manager/, label: '整集离线下载模块残留' },
   { re: /transcript-preview/, label: '整集文稿预览模块残留' },
-  { re: /\/api\/comment/, label: 'UGC 评论接口调用残留' },
+  { re: /\/api\/comment/, label: 'UGC 评论接口残留' },
+  { re: /\/api\/episode\/(detail|subtitles|deep-dive)/, label: '整集接口残留' },
+  { re: /\/api\/speech\/practice-data/, label: '整集评测接口残留' },
+  { re: /ai-deep-dive|subtitle-cache/, label: '已退役整集组件/缓存残留' },
+  { re: /\/pages\/(intensive-listening|speech-eval)\/index\?id=/, label: '已退役 ?id= 剧集路由残留' },
+  { re: /社区/, label: '「社区」字眼' },
 ];
 
 let scanned = 0;
@@ -132,16 +141,38 @@ ok(scanned > 30, 'B/C/D 扫描覆盖已注册页面与组件文件数 > 30（实
 [
   'utils/plans.js',
   'pages/subscription/agreement.js',
+  'pages/auth/agreement.js',
   'components/premium-modal/index.js',
   'utils/wxpay.js',
+  'sitemap.json',
+  'app.wxss',
 ].forEach((f) => {
   if (exists(f)) scanFile(f);
 });
+
+// ---- F. 全量 utils/store 活代码 + 工程元数据（2026-11-05 补：页面闭包扫不到的
+//      数据映射层曾藏「未知播客」「每天一集短播客」两处用户可见文案）----
+const utilFiles = fs
+  .readdirSync(path.join(ROOT, 'utils'))
+  .filter((f) => f.endsWith('.js'))
+  .map((f) => 'utils/' + f);
+const storeFiles = fs
+  .readdirSync(path.join(ROOT, 'store'))
+  .filter((f) => f.endsWith('.js'))
+  .map((f) => 'store/' + f);
+utilFiles.concat(storeFiles).forEach((f) => scanFile(f));
+scanFile('app.js');
+scanFile('project.config.json');
 
 // premium-modal 场景字典：下载门禁场景已随整集链路退役
 const premiumSrc = read('components/premium-modal/index.js');
 ok(!/'episode_audio_download'/.test(premiumSrc), 'E premium-modal 已移除 episode_audio_download 场景');
 ok(premiumSrc.includes('心愿卡册无限定制') || read('utils/plans.js').includes('心愿卡册无限定制'),
   'E 订阅权益含「心愿卡册无限定制」新口径');
+
+// ---- G. 已退役整集与 AI 模块彻底清理确认 ----
+ok(!exists('components/ai-deep-dive/index.js'), 'G components/ai-deep-dive 已彻底删除');
+ok(!exists('utils/subtitle-cache.js'), 'G utils/subtitle-cache.js 已彻底删除');
+ok(!exists('utils/route.js'), 'G utils/route.js 已彻底删除');
 
 console.log('✓ compliance-redlines 全部通过（' + passed + ' 断言 / ' + scanned + ' 文件）');

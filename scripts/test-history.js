@@ -48,7 +48,7 @@ const page = Object.assign({}, cfg, {
 page.onShow();
 ok(page.data.total === 0 && page.data.today.length === 0, 'A 空态零足迹');
 const wxml = fs.readFileSync(path.join(__dirname, '../pages/library/history/index.wxml'), 'utf8');
-ok(wxml.includes('精研足迹') && wxml.includes('去探索画廊'), 'A 空态引导文案');
+ok(wxml.includes('精研足迹') && wxml.includes('去特训开始今日一测') && !wxml.includes('探索画廊'), 'A 空态引导文案（指向特训今日一测，画廊口径已下线）');
 
 // —— B. 足迹记录 → 渲染（今天/更早分组） ——
 const now = Date.now();

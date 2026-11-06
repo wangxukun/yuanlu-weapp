@@ -595,7 +595,7 @@ const evt = (key, delta) => ({ currentTarget: { dataset: { key, delta: String(de
     headings.map((h) => h.text).join('|').includes('8. 争议解决'), '首末节标题逐字');
   assert(bullets.reduce((n, b) => n + b.items.length, 0) === 13, '五组列表共 13 条（3+2+3+3+2，对齐 Web li 计数）');
   const allText = JSON.stringify(blocks);
-  assert(allText.includes('本协议是您（下称“用户”）与《远路听说》（下称“本平台”）'), '首段文案逐字（全角引号）');
+  assert(allText.includes('本协议是您（下称“用户”）与《远路播客》（下称“本平台”）'), '首段文案逐字（全角引号）');
   assert(allText.includes('通过“微信虚拟支付”完成交易处理'), '第 2 节支付口径 = 微信虚拟支付（2026-10-02 用户拍板改写）');
   assert(allText.includes('时长自动入账，无需填写任何凭证信息'), '自动激活口径 = 微信账号自动匹配');
   assert(!allText.includes('爱发电') && !allText.includes('预留邮箱'), '协议全文无爱发电/邮箱凭证残留（防回退红线）');

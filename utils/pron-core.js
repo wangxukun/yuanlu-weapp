@@ -141,6 +141,11 @@ function normalizeErrorRecord(item) {
     overallScore: num(src.overallScore),
     speed: num(src.speed),
     recognitionDate: src.recognitionDate || '',
+    clipId: src.clipId ? String(src.clipId) : '',
+    clipAudioUrl: src.clipAudioUrl ? String(src.clipAudioUrl) : '',
+    clipOffset: typeof src.clipOffset === 'number' ? src.clipOffset : 0,
+    clipDuration: typeof src.clipDuration === 'number' ? src.clipDuration : 0,
+    clipWords: Array.isArray(src.clipWords) ? src.clipWords : null,
   };
 }
 
@@ -370,7 +375,7 @@ function labelY(dy, anchorY) {
   return anchorY - RADAR_LABEL_LINE_H / 2;
 }
 
-/* ── AI 发音诊断报告（T4.3，Web DiagnosticReportCard.tsx + phoneme-tips.ts 移植）── */
+/* ── 发音诊断报告（T4.3，Web DiagnosticReportCard.tsx + phoneme-tips.ts 移植）── */
 
 /** 免费层可见音素数（其后模糊锁定——「看得到数据但看不到深度分析」） */
 const FREE_VISIBLE_PHONEMES = 3;
@@ -634,7 +639,7 @@ function decorateWeakRow(record) {
   return {
     recognitionid: src.recognitionid,
     episodeid: src.episodeid || '',
-    episodeTitle: src.episodeTitle || '未知播客',
+    episodeTitle: src.episodeTitle || '未知出处',
     episodeCoverUrl: src.episodeCoverUrl || '',
     targetText: src.targetText || '',
     subtitleId: typeof src.subtitleId === 'number' ? src.subtitleId : null,
@@ -663,23 +668,44 @@ function parseErrors(res) {
 }
 
 /**
- * 弱项记录 → 评测卡装配（Android toSubtitle + buildCard 同口径）：
+ * 弱项记录 → 评测卡装配（Android toSubtitle + buildCard 同口径，语料切片化）：
  * id = subtitleId ?? recognitionid；end = subtitleEnd ?? start + 3；
- * textCn/words/audioUrl 缺省容忍（原声/词级窗口按缺省降级）。
+ * 仅消费语料切片直链 clipAudioUrl（或由调用方凭 clipId 懒取），不再注入整集音频。
  */
 function buildPracticeCard(record) {
   const src = record || {};
-  const start = typeof src.targetStartTime === 'number' ? src.targetStartTime : 0;
+  const rawStart = typeof src.targetStartTime === 'number' ? src.targetStartTime : 0;
+  const rawEnd = src.subtitleEnd != null ? src.subtitleEnd : rawStart + 3;
   const subId = typeof src.subtitleId === 'number' ? src.subtitleId : src.recognitionid;
+  const hasClipAudio = typeof src.clipAudioUrl === 'string' && src.clipAudioUrl.length > 0;
+  const off = hasClipAudio && typeof src.clipOffset === 'number' ? src.clipOffset : 0;
+  const rawWords = Array.isArray(src.clipWords)
+    ? src.clipWords
+    : (Array.isArray(src.subtitleWords) ? src.subtitleWords : []);
+  const words = hasClipAudio
+    ? rawWords.map(function (w) {
+        return {
+          word: w.word,
+          start: Math.max(0, (Number(w.start) || 0) - off),
+          end: Math.max(0, (Number(w.end) || 0) - off),
+        };
+      })
+    : rawWords;
+  const start = hasClipAudio ? Math.max(0, rawStart - off) : rawStart;
+  const end = hasClipAudio ? Math.max(start + 0.5, rawEnd - off) : rawEnd;
   return {
     subtitle: {
       textEn: src.targetText || '',
       textCn: src.subtitleTextCn || '',
-      words: Array.isArray(src.subtitleWords) ? src.subtitleWords : [],
-      audioUrl: src.episodeAudioUrl || '',
-      start,
-      end: src.subtitleEnd != null ? src.subtitleEnd : start + 3,
+      words: words,
+      audioUrl: hasClipAudio ? src.clipAudioUrl : '',
+      start: start,
+      end: end,
     },
+    clipId: src.clipId || '',
+    rawStart: rawStart,
+    rawEnd: rawEnd,
+    rawWords: rawWords,
     subtitleId: subId,
     episodeId: src.episodeid || '',
     episodeTitle: src.episodeTitle || '',

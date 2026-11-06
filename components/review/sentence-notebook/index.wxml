@@ -158,7 +158,7 @@
                 <text wx:if="{{item.zhText}}" class="sn-compact-zh">{{item.zhText}}</text>
                 <view class="sn-compact-meta row">
                   <view wx:if="{{item.episodeTitle}}" class="sn-compact-ep row" data-episodeid="{{item.episodeid}}" data-subtitleid="{{item.subtitleId}}" bindtap="onEpisodeTap">
-                    <image class="sn-compact-meta-ic" src="/assets/icons/podcasts-gray.svg" />
+                    <image class="sn-compact-meta-ic" src="/assets/icons/mic-wave-gray.svg" />
                     <text class="sn-compact-meta-ep ellipsis">{{item.episodeTitle}}</text>
                   </view>
                   <text wx:if="{{item.note}}" class="sn-compact-note ellipsis">{{item.note}}</text>
@@ -172,6 +172,10 @@
                 episodeid="{{item.episodeid}}"
                 start-time="{{item.startTime}}"
                 end-time="{{item.endTime}}"
+                clip-id="{{item.clipId}}"
+                clip-audio-url="{{item.clipAudioUrl}}"
+                clip-offset="{{item.clipOffset}}"
+                clip-duration="{{item.clipDuration}}"
               />
               <view class="sn-act center {{item.hasSubtitle ? '' : 'sn-act--off'}}"
                     data-ok="{{item.hasSubtitle}}" data-id="{{item.id}}" bindtap="onShadowTap">
@@ -190,7 +194,7 @@
             </view>
             <view class="sn-item-meta row">
               <view wx:if="{{item.episodeTitle}}" class="sn-item-ep row" data-episodeid="{{item.episodeid}}" data-subtitleid="{{item.subtitleId}}" bindtap="onEpisodeTap">
-                <image class="sn-item-ep-ic" src="/assets/icons/podcasts-gray.svg" />
+                <image class="sn-item-ep-ic" src="/assets/icons/mic-wave-gray.svg" />
                 <text class="sn-item-ep-text ellipsis">{{item.episodeTitle}}</text>
               </view>
               <view class="sn-item-tags row">
@@ -210,6 +214,10 @@
                   episodeid="{{item.episodeid}}"
                   start-time="{{item.startTime}}"
                   end-time="{{item.endTime}}"
+                  clip-id="{{item.clipId}}"
+                  clip-audio-url="{{item.clipAudioUrl}}"
+                  clip-offset="{{item.clipOffset}}"
+                  clip-duration="{{item.clipDuration}}"
                 />
                 <view class="sn-act center {{item.hasSubtitle ? '' : 'sn-act--off'}}"
                       data-ok="{{item.hasSubtitle}}" data-id="{{item.id}}" bindtap="onShadowTap">

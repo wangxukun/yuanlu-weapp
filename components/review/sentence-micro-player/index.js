@@ -27,6 +27,9 @@ Component({
      *  零整集请求——RESHAPE T2.1/T3.x；startTime/endTime 仍为字幕绝对秒，
      *  由 audio-clip 换算切片内相对窗口） */
     clipId: { type: String, value: '' },
+    clipAudioUrl: { type: String, value: '' },
+    clipOffset: { type: Number, value: 0 },
+    clipDuration: { type: Number, value: 0 },
   },
 
   data: {
@@ -78,8 +81,11 @@ Component({
         episodeid: this.data.episodeid,
         startTime: this.data.startTime,
         endTime: this.data.endTime,
-        // 切片直连（clipId 在场时 audio-clip 零整集字幕请求）
+        // 切片直连（clipId / clipAudioUrl 在场时 audio-clip 零整集字幕请求）
         clipId: this.data.clipId || undefined,
+        clipAudioUrl: this.data.clipAudioUrl || undefined,
+        clipOffset: this.data.clipOffset || 0,
+        clipDuration: this.data.clipDuration || 0,
       });
     },
 

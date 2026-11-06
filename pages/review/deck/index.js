@@ -291,6 +291,10 @@ Page({
       episodeid: card.episodeid,
       startTime: card.startTime,
       endTime: card.endTime,
+      clipId: card.clipId,
+      clipAudioUrl: card.clipAudioUrl,
+      clipOffset: card.clipOffset,
+      clipDuration: card.clipDuration,
     });
   },
 

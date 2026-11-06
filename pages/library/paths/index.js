@@ -40,7 +40,7 @@ function mapPath(raw) {
     // 角标（对齐 Android：OFFICIAL 主色 / PUBLIC·PRIVATE 黑底 60%）
     badge: isOfficial ? 'OFFICIAL' : isPublic ? 'PUBLIC' : 'PRIVATE',
     badgeIcon: isOfficial || isPublic ? 'public' : 'lock',
-    itemCountText: (Number(p.itemCount) || 0) + ' 集',
+    itemCountText: (Number(p.itemCount) || 0) + ' 项',
     creatorName: p.creatorName || '未知创建者',
     progress: Math.min(100, Math.max(0, Number(p.progress) || 0)),
   };
@@ -212,7 +212,7 @@ Page({
     wx.navigateTo({ url: '/pages/auth/index' });
   },
 
-  // ==================== 会员判定（对齐 ai-deep-dive 的校正口径） ====================
+  // ==================== 会员判定（对齐订阅状态校正口径） ====================
 
   syncMembership() {
     const state = authStore.getState();

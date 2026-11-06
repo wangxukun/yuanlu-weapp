@@ -1,6 +1,7 @@
 <!--
-  pages/discover — 专项特训（第二 Tab，工具化转型重构）
-  发音急救箱 / 语境卡册书架 / 今日一测；三段静态骨架，无信息流无滚动容器
+  pages/discover — 专项特训（第二 Tab，工具化转型重构；2026-11-05 去 mock）
+  发音急救箱（真发音画像）/ 语境卡册书架（真卡册）/ 今日一测（日期种子换题）；
+  三段式，无信息流无滚动容器
 -->
 <view class="train-container {{themeClass}}">
 
@@ -10,24 +11,57 @@
       <text class="t-h3 text-bold">发音急救箱</text>
       <text class="aid-tag">诊断</text>
     </view>
-    <text class="aid-desc mt-3">系统诊断：你的 {{weakPhoneme}} 易混淆</text>
+    <block wx:if="{{aid.state === 'loading'}}">
+      <view class="aid-desc mt-3"><view class="loading-spinner loading-spinner--sm" /></view>
+    </block>
+    <block wx:elif="{{aid.state === 'guest'}}">
+      <text class="aid-desc mt-3">登录后开启发音诊断，定位你最容易失分的音素</text>
+    </block>
+    <block wx:else>
+      <text class="aid-desc mt-3">{{aid.weakDesc}}</text>
+      <text wx:if="{{aid.state === 'ready'}}" class="aid-weak mt-1">{{aid.weakLabel}}</text>
+    </block>
     <view class="aid-go center tap-scale" bindtap="onPhonemeGo">
-      <text class="aid-go-text">立即攻克</text>
+      <text class="aid-go-text">{{aid.state === 'ready' ? '立即攻克' : (aid.state === 'guest' ? '去登录' : '去做跟读')}}</text>
     </view>
   </view>
 
-  <!-- ── 2. 语境卡册书架（两列网格） ── -->
-  <view class="section-title mt-6 mb-3"><text class="t-h3 text-bold">语境卡册书架</text></view>
-  <view class="shelf-grid">
-    <view class="card book-card col" wx:for="{{books}}" wx:key="key"
-          data-key="{{item.key}}" bindtap="onBookTap">
+  <!-- ── 2. 语境卡册书架（两列网格 · 真卡册） ── -->
+  <view class="section-title mt-6 mb-3 row between w-full">
+    <text class="t-h3 text-bold">语境卡册书架</text>
+    <view wx:if="{{shelf.state === 'ready'}}" class="t-mini text-secondary tap-scale" bindtap="onAllBooks">全部卡册</view>
+  </view>
+
+  <!-- 游客：登录承接卡 -->
+  <view wx:if="{{shelf.state === 'guest'}}" class="card book-card col center tap-scale" bindtap="onPhonemeGo">
+    <view class="book-cover center">
+      <image class="book-cover-ic" src="/assets/icons/work-primary.svg" mode="aspectFit" />
+    </view>
+    <text class="book-title ellipsis mt-2">登录后查看你的卡册</text>
+    <text class="t-mini text-secondary mt-1">心愿定制的原声特训都在这里</text>
+  </view>
+
+  <!-- 空态：心愿工坊 CTA -->
+  <view wx:elif="{{shelf.state === 'empty'}}" class="card book-card col center tap-scale" bindtap="onAllBooks">
+    <view class="book-cover center">
+      <image class="book-cover-ic" src="/assets/icons/record-voice-over-primary.svg" mode="aspectFit" />
+    </view>
+    <text class="book-title ellipsis mt-2">还没有卡册</text>
+    <text class="t-mini text-secondary mt-1">去心愿工坊，定制第一份原声卡册</text>
+  </view>
+
+  <!-- 真卡册网格 -->
+  <view wx:else class="shelf-grid">
+    <view class="card book-card col" wx:for="{{shelf.books}}" wx:key="key"
+          data-pathid="{{item.pathid}}" bindtap="onBookTap">
       <view class="book-cover center">
-        <image class="book-cover-ic" src="{{item.cover}}" mode="aspectFit" />
+        <image class="{{item.isIcon ? 'book-cover-ic' : 'book-cover-img'}}" src="{{item.cover}}"
+               mode="{{item.isIcon ? 'aspectFit' : 'aspectFill'}}" />
       </view>
       <text class="book-title ellipsis mt-2">《{{item.title}}》</text>
       <progress class="book-progress mt-2" percent="{{item.progress}}" stroke-width="6"
                 activeColor="#1f7a5c" backgroundColor="rgba(0,0,0,0.08)" border-radius="3" />
-      <text class="t-mini text-secondary mt-1">已练 {{item.progress}}%</text>
+      <text class="t-mini text-secondary mt-1">{{item.progressText}}</text>
     </view>
   </view>
 

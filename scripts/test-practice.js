@@ -121,6 +121,9 @@ function makeRecord(i, extra) {
     recognitionid: 100 + i,
     episodeid: 'ep' + i,
     episode: { title: '剧集' + i, coverUrl: 'https://oss/c' + i + '.jpg', audioUrl: 'https://oss/a' + i + '.m4a' },
+    clipId: 'clip' + i,
+    clipAudioUrl: 'https://oss/clip' + i + '.mp3',
+    clipOffset: 0,
     targetText: 'Weak target ' + i + '.',
     targetStartTime: 10 + i,
     subtitleTextCn: '弱项译文' + i,
@@ -165,8 +168,8 @@ apiResponses['/api/speech/quota'] = {
     '首题：prevDisabled / 非末题');
   assert(Math.abs(p.data.progressPercent - 50) < 0.01, '进度 (1/2) = 50%');
   assert(p.data.subtitle.textEn === 'Weak target 1.', 'subtitle.textEn = targetText');
-  assert(p.data.subtitle.textCn === '弱项译文1' && p.data.subtitle.audioUrl === 'https://oss/a1.m4a',
-    'textCn/audioUrl = errors 接口补齐字段');
+  assert(p.data.subtitle.textCn === '弱项译文1' && p.data.subtitle.audioUrl === 'https://oss/clip1.mp3',
+    'textCn/audioUrl = errors 接口语料切片字段（不注入整集 audioUrl）');
   assert(p.data.subtitleId === 1001 && p.data.episodeId === 'ep1', 'subtitleId = 弱项记录 subtitleId');
   assert(p.data.subtitle.end === 13.5, 'end = subtitleEnd 精确值');
   assert(p.data.cardKey === 'pr-101', '卡片 key 按题重挂（pr-recognitionid）');
@@ -278,7 +281,7 @@ apiResponses['/api/speech/quota'] = {
   assert(card.subtitleId === 103, 'subtitleId 缺省 → recognitionid');
   assert(card.subtitle.end === 10, 'end 兜底 start+3');
   assert(card.subtitle.words.length === 0, 'words 缺省 → []');
-  assert(card.subtitle.audioUrl === 'https://oss/a3.m4a', 'audioUrl 透传');
+  assert(card.subtitle.audioUrl === 'https://oss/clip3.mp3', 'audioUrl 透传语料切片直链');
 
   /* ---------- 7. eval-card 工具行（五钮同语音评测页；最近得分退役） ---------- */
   section('eval-card：五钮工具行 + 相变外抛');

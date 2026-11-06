@@ -1,10 +1,7 @@
-<!-- pages/library/paths/detail.wxml — 学习路径详情
-  严格复刻 Web /library/learning-paths/[id] 移动端（LearningPathDetailClient）：
-  主色沉浸头部（Map 10% 水印 + 封面/公开标签/标题/描述/创建者·集数）→
-  -mt-6 上叠操作栏卡片（播放全部/随机；拥有者=添加剧集+更多菜单）→
-  剧集行（序号/16:9 封面〔PRO 角标+底部细进度条〕/标题/专栏·时长/移除）。
-  拥有者条件渲染对齐 Web：detail.userid === 当前用户（isOwner）。
-  顶部「路径详情」由原生导航栏承担。 -->
+<!-- pages/library/paths/detail.wxml — 特训卡册详情
+  [T3.2 + 2026-11-05 合规收敛] 蒙太奇卡册：主色沉浸头部 + 策展人手记 + 原声
+  切片卡流（整卡/跟读/捕词全部 by-clip 反查微剧场直达，零整集链路）；
+  存量网页版路径（无切片条目）转提示卡——小程序不分发整集列表（红线 1）。 -->
 
 <view class="pd-page {{themeClass}}">
 
@@ -49,7 +46,7 @@
           </view>
           <text class="pd-title">{{detail.pathName}}</text>
           <text wx:if="{{detail.description}}" class="pd-desc">{{detail.description}}</text>
-          <text class="pd-meta">创建者 {{detail.creatorName}} · {{detail.itemCount}} 剧集</text>
+          <text class="pd-meta">创建者 {{detail.creatorName}} · {{detail.metaText}}</text>
         </view>
       </view>
       <!-- 给上叠操作栏（-12dp 负偏移）留出空隙 -->
@@ -97,7 +94,8 @@
       </view>
     </view>
 
-    <!-- ═══ 蒙太奇卡册（心愿定制产物，T3.2）：策展人手记 + 原声切片卡流 ═══ -->
+    <!-- ═══ 蒙太奇卡册（心愿定制产物，T3.2）：策展人手记 + 原声切片卡流 ═══
+         2026-11-05 合规收敛：整卡/跟读/捕词全部 by-clip 反查微剧场直达（零整集链路） -->
     <block wx:if="{{detail.isMontage}}">
       <view class="pd-curator card" wx:if="{{detail.curatorIntro}}">
         <view class="pd-curator-head row">
@@ -112,7 +110,7 @@
         wx:key="itemId"
         class="pd-clipcard"
         bindtap="onClipCardTap"
-        data-ep="{{item.episodeid}}"
+        data-clip="{{item.clipid}}"
       >
         <view class="pd-clipcard-head row">
           <text class="pd-clipcard-no">{{item.no}}</text>
@@ -142,11 +140,11 @@
             sentence-id="{{item.clipid}}"
           />
           <view class="row">
-            <view class="pd-clip-btn center tap-scale" catchtap="onClipDictation" data-ep="{{item.episodeid}}">
+            <view class="pd-clip-btn center tap-scale" catchtap="onClipDictation" data-clip="{{item.clipid}}">
               <image class="pd-clip-btn-ic" mode="aspectFit" src="/assets/icons/edit.svg" />
               <text class="pd-clip-btn-text">捕词</text>
             </view>
-            <view class="pd-clip-btn pd-clip-btn--main center tap-scale" catchtap="onClipShadow" data-ep="{{item.episodeid}}">
+            <view class="pd-clip-btn pd-clip-btn--main center tap-scale" catchtap="onClipShadow" data-clip="{{item.clipid}}">
               <image class="pd-clip-btn-ic" mode="aspectFit" src="/assets/icons/mic-filled.svg" />
               <text class="pd-clip-btn-text">跟读</text>
             </view>
@@ -155,54 +153,17 @@
       </view>
     </block>
 
-    <!-- 剧集列表（普通路径） -->
-    <block wx:if="{{!detail.isMontage && detail.itemCount > 0}}">
-      <view
-        wx:for="{{detail.items}}"
-        wx:key="itemId"
-        class="eprow"
-        bindtap="onPlayEpisode"
-        data-id="{{item.episodeid}}"
-      >
-        <text class="eprow-index">{{index + 1}}</text>
-
-        <view class="eprow-cover-box">
-          <image class="eprow-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
-          <view wx:if="{{item.isExclusive}}" class="eprow-pro">PRO</view>
-          <!-- 封面底部细进度条（移动端口径：完成=success 绿） -->
-          <view wx:if="{{item.progressPercent > 0}}" class="eprow-bar">
-            <view
-              class="eprow-bar-fill {{item.isFinished ? 'eprow-bar-fill--done' : ''}}"
-              style="width: {{item.progressPercent}}%;"
-            />
-          </view>
-        </view>
-
-        <view class="eprow-info">
-          <text class="eprow-title ellipsis-2">{{item.title}}</text>
-          <view class="eprow-metarow">
-            <text class="eprow-meta ellipsis">{{item.podcastTitle || '原声专栏'}} · {{item.durationText}}</text>
-            <image
-              wx:if="{{item.isFinished}}"
-              class="eprow-done"
-              mode="aspectFit"
-              src="{{dark ? '/assets/icons/check-circle-success-dark.svg' : '/assets/icons/check-circle-success.svg'}}"
-            />
-          </view>
-        </view>
-
-        <!-- 拥有者：移除按钮 -->
-        <view
-          wx:if="{{detail.isOwner}}"
-          class="eprow-remove center"
-          catchtap="onRemoveEpisode"
-          data-item="{{item.itemId}}"
-          data-ep="{{item.episodeid}}"
-        >
-          <image class="eprow-remove-icon" mode="aspectFit" src="/assets/icons/delete-error.svg" />
-        </view>
-      </view>
-    </block>
+    <!-- 存量网页版路径（条目无切片）：不渲染剧集列表（红线 1），提示卡承接 -->
+    <view wx:elif="{{detail.isLegacy}}" class="pd-empty col">
+      <image
+        class="pd-empty-icon"
+        mode="aspectFit"
+        src="{{dark ? '/assets/icons/playlist-add-onsurface-dark.svg' : '/assets/icons/playlist-add-onsurface.svg'}}"
+      />
+      <text class="pd-empty-title">这份卡册来自网页版</text>
+      <text class="pd-empty-desc">含 {{detail.itemCountRaw}} 个整集精研条目——完整内容请在网页版打开，或用「心愿工坊」定制切片卡册版。</text>
+      <view class="state-btn center tap-scale" bindtap="onShare">复制网页版链接</view>
+    </view>
 
     <!-- 空路径（对齐 Web This path is empty） -->
     <view wx:else class="pd-empty col">
@@ -264,12 +225,4 @@
     </view>
   </view>
 </view>
-
-<!-- 会员转化弹窗（专属剧集拦截场景） -->
-<premium-modal
-  visible="{{showPremiumModal}}"
-  source="{{premiumSource}}"
-  vars="{{premiumVars}}"
-  bind:close="onPremiumClose"
-/>
 

@@ -291,8 +291,10 @@ Component({
     /* ---------------- 卡片操作坞（T2.3） ---------------- */
 
     /**
-     * meta 出处胶囊 → 微剧场精研室（T5.2）：by-clip 反查包含该句的微剧场，
-     * 命中即 ?sceneId= 直达（30 秒语境）；未收录回落剧集模式精研页。
+     * meta 出处胶囊 → 微剧场精研室（T5.2 + 2026-11-05 合规收敛）：by-clip
+     * 反查包含该句的微剧场，命中即 ?sceneId= 直达（30 秒语境；该接口对未
+     * 精确收录的句子回同集最近微剧场）。仅零场景剧集落空 → toast 承接，
+     * 不再回落 ?id= 剧集模式（红线 2：零整集链路）。
      */
     onEpisodeTap(e) {
       const ds = e.currentTarget.dataset;
@@ -306,11 +308,11 @@ Component({
           if (body && body.success && body.data && body.data.sceneid) {
             wx.navigateTo({ url: '/pages/intensive-listening/index?sceneId=' + body.data.sceneid });
           } else {
-            wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + id });
+            wx.showToast({ title: '这句话所在的原声还未编排微剧场', icon: 'none' });
           }
         })
         .catch(() => {
-          wx.navigateTo({ url: '/pages/intensive-listening/index?id=' + id });
+          wx.showToast({ title: '原声定位失败，稍后再试', icon: 'none' });
         });
     },
 

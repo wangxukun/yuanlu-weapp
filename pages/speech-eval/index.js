@@ -50,7 +50,8 @@ Page({
     episodeTitle: '',
     audioUrl: '',
     isTrialMode: false,
-    isSceneMode: false, // 微剧场模式（T5.1）
+    isSceneMode: true, // 微剧场模式（T5.1）
+    subs: [],          // 字幕列表（供 WXML AB 接龙面板索引文本）
     // AB 角语境接龙（T5.1，仅微剧场模式）
     abMode: false,
     blindMode: false, // 换我接话：隐 B 句英文，仅示中文意图与提示词
@@ -102,10 +103,10 @@ Page({
   },
 
   onLoad(query) {
-    this._episodeId = query.id || '';
+    this._episodeId = '';
     this._sceneId = (query && (query.sceneId || query.scene)) || '';
-    this._isSceneMode = !!this._sceneId;
-    this._focusSubtitleId = query.focus ? parseInt(query.focus, 10) : null;
+    this._isSceneMode = true;
+    this._focusSubtitleId = query && query.focus ? parseInt(query.focus, 10) : null;
 
     this._allSubs = [];      // 全量字幕（过滤输入）
     this._savedMap = {};     // 本集已收藏句子书签态（subtitleId → true）
@@ -167,15 +168,11 @@ Page({
       this.setData({ showPremiumModal: true, premiumSource: source });
     });
 
-    if (this._isSceneMode) {
-      this._loadScene();
+    if (!this._sceneId) {
+      this.setData({ loading: false, loadError: '缺少微剧场参数' });
       return;
     }
-    if (!this._episodeId) {
-      this.setData({ loading: false, loadError: '缺少剧集参数' });
-      return;
-    }
-    this._load();
+    this._loadScene();
   },
 
   onHide() {
@@ -206,7 +203,7 @@ Page({
 
   noop() {},
 
-  /** 收起：返回剧集详情（无上一页时回首页兜底） */
+  /** 收起：返回上一页（无上一页时回首页兜底） */
   onBack() {
     wx.navigateBack({
       fail: () => wx.switchTab({ url: '/pages/home/index' }),
@@ -235,61 +232,13 @@ Page({
 
   // ==================== 数据加载 ====================
 
-  _load() {
-    const focusId = this._subs[this.data.index] ? this._subs[this.data.index].id : this._focusSubtitleId;
-    this.setData({ loading: true, loadError: null });
-    get('/api/speech/practice-data?id=' + encodeURIComponent(this._episodeId) + '&t=' + Date.now(), null, { showError: false })
-      .then((body) => {
-        if (!body || body.success === false) {
-          throw new Error((body && (body.error || body.message)) || '练习数据加载失败');
-        }
-        const parsed = core.parsePracticeData(body);
-        this._allSubs = parsed.subtitles;
-        this._records = parsed.records;
-        const filtered = core.applyFilters(this._allSubs, this._records, this.data.settings);
-
-        // 弱项句直达定位：过滤集内按 subtitleId 命中；被排除时定位目标之后最近的可见句
-        let focusIndex = 0;
-        let toastMsg = null;
-        const target = focusId != null ? focusId : null;
-        if (target != null) {
-          const hit = filtered.findIndex((s) => s.id === target);
-          if (hit >= 0) {
-            focusIndex = hit;
-          } else {
-            toastMsg = '该句被当前过滤条件排除，已定位到最近的句子';
-            focusIndex = core.nearestVisibleIndexAfter(filtered, this._allSubs, target);
-          }
-        }
-        this._focusSubtitleId = null;
-        this._subs = filtered;
-        this.setData({
-          loading: false,
-          audioUrl: parsed.audioUrl || '',
-          episodeTitle: parsed.episodeTitle || '',
-          isTrialMode: parsed.isTrialMode,
-        });
-        this._applySentence(focusIndex, null);
-        const cur = filtered[focusIndex];
-        if (cur) this._restoreFromHistory(cur.id);
-        if (toastMsg) wx.showToast({ title: toastMsg, icon: 'none' });
-        this._fetchVocabSet();
-        this._fetchSaveState(); // 书签态回填（eval-card 同款收藏钮）
-        this._preflightQuota(); // 评测日池预检：入口即知余量，耗尽即锁定录音面
-      })
-      .catch((err) => {
-        this.setData({ loading: false, loadError: (err && err.message) || '练习数据加载失败' });
-      });
-  },
-
   onRetry() {
-    if (this._isSceneMode) this._loadScene();
-    else this._load();
+    this._loadScene();
   },
 
   /**
    * 微剧场模式（T5.1）：GET /api/scenes/{id} 一次拉齐 3-6 句（词级时间戳
-   * 已按 clipOffset 归一到切片本地秒），原声=物理切片直链——practice-data
+   * 已按 clipOffset 归一到切片本地秒），原声=物理切片直链——
    * 整集链路零触发（红线 2）。AB 接龙配对同址构建。
    */
   _loadScene() {
@@ -306,16 +255,23 @@ Page({
         this._allSubs = parsed.subtitles;
         this._absWindows = parsed.absWindows;
         this._subs = parsed.subtitles; // 微剧场不过滤（3-6 句全量）
+        let focusIndex = 0;
+        if (this._focusSubtitleId != null) {
+          const hit = parsed.subtitles.findIndex((s) => s.id === this._focusSubtitleId);
+          if (hit >= 0) focusIndex = hit;
+          this._focusSubtitleId = null;
+        }
         this.setData({
           loading: false,
           audioUrl: parsed.audioUrl || '',
           episodeTitle: parsed.episodeTitle || '',
           isTrialMode: false,
           isSceneMode: true,
+          subs: parsed.subtitles,
           abPairs: core.buildAbPairs(parsed.subtitles, parsed.absWindows),
         });
-        this._applySentence(0, null);
-        const cur = parsed.subtitles[0];
+        this._applySentence(focusIndex, null);
+        const cur = parsed.subtitles[focusIndex];
         if (cur) this._restoreFromHistory(cur.id);
         this._fetchVocabSet();
         this._fetchSaveState();

@@ -13,9 +13,9 @@
  * - 未登录也上报（游客按 IP 计入在线统计，token 缺省即匿名）
  * - 任何失败静默吞掉
  *
- * 挂载方式：require 即激活（同 store/playerStore）——劫持全局 Page
+ * 挂载方式：require 即激活——劫持全局 Page
  * 构造器，为所有页面的 onShow 统一串入一次上报。app.js 的模块求值
- * 先于任何页面文件加载，钩子因此覆盖全部 28 个 Page() 页面；
+ * 先于任何页面文件加载，钩子因此覆盖全部 Page() 页面；
  * 页面自身的 onShow 原样保留（上报在前、业务在后，且互不影响）。
  */
 const { BASE_URL } = require('./config');
