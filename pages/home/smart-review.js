@@ -2,6 +2,8 @@
 const { get, post } = require('../../utils/request');
 const authStore = require('../../store/authStore');
 const { getIntervalLabel } = require('../../utils/srs');
+const reelsApi = require('../discover/reels-api');
+const { sentenceWindow } = require('../../utils/clip-window');
 const BATCH_SIZE = 4;
 const QUALITY = { unknown: 0, fuzzy: 1, know: 2 };
 const text = (v) => typeof v === 'string' ? v : '';
@@ -39,9 +41,9 @@ function card(v, now) {
     memoryHook: text(ety.mnemonic),
     contextEn, contextZh: text(v.translation), episodeid: text(v.episodeid), episodeTitle: text(v.episodeTitle),
     timestamp: typeof v.timestamp === 'number' && Number.isFinite(v.timestamp) && v.timestamp >= 0 ? v.timestamp : null,
-    // 迁移生产：语境句原声依赖整集字幕接口（提审红线已退役），暂闭原声
-    // 播放入口（WXML wx:if 自动隐藏，单词发音仍可用）；待切片级语境接口
-    canPlayOriginal: false,
+    // 语境原声=切片级合规出口：episodeid+语境句（或词秒位）→ context-clip
+    // 懒解析 corpus 切片，经 /api/clips/{id}/audio 网关播放（不走整集接口）
+    canPlayOriginal: !!v.episodeid && (!!contextEn || (typeof v.timestamp === 'number' && Number.isFinite(v.timestamp) && v.timestamp >= 0)),
     wordAudioUrl: audioUrl(dict.audio_urls && (dict.audio_urls.us || dict.audio_urls.uk)) || audioUrl(v.speakUrl),
     clipWords: contextWords(contextEn, v.word), hasWordTimings: false,
     proficiency, nextReviewAt: v.nextReviewAt || null,
@@ -274,10 +276,48 @@ const methods = {
   },
 
   async onPlayReviewAudio(e) {
-    // 迁移生产：语境句原声的数据源（整集字幕接口）属提审红线已退役，
-    // canPlayOriginal 恒 false 时按钮不渲染；保留空实现兜底防误触
-    void e;
-    return;
+    const idx = Number(e.currentTarget.dataset.idx);
+    const item = this.data.smartReview[idx];
+    if (!item || !item.canPlayOriginal || this.data.reviewStatus !== 'ready' || this.data.reviewSubmitting) return;
+    if ((this.data.reviewPlayingId === item.id && this.data.reviewAudioKind === 'original' && this.data.playing) || this.data.reviewLoadingId === item.id) return this._stopReviewAudio();
+    this._pausePlayback();
+    this._stopCompilation();
+    const prep = ++this._prepToken;
+    const seq = ++this._reviewAudioSeq;
+    const token = this._reviewAuthToken();
+    const current = () => !this._reviewDisposed && seq === this._reviewAudioSeq && prep === this._prepToken && token === this._reviewAuthToken();
+    this.setData({ reviewLoadingId: item.id });
+    try {
+      // 合规切片级出口：语境句懒解析为 corpus 切片 → /api/clips/{id}/audio 网关
+      const q = await get('/api/vocabulary/context-clip', {
+        episodeid: item.episodeid,
+        text: item.contextEn || '',
+        word: item.word,
+        timestamp: item.timestamp == null ? undefined : item.timestamp,
+      }, { showError: false });
+      if (!current()) return;
+      if (!q || !q.success || !q.data) {
+        throw new Error((q && (q.error || q.message)) || '未找到该词的原声语境');
+      }
+      const clip = q.data;
+      const audio = await reelsApi.fetchClipAudio(clip.clipid);
+      if (!current()) return;
+      if (audio && audio.exclusive) throw new Error('该原声语料为会员专享');
+      if (!audio || !audio.url) throw new Error('原声暂不可用，请重试');
+      const meta = Object.assign({ url: audio.url }, sentenceWindow(clip, audio.clipOffset));
+      const words = Array.isArray(clip.words) ? clip.words : [];
+      this.setData({ reviewPlayingId: item.id, reviewAudioKind: 'original', reviewWordIdx: -1,
+        activeIdx: -1, dailyActiveIdx: -1, sceneActiveIdx: -1, relayActiveSegId: '', activeWordIndex: -1 });
+      this._activeKind = 'review';
+      this._lastWordIdx = -99;
+      this._relaySeg = { words, winEnd: meta.winEnd };
+      this._audioMeta = meta;
+      this._player.playUrl(meta.url, 'studio', { startSec: meta.winStart, endSec: meta.winEnd });
+    } catch (err) {
+      if (current()) wx.showToast({ title: err.message || '原声加载失败，请重试', icon: 'none' });
+    } finally {
+      if (current()) this.setData({ reviewLoadingId: '' });
+    }
   },
 
   onPlayReviewWord(e) {
