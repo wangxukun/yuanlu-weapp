@@ -43,6 +43,13 @@ assert(shadowing.includes('/api/speech/evaluate') && shadowing.includes('/api/sp
 assert(read('utils/recorder.js').includes('isDevtools'), 'D recorder 带 devtools 兼容分支');
 assert(js.includes('_cancelRelayRecording') || shadowing.includes('_cancelShadowing'), 'D 录音取消清理');
 
+// —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
+const lbApi = read('pages/home/leaderboard-api.js');
+assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');
+assert(js.includes('_appendDailyBonus') && js.includes('entry.featuredClip && entry.featuredClip.clipid'),
+  'E onLbPractice 加练分支接入');
+assert(read('pages/home/daily-challenge.js').includes('isBonus'), 'E 加练句 isBonus 标记');
+
 if (failed) {
   console.error('✗ ' + failed + ' 项失败');
   process.exit(1);

@@ -27,6 +27,9 @@ function mapEntry(e, myUserid) {
     badge: e.badge || '',
     featuredSentence: e.featuredSentence || '',
     featuredClipId: e.featuredClipId || '',
+    // 完整代表作切片（feed-item 形状）必须透传——榜「挑战同款」据此把
+    // 课外金句追加为今日挑战加练句；丢弃即退化为仅播放（勿再犯）
+    featuredClip: e.featuredClip || null,
     likes: e.likes || 0,
     likedByMe: !!e.likedByMe,
     firstName: e.firstName || '',
@@ -73,4 +76,4 @@ async function cheer(targetUserid) {
   return body.data;
 }
 
-module.exports = { fetchDaily, cheer };
+module.exports = { fetchDaily, cheer, mapEntry };
