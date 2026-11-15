@@ -3682,26 +3682,27 @@
 /* 代表作行（B Featured Shadowed Sentence + 双动作） */
 .st-lb-feat {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
+  flex-direction: column;
+  gap: 8rpx;
   padding: 20rpx;
   border-radius: 28rpx;
   background: var(--page-bg);
   border: 1rpx solid var(--border-color);
 }
 
-.st-lb-feat-text {
-  min-width: 0;
-  flex: 1;
+/* 标签行：左「今日代表跟读原声」/ 右「挑战同款」+「点赞」图标按钮 */
+.st-lb-feat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
 }
 
 .st-lb-feat-label {
-  display: block;
   font-size: 20rpx;
   font-weight: 500;
   color: var(--text-tertiary);
-  margin-bottom: 4rpx;
+  min-width: 0;
 }
 
 .st-lb-feat-sent {

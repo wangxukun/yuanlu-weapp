@@ -1136,23 +1136,23 @@
           </view>
         </view>
 
-        <!-- 代表作原声 + 挑战同款 / 点赞 -->
+        <!-- 代表作原声：标签行（左标题/右「挑战同款」+「点赞」）+ 全宽句子 -->
         <view class="st-lb-feat">
-          <view class="st-lb-feat-text">
+          <view class="st-lb-feat-head">
             <text class="st-lb-feat-label">🎙️ 今日代表跟读原声：</text>
-            <text class="st-lb-feat-sent">"{{lbe.featuredSentence}}"</text>
-          </view>
-          <view class="st-lb-feat-actions">
-            <view class="st-lb-try" hover-class="st-lb-try--hover" data-id="{{lbe.id}}" bindtap="onLbPractice">
-              <image class="st-lb-try-ic" src="/assets/icons/headset.svg" />
-              <text class="st-lb-try-text">挑战同款</text>
+            <view class="st-lb-feat-actions">
+              <view class="st-lb-try" hover-class="st-lb-try--hover" data-id="{{lbe.id}}" bindtap="onLbPractice">
+                <image class="st-lb-try-ic" src="/assets/icons/headset.svg" />
+                <text class="st-lb-try-text">挑战同款</text>
+              </view>
+              <view class="st-lb-cheer {{lbe.likedByMe ? 'st-lb-cheer--on' : ''}} {{lbCheeringId === lbe.id ? 'st-lb-cheer--pop' : ''}}"
+                    hover-class="st-lb-cheer--hover" data-id="{{lbe.id}}" bindtap="onLbCheer">
+                <text class="st-lb-cheer-ic">👍</text>
+                <text class="st-lb-cheer-n">{{lbe.likes}}</text>
+              </view>
             </view>
-            <view class="st-lb-cheer {{lbe.likedByMe ? 'st-lb-cheer--on' : ''}} {{lbCheeringId === lbe.id ? 'st-lb-cheer--pop' : ''}}"
-                  hover-class="st-lb-cheer--hover" data-id="{{lbe.id}}" bindtap="onLbCheer">
-              <text class="st-lb-cheer-ic">👍</text>
-              <text class="st-lb-cheer-n">{{lbe.likes}}</text>
-            </view>
           </view>
+          <text class="st-lb-feat-sent">"{{lbe.featuredSentence}}"</text>
         </view>
       </view>
       </block>
