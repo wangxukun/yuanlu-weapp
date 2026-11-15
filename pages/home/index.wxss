@@ -2942,13 +2942,14 @@
   color: var(--error-500);
 }
 
-/* 发音教练：琥珀淡底（图标与评测卡教练 logo 📈 同源） */
-.st-a4--coach {
-  background: var(--st-amber-tint);
+/* 横排按钮：图标在文本左侧（竖排基类的行内变体，文案不换行） */
+.st-a4--row {
+  flex-direction: row;
+  padding: 24rpx 8rpx;
 }
 
-.st-a4-t--coach {
-  color: var(--accent-500);
+.st-a4--row .st-a4-t {
+  white-space: nowrap;
 }
 
 /* 跟读挑战：渐变绿（默认/录音红脉冲/评分中与重录灰） */

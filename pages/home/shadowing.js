@@ -258,17 +258,6 @@ const methods = {
     this._player.playUrl(audio.path, 'studio');
   },
 
-  onDailyCoach(e) {
-    // 迁移生产：整集评测页 ?id= 路由属提审红线（P0-1 已退役）——发音详情
-    // 就在本卡评测报告区（逐词胶囊+音素诊断），按钮改为引导查看
-    if (this._shadowBusy()) return;
-    const clip = this.data.daily && this.data.daily.clips[Number(e.currentTarget.dataset.idx)];
-    if (!clip || !clip.real) return;
-    if (!this._shadowToken()) return this._promptLogin('登录后查看评测记录与发音详情');
-    this._pausePlayback();
-    wx.showToast({ title: '发音详情见本卡评测报告（点橙色/红色单词看音素诊断）', icon: 'none' });
-  },
-
   /* ---------- 逐词发音胶囊 + 音素诊断面板（speech-eval 同款交互） ---------- */
 
   /** 当前展开诊断的词（多卡互斥：shadowSelWordClipId + shadowSelWordIdx） */
