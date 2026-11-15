@@ -1686,6 +1686,7 @@ Page({
       selectedRelayClipId: clip.id,
       newRelayTitle: '《' + (clip.topic || '原声') + '》原声口语接力',
     });
+    this._scrollAnchorToTop('#stTabsRow');
   },
 
   /** 真录音链（复刻 shadowing 录音→评测骨架）：配额→权限→录音→评测→建房/接棒。

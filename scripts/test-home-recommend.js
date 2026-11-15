@@ -47,7 +47,7 @@ assert(js.includes('_cancelRelayRecording') || shadowing.includes('_cancelShadow
 const wxmlHome = read('pages/home/index.wxml');
 assert(js.includes('_scrollAnchorToTop') && js.includes("wx.pageScrollTo"), 'E1 置顶滚动助手存在');
 assert(wxmlHome.includes('id="stTabsRow"') && wxmlHome.includes('id="stReviewDeck"'), 'E1 锚点 id（tab 栏/闪卡清单）');
-assert(js.split("_scrollAnchorToTop('#stTabsRow')").length - 1 >= 3, 'E1 三入口滚动 tab 栏（今日跟读/思辨特训/跟读冲刺）');
+assert(js.split("_scrollAnchorToTop('#stTabsRow')").length - 1 >= 4, 'E1 四入口滚动 tab 栏（今日跟读/思辨特训/跟读冲刺/发起接力）');
 assert(js.includes("_scrollAnchorToTop('#stReviewDeck')"), 'E1 展开闪卡清单滚动置顶（积累单词量/到期生词复习）');
 
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
