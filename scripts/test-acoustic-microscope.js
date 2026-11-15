@@ -69,6 +69,7 @@ global.wx = {
       destroyed: false,
       seekedTo: null,
       seekCount: 0,
+      startTime: 0,
       _h: {},
       onCanplay(cb) { this._h.canplay = cb; },
       onTimeUpdate(cb) { this._h.timeupdate = cb; },
@@ -237,7 +238,7 @@ const clipRequests = () => requests.filter((u) => u.indexOf('/api/clips/') !== -
   await settle2();
   const c2 = lastCtx();
   c2._h.canplay && c2._h.canplay();
-  assert(c2.seekedTo === 3, 'C2 显式窗口 [123.5,127] → 切片内 seek(3.0)');
+  assert(c2.startTime === 3 && c2.seekedTo === null, 'C2 显式窗口 [123.5,127] → 起播定位 startTime=3.0（seek 弃用）');
   c2.currentTime = 3.5;
   c2._h.timeupdate && c2._h.timeupdate();
   assert(progressSnap && Math.abs(progressSnap.currentTime - 124) < 1e-6 && progressSnap.end === 127,

@@ -69,6 +69,7 @@ global.wx = {
       stopped: 0,
       destroyed: false,
       seeks: [],
+      startTime: 0,
       seek(t) { this.seeks.push(t); },
       play() { this.played += 1; },
       stop() { this.stopped += 1; },
@@ -641,7 +642,7 @@ async function driveAttach(opts) {
   await settle(6);
   lastCtx().__fire('canplay'); // 真机由 src 加载完成触发
   assert(lastCtx().src === 'https://oss.example.com/ep.m4a', '显式窗口：切片直链注入 ctx.src');
-  assert(lastCtx().seeks.includes(12), '显式窗口：seek 到相对起点（免文本定位）');
+  assert(lastCtx().startTime === 12 && !lastCtx().seeks.length, '显式窗口：起播定位 startTime=相对起点（免文本定位）');
   assert(audioClip.getState().playingKey === 'epA:s1', '播放中 playingKey 置位');
 
   // b) 进度订阅：timeupdate → progress（key/start/end/currentTime）

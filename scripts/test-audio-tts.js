@@ -103,6 +103,7 @@ global.wx = {
       stopped: false,
       destroyed: false,
       seekedTo: null,
+      startTime: 0,
       _h: {},
       onCanplay(cb) { this._h.canplay = cb; },
       onTimeUpdate(cb) { this._h.timeupdate = cb; },
@@ -163,7 +164,7 @@ episodeFixtures = {
   const ctx1 = lastCtx();
   ctx1._h.canplay && ctx1._h.canplay();
   assert(clip.getState().playingKey === 'c1:hello', 'B 语料切片解析并开播');
-  assert(Math.abs(ctx1.seekedTo - 1.2) < 0.01 && ctx1.played, 'C 显式窗口按 clipOffset(10) 换算相对起点 seek(1.2) 并 play');
+  assert(Math.abs(ctx1.startTime - 1.2) < 0.01 && ctx1.seekedTo === null && ctx1.played, 'C 显式窗口按 clipOffset(10) 换算相对起点 startTime(1.2) 并 play');
   ctx1.currentTime = 2.9;
   ctx1._h.timeupdate && ctx1._h.timeupdate();
   assert(clip.getState().playingKey === null && ctx1.destroyed, 'C 到切片相对终点 2.8s 后自动停止销毁');
@@ -173,7 +174,7 @@ episodeFixtures = {
   await settle2();
   const ctx2 = lastCtx();
   ctx2._h.canplay && ctx2._h.canplay();
-  assert(ctx2.seekedTo === 8, 'B 内联 clipAudioUrl 相对起点 38 - 30 = 8');
+  assert(ctx2.startTime === 8 && ctx2.seekedTo === null, 'B 内联 clipAudioUrl 相对起点 38 - 30 = 8（startTime）');
   ctx2.currentTime = 12.1;
   ctx2._h.timeupdate && ctx2._h.timeupdate();
   assert(clip.getState().playingKey === null, 'C 相对终点 12s 自动停止');

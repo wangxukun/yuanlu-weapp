@@ -59,7 +59,7 @@ const audioInstances = [];
 function makeAudioCtx() {
   const handlers = {};
   const ctx = {
-    src: '', currentTime: 0, seeks: [], played: 0, stopped: 0, destroyed: false,
+    src: '', currentTime: 0, startTime: 0, seeks: [], played: 0, stopped: 0, destroyed: false,
     play() { this.played += 1; },
     stop() { this.stopped += 1; },
     destroy() { this.destroyed = true; },
@@ -264,7 +264,7 @@ const VOCAB = [{ word: 'number', definition: '数字' }];
   const rctx = audioInstances[audioInstances.length - 1];
   assert(!!rctx && rctx.src === 'https://oss.example.com/ep.m4a', '右滑 → 重听拉起原声');
   rctx.__fire('canplay');
-  assert(rctx.seeks.includes(12), '重听 seek 到句窗口起点（startTime）');
+  assert(rctx.startTime === 12 && !rctx.seeks.length, '重听起播定位 startTime=句窗口起点（seek 弃用）');
 
   // 快速轻扫：位移未达阈值但速度超阈 → 下一句
   p.setData({ currentIndex: 0 });
