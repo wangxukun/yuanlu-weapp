@@ -581,12 +581,12 @@ Page({
    * 锚点置顶滚动（pageScrollTo selector 模式）。offsetTop 实测语义：
    * **再向下多滚 offsetTop 像素**——正值越大目标元素越被顶入吸顶区下方
    * （12→48 遮得更多的实证）；要元素顶停在吸顶内容之下留呼吸间隙，
-   * 须取负值：元素顶距视口顶 = −offsetTop（−60 ≈ 越过吸顶条 + 余量）。
+   * 须取负值：元素顶距视口顶 = −offsetTop（−36 实测档位：露出完整且不空旷）。
    * tab 面板为 wx:if 异步渲染，延迟一拍再定位。
    */
   _scrollAnchorToTop(selector) {
     setTimeout(() => {
-      wx.pageScrollTo({ selector, offsetTop: -60, duration: 320, fail: () => {} });
+      wx.pageScrollTo({ selector, offsetTop: -36, duration: 320, fail: () => {} });
     }, 80);
   },
 
