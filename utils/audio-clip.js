@@ -156,11 +156,13 @@ function stop() {
 function startWindow(url, key, token, winStart, winEnd, offset) {
   const ctx = wx.createInnerAudioContext();
   audioCtx = ctx;
-  ctx.src = url;
   const localStart = Math.max(0, winStart);
+  // 起播定位用 startTime 属性（clip-player 同款）：seek-then-play 在长远程
+  // 文件（整集音频）上部分平台/工具静默失败落到 0，从头「一直向下播放」
+  if (localStart > 0) ctx.startTime = localStart;
+  ctx.src = url;
   ctx.onCanplay(() => {
     if (token !== playToken) return;
-    if (localStart > 0) ctx.seek(localStart);
     ctx.play();
     playingKey = key;
     notify();
