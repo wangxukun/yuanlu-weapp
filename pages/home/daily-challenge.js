@@ -34,7 +34,10 @@ function record(owner, date, clips, practiced) {
 function validCache(state, owner, date) {
   return state && state.cacheVersion === VERSION && state.subject === owner && state.date === date &&
     (state.source === 'local' || state.algorithmVersion === 'daily-v2') &&
-    Array.isArray(state.clips) && state.clips.length <= 5 && ['complete', 'partial', 'empty'].includes(state.status);
+    Array.isArray(state.clips) &&
+    // 主体 5 句不变量看非加练句；isBonus（榜「挑战同款」追加）另计，封顶 3
+    state.clips.filter((c) => !c.isBonus).length <= 5 && state.clips.length <= 8 &&
+    ['complete', 'partial', 'empty'].includes(state.status);
 }
 function hash(value) {
   let h = 2166136261;
@@ -169,6 +172,35 @@ const methods = {
   },
 
   _persistDaily(state) { write(cacheKey(state.subject || subject(), state.date), shadowing.applyResults(state, {}, 0)); },
+
+  /**
+   * 榜单「挑战同款」追加加练句（今日挑战第 6+ 句，isBonus 标记）：
+   * 已在挑战中→直接返回其下标（跳转即播不重复加）；加练封顶 3 条；
+   * 写回当日缓存持久化 + 登记 served 历史（防明日选料重复下发）；
+   * 返回新卡下标（-1=不可加）。
+   */
+  _appendDailyBonus(reel) {
+    const state = this.data.daily;
+    if (!state || !Array.isArray(state.clips) || !reel || !reel.id) return -1;
+    const exists = state.clips.findIndex((c) => c.id === reel.id);
+    if (exists >= 0) return exists;
+    if (state.clips.filter((c) => c.isBonus).length >= 3) {
+      wx.showToast({ title: '加练已满 3 句，先消化现有句子', icon: 'none' });
+      return -1;
+    }
+    const mapped = this._mapDailyClip(reel, state.clips.length, false, 'corpus');
+    mapped.isBonus = true;
+    const next = shadowing.applyResults(
+      Object.assign({}, state, { clips: state.clips.concat([mapped]) }),
+      this._shadowResults || {},
+      this._shadowAttempts || 0,
+    );
+    write(cacheKey(state.subject || subject(), state.date), next);
+    this.setData({ daily: next });
+    if (mapped.real && mapped.episodeid) this._fetchSavedKeys(mapped.episodeid, null, 'daily.clips');
+    record(state.subject || subject(), state.date, [mapped], false);
+    return next.clips.length - 1;
+  },
   _recordDailyPractice(clip) { record(subject(), chinaClock().date, [clip], true); },
   onRefreshDaily() {
     if (this.data.refreshingDaily || this._shadowBusy()) return;

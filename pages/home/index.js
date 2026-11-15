@@ -2061,12 +2061,28 @@ Page({
     );
     if (mi >= 0) {
       this._pausePlayback();
+      this._stopCompilation();
       this.setData({
         activeTab: 'daily',
         header: TAB_META.find((t) => t.key === 'daily'),
-        isLooping: true, // B playClip(matchedDaily, {loop:true})
+        isLooping: false, // 只播放该句，不循环（用户口径）
       });
       this._applyDailyClip(mi);
+      return;
+    }
+    // 榜代表作命中真实 corpus 切片：作为「同款加练」句加入今日挑战（第 6+
+    // 句，isBonus 不计通关口径），切过去播一次（不循环）
+    if (entry.featuredClip && entry.featuredClip.clipid) {
+      const reel = reelsApi.fromFeedItem(entry.featuredClip);
+      const idx = this._appendDailyBonus(reel);
+      this._pausePlayback();
+      this._stopCompilation();
+      this.setData({
+        activeTab: 'daily',
+        header: TAB_META.find((t) => t.key === 'daily'),
+        isLooping: false,
+      });
+      if (idx >= 0) this._applyDailyClip(idx);
       return;
     }
     const local = reelsApi.localReels().find((r) => r.id === entry.featuredClipId);

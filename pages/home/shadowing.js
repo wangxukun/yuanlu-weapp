@@ -52,9 +52,13 @@ function applyResults(state, results, attempts) {
       completed: !!(valid && ev.score >= PASS_SCORE), waveBars: null, activeDiag: null });
   });
   const graded = clips.filter((c) => c.evalResult);
-  const completedCount = clips.filter((c) => c.completed).length;
-  return Object.assign({}, state, { clips, completedCount, allCompleted: clips.length > 0 && completedCount === clips.length,
-    completionPercent: clips.length ? Math.round(completedCount * 100 / clips.length) : 0,
+  // 加练句（isBonus，榜「挑战同款」追加）不计入完成度/全通关——自愿加练
+  // 不改变 5 句主体的通关口径，避免已通关用户的通关横幅回退
+  const base = clips.filter((c) => !c.isBonus);
+  const completedCount = base.filter((c) => c.completed).length;
+  return Object.assign({}, state, { clips, completedCount, baseCount: base.length,
+    allCompleted: base.length > 0 && completedCount === base.length,
+    completionPercent: base.length ? Math.round(completedCount * 100 / base.length) : 0,
     averageScore: graded.length ? Math.round(graded.reduce((sum, c) => sum + c.score, 0) / graded.length) : 0,
     totalShadowingCount: attempts || 0 });
 }

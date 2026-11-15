@@ -576,7 +576,7 @@
           <view class="st-db-flame"><text class="st-db-flame-ic">🔥</text></view>
           <view>
             <text class="st-db-date">{{daily.date}} 任务</text>
-            <text class="st-db-count">完成 {{daily.completedCount}} / {{daily.clips.length || 0}} 个原声切片跟读</text>
+            <text class="st-db-count">完成 {{daily.completedCount}} / {{daily.baseCount || daily.clips.length || 0}} 个原声切片跟读</text>
           </view>
         </view>
         <view class="st-db-refresh {{refreshingDaily ? 'st-db-refresh--spin' : ''}}" hover-class="st-db-refresh--hover" bindtap="onRefreshDaily">
@@ -629,6 +629,7 @@
             </view>
             <text class="st-dc-pod">{{dclip.showTitle}}</text>
             <text wx:if="{{dclip.difficulty}}" class="st-dc-diff">{{dclip.difficulty}}</text>
+            <text wx:if="{{dclip.isBonus}}" class="st-dc-bonus">⚡ 同款加练</text>
           </view>
           <view class="st-dc-top-right">
             <text wx:if="{{dclip.completed && dclip.score}}" class="st-dc-score">★ {{dclip.score}}分</text>
