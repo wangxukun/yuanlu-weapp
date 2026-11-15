@@ -1,117 +1,1242 @@
 <!--
-  pages/home — 远路语境词典 · 查词工具首页（工具化转型阶段一）
-  巨型搜索框 + 灵感胶囊 + 4 纯工具入口；无搜索零内容零播放（合规口径）
+  pages/home/index.wxml — 原声心念工坊（复刻 B工程 AIStudioView 首期范围）
+
+  顶部模块：小标题行（品牌 + 词级时间戳徽章）+ 按活动 tab 联动的标题/描述（文案已清洗）
+  底部模块：四格分段 tab 栏（今日挑战/跟读接力/排行榜/自由定制——自由定制移至第 4 位）
+  内容区：custom = 想法输入卡 + 方案输出（头卡 → 微场景 top-2[2026-11-11 上移，
+          句级循环/透视/收藏] → 精选原生切片 → 实战演练）；
+          daily = 任务横幅 + 5 张挑战卡（词级扫光/跟读评测/音节诊断）；
+          relay = 英雄卡 + 发起抽屉 + 接力房间列表（合集连播）；
+          leaderboard = 风云榜英雄卡（三甲领奖台）+ 我的站位 + 达人榜列表
+  弹窗层：透视 bottom-sheet + vocabulary-modal + premium-modal
 -->
-<view class="home-container pb-page-bottom {{themeClass}}">
+<view class="st-page {{themeClass}}">
 
-  <!-- ── 顶部轻问候（登录态：问候+连续天数；游客：登录引导） ── -->
-  <view class="tool-header between">
-    <view class="col">
-      <text class="t-h2 text-bold">{{greeting}}</text>
-      <text class="t-caption text-secondary mt-1">查一个词，或描述你想练的场景</text>
-    </view>
-    <view wx:if="{{isLoggedIn}}" class="streak-pill center">
-      <text class="streak-pill-text">🔥 {{streakDays}} 天</text>
-    </view>
-    <view wx:else class="login-btn center tap-scale" bindtap="onGoLogin">
-      <text class="login-btn-text">登录</text>
-    </view>
-  </view>
-
-  <!-- ── 巨型查词/场景搜索框（工具核心） ── -->
-  <view class="hero-search row">
-    <image class="hero-search-ic" src="/assets/icons/search.svg" />
-    <input class="hero-search-input flex-1" value="{{query}}" bindinput="onSearchInput"
-           placeholder="查一个词，或描述你想练的场景" placeholder-class="hero-search-ph"
-           confirm-type="search" bindconfirm="onSearchConfirm" />
-    <view wx:if="{{query}}" class="hero-search-clear center tap-scale" bindtap="onClearSearch">
-      <image class="hero-search-clear-ic" src="/assets/icons/close.svg" />
-    </view>
-    <view class="hero-search-go center tap-scale" bindtap="onSearchConfirm">
-      <text class="hero-search-go-text">查询</text>
-    </view>
-  </view>
-
-  <!-- ── 灵感胶囊（随机标签 + 刷新） ── -->
-  <view class="sug-row row">
-    <view class="sug-chips row flex-1">
-      <view class="sug-chip tap-scale" wx:for="{{suggestions}}" wx:key="label"
-            data-item="{{item}}" bindtap="onSuggestionTap">{{item.label}}</view>
-    </view>
-    <view class="sug-refresh center tap-scale" bindtap="onRefreshSuggestions">
-      <image class="sug-refresh-ic" src="/assets/icons/refresh-gray.svg" />
-    </view>
-  </view>
-
-  <!-- ── 4 个纯工具入口 ── -->
-  <view class="tool-grid row between">
-    <view class="tool-item col center tap-scale" wx:for="{{tools}}" wx:key="key"
-          data-key="{{item.key}}" bindtap="onToolTap">
-      <view class="tool-icon-wrap center">
-        <image class="tool-icon" src="{{item.icon}}" />
+  <!-- ═══ 顶部模块（B Top Header，标题/描述随活动 tab 联动，文案已清洗） ═══ -->
+  <view class="st-header">
+    <view class="st-header-top">
+      <view class="st-brand">
+        <image class="st-brand-ic" src="/assets/icons/auto-awesome-primary.svg" />
+        <text class="st-brand-text">原声心念工坊</text>
       </view>
-      <text class="tool-label t-caption mt-2">{{item.label}}</text>
+      <text class="st-header-badge">词级时间戳 • 毫秒精控</text>
+    </view>
+    <text class="st-title">{{header.title}}</text>
+    <text class="st-desc">{{header.desc}}</text>
+  </view>
+
+  <!-- ═══ 今日学习进度与时段推荐（B 全局仪表卡，tab 栏上方常驻） ═══ -->
+  <view class="st-dash">
+    <!-- 卡头：仪表图标/标题 | 实时时钟 -->
+    <view class="st-dash-head">
+      <view class="st-dash-head-left">
+        <view class="st-dash-ic">
+          <image class="st-dash-ic-img" src="/assets/icons/bar-chart-primary.svg" />
+        </view>
+        <view class="st-dash-titles">
+          <text class="st-dash-title">今日学习进度与时段推荐</text>
+          <text class="st-dash-sub">同步跟读、收听与生词进度 • 北京时间</text>
+        </view>
+      </view>
+      <view class="st-dash-clock">
+        <image class="st-dash-clock-ic" src="/assets/icons/schedule.svg" />
+        <text class="st-dash-clock-text">{{currentTimeLabel}}</text>
+      </view>
+    </view>
+
+    <view class="st-dash-status st-dash-status--{{dashboardStatus}}" bindtap="onDashboardRetry">
+      <text>{{dashboardMessage}}</text>
+      <text wx:if="{{dashboardStatus !== 'loading'}}">{{dashboardStatus === 'guest' ? '去登录 ›' : '刷新 ›'}}</text>
+    </view>
+
+    <!-- 连胜 = 小程序跟读开口口径（落库 weapp_streak_log，与网站收听打卡分离）；
+         双通道点亮：跟读评测自动验收 / 点亮按钮手动签到（当日幂等） -->
+    <view class="st-sp {{streakCelebrating ? 'st-sp--pop' : ''}}" bindtap="onStreakTap">
+      <view class="st-sp-shimmer" />
+      <view class="st-sp-body">
+        <view class="st-sp-top">
+          <view class="st-sp-left">
+            <view class="st-sp-flame"><text class="st-sp-flame-ic">🔥</text></view>
+            <view class="st-sp-info">
+              <view class="st-sp-namerow">
+                <text class="st-sp-name">每日学习连胜</text>
+                <text class="st-sp-badge">{{streakBadge}}</text>
+              </view>
+              <view class="st-sp-days">
+                <text class="st-sp-days-n">{{dashboardStatus === 'ready' ? streakDays : '—'}}</text>
+                <text class="st-sp-days-u">天连续打卡</text>
+                <text class="st-sp-days-lead">{{dashboardStatus === 'ready' ? '• 领先全站 ' + streakPercentile + '% 语伴' : '• 开口跟读即自动点亮'}}</text>
+              </view>
+            </view>
+          </view>
+          <view class="st-sp-ignite {{streakIgnited ? 'st-sp-ignite--on' : ''}}" catchtap="onStreakTap">
+            <text class="st-sp-ignite-text">🔥 {{streakIgnited ? '今日已点亮' : '点亮今日连胜'}}</text>
+          </view>
+        </view>
+
+        <!-- 7 日连胜火苗链：真实最近 7 天（真星期标签 + 当日有点亮才燃） -->
+        <view wx:if="{{dashboardStatus === 'ready'}}" class="st-sp-week">
+          <view wx:for="{{streakWeek}}" wx:for-item="day" wx:for-index="di" wx:key="date"
+                class="st-sp-day {{day.lit ? 'st-sp-day--lit' : ''}} {{day.today && day.lit ? 'st-sp-day--today' : ''}}">
+            <text class="st-sp-day-flame">{{day.lit ? '🔥' : '💤'}}</text>
+            <text class="st-sp-day-label">{{day.label}}</text>
+          </view>
+        </view>
+
+        <!-- 里程碑进度条 -->
+        <view wx:if="{{dashboardStatus === 'ready'}}" class="st-sp-mile">
+          <view class="st-sp-mile-labels">
+            <text class="st-sp-mile-text">距离解锁「{{streakMilestone}}天荣耀勋章」还差 {{streakRemain}} 天</text>
+            <text class="st-sp-mile-pct">{{streakDays}}/{{streakMilestone}} 天 ({{streakProgress}}%)</text>
+          </view>
+          <view class="st-sp-mile-track">
+            <view class="st-sp-mile-fill" style="width: {{streakProgress}}%" />
+          </view>
+        </view>
+
+        <!-- 成就 cheer toast（4s 自隐） -->
+        <view wx:if="{{streakCheerText}}" class="st-sp-cheer">
+          <text class="st-sp-cheer-ic">✨</text>
+          <text class="st-sp-cheer-text">{{streakCheerText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 三指标格：跟读冲榜 / 单词复习 / 金句库 -->
+    <view class="st-mt">
+      <view class="st-mt-cell" hover-class="st-mt-cell--hover" bindtap="onMetricRank">
+        <view class="st-mt-cell-top">
+          <text class="st-mt-cell-label">今日跟读</text>
+          <image class="st-mt-cell-ic" src="{{dark ? '/assets/icons/mic-onsurface-dark.svg' : '/assets/icons/mic-onsurface.svg'}}" />
+        </view>
+        <view class="st-mt-cell-num">
+          <text class="st-mt-n">{{dashboardStatus === 'ready' ? metricShadowCount : '—'}}</text>
+          <text class="st-mt-u">次{{dashboardStatus === 'ready' ? ' (85分以上 ' + metricDoneCount + ')' : ''}}</text>
+        </view>
+        <view class="st-mt-cell-foot">
+          <text class="st-mt-cell-foot-ic">🏆</text>
+          <text class="st-mt-cell-foot-text st-mt-cell-foot-text--green">{{dashboardStatus !== 'ready' ? '今日勤奋榜' : metricMyRank ? '今日榜 #' + metricMyRank : '今日尚未上榜'}}</text>
+        </view>
+      </view>
+
+      <view class="st-mt-cell" hover-class="st-mt-cell--hover" bindtap="onMetricVocabulary">
+        <view class="st-mt-cell-top">
+          <text class="st-mt-cell-label">积累单词量</text>
+          <image class="st-mt-cell-ic" src="{{dark ? '/assets/icons/menu-book-onsurface-dark.svg' : '/assets/icons/menu-book-onsurface.svg'}}" />
+        </view>
+        <view class="st-mt-cell-num">
+          <text class="st-mt-n">{{dashboardStatus === 'ready' ? metricVocabCount : '—'}}</text>
+          <text class="st-mt-u">词{{dashboardStatus === 'ready' ? ' (已掌握 ' + metricMasteredCount + ')' : ''}}</text>
+        </view>
+        <view class="st-mt-cell-foot">
+          <text class="st-mt-cell-foot-ic">🧠</text>
+          <text class="st-mt-cell-foot-text st-mt-cell-foot-text--amber">{{dashboardStatus === 'ready' ? '到期 ' + metricReviewPending + '/' + metricReviewTotal + ' 词' : '查看生词复习'}}</text>
+        </view>
+      </view>
+
+      <view class="st-mt-cell" hover-class="st-mt-cell--hover" bindtap="onMetricSentences">
+        <view class="st-mt-cell-top">
+          <text class="st-mt-cell-label">原声金句库</text>
+          <image class="st-mt-cell-ic" src="/assets/icons/bookmark-primary.svg" />
+        </view>
+        <view class="st-mt-cell-num">
+          <text class="st-mt-n">{{dashboardStatus === 'ready' ? metricSentenceCount : '—'}}</text>
+          <text class="st-mt-u">句</text>
+        </view>
+        <view class="st-mt-cell-foot">
+          <text class="st-mt-cell-foot-text st-mt-cell-foot-text--teal">随时调取复盘</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 时段推荐盒 -->
+    <view class="st-tr">
+      <scroll-view scroll-x class="st-tr-slots" enhanced show-scrollbar="{{false}}">
+        <view wx:for="{{timeSlots}}" wx:for-item="slot" wx:key="key"
+              class="st-tr-slot {{selectedTimeSlot === slot.key ? 'st-tr-slot--on' : ''}}"
+              hover-class="st-tr-slot--hover" data-key="{{slot.key}}" bindtap="onSlotTap">
+          <text class="st-tr-slot-ic">{{slot.icon}}</text>
+          <text class="st-tr-slot-label">{{slot.label}}</text>
+          <view wx:if="{{currentTimeSlot === slot.key}}"
+                class="st-tr-slot-dot {{selectedTimeSlot === slot.key ? 'st-tr-slot-dot--on' : ''}}" />
+        </view>
+      </scroll-view>
+
+      <view class="st-tr-body">
+        <view class="st-tr-badgerow">
+          <text class="st-tr-badge">{{activeTimeRec.badge}} ({{activeTimeRec.timeRange}})</text>
+          <text wx:if="{{selectedTimeSlot === currentTimeSlot}}" class="st-tr-match">• 当前时段建议</text>
+        </view>
+        <text class="st-tr-study">推荐学习：{{activeTimeRec.studyType}}</text>
+        <text class="st-tr-reason">{{activeTimeRec.reason}}</text>
+      </view>
+
+      <view class="st-tr-foot">
+        <text class="st-tr-level">推荐难度：<text class="st-tr-level-hl">{{activeTimeRec.suggestedLevel}}</text></text>
+        <view class="st-tr-cta" hover-class="st-tr-cta--hover" bindtap="onApplyTimeRec">
+          <text class="st-tr-cta-text">{{activeTimeRec.actionText}}</text>
+          <text class="st-tr-cta-arrow">›</text>
+        </view>
+      </view>
     </view>
   </view>
 
-  <!-- ── 场景检索结果（仅搜索后渲染；无搜索零内容） ── -->
-  <block wx:if="{{searchDone}}">
-    <view wx:if="{{searching}}" class="center" style="padding: 96rpx 0;">
-      <view class="loading-spinner"></view>
-    </view>
-    <block wx:elif="{{results.length > 0}}">
-      <view class="section-title mt-6 mb-3"><text class="t-h3 text-bold">语境句</text></view>
-      <view class="card result-card col" wx:for="{{results}}" wx:key="index"
-            data-scene="{{item.sceneid}}" data-clip="{{item.clipid}}" data-query="{{item.query}}"
-            bindtap="onResultTap">
-        <view class="row between w-full">
-          <text class="result-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
-          <text class="t-mini text-secondary">{{item.durText}}</text>
+  <!-- 真实生词复习：到期队列、词典内容、原声字幕与服务端间隔重复 -->
+  <view class="st-rv">
+    <view class="st-rv-head">
+      <view class="st-rv-head-left">
+        <view class="st-rv-ic"><image class="st-rv-ic-img" src="/assets/icons/psychology-primary.svg" /></view>
+        <view class="st-rv-titles">
+          <view class="st-rv-namerow">
+            <text class="st-rv-title">艾宾浩斯复习清单 • 温故闪卡</text>
+            <text class="st-rv-tag">到期生词优先</text>
+          </view>
+          <text class="st-rv-sub">{{reviewStatus === 'ready' ? '生词本当前到期 ' + reviewDueTotal + ' 词 · 本轮 ' + smartReview.length + ' 词' : reviewMessage}}</text>
         </view>
-        <text class="result-en ellipsis-2 mt-2">{{item.en}}</text>
-        <text class="result-zh ellipsis mt-1" wx:if="{{item.zh}}">{{item.zh}}</text>
-        <view class="row result-go mt-2">
-          <image class="result-go-ic" src="/assets/icons/mic-ink.svg" />
-          <text class="result-go-text">去跟读</text>
+      </view>
+      <view wx:if="{{reviewStatus === 'ready'}}" class="st-rv-head-right">
+        <text class="st-rv-done">已提交 {{reviewDoneCount}}/{{smartReview.length}}</text>
+        <view class="st-rv-toggle" hover-class="st-rv-toggle--hover" bindtap="onToggleReviewDeck">
+          <text>{{reviewDeckOpen ? '收起' : '展开闪卡'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{reviewStatus !== 'ready'}}" class="st-rv-state">
+      <text>{{reviewStatus === 'loading' ? '正在读取你的复习计划…' : reviewStatus === 'empty' ? '新收藏的生词会自动进入复习队列' : reviewStatus === 'guest' ? '登录后同步生词与复习进度' : '暂时无法连接生词本，已保留服务端进度'}}</text>
+      <view wx:if="{{reviewStatus !== 'loading'}}" class="st-rv-toggle" bindtap="onReviewRetry">
+        <text>{{reviewStatus === 'guest' ? '去登录' : reviewStatus === 'empty' ? '刷新清单' : '重新加载'}}</text>
+      </view>
+    </view>
+
+    <block wx:if="{{reviewStatus === 'ready'}}">
+      <scroll-view scroll-x class="st-rv-pills" enhanced show-scrollbar="{{false}}">
+        <view wx:for="{{smartReview}}" wx:for-item="rv" wx:for-index="ri" wx:key="id"
+              class="st-rv-pill {{activeReviewIdx === ri ? 'st-rv-pill--on' : ''}} {{rv.reviewedToday ? 'st-rv-pill--done' : ''}}"
+              data-idx="{{ri}}" bindtap="onReviewPillTap">
+          <text class="st-rv-pill-word">{{rv.word}}</text>
+          <text wx:if="{{rv.reviewedToday}}" class="st-rv-pill-check">{{rv.lastFeedback === 'unknown' ? '待再练' : '✓'}}</text>
+          <text wx:else class="st-rv-pill-ret">待复习</text>
+        </view>
+      </scroll-view>
+
+      <view wx:if="{{reviewSubmitError}}" class="st-rv-state st-rv-state--error">
+        <text>{{reviewSubmitError}}</text>
+        <view class="st-rv-toggle" bindtap="onResetReview"><text>刷新队列</text></view>
+      </view>
+
+      <view wx:if="{{reviewDeckOpen && smartReview.length}}" class="st-rv-deck">
+        <view wx:if="{{reviewAllDone}}" class="st-rv-allpass">
+          <view class="st-rv-allpass-text">
+            <text class="st-rv-allpass-strong">本轮 {{smartReview.length}} 词复习结果已保存</text>
+            <text class="st-rv-allpass-sub">{{reviewForgotCount ? '其中 ' + reviewForgotCount + ' 词仍需再练' : '已按掌握程度安排下次复习'}}</text>
+          </view>
+          <view class="st-rv-again" hover-class="st-rv-again--hover" bindtap="onResetReview">
+            <text class="st-rv-again-ic">↻</text>
+            <text class="st-rv-again-text">{{reviewDueTotal ? '继续到期词' : '刷新清单'}}</text>
+          </view>
+        </view>
+
+        <view class="st-fc {{cardFlipped ? 'st-fc--back' : ''}}" bindtap="onFlipCard">
+          <view class="st-fc-meta">
+            <view class="st-fc-meta-left">
+              <text class="st-fc-err">{{smartReview[activeReviewIdx].reviewedToday ? '本轮已提交' : smartReview[activeReviewIdx].dueLabel}}</text>
+              <text class="st-fc-curve">熟练度 {{smartReview[activeReviewIdx].proficiency}} 级</text>
+            </view>
+            <text class="st-fc-fliphint">{{cardFlipped ? '背面 · 释义与语境' : '正面 · 点击翻面'}}</text>
+          </view>
+
+          <view wx:if="{{!cardFlipped}}" class="st-fc-front">
+            <view class="st-fc-front-top">
+              <view class="st-fc-wordbox">
+                <view class="st-fc-wordrow">
+                  <text class="st-fc-word">{{smartReview[activeReviewIdx].word}}</text>
+                  <text class="st-fc-pos">{{smartReview[activeReviewIdx].pos}}</text>
+                </view>
+                <view class="st-fc-phon">
+                  <text wx:if="{{smartReview[activeReviewIdx].phoneticUk}}">UK {{smartReview[activeReviewIdx].phoneticUk}}</text>
+                  <text wx:if="{{smartReview[activeReviewIdx].phoneticUs}}">US {{smartReview[activeReviewIdx].phoneticUs}}</text>
+                </view>
+              </view>
+            </view>
+            <view class="st-fc-ctx">
+              <view class="st-fc-ctx-head">
+                <text class="st-fc-ctx-label">{{smartReview[activeReviewIdx].contextEn ? '收藏语境 · 回忆词义后翻面' : '回忆词义后点击卡片查看释义'}}</text>
+                <text wx:if="{{smartReview[activeReviewIdx].hasWordTimings}}" class="st-fc-ctx-sync">词级同步</text>
+              </view>
+              <view class="st-fc-ctx-words">
+                <text wx:for="{{smartReview[activeReviewIdx].clipWords}}" wx:for-item="cw" wx:for-index="cwi" wx:key="cwi"
+                      class="st-fc-cw {{reviewPlayingId === smartReview[activeReviewIdx].id && reviewAudioKind === 'original' && playing && reviewWordIdx === cwi ? 'st-fc-cw--cur' : ''}} {{cw.isT ? 'st-fc-cw--target' : ''}}">{{cw.word}}</text>
+              </view>
+              <text wx:if="{{smartReview[activeReviewIdx].episodeTitle}}" class="st-rv-source">来自：{{smartReview[activeReviewIdx].episodeTitle}}</text>
+            </view>
+          </view>
+
+          <view wx:else class="st-fc-backbody">
+            <view class="st-fc-back-wordrow">
+              <text class="st-fc-back-word">{{smartReview[activeReviewIdx].word}}</text>
+              <text class="st-fc-back-def">{{smartReview[activeReviewIdx].definition}}</text>
+            </view>
+            <view wx:if="{{smartReview[activeReviewIdx].contextEn}}" class="st-fc-bilingual">
+              <!-- 语境句词级渲染（与正面同款扫光：听原声语境时逐词点亮） -->
+              <view wx:if="{{smartReview[activeReviewIdx].clipWords.length}}" class="st-fc-bi-en">
+                <text wx:for="{{smartReview[activeReviewIdx].clipWords}}" wx:for-item="cw" wx:for-index="cwi" wx:key="cwi"
+                      class="st-fc-cw {{reviewPlayingId === smartReview[activeReviewIdx].id && playing && reviewWordIdx === cwi ? 'st-fc-cw--cur' : ''}} {{cw.isT && !(reviewPlayingId === smartReview[activeReviewIdx].id && playing && reviewWordIdx === cwi) ? 'st-fc-cw--target' : ''}}"
+                      user-select>{{cw.word}}</text>
+              </view>
+              <text wx:else class="st-fc-bi-en st-fc-bi-en--plain" user-select>{{smartReview[activeReviewIdx].contextEn}}</text>
+              <text wx:if="{{smartReview[activeReviewIdx].contextZh}}" class="st-fc-bi-zh" user-select>{{smartReview[activeReviewIdx].contextZh}}</text>
+            </view>
+            <view wx:if="{{smartReview[activeReviewIdx].etymologyText || smartReview[activeReviewIdx].memoryHook}}" class="st-fc-hook">
+              <text wx:if="{{smartReview[activeReviewIdx].etymologyText}}" class="st-fc-hook-row">🧩 词根拆解：{{smartReview[activeReviewIdx].etymologyText}}</text>
+              <text wx:if="{{smartReview[activeReviewIdx].memoryHook}}" class="st-fc-hook-row">💡 记忆提示：{{smartReview[activeReviewIdx].memoryHook}}</text>
+            </view>
+          </view>
+
+          <view class="st-rv-audio-actions" catchtap="noop">
+            <view wx:if="{{smartReview[activeReviewIdx].wordAudioUrl}}" class="st-fc-listen" hover-class="st-fc-listen--hover" data-idx="{{activeReviewIdx}}" bindtap="onPlayReviewWord">
+              <text class="st-fc-listen-text">{{reviewPlayingId === smartReview[activeReviewIdx].id && reviewAudioKind === 'word' && playing ? '停止发音' : '🔊 听单词'}}</text>
+            </view>
+            <view wx:if="{{smartReview[activeReviewIdx].canPlayOriginal}}" class="st-fc-listen" hover-class="st-fc-listen--hover" data-idx="{{activeReviewIdx}}" bindtap="onPlayReviewAudio">
+              <text class="st-fc-listen-text">{{reviewLoadingId === smartReview[activeReviewIdx].id ? '原声加载中…' : reviewPlayingId === smartReview[activeReviewIdx].id && reviewAudioKind === 'original' && playing ? '停止原声' : '🎧 听原声语境'}}</text>
+            </view>
+            <text wx:if="{{!smartReview[activeReviewIdx].wordAudioUrl && !smartReview[activeReviewIdx].canPlayOriginal}}" class="st-rv-source">此词暂无音源，可先复习释义</text>
+          </view>
+
+          <view wx:if="{{!smartReview[activeReviewIdx].reviewedToday}}" class="st-fc-fb {{reviewSubmitting || reviewNeedsReload ? 'st-fc-fb--disabled' : ''}}" catchtap="noop">
+            <view class="st-fc-fb-btn st-fc-fb-btn--no" data-fb="unknown" bindtap="onReviewFeedback">
+              <text class="st-fc-fb-main">😣 忘了</text><text class="st-fc-fb-sub">本轮后再练</text>
+            </view>
+            <view class="st-fc-fb-btn st-fc-fb-btn--fuzzy" data-fb="fuzzy" bindtap="onReviewFeedback">
+              <text class="st-fc-fb-main">🤔 模糊</text><text class="st-fc-fb-sub">明天复习</text>
+            </view>
+            <view class="st-fc-fb-btn st-fc-fb-btn--know" data-fb="know" bindtap="onReviewFeedback">
+              <text class="st-fc-fb-main">⚡ 牢记</text><text class="st-fc-fb-sub">{{smartReview[activeReviewIdx].knowInterval}}后复习</text>
+            </view>
+          </view>
+          <text wx:if="{{reviewSubmitting}}" class="st-rv-feedback-note">正在保存复习结果…</text>
+          <text wx:if="{{smartReview[activeReviewIdx].reviewedToday}}" class="st-rv-feedback-note">{{smartReview[activeReviewIdx].nextReviewLabel}}</text>
         </view>
       </view>
     </block>
-    <view wx:else class="empty-tip col center">
-      <text class="t-body text-secondary">没找到相关语境，换个说法试试</text>
-    </view>
-  </block>
+  </view>
 
-  <!-- ── 查词记录抽屉（本地存储） ── -->
-  <view wx:if="{{historyOpen}}" class="history-mask" bindtap="onHistoryClose">
-    <view class="history-panel col" catchtap="noop">
-      <view class="between w-full mb-3">
-        <text class="t-h3 text-bold">查词记录</text>
-        <view class="row">
-          <text class="t-caption text-secondary mr-4" bindtap="onHistoryClear">清空</text>
-          <image class="history-close-ic" src="/assets/icons/close.svg" bindtap="onHistoryClose" />
-        </view>
-      </view>
-      <scroll-view class="history-scroll" scroll-y>
-        <view wx:if="{{history.length === 0}}" class="empty-tip col center">
-          <text class="t-body text-secondary">还没有查过词</text>
-        </view>
-        <view class="history-word row between" wx:for="{{history}}" wx:key="*this"
-              data-word="{{item}}" bindtap="onHistoryWordTap">
-          <text class="history-word-text">{{item}}</text>
-          <text class="t-mini text-secondary">再查</text>
-        </view>
-      </scroll-view>
+
+  <!-- ═══ 底部模块：四格分段 tab（今日挑战 → 跟读接力 → 排行榜 → 自由定制） ═══ -->
+  <view class="st-tabs">
+    <view wx:for="{{tabs}}" wx:key="key" wx:for-item="tab"
+          class="st-tab {{activeTab === tab.key ? 'st-tab--on' : ''}}"
+          hover-class="st-tab--hover" data-key="{{tab.key}}" bindtap="onTabTap">
+      <text class="st-tab-ic">{{tab.icon}}</text>
+      <text class="st-tab-label">{{tab.label}}</text>
     </view>
   </view>
 
-  <!-- ── 词典弹层（真实语境例句静态文本 + 前往跟读） ── -->
-  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
-                    dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.corpusExamples}}"
-                    loading="{{wordModal.loading}}"
-                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
-                    episode-title=""
-                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete"
-                    bind:gopractice="onVocabGoPractice" />
+  <!-- ═══ TAB: 自由定制 ═══ -->
+  <view wx:if="{{activeTab === 'custom'}}" class="st-tab-body">
 
+    <!-- 想法输入卡（B Idea Input Card） -->
+    <view class="st-card st-input-card">
+      <textarea class="st-textarea" value="{{inputIdea}}" bindinput="onIdeaInput"
+                auto-height maxlength="140" show-confirm-bar="{{false}}"
+                placeholder="告诉我你想学什么场景？例如：准备去海外旅行问路、面试探讨优势、或者美剧高频俚语..."
+                placeholder-class="st-textarea-ph" />
+
+      <!-- 难度 + 生成按钮行 -->
+      <view class="st-input-row">
+        <view class="st-levels">
+          <view wx:for="{{levelOptions}}" wx:key="v"
+                class="st-level {{item.on ? 'st-level--on' : ''}}"
+                hover-class="st-level--hover" data-level="{{item.v}}" bindtap="onLevelTap">{{item.v}}</view>
+        </view>
+        <view class="st-gen-btn {{isGenerating || !inputIdea ? 'st-gen-btn--off' : ''}}"
+              hover-class="{{isGenerating || !inputIdea ? '' : 'st-gen-btn--hover'}}"
+              bindtap="onGenerate">
+          <view wx:if="{{isGenerating}}" class="st-gen-spin" />
+          <image wx:else class="st-gen-ic" src="/assets/icons/auto-awesome-white.svg" />
+          <text class="st-gen-text">{{isGenerating ? '生成中...' : '生成微场景'}}</text>
+        </view>
+      </view>
+
+      <!-- 灵感预设（动态生成：启动时拉取语料实况 + 刷新按钮；两列排列） -->
+      <view class="st-preset-wrap">
+        <view class="st-preset-header">
+          <text class="st-preset-label">💡 灵感预设</text>
+          <view class="st-preset-refresh" hover-class="st-preset-refresh--hover" bindtap="onRefreshPresets">
+            <view wx:if="{{presetRefreshing}}" class="st-preset-refresh-spin" />
+            <text wx:else class="st-preset-refresh-ic">↻</text>
+          </view>
+        </view>
+        <view class="st-preset-grid">
+          <view wx:for="{{presetIdeas}}" wx:key="text"
+                class="st-preset" hover-class="st-preset--hover"
+                data-idx="{{index}}" bindtap="onPresetTap">
+            <text class="st-preset-icon">{{item.icon}}</text>
+            <text class="st-preset-text">{{item.text}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 无相关语料提示（语义快裁 noMatch——诚实提示，不降级到不相关内容） -->
+    <view wx:if="{{noMatch}}" class="st-nomatch">
+      <text class="st-nomatch-ic">🔍</text>
+      <text class="st-nomatch-title">未找到与该意图相关的原声语料</text>
+      <text class="st-nomatch-desc">「{{inputIdea}}」暂无匹配的场景切片。试试换一种更常见的说法（如「面试时如何回答问题」），或稍后再来——语料库每天都在补充。</text>
+    </view>
+
+    <!-- 检索服务不可用（网络失败/超时——诚实错误，不再降级造假结果） -->
+    <view wx:if="{{searchError}}" class="st-nomatch">
+      <text class="st-nomatch-ic">📡</text>
+      <text class="st-nomatch-title">检索服务暂不可用</text>
+      <text class="st-nomatch-desc">连接超时或服务未启动（本地联调需先跑 yuanlu `npm run dev`）。请稍后重试——不会用无关内容冒充结果。</text>
+    </view>
+
+    <!-- 微场景方案输出（B Generated Study Plan） -->
+    <view wx:if="{{plan}}" class="st-plan">
+
+      <!-- 方案头卡（深色渐变 + 专属微场景徽章 + 文案来源徽章） -->
+      <view class="st-plan-head">
+        <view class="st-plan-head-row">
+          <text class="st-plan-badge">专属微场景</text>
+          <text class="st-plan-theme">{{plan.themeTitle}}</text>
+        </view>
+        <text class="st-plan-overview">{{plan.scenarioOverview}}</text>
+        <view class="st-plan-nuance">
+          <image class="st-plan-nuance-ic" src="/assets/icons/lightbulb-accent.svg" />
+          <text class="st-plan-nuance-text">{{plan.culturalNuance}}</text>
+        </view>
+        <text class="st-plan-src">{{plan.sourceLabel}}</text>
+      </view>
+
+      <!-- 微场景（top-2 连续语境 · 句×词两级卡拉OK · 句级循环/透视/收藏）[2026-11-11 上移至切片上方] -->
+      <block wx:if="{{plan.scenes.length > 0}}">
+        <view class="st-clips-head">
+          <view class="st-clips-head-left">
+            <image class="st-clips-head-ic" src="/assets/icons/auto-awesome-primary.svg" />
+            <text class="st-clips-head-title">微场景连续语境 ({{plan.scenes.length}})</text>
+          </view>
+          <text class="st-clips-head-hint">整段连播 • 单句循环磨嘴皮</text>
+        </view>
+
+        <view wx:for="{{plan.scenes}}" wx:for-item="scn" wx:for-index="sci" wx:key="id" class="st-scene">
+          <view class="st-scene-head">
+            <view class="st-scene-title-wrap">
+              <text class="st-scene-badge">微场景 {{sci + 1}}</text>
+              <text class="st-scene-title">{{scn.title}}</text>
+            </view>
+            <view class="st-play-btn {{sceneActiveIdx === sci && sceneSentLoop < 0 && playing ? 'st-play-btn--on' : ''}}"
+                  hover-class="st-play-btn--hover" data-sci="{{sci}}" bindtap="onScenePlay">
+              <view wx:if="{{sceneLoadingIdx === sci && sceneSentLoop < 0}}" class="st-play-spin" />
+              <block wx:else>
+                <image class="st-play-ic" src="{{sceneActiveIdx === sci && sceneSentLoop < 0 && playing ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled-primary.svg'}}" />
+                <text class="st-play-text">{{sceneActiveIdx === sci && sceneSentLoop < 0 && playing ? '暂停' : '整段连播'}}</text>
+              </block>
+            </view>
+          </view>
+
+          <text class="st-scene-summary" user-select>{{scn.summaryZh}}</text>
+
+          <view class="st-scene-meta">
+            <text class="st-scene-meta-item">⏱ {{scn.duration}}s</text>
+            <text class="st-scene-meta-item">{{scn.sentences.length}} 句连读</text>
+            <text wx:if="{{scn.cefr}}" class="st-scene-meta-item">{{scn.cefr}}</text>
+            <text wx:if="{{scn.tag}}" class="st-scene-meta-item">{{scn.tag}}</text>
+          </view>
+
+          <!-- 句×词扫光 + 句级行动组（循环/透视/收藏，内构对齐切片卡） -->
+          <view wx:for="{{scn.sentences}}" wx:for-item="sent" wx:for-index="si" wx:key="start"
+                class="st-sent {{sceneActiveIdx === sci && (sceneActiveSent === si || sceneSentLoop === si) ? 'st-sent--on' : ''}}">
+            <view class="st-sent-row">
+              <view class="st-sent-en">
+                <block wx:if="{{sent.words.length > 0}}">
+                  <text wx:for="{{sent.words}}" wx:for-item="w" wx:for-index="wi" wx:key="wi"
+                        class="st-word {{sceneActiveIdx === sci && playing && sceneWordIdx === w.gi ? 'st-word--cur' : sceneActiveIdx === sci && playing && sceneWordIdx > w.gi ? 'st-word--past' : ''}}"
+                        data-sci="{{sci}}" data-si="{{si}}" data-wi="{{wi}}" bindtap="onSceneWordTap">{{w.word}}</text>
+                </block>
+                <!-- 补洞句（门禁丢行无词级时间戳）纯文本兜底，整句点按查词 -->
+                <text wx:else class="st-word" data-sci="{{sci}}" data-si="{{si}}" bindtap="onSceneWordTap">{{sent.textEn}}</text>
+              </view>
+              <view class="st-sent-acts">
+                <view class="st-sent-act {{sceneActiveIdx === sci && sceneSentLoop === si ? 'st-sent-act--on' : ''}}"
+                      hover-class="st-sent-act--hover" data-sci="{{sci}}" data-si="{{si}}" bindtap="onSceneSentLoop">
+                  <view wx:if="{{sceneLoadingIdx === sci && sceneSentLoop === si}}" class="st-sent-spin" />
+                  <image wx:else class="st-sent-ic" src="{{sceneActiveIdx === sci && sceneSentLoop === si && playing ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled-primary.svg'}}" />
+                </view>
+                <view class="st-sent-act" hover-class="st-sent-act--hover"
+                      data-sci="{{sci}}" data-si="{{si}}" bindtap="onSceneDeepDive">
+                  <image class="st-sent-ic" src="/assets/icons/auto-awesome-primary.svg" />
+                </view>
+                <view class="st-sent-act" data-sci="{{sci}}" data-si="{{si}}" bindtap="onSceneSentBookmark">
+                  <image class="st-sent-ic" src="{{sent.saved ? '/assets/icons/bookmark-filled-primary.svg' : (dark ? '/assets/icons/bookmark-tertiary-dark.svg' : '/assets/icons/bookmark-border.svg')}}" />
+                </view>
+              </view>
+            </view>
+            <text class="st-sent-zh" user-select>{{sent.textCn}}</text>
+          </view>
+        </view>
+      </block>
+
+      <!-- 节标题 -->
+      <view class="st-clips-head">
+        <view class="st-clips-head-left">
+          <image class="st-clips-head-ic" src="/assets/icons/volume-up-accent.svg" />
+          <text class="st-clips-head-title">精选原生切片实训 ({{plan.clips.length}})</text>
+        </view>
+        <text class="st-clips-head-hint">单句循环磨耳朵 • 点击单词查释义</text>
+      </view>
+
+      <!-- 切片卡 -->
+      <view wx:for="{{plan.clips}}" wx:for-item="clip" wx:for-index="ci" wx:key="id"
+            class="st-clip {{activeIdx === ci ? 'st-clip--on' : ''}}">
+
+        <!-- 卡顶栏：节目名 + 序号 | 透视 + 收藏 -->
+        <view class="st-clip-top">
+          <view class="st-clip-top-left">
+            <text class="st-clip-pod">{{clip.showTitle || '原声选段'}}</text>
+            <text class="st-clip-no">切片 #{{ci + 1}}</text>
+          </view>
+          <view class="st-clip-top-right">
+            <view class="st-clip-dive" hover-class="st-clip-dive--hover"
+                  data-idx="{{ci}}" bindtap="onClipDeepDive">
+              <image class="st-clip-dive-ic" src="/assets/icons/auto-awesome-primary.svg" />
+              <text class="st-clip-dive-text">透视</text>
+            </view>
+            <view class="st-clip-mark" data-idx="{{ci}}" bindtap="onToggleBookmark">
+              <image class="st-clip-mark-ic" src="{{clip.saved ? '/assets/icons/bookmark-filled-primary.svg' : (dark ? '/assets/icons/bookmark-tertiary-dark.svg' : '/assets/icons/bookmark-border.svg')}}" />
+            </view>
+          </view>
+        </view>
+
+        <!-- 英文原句：词级卡拉OK扫光（仅活动卡点亮；点词查词） -->
+        <view class="st-clip-en">
+          <block wx:if="{{clip.words.length > 0}}">
+            <text wx:for="{{clip.words}}" wx:for-item="w" wx:for-index="wi" wx:key="wi"
+                  class="st-word {{activeIdx === ci && playing && activeWordIndex === wi ? 'st-word--cur' : activeIdx === ci && playing && activeWordIndex > wi ? 'st-word--past' : ''}}"
+                  data-ci="{{ci}}" data-wi="{{wi}}" bindtap="onWordTap">{{w.word}}</text>
+          </block>
+          <text wx:else class="st-word" data-ci="{{ci}}" bindtap="onWordTap">{{clip.textEn}}</text>
+        </view>
+
+        <!-- 中文译文 -->
+        <text class="st-clip-zh" user-select>{{clip.textCn}}</text>
+
+        <!-- 发音机密 -->
+        <view wx:if="{{clip.phoneticSecret}}" class="st-clip-secret">
+          <image class="st-clip-secret-ic" src="/assets/icons/volume-up-primary-m.svg" />
+          <text class="st-clip-secret-text">{{clip.phoneticSecret}}</text>
+        </view>
+
+        <!-- 核心词汇 chips（标签图标 + 单词，点词查词） -->
+        <view wx:if="{{clip.keyVocabulary.length > 0}}" class="st-kv-list">
+          <view wx:for="{{clip.keyVocabulary}}" wx:for-item="kv" wx:key="word"
+                class="st-kv" hover-class="st-kv--hover"
+                data-ci="{{ci}}" data-word="{{kv.word}}" bindtap="onWordTap">
+            <image class="st-kv-ic" src="/assets/icons/label-accent.svg" />
+            <text class="st-kv-text">{{kv.word}}</text>
+          </view>
+        </view>
+
+        <!-- 底栏：原声循环 / 暂停 + 活动卡循环键 -->
+        <view class="st-clip-actions">
+          <view class="st-play-btn {{activeIdx === ci && playing ? 'st-play-btn--on' : ''}}"
+                hover-class="st-play-btn--hover" data-idx="{{ci}}" bindtap="onClipPlay">
+            <view wx:if="{{loadingClipIdx === ci}}" class="st-play-spin" />
+            <block wx:else>
+              <image class="st-play-ic" src="{{activeIdx === ci && playing ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled-primary.svg'}}" />
+              <text class="st-play-text">{{activeIdx === ci && playing ? '暂停' : '原声循环'}}</text>
+            </block>
+          </view>
+
+          <view wx:if="{{activeIdx === ci}}"
+                class="st-loop-btn {{isLooping ? 'st-loop-btn--on' : ''}}" bindtap="onToggleLoop">
+            <image class="st-loop-ic" src="{{isLooping ? '/assets/icons/repeat-active.svg' : '/assets/icons/repeat-gray.svg'}}" />
+          </view>
+        </view>
+      </view>
+
+      <!-- 实战微演练（B aiRoleplayPrompt，文案已清洗） -->
+      <view wx:if="{{plan.roleplayPrompt}}" class="st-roleplay">
+        <view class="st-roleplay-head">
+          <text class="st-roleplay-ic">🧭</text>
+          <text class="st-roleplay-title">实战微演练 (Roleplay Challenge)</text>
+        </view>
+        <text class="st-roleplay-text" user-select>{{plan.roleplayPrompt}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ TAB: 今日挑战（B daily tab） ═══ -->
+  <view wx:elif="{{activeTab === 'daily'}}" class="st-tab-body">
+
+    <!-- 任务横幅（B Daily Progress Banner：日期/进度/刷新/推荐摘要） -->
+    <view class="st-db">
+      <view class="st-db-top">
+        <view class="st-db-left">
+          <view class="st-db-flame"><text class="st-db-flame-ic">🔥</text></view>
+          <view>
+            <text class="st-db-date">{{daily.date}} 任务</text>
+            <text class="st-db-count">完成 {{daily.completedCount}} / {{daily.clips.length || 0}} 个原声切片跟读</text>
+          </view>
+        </view>
+        <view class="st-db-refresh {{refreshingDaily ? 'st-db-refresh--spin' : ''}}" hover-class="st-db-refresh--hover" bindtap="onRefreshDaily">
+          <text class="st-db-refresh-text">刷新进度</text>
+        </view>
+      </view>
+
+      <!-- 进度条 -->
+      <view class="st-db-progress">
+        <view class="st-db-progress-labels">
+          <text>今日跟读达标进度</text>
+          <text class="st-db-progress-pct">{{daily.completionPercent || 0}}%</text>
+        </view>
+        <view class="st-db-progress-track">
+          <view class="st-db-progress-fill" style="width: {{daily.completionPercent || 0}}%" />
+        </view>
+      </view>
+
+      <view class="st-db-summary">
+        <image class="st-db-summary-ic" src="/assets/icons/lightbulb-accent.svg" />
+        <text class="st-db-summary-text">{{daily.userHistorySummary}}</text>
+      </view>
+    </view>
+
+    <!-- 全通关横幅 -->
+    <view wx:if="{{daily.allCompleted}}" class="st-db-allpass">
+      <text class="st-db-allpass-title">🎉 太棒了！今日 {{daily.clips.length}} 条原声跟读挑战全通关！</text>
+      <text class="st-db-allpass-text">今日平均跟读评分: {{daily.averageScore || 88}} 分。已形成听觉神经记忆，明天继续保持！</text>
+    </view>
+
+    <!-- 装载态 -->
+    <view wx:if="{{dailyLoading}}" class="st-db-loading">
+      <view class="st-gen-spin st-db-loading-spin" />
+      <text class="st-db-loading-text">正在准备今日挑战...</text>
+    </view>
+
+    <view wx:if="{{dailyError}}" class="st-db-loading"><text>{{dailyError}}</text></view>
+
+    <!-- 当天固定的挑战卡（可能不足五条） -->
+    <block wx:if="{{!dailyLoading}}">
+      <view wx:for="{{daily.clips}}" wx:for-item="dclip" wx:for-index="di" wx:key="id"
+            class="st-dc {{dailyActiveIdx === di ? 'st-dc--on' : ''}} {{dclip.completed ? 'st-dc--done' : ''}}">
+
+        <!-- 卡头：序号/节目/难度 | 分数徽章 + 透视 + 收藏 -->
+        <view class="st-dc-top">
+          <view class="st-dc-top-left">
+            <view class="st-dc-order {{dclip.completed ? 'st-dc-order--done' : ''}}">
+              <text wx:if="{{dclip.completed}}" class="st-dc-order-check">✓</text>
+              <text wx:else>0{{di + 1}}</text>
+            </view>
+            <text class="st-dc-pod">{{dclip.showTitle}}</text>
+            <text wx:if="{{dclip.difficulty}}" class="st-dc-diff">{{dclip.difficulty}}</text>
+          </view>
+          <view class="st-dc-top-right">
+            <text wx:if="{{dclip.completed && dclip.score}}" class="st-dc-score">★ {{dclip.score}}分</text>
+            <view class="st-clip-dive" hover-class="st-clip-dive--hover" data-idx="{{di}}" bindtap="onDailyDeepDive">
+              <image class="st-clip-dive-ic" src="/assets/icons/auto-awesome-primary.svg" />
+              <text class="st-clip-dive-text">透视</text>
+            </view>
+            <view class="st-clip-mark" data-idx="{{di}}" bindtap="onDailyBookmark">
+              <image class="st-clip-mark-ic" src="{{dclip.saved ? '/assets/icons/bookmark-filled-primary.svg' : (dark ? '/assets/icons/bookmark-tertiary-dark.svg' : '/assets/icons/bookmark-border.svg')}}" />
+            </view>
+          </view>
+        </view>
+
+        <!-- 英文句：词级卡拉OK（仅活动卡点亮）+ 句末循环开关 -->
+        <view class="st-clip-en">
+          <block wx:if="{{dclip.words.length > 0}}">
+            <text wx:for="{{dclip.words}}" wx:for-item="w" wx:for-index="wi" wx:key="wi"
+                  class="st-word {{dailyActiveIdx === di && playing && activeWordIndex === wi ? 'st-word--cur' : dailyActiveIdx === di && playing && activeWordIndex > wi ? 'st-word--past' : ''}}"
+                  data-di="{{di}}" data-wi="{{wi}}" bindtap="onDailyWordTap">{{w.word}}</text>
+          </block>
+          <text wx:else class="st-word" data-di="{{di}}" bindtap="onDailyWordTap">{{dclip.textEn}}</text>
+          <view wx:if="{{dailyActiveIdx === di}}"
+                class="st-clip-loop {{isLooping ? 'st-clip-loop--on' : ''}}" catchtap="onToggleLoop">
+            <image class="st-clip-loop-ic" src="{{isLooping ? '/assets/icons/repeat-active.svg' : '/assets/icons/repeat-gray.svg'}}" />
+          </view>
+        </view>
+
+        <text class="st-clip-zh" user-select>{{dclip.textCn}}</text>
+
+        <!-- 连读提示与选句理由 -->
+        <view wx:if="{{dclip.phoneticFocus || dclip.personalizedReason}}" class="st-clip-secret">
+          <image class="st-clip-secret-ic" src="/assets/icons/volume-up-primary-m.svg" />
+          <text class="st-clip-secret-text">{{dclip.matchedWords.length ? dclip.personalizedReason + ' · ' + dclip.phoneticFocus : dclip.phoneticFocus}}</text>
+        </view>
+
+        <!-- 目标词汇 chips（优先高亮命中生词，其余绿色重点词，点词查词） -->
+        <view wx:if="{{dclip.targetVocabulary.length > 0}}" class="st-kv-list">
+          <view wx:for="{{dclip.targetVocabulary}}" wx:for-item="tv" wx:key="word"
+                class="st-kv {{tv.matched ? '' : 'st-kv--green'}}" hover-class="st-kv--hover"
+                data-di="{{di}}" data-word="{{tv.word}}" bindtap="onDailyWordTap">
+            <image class="st-kv-ic" src="{{tv.matched ? '/assets/icons/label-accent.svg' : '/assets/icons/label-primary.svg'}}" />
+            <text class="st-kv-text {{tv.matched ? '' : 'st-kv-text--green'}}">{{tv.matched ? '生词 · ' + tv.word : tv.word}}</text>
+          </view>
+        </view>
+
+        <!-- 动作栏：四按钮竖排网格（图标行+文本行，图标水平居中）+ 活动卡循环窄格 -->
+        <view class="st-dc-actions">
+          <!-- 听原声 / 暂停（循环开关已移至英文句末尾） -->
+          <view class="st-a4 st-a4--listen {{dailyActiveIdx === di && playing ? 'st-a4--listen-on' : ''}}"
+                hover-class="st-a4--hover" data-idx="{{di}}" bindtap="onDailyPlay">
+            <view wx:if="{{dailyLoadingIdx === di}}" class="st-play-spin" />
+            <image wx:else class="st-a4-ic" src="{{dailyActiveIdx === di && playing ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled-primary.svg'}}" />
+            <text class="st-a4-t {{dailyActiveIdx === di && playing ? 'st-a4-t--white' : ''}}">{{dailyActiveIdx === di && playing ? '暂停' : '听原声'}}</text>
+          </view>
+
+          <!-- 发起接力（预选本切片跳接力 tab 开发起面板） -->
+          <view class="st-a4 st-a4--relay" hover-class="st-a4--hover"
+                data-idx="{{di}}" bindtap="onDailyRelayLaunch">
+            <text class="st-a4-emoji">📡</text>
+            <text class="st-a4-t st-a4-t--relay">发起接力</text>
+          </view>
+
+          <!-- 查看真实评测记录与完整练习 -->
+          <view wx:if="{{dclip.real}}"
+                class="st-a4 st-a4--coach {{recordingClipId === dclip.id || evaluatingClipId === dclip.id ? 'st-a4--off' : ''}}"
+                hover-class="st-a4--hover" data-idx="{{di}}" bindtap="onDailyCoach">
+            <text class="st-a4-emoji">📈</text>
+            <text class="st-a4-t st-a4-t--coach">评测记录</text>
+          </view>
+
+          <!-- 真实录音：再次点击停止，最长 60 秒 -->
+          <view class="st-a4 st-a4--shadow {{recordingClipId === dclip.id ? 'st-a4--shadow-rec' : ''}} {{evaluatingClipId === dclip.id ? 'st-a4--shadow-eval' : ''}} {{dclip.completed ? 'st-a4--shadow-done' : ''}}"
+                data-idx="{{di}}" bindtap="onDailyShadowStart">
+            <image class="st-a4-ic" src="{{recordingClipId === dclip.id || (!dclip.completed && evaluatingClipId !== dclip.id) ? '/assets/icons/mic-filled.svg' : '/assets/icons/mic-gray.svg'}}" />
+            <text class="st-a4-t {{recordingClipId === dclip.id || (!dclip.completed && evaluatingClipId !== dclip.id) ? 'st-a4-t--white' : 'st-a4-t--muted'}}">{{recordingClipId === dclip.id ? '停止并评测 (' + recordingSeconds + 's)' : shadowPreparingId === dclip.id ? '准备录音…' : evaluatingClipId === dclip.id ? '评分中...' : dclip.evalResult ? '重录跟读' : '开始跟读挑战'}}</text>
+          </view>
+        </view>
+
+        <!-- 录音进行横幅 -->
+        <view wx:if="{{recordingClipId === dclip.id}}" class="st-dc-rec">
+          <view class="st-dc-rec-left">
+            <view class="st-dc-rec-dot" />
+            <text class="st-dc-rec-text">朗读完成后点击「停止并评测」，最长 60 秒</text>
+          </view>
+          <text class="st-dc-rec-countdown">{{recordingSeconds}}/60s</text>
+        </view>
+
+        <view wx:if="{{recordingClipId === dclip.id}}" class="st-shadow-controls">
+          <view class="st-shadow-meter"><view style="width: {{shadowAmplitude}}%" /></view>
+          <view bindtap="onCancelDailyRecording"><text>取消录音</text></view>
+        </view>
+        <view wx:if="{{shadowErrorClipId === dclip.id && shadowError}}" class="st-shadow-error"><text>{{shadowError}}</text></view>
+
+        <!-- 评测报告卡 -->
+        <view wx:if="{{dclip.evalResult && recordingClipId !== dclip.id && evaluatingClipId !== dclip.id}}" class="st-ev">
+          <view class="st-ev-top">
+            <view class="st-ev-top-left">
+              <image class="st-ev-ic" src="/assets/icons/check-circle-primary.svg" />
+              <text class="st-ev-title">跟读评测报告</text>
+              <text class="st-ev-badge">{{dclip.evalResult.celebrationBadge}}</text>
+            </view>
+            <text class="st-ev-score">{{dclip.evalResult.score}} <text class="st-ev-score-unit">分</text></text>
+          </view>
+
+          <view class="st-ev-grid">
+            <view class="st-ev-cell"><text class="st-ev-cell-label">准确度</text><text class="st-ev-cell-val">{{dclip.evalResult.accuracy === null ? '—' : dclip.evalResult.accuracy + '%'}}</text></view>
+            <view class="st-ev-cell"><text class="st-ev-cell-label">流畅度</text><text class="st-ev-cell-val">{{dclip.evalResult.fluency === null ? '—' : dclip.evalResult.fluency + '%'}}</text></view>
+            <view class="st-ev-cell"><text class="st-ev-cell-label">完整度</text><text class="st-ev-cell-val">{{dclip.evalResult.integrity === null ? '—' : dclip.evalResult.integrity + '%'}}</text></view>
+          </view>
+
+          <view class="st-ev-fb"><text class="st-ev-fb-text">💬 {{dclip.evalResult.feedback}}</text></view>
+
+          <view wx:if="{{dclip.evalResult.phonemeAdvice}}" class="st-ev-advice">
+            <text class="st-ev-advice-tag">💡 进阶建议:</text>
+            <text class="st-ev-advice-text">{{dclip.evalResult.phonemeAdvice}}</text>
+          </view>
+
+          <!-- 逐词发音：胶囊按钮（speech-eval 逐词纠错同款）+ 点橙/红词展开音素诊断 -->
+          <view wx:if="{{dclip.evalResult.words.length}}" class="st-sh-words">
+            <view class="st-sh-head">
+              <text class="st-sh-title">逐词发音</text>
+              <view wx:if="{{shadowReplayClipId === dclip.id}}" class="st-sh-replay" hover-class="st-sh-replay--hover"
+                    data-idx="{{di}}" bindtap="onPlayDailyRecording">
+                <text class="st-sh-replay-ic">▶</text>
+                <text class="st-sh-replay-text">回放我的发音</text>
+              </view>
+            </view>
+
+            <!-- 流式单词胶囊（三档底色 + 内联分数；<85 且有音素可点开诊断） -->
+            <view class="st-sh-chips">
+              <view wx:for="{{dclip.evalResult.words}}" wx:for-item="sw" wx:for-index="wi" wx:key="id"
+                    class="st-sh-chip {{sw.score >= 85 ? 'st-sh-chip--good' : sw.score >= 60 ? 'st-sh-chip--mid' : 'st-sh-chip--bad'}} {{shadowSelWordClipId === dclip.id && shadowSelWordIdx === wi ? 'st-sh-chip--sel' : ''}} {{sw.score < 85 && sw.phonemes.length ? 'st-sh-chip--click' : ''}}"
+                    data-idx="{{di}}" data-wi="{{wi}}" bindtap="onShadowWordTap">
+                <text class="st-sh-chip-word {{sw.score >= 85 ? 'st-sh-chip--good' : sw.score >= 60 ? 'st-sh-chip--mid' : 'st-sh-chip--bad'}} {{sw.score < 60 ? 'st-sh-chip-word--wavy' : ''}}">{{sw.word}}</text>
+                <text class="st-sh-chip-score {{sw.score >= 85 ? 'st-sh-chip--good' : sw.score >= 60 ? 'st-sh-chip--mid' : 'st-sh-chip--bad'}}">{{sw.score}}</text>
+              </view>
+            </view>
+            <text class="st-sh-hint">点击橙色/红色单词查看音素诊断</text>
+
+            <!-- 音素诊断面板（美音/英音/原声/我 四路对比 + 音素网格） -->
+            <view wx:if="{{shadowSelWordClipId === dclip.id && shadowSelWordIdx >= 0 && dclip.evalResult.words[shadowSelWordIdx].phonemes.length}}" class="st-sh-panel">
+              <view class="st-sh-panel-head">
+                <text class="st-sh-panel-title">音素诊断</text>
+                <text class="st-sh-panel-word">{{dclip.evalResult.words[shadowSelWordIdx].word}}</text>
+              </view>
+
+              <view class="st-sh-pills">
+                <view class="st-sh-pill {{shadowWordPlay === 'us' && playing ? 'st-sh-pill--on' : ''}}" hover-class="st-sh-pill--hover"
+                      data-idx="{{di}}" data-us="1" catchtap="onShadowDictVoice">
+                  <text class="st-sh-pill-text {{shadowWordPlay === 'us' && playing ? 'st-sh-pill-text--on' : ''}}">美音</text>
+                </view>
+                <view class="st-sh-pill {{shadowWordPlay === 'uk' && playing ? 'st-sh-pill--on' : ''}}" hover-class="st-sh-pill--hover"
+                      data-idx="{{di}}" data-us="0" catchtap="onShadowDictVoice">
+                  <text class="st-sh-pill-text {{shadowWordPlay === 'uk' && playing ? 'st-sh-pill-text--on' : ''}}">英音</text>
+                </view>
+                <view class="st-sh-pill {{shadowWordPlay === 'orig' && playing ? 'st-sh-pill--on' : ''}}" hover-class="st-sh-pill--hover"
+                      data-idx="{{di}}" catchtap="onShadowWordOriginal">
+                  <text class="st-sh-pill-text {{shadowWordPlay === 'orig' && playing ? 'st-sh-pill-text--on' : ''}}">原声</text>
+                </view>
+                <view class="st-sh-pill {{shadowWordPlay === 'me' && playing ? 'st-sh-pill--on' : ''}}" hover-class="st-sh-pill--hover"
+                      data-idx="{{di}}" catchtap="onShadowWordMe">
+                  <text class="st-sh-pill-text {{shadowWordPlay === 'me' && playing ? 'st-sh-pill-text--on' : ''}}">我</text>
+                </view>
+              </view>
+
+              <view class="st-sh-phones">
+                <view wx:for="{{dclip.evalResult.words[shadowSelWordIdx].phonemes}}" wx:for-item="ph" wx:key="id"
+                      class="st-sh-ph {{ph.score >= 80 ? 'st-sh-ph--good' : 'st-sh-ph--bad'}}">
+                  <text class="st-sh-ph-ipa {{ph.score >= 80 ? 'st-sh-ph--good' : 'st-sh-ph--bad'}}">/{{ph.phoneme}}/</text>
+                  <text class="st-sh-ph-score {{ph.score >= 80 ? 'st-sh-ph--good' : 'st-sh-ph--bad'}}">{{ph.score}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- ═══ TAB: 跟读接力（B relay tab） ═══ -->
+  <view wx:elif="{{activeTab === 'relay'}}" class="st-tab-body">
+
+    <!-- 英雄卡：发起面板入口（B Top Hero Card） -->
+    <view class="st-rl-hero">
+      <view class="st-rl-hero-top">
+        <view class="st-rl-hero-badge"><text class="st-rl-hero-badge-ic">📡</text></view>
+        <view class="st-rl-hero-text">
+          <view class="st-rl-hero-title-row">
+            <text class="st-rl-hero-title">口语跟读接力 • 趣味合集坊</text>
+            <text wx:if="{{recruitingCount > 0}}" class="st-rl-hero-count">{{recruitingCount}} 个待你接棒</text>
+          </view>
+          <text class="st-rl-hero-desc">发起第一棒原声跟读，系统自动邀请语伴接力后续台词，自动混音生成趣味小剧场合集！</text>
+        </view>
+      </view>
+
+      <view class="st-rl-hero-foot">
+        <view class="st-rl-hero-partners">
+          <image class="st-rl-ava-sm" src="/assets/avatars/av-photo-1534528741775-53994a69daeb.jpg" />
+          <image class="st-rl-ava-sm" src="/assets/avatars/av-photo-1507003211169-0a1dd7228f2d.jpg" />
+          <image class="st-rl-ava-sm" src="/assets/avatars/av-photo-1517841905240-472988babdf9.jpg" />
+          <text class="st-rl-hero-partners-text">Elena、Marcus 等语伴在线待命接棒</text>
+        </view>
+        <view class="st-rl-launch" hover-class="st-rl-launch--hover" bindtap="onToggleCreateRelay">
+          <text class="st-rl-launch-ic">👥</text>
+          <text class="st-rl-launch-text">{{showCreateRelay ? '收起发起面板' : '发起新接力'}}</text>
+        </view>
+      </view>
+
+      <!-- 发起抽屉（B Expandable Drawer） -->
+      <view wx:if="{{showCreateRelay}}" class="st-rl-drawer">
+        <view class="st-rl-drawer-head">
+          <text class="st-rl-drawer-step">Step 1: 选择你的第一棒领读原声切片</text>
+          <text class="st-rl-drawer-note">词级时间戳同步</text>
+        </view>
+
+        <scroll-view scroll-y class="st-rl-clip-list">
+          <view wx:for="{{daily.clips}}" wx:for-item="rclip" wx:for-index="ri" wx:key="id"
+                class="st-rl-clip {{selectedRelayClipId === rclip.id ? 'st-rl-clip--on' : ''}}"
+                data-id="{{rclip.id}}" bindtap="onSelectRelayClip">
+            <view class="st-rl-clip-meta">
+              <text class="st-rl-clip-topic">#{{ri + 1}} · {{rclip.topic}}</text>
+              <text class="st-rl-clip-pod">{{rclip.showTitle}}</text>
+            </view>
+            <text class="st-rl-clip-en">{{rclip.textEn}}</text>
+            <text class="st-rl-clip-zh">{{rclip.textCn}}</text>
+          </view>
+        </scroll-view>
+
+        <text class="st-rl-drawer-label">Step 2: 为本次口语接力命名（选填）</text>
+        <input class="st-rl-title-input" value="{{newRelayTitle}}" bindinput="onRelayTitleInput"
+               maxlength="30" placeholder="例如：深夜慢读接力 · 寻找同频声音..."
+               placeholder-class="st-rl-title-ph" />
+
+        <view class="st-rl-drawer-foot">
+          <text class="st-rl-drawer-foot-note">录制完成后，语伴将自动接棒第 2 棒，第 3 棒留给下一位语伴压轴并合成趣味合集</text>
+          <view class="st-rl-rec {{relayRecording === 'create' || relaySubmitting ? 'st-rl-rec--busy' : ''}}"
+                hover-class="{{relayRecording === 'create' || relaySubmitting ? '' : 'st-rl-rec--hover'}}"
+                bindtap="onStartCreateRelay">
+            <text class="st-rl-rec-ic">🎤</text>
+            <text class="st-rl-rec-text">{{relaySubmitting ? '评测提交中...' : relayRecording === 'create' ? '点击停录提交 (' + relayCountdown + 's)' : '录第1棒并邀请接力'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 装载态 -->
+    <view wx:if="{{relayLoading}}" class="st-db-loading">
+      <view class="st-gen-spin st-db-loading-spin" />
+      <text class="st-db-loading-text">正在加载口语接力房间与趣味合集...</text>
+    </view>
+
+    <!-- 房间列表 -->
+    <block wx:else>
+      <view wx:for="{{relayRooms}}" wx:for-item="room" wx:for-index="roi" wx:key="id"
+            class="st-room {{playingRoomId === room.id ? 'st-room--playing' : ''}} {{room.status === 'recruiting' ? 'st-room--recruiting' : ''}}">
+
+        <!-- 房头：状态徽章 + 主题 + 标题 | 点赞 -->
+        <view class="st-room-head">
+          <view class="st-room-head-left">
+            <view class="st-room-badges">
+              <text wx:if="{{room.status === 'recruiting'}}" class="st-room-status st-room-status--rec">📡 待你接第 {{room.segments.length + 1}} 棒</text>
+              <text wx:else class="st-room-status st-room-status--done">🎞 趣味合集已生成</text>
+              <text class="st-room-topic">{{room.topic}}</text>
+              <text class="st-room-meta">{{room.difficulty}} · 发起人 {{room.initiatorName}}</text>
+            </view>
+            <text class="st-room-title">{{room.title}}</text>
+          </view>
+          <view class="st-room-like" hover-class="st-room-like--hover" data-rid="{{room.id}}" bindtap="onLikeRelay">
+            <text class="st-room-like-heart">♥</text>
+            <text class="st-room-like-count">{{room.likes}}</text>
+          </view>
+        </view>
+
+        <!-- 受邀语伴进度 -->
+        <view class="st-room-invited">
+          <view class="st-room-invited-left">
+            <view class="st-room-avas">
+              <image wx:for="{{room.invitedUsers}}" wx:for-item="u" wx:key="name"
+                     class="st-rl-ava-sm {{u.status === 'joined' ? 'st-rl-ava-sm--on' : ''}}" src="{{u.avatar}}" />
+            </view>
+            <view class="st-room-invited-names">
+              <text wx:for="{{room.invitedUsers}}" wx:for-item="u" wx:key="name" class="st-room-invited-name">
+                {{u.name}}<text class="{{u.status === 'joined' ? 'st-room-invited-ok' : 'st-room-invited-wait'}}">（{{u.status === 'joined' ? '已录' : '受邀待录'}}）</text>
+              </text>
+            </view>
+          </view>
+          <text class="st-room-steps">{{room.segments.length}}/{{room.targetSteps}} 棒</text>
+        </view>
+
+        <!-- 接力棒时间线 -->
+        <view class="st-room-batons">
+          <view wx:for="{{room.segments}}" wx:for-item="seg" wx:for-index="si" wx:key="id"
+                class="st-baton {{(playingRoomId === room.id && playingStep === si + 1) || relayActiveSegId === seg.id ? 'st-baton--on' : ''}}">
+            <view class="st-baton-head">
+              <view class="st-baton-head-left">
+                <view class="st-baton-no"><text>{{seg.stepOrder}}</text></view>
+                <image class="st-baton-ava" src="{{seg.speakerAvatar}}" />
+                <text class="st-baton-speaker">{{seg.speakerName}}</text>
+                <text class="st-baton-style">{{seg.voiceStyle}}</text>
+              </view>
+              <view class="st-baton-head-right">
+                <text class="st-baton-score">{{seg.score}}分</text>
+                <view class="st-baton-play" data-rid="{{room.id}}" data-sid="{{seg.id}}" bindtap="onPlayRelaySeg">
+                  <image class="st-baton-play-ic" src="/assets/icons/play-filled-primary.svg" />
+                </view>
+              </view>
+            </view>
+
+            <!-- 词级点读（单棒试听中当前词点亮） -->
+            <view class="st-baton-en">
+              <text wx:for="{{seg.words}}" wx:for-item="w" wx:for-index="wi" wx:key="wi"
+                    class="st-baton-word {{relayActiveSegId === seg.id && relayWordIdx === wi ? 'st-baton-word--cur' : ''}}">{{w.word}}</text>
+            </view>
+            <text class="st-baton-zh">{{seg.textCn}}</text>
+          </view>
+
+          <!-- 招募中：邀请你接棒的示范句卡（B Recruiting Prompt Segment） -->
+          <view wx:if="{{room.status === 'recruiting' && room.nextPromptSegment}}" class="st-prompt">
+            <view class="st-prompt-head">
+              <text class="st-prompt-title">系统邀请你接力第 {{room.segments.length + 1}} 棒（收官合集棒）</text>
+              <view class="st-prompt-demo" data-rid="{{room.id}}" bindtap="onPlayPromptDemo">
+                <text class="st-prompt-demo-text">先听原声示范</text>
+              </view>
+            </view>
+            <view class="st-prompt-body">
+              <text class="st-prompt-en" user-select>{{room.nextPromptSegment.textEn}}</text>
+              <text class="st-prompt-zh">{{room.nextPromptSegment.textCn}}</text>
+              <text wx:if="{{room.nextPromptSegment.phoneticTip}}" class="st-prompt-tip">💡 接棒贴士：{{room.nextPromptSegment.phoneticTip}}</text>
+            </view>
+            <view class="st-prompt-foot">
+              <text class="st-prompt-foot-note">完成后将自动合成 3 人趣味原声合集</text>
+              <view class="st-prompt-join {{relayRecording === room.id || relaySubmitting ? 'st-prompt-join--busy' : ''}}"
+                    hover-class="{{relayRecording === room.id || relaySubmitting ? '' : 'st-prompt-join--hover'}}"
+                    data-rid="{{room.id}}" bindtap="onJoinRelay">
+                <text class="st-prompt-join-text">{{relaySubmitting ? '评测提交中...' : relayRecording === room.id ? '点击停录提交 (' + relayCountdown + 's)' : '录制接力并生成趣味合集'}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 趣味合集卡（完成后；B Fun Mashup Compilation） -->
+        <view wx:if="{{room.compilation}}" class="st-comp">
+          <view class="st-comp-head">
+            <view class="st-comp-head-left">
+              <text class="st-comp-vibe">{{room.compilation.vibeBadge}}</text>
+              <text class="st-comp-title">{{room.compilation.compilationTitle}}</text>
+            </view>
+            <text class="st-comp-chem">默契度 {{room.compilation.chemistryScore}}%</text>
+          </view>
+          <view class="st-comp-comment">
+            <text class="st-comp-comment-text">🎬 导演混音点评：{{room.compilation.aiDirectorComment}}</text>
+          </view>
+          <view class="st-comp-foot">
+            <text class="st-comp-foot-note">{{playingRoomId === room.id ? '正在连播合集：第 ' + playingStep + '/' + room.segments.length + ' 棒...' : '共 ' + room.segments.length + ' 位语伴原声无缝拼接'}}</text>
+            <view class="st-comp-play {{playingRoomId === room.id ? 'st-comp-play--on' : ''}}"
+                  hover-class="st-comp-play--hover" data-rid="{{room.id}}" bindtap="onPlayCompilation">
+              <text class="st-comp-play-text">{{playingRoomId === room.id ? '停止连播 (' + playingStep + '/' + room.segments.length + ')' : '一键连播趣味合集'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- ═══ TAB: 排行榜（B leaderboard tab） ═══ -->
+  <view wx:elif="{{activeTab === 'leaderboard'}}" class="st-tab-body">
+
+    <!-- 英雄卡：全站横幅 + 三甲领奖台（B Top Community Hero Banner，深色渐变两种外观同色） -->
+    <view class="st-lb-hero">
+      <view class="st-lb-hero-top">
+        <view class="st-lb-hero-left">
+          <view class="st-lb-trophy">
+            <image class="st-lb-trophy-ic" src="/assets/icons/emoji-events-gold.svg" />
+          </view>
+          <view class="st-lb-hero-titles">
+            <view class="st-lb-hero-titlerow">
+              <text class="st-lb-hero-title">今日原声跟读风云榜</text>
+              <text class="st-lb-live">实时更新</text>
+            </view>
+            <view class="st-lb-hero-sub">
+              <text class="st-lb-hero-sub-ic">👥</text>
+              <text class="st-lb-hero-sub-text">今日已有 {{leaderboard ? leaderboard.totalParticipants : 1428}} 位远路学习者开口跟读</text>
+            </view>
+          </view>
+        </view>
+        <view class="st-lb-refresh {{lbRefreshing ? 'st-lb-refresh--spin' : ''}}" hover-class="st-lb-refresh--hover" bindtap="onLbRefresh">
+          <image class="st-lb-refresh-ic" src="/assets/icons/refresh-light.svg" />
+        </view>
+      </view>
+
+      <!-- 三甲领奖台：2 - 1 - 3（1 居中置顶 + 皇冠弹跳） -->
+      <view wx:if="{{leaderboard && leaderboard.entries.length >= 3}}" class="st-lb-podium">
+        <!-- 第 2 名 -->
+        <view class="st-lb-pod">
+          <view class="st-lb-pod-ava-wrap">
+            <image class="st-lb-pod-ava st-lb-pod-ava--2" src="{{leaderboard.entries[1].avatar}}" mode="aspectFill" />
+            <view class="st-lb-pod-no st-lb-pod-no--2"><text>2</text></view>
+          </view>
+          <text class="st-lb-pod-name">{{leaderboard.entries[1].firstName}}</text>
+          <view class="st-lb-pod-count">
+            <text class="st-lb-pod-count-n">{{leaderboard.entries[1].shadowingCount}}</text>
+            <text class="st-lb-pod-count-u"> 次跟读</text>
+          </view>
+          <text class="st-lb-pod-avg">均分 {{leaderboard.entries[1].averageScore}}分</text>
+        </view>
+
+        <!-- 第 1 名（冠军） -->
+        <view class="st-lb-pod st-lb-pod--1">
+          <text class="st-lb-crown">👑</text>
+          <view class="st-lb-pod-ava-wrap">
+            <image class="st-lb-pod-ava st-lb-pod-ava--1" src="{{leaderboard.entries[0].avatar}}" mode="aspectFill" />
+            <view class="st-lb-pod-no st-lb-pod-no--1"><text>NO.1</text></view>
+          </view>
+          <text class="st-lb-pod-name st-lb-pod-name--1">{{leaderboard.entries[0].firstName}}</text>
+          <view class="st-lb-pod-count st-lb-pod-count--1">
+            <text class="st-lb-pod-count-n st-lb-pod-count-n--1">{{leaderboard.entries[0].shadowingCount}}</text>
+            <text class="st-lb-pod-count-u st-lb-pod-count-u--1"> 次跟读</text>
+          </view>
+          <text class="st-lb-pod-avg st-lb-pod-avg--1">均分 {{leaderboard.entries[0].averageScore}}分</text>
+        </view>
+
+        <!-- 第 3 名 -->
+        <view class="st-lb-pod">
+          <view class="st-lb-pod-ava-wrap">
+            <image class="st-lb-pod-ava st-lb-pod-ava--3" src="{{leaderboard.entries[2].avatar}}" mode="aspectFill" />
+            <view class="st-lb-pod-no st-lb-pod-no--3"><text>3</text></view>
+          </view>
+          <text class="st-lb-pod-name">{{leaderboard.entries[2].firstName}}</text>
+          <view class="st-lb-pod-count">
+            <text class="st-lb-pod-count-n">{{leaderboard.entries[2].shadowingCount}}</text>
+            <text class="st-lb-pod-count-u"> 次跟读</text>
+          </view>
+          <text class="st-lb-pod-avg">均分 {{leaderboard.entries[2].averageScore}}分</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 我的站位 + 超越激励（B My Current Standing，双轨渐变） -->
+    <view wx:if="{{leaderboard && leaderboard.myEntry}}" class="st-lb-me">
+      <view class="st-lb-me-top">
+        <view class="st-lb-me-left">
+          <view class="st-lb-me-ava-wrap">
+            <image class="st-lb-me-ava" src="{{leaderboard.myEntry.avatar}}" mode="aspectFill" />
+            <view class="st-lb-me-rank"><text>#{{leaderboard.myEntry.rank}}</text></view>
+          </view>
+          <view class="st-lb-me-info">
+            <view class="st-lb-me-namerow">
+              <text class="st-lb-me-name">{{leaderboard.myEntry.name}}</text>
+              <text class="st-lb-me-badge">{{leaderboard.myEntry.badge}}</text>
+            </view>
+            <text class="st-lb-me-sub">今日已跟读 <text class="st-lb-me-sub-hl">{{leaderboard.myEntry.shadowingCount}} 次</text> • 平均得分 <text class="st-lb-me-sub-hl">{{leaderboard.myEntry.averageScore}} 分</text></text>
+          </view>
+        </view>
+        <view class="st-lb-me-go" hover-class="st-lb-me-go--hover" bindtap="onLbGoDaily">
+          <image class="st-lb-me-go-ic" src="/assets/icons/mic-filled.svg" />
+          <text class="st-lb-me-go-text">去跟读冲榜</text>
+        </view>
+      </view>
+
+      <view wx:if="{{leaderboard.nextTargetDiff > 0 && leaderboard.nextTargetName}}" class="st-lb-me-next">
+        <image class="st-lb-me-next-ic" src="/assets/icons/trending-up-primary.svg" />
+        <text class="st-lb-me-next-text">距离超越前一名 <text class="st-lb-me-next-name">{{leaderboard.nextTargetName}}</text> 仅需再完成 <text class="st-lb-me-next-n">{{leaderboard.nextTargetDiff}} 次</text>跟读！</text>
+      </view>
+      <view wx:else class="st-lb-me-top1">
+        <text class="st-lb-me-top1-ic">👑</text>
+        <text class="st-lb-me-top1-text">恭喜！你已登顶今日全站跟读榜首！</text>
+      </view>
+    </view>
+
+    <!-- 达人榜列表（B Full Community Leaderboard List） -->
+    <view class="st-lb-list">
+      <view class="st-lb-list-head">
+        <view class="st-lb-list-title">
+          <image class="st-lb-list-title-ic" src="/assets/icons/workspace-premium-amber.svg" />
+          <text class="st-lb-list-title-text">今日跟读达人榜 ({{leaderboard ? leaderboard.entries.length : 0}})</text>
+        </view>
+        <text class="st-lb-list-hint">可试听榜样同款原声 • 点赞互相鼓励</text>
+      </view>
+
+      <block wx:if="{{leaderboard}}">
+      <view wx:for="{{leaderboard.entries}}" wx:for-item="lbe" wx:key="id"
+            class="st-lb-card {{lbe.isCurrentUser ? 'st-lb-card--me' : ''}}">
+        <!-- 头行：排名 / 头像 / 名字+徽章+连续天数 | 跟读数 + 均分 -->
+        <view class="st-lb-card-top">
+          <view class="st-lb-card-left">
+            <view class="st-lb-rank {{lbe.rank === 1 ? 'st-lb-rank--1' : lbe.rank === 2 ? 'st-lb-rank--2' : lbe.rank === 3 ? 'st-lb-rank--3' : ''}}">
+              <text>{{lbe.rank}}</text>
+            </view>
+            <image class="st-lb-card-ava" src="{{lbe.avatar}}" mode="aspectFill" />
+            <view class="st-lb-card-id">
+              <view class="st-lb-card-namerow">
+                <text class="st-lb-card-name">{{lbe.name}}</text>
+                <text wx:if="{{lbe.isCurrentUser}}" class="st-lb-card-metag">我</text>
+              </view>
+              <view class="st-lb-card-meta">
+                <text class="st-lb-card-badge">{{lbe.badge}}</text>
+                <text class="st-lb-card-dot">•</text>
+                <text>🔥 连续{{lbe.streakDays}}天</text>
+                <block wx:if="{{lbe.lastActive}}">
+                  <text class="st-lb-card-dot">•</text>
+                  <text>{{lbe.lastActive}}</text>
+                </block>
+              </view>
+            </view>
+          </view>
+          <view class="st-lb-card-stats">
+            <view class="st-lb-card-count">
+              <text class="st-lb-card-count-n">{{lbe.shadowingCount}}</text>
+              <text class="st-lb-card-count-u"> 次跟读</text>
+            </view>
+            <text class="st-lb-card-avg">均分 <text class="st-lb-card-avg-n">{{lbe.averageScore}}</text> 分</text>
+          </view>
+        </view>
+
+        <!-- 代表作原声 + 挑战同款 / 点赞 -->
+        <view class="st-lb-feat">
+          <view class="st-lb-feat-text">
+            <text class="st-lb-feat-label">🎙️ 今日代表跟读原声：</text>
+            <text class="st-lb-feat-sent">"{{lbe.featuredSentence}}"</text>
+          </view>
+          <view class="st-lb-feat-actions">
+            <view class="st-lb-try" hover-class="st-lb-try--hover" data-id="{{lbe.id}}" bindtap="onLbPractice">
+              <image class="st-lb-try-ic" src="/assets/icons/headset.svg" />
+              <text class="st-lb-try-text">挑战同款</text>
+            </view>
+            <view class="st-lb-cheer {{lbe.likedByMe ? 'st-lb-cheer--on' : ''}} {{lbCheeringId === lbe.id ? 'st-lb-cheer--pop' : ''}}"
+                  hover-class="st-lb-cheer--hover" data-id="{{lbe.id}}" bindtap="onLbCheer">
+              <text class="st-lb-cheer-ic">👍</text>
+              <text class="st-lb-cheer-n">{{lbe.likes}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- ═══ 深度透视 bottom-sheet（复用 /api/clips/deep-dive） ═══ -->
+  <view wx:if="{{deepOpen}}" class="st-mask" bindtap="onDeepClose">
+    <view class="st-sheet" catchtap="noop">
+      <view class="st-sheet-head">
+        <view class="st-sheet-title-row">
+          <image class="st-sheet-spark" src="/assets/icons/auto-awesome-primary.svg" />
+          <text class="st-sheet-title">原声语言学深度透视</text>
+        </view>
+        <view class="st-sheet-x" bindtap="onDeepClose">
+          <text class="st-sheet-x-glyph">✕</text>
+        </view>
+      </view>
+
+      <view class="st-quote">
+        <text class="st-quote-label">剖析句子</text>
+        <text class="st-quote-text" user-select>"{{deepSentence}}"</text>
+      </view>
+
+      <view wx:if="{{deepLoading}}" class="st-deep-loading">
+        <image class="st-deep-loading-ic" src="/assets/icons/auto-awesome-amber.svg" />
+        <text class="st-deep-loading-text">正在解构连读规律与语调潜台词…</text>
+      </view>
+
+      <block wx:elif="{{deepAnalysis}}">
+        <view wx:if="{{deepSource === 'fallback'}}" class="st-deep-fallback-note">
+          <text>服务暂不可用 · 基础速览</text>
+        </view>
+
+        <view class="st-dcard st-dcard--green">
+          <view class="st-dcard-head">
+            <image class="st-dcard-ic" src="/assets/icons/volume-up-primary-m.svg" />
+            <text class="st-dcard-title st-dcard-title--green">连读、同化与弱读机密 (Connected Speech)</text>
+          </view>
+          <text class="st-dcard-body" user-select>{{deepAnalysis.connectedSpeech}}</text>
+        </view>
+
+        <view class="st-dcard st-dcard--amber">
+          <view class="st-dcard-head">
+            <image class="st-dcard-ic" src="/assets/icons/lightbulb-accent.svg" />
+            <text class="st-dcard-title st-dcard-title--amber">说话者语气与语用场合 (Tone & Nuance)</text>
+          </view>
+          <text class="st-dcard-body" user-select>{{deepAnalysis.toneAndMood}}</text>
+        </view>
+
+        <view class="st-dcard st-dcard--blue">
+          <view class="st-dcard-head">
+            <text class="st-dcard-ic-emoji">💬</text>
+            <text class="st-dcard-title st-dcard-title--blue">母语者地道同义替换 (Paraphrase)</text>
+          </view>
+          <text class="st-dcard-body" user-select>{{deepAnalysis.paraphrase}}</text>
+        </view>
+
+        <view class="st-dcard st-dcard--plain">
+          <text class="st-dcard-title st-dcard-title--plain">🎙️ 脱离中式发音秘诀:</text>
+          <text class="st-dcard-body st-dcard-body--muted" user-select>{{deepAnalysis.speakingTip}}</text>
+        </view>
+      </block>
+
+      <view class="st-sheet-btn" hover-class="st-sheet-btn--hover" bindtap="onDeepClose">
+        <text class="st-sheet-btn-text">掌握并返回</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ 生词弹窗 ═══ -->
+  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    episode-title="{{wordModal.episodeTitle}}"
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+
+  <!-- ═══ 会员转化弹窗 ═══ -->
   <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
 </view>

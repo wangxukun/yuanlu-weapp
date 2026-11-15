@@ -1,9 +1,10 @@
 /**
- * test-discover-tags — 专项特训页（第二 Tab 重构，工具化转型；2026-11-05 去 mock 接真数据）
+ * test-discover-tags — 原声微流页（第二 Tab，2026-11-15 自 yl-weapp A工程 完整迁移，
+ * 替换退役的「专项特训」三段式页面）
  *
- * 断言：tabBar 标签/图标、页面标题、三段真数据（发音急救箱=speech/notebook 画像、
- * 语境卡册书架=learning-paths/mine 真卡册、今日一测=feed 日期种子 + 听写模式）、
- * 零旧信息流残留、游客/无画像/空书架三分支路由、零「播客」字样。
+ * 断言：tabBar 标签/图标、页面标题、竖滑 swiper 切片流骨架、DIY 下拉刷新、
+ * 环形游标与已看去重模块挂载、外链图片零依赖（本地资产）、合规字样零残留、
+ * 零旧特训页残留。运行时行为由 test-reels-session.cjs 覆盖。
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,164 +17,54 @@ function assert(cond, msg) {
   else { console.error('FAIL:', msg); failed++; }
 }
 
-// —— 场景 A：tabBar 替换（app.json） ——
+// —— 场景 A：tabBar（app.json） ——
 const app = JSON.parse(read('app.json'));
 const tab = app.tabBar.list.find((t) => t.pagePath === 'pages/discover/index');
-assert(!!tab && tab.text === '特训', 'A tabBar 文案「发现」→「特训」');
-assert(tab.iconPath === 'assets/icons/layers.png' && tab.selectedIconPath === 'assets/icons/layers-active.png',
-  'A tabBar 图标换 layers 双态（81×81 PNG，原生 tabBar 不支持 SVG）');
-assert(fs.existsSync(path.join(__dirname, '../assets/icons/layers.png')) &&
-  fs.existsSync(path.join(__dirname, '../assets/icons/layers-active.png')), 'A layers 图标资产存在');
+assert(!!tab && tab.text === '原声微流', 'A tabBar 文案「原声微流」');
+assert(tab.iconPath === 'assets/icons/reels.png' && tab.selectedIconPath === 'assets/icons/reels-active.png',
+  'A tabBar 图标换 reels 双态');
+assert(fs.existsSync(path.join(__dirname, '../assets/icons/reels.png')) &&
+  fs.existsSync(path.join(__dirname, '../assets/icons/reels-active.png')), 'A reels 图标资产存在');
 
-// —— 场景 B：页面清理与标题 ——
+// —— 场景 B：页面契约 ——
 const json = JSON.parse(read('pages/discover/index.json'));
-assert(json.navigationBarTitleText === '专项特训', 'B 页面标题「专项特训」');
-assert(!json.usingComponents || !json.usingComponents['channel-card'], 'B channel-card 注册移除（组件已退役）');
-assert(json.enablePullDownRefresh !== true, 'B 三段式无下拉刷新');
+assert(json.navigationBarTitleText === '原声微流', 'B 页面标题「原声微流」');
+assert(!!json.usingComponents && !!json.usingComponents['vocabulary-modal'] &&
+  !!json.usingComponents['premium-modal'], 'B 组件注册（词卡/会员弹窗）');
 
-// —— 场景 C：三段真数据 UI ——
+// —— 场景 C：微流骨架（竖滑 swiper + DIY 下拉 + 游标去重） ——
 const wxml = read('pages/discover/index.wxml');
 const wxss = read('pages/discover/index.wxss');
 const js = read('pages/discover/index.js');
-assert(wxml.includes('发音急救箱') && wxml.includes('aid.weakDesc') && wxml.includes('立即攻克'),
-  'C 发音急救箱：诊断卡 + 画像文案 + 立即攻克按钮');
-assert(js.includes('/api/speech/notebook'), 'C 急救箱接真画像接口（speech/notebook，mock 已除名）');
-assert(js.includes('phonemeStats'), 'C 急救箱消费 phonemeStats 最弱音素');
-assert(wxml.includes('语境卡册书架') && wxml.includes('《') && wxml.includes('percent'),
-  'C 语境卡册书架：书名 + 进度条');
-assert(js.includes('/api/learning-paths/mine'), 'C 书架接真卡册接口（learning-paths/mine，假进度已除名）');
-assert(wxss.includes('display: grid') && wxss.includes('repeat(2, 1fr)'),
-  'C 书架为手写两列 grid（弃用旧专栏卡组件）');
-assert(wxml.includes('今日微剧场听写') && wxml.includes('开始测试'),
-  'C 今日一测：固定单卡 + 开始测试大按钮');
-assert(js.includes('mode=dictate'), 'C 今日一测直达听写模式（mode=dictate，标题与行为一致）');
-assert(js.includes('daySeed()') && js.includes('% items.length'),
-  'C 今日一测日期种子换题（当天稳定、跨天换题）');
+assert(wxml.includes('<swiper') && wxml.includes('vertical'), 'C 竖滑 swiper 切片流');
+assert(wxml.includes('rl-pull-hint') && wxml.includes('onPullTouchStart'), 'C DIY 下拉刷新提示条与手势');
+assert(js.includes("require('./reels-session')"), 'C 环形游标会话模块挂载');
+assert(js.includes('PAGE_SIZE_CAP') && js.includes('PRELOAD_MARGIN'), 'C 渲染封顶与预取边界常量');
+assert(fs.existsSync(path.join(__dirname, '../pages/discover/reels-session.js')), 'C reels-session 模块存在');
+assert(fs.existsSync(path.join(__dirname, '../pages/discover/reels-corpus.js')), 'C 本地语料兜底存在');
 
-// —— 场景 D：零旧信息流残留 ——
-assert(!wxml.includes('scroll-view') && !wxml.includes('postcard') && !wxml.includes('channel-card'),
-  'D 零滚动信息流/明信片/旧组件残留');
-['播客', '频道', '专栏', '节目'].forEach((w) => {
-  assert(!js.includes(w) && !wxml.includes(w), 'D 代码与文案零「' + w + '」字眼');
+// —— 场景 D：合规与外链 ——
+['播客', '智能', '社区', '大模型'].forEach((w) => {
+  assert(!js.includes(w) && !wxml.includes(w) && !json.navigationBarTitleText.includes(w),
+    'D 零「' + w + '」字眼');
+});
+assert(!/\bpodcast\b/i.test(js) && !/\bpodcast\b/i.test(wxml) && !js.includes('podcastTitle'),
+  'D 零英文 podcast 标识');
+assert(!/\bAI\b/.test(js) && !/\bAI\b/.test(wxml), 'D 零「AI」字眼');
+assert(!js.includes('images.unsplash.com') && !wxml.includes('images.unsplash.com') &&
+  !read('pages/discover/reels-corpus.js').includes('images.unsplash.com'),
+  'D 零 unsplash 外链（封面/头像已本地化）');
+assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面资产目录存在');
+
+// —— 场景 E：零旧特训页残留 ——
+['发音急救箱', '语境卡册', '今日微剧场听写', 'learning-paths/mine', 'speech/notebook',
+  'mode=dictate', 'layers'].forEach((w) => {
+  assert(!js.includes(w) && !wxml.includes(w) && !wxss.includes('layers'),
+    'E 零旧特训残留「' + w + '」');
 });
 
-// —— 场景 E：真数据装配与三分支路由（mock wx 环境驱动） ——
-const navigations = [];
-const switchedTabs = [];
-const storage = new Map();
-const requests = [];
-function installWx(overrides = {}) {
-  global.wx = Object.assign({
-    getStorageSync: (k) => (storage.has(k) ? storage.get(k) : ''),
-    setStorageSync(k, v) { storage.set(k, v); },
-    removeStorageSync(k) { storage.delete(k); },
-    showToast() {},
-    navigateTo: (o) => navigations.push(o.url),
-    switchTab: (o) => switchedTabs.push(o.url),
-    request(o) {
-      requests.push(o.url);
-      o.success({ statusCode: 200, data: { success: true, data: { items: [{ sceneid: 's1' }, { sceneid: 's2' }, { sceneid: 's3' }] } } });
-    },
-  }, overrides);
+if (failed) {
+  console.error('✗ ' + failed + ' 项失败');
+  process.exit(1);
 }
-// 以登录态 + 有画像 + 有卡册装载页面（authStore 需先于页面 require 初始化）
-installWx();
-global.Page = (cfg) => {
-  page = Object.assign({}, cfg, {
-    data: JSON.parse(JSON.stringify(cfg.data)),
-    setData(patch) { Object.assign(this.data, patch); },
-  });
-};
-const authStore = require('../store/authStore');
-authStore.getState().isLoggedIn = true;
-// speech/notebook 有画像 + learning-paths/mine 一册（按 URL 分流）
-global.wx.request = (o) => {
-  requests.push(o.url);
-  if (o.url.includes('/api/speech/notebook')) {
-    o.success({
-      statusCode: 200,
-      data: {
-        success: true,
-        data: {
-          phonemeStats: [{ phoneme: 'θ', avgScore: 64.4 }, { phoneme: 'v', avgScore: 78 }],
-        },
-      },
-    });
-  } else if (o.url.includes('/api/learning-paths/mine')) {
-    o.success({
-      statusCode: 200,
-      data: { success: true, data: [{ pathid: 7, pathName: '面试自救指南', coverUrl: 'https://oss/c.jpg', progress: 40, itemCount: 6 }] },
-    });
-  } else if (o.url.includes('/api/scenes/feed')) {
-    o.success({
-      statusCode: 200,
-      data: { success: true, data: { items: [{ sceneid: 's1' }, { sceneid: 's2' }, { sceneid: 's3' }] } },
-    });
-  } else {
-    o.success({ statusCode: 200, data: { success: true, data: {} } });
-  }
-};
-let page = null;
-require('../pages/discover/index');
-
-(async () => {
-  page.onLoad();
-  page.onShow();
-  await new Promise((r) => setTimeout(r, 20));
-  assert(page.data.aid.state === 'ready' && page.data.aid.weakLabel === '/θ/ 64 分',
-    'E1 急救箱真画像：最弱音素 /θ/ 平均 64 分（phonemeStats[0]）');
-  assert(page.data.shelf.state === 'ready' && page.data.shelf.books.length === 1 &&
-    page.data.shelf.books[0].title === '面试自救指南' && page.data.shelf.books[0].progress === 40,
-    'E1 书架真卡册：learning-paths/mine 映射（标题/真进度）');
-  assert(page.data.shelf.books[0].cover === 'https://oss/c.jpg' && page.data.shelf.books[0].isIcon === false,
-    'E1 书架封面用真签名 URL（isIcon=false 走图片模式）');
-
-  page.onPhonemeGo();
-  assert(navigations[0] === '/pages/review/practice/index', 'E2 有画像「立即攻克」→ 发音闯关');
-
-  page.onBookTap({ currentTarget: { dataset: { pathid: 7 } } });
-  assert(navigations[1] === '/pages/library/paths/detail?id=7', 'E2 书架卡片 → 卡册详情（真 pathid）');
-
-  await page.onDailyTestTap();
-  assert(navigations[2].startsWith('/pages/intensive-listening/index?sceneId=s') &&
-    navigations[2].endsWith('&mode=dictate'),
-    'E2 开始测试 → 微剧场精研室听写模式（日期种子三选一）');
-  assert(page.data.testBusy === false, 'E2 测试按钮忙碌态复位');
-
-  // —— 场景 F：无画像 → 引导去复习页发音 Tab（pendingTab=2） ——
-  global.wx.request = (o) => {
-    if (o.url.includes('/api/speech/notebook')) {
-      o.success({ statusCode: 200, data: { success: true, data: { phonemeStats: [] } } });
-    } else if (o.url.includes('/api/learning-paths/mine')) {
-      o.success({ statusCode: 200, data: { success: true, data: [] } });
-    } else if (o.url.includes('/api/scenes/feed')) {
-      o.success({ statusCode: 200, data: { success: true, data: { items: [{ sceneid: 's1' }] } } });
-    } else {
-      o.success({ statusCode: 200, data: { success: true, data: {} } });
-    }
-  };
-  await page._loadAid();
-  await page._loadShelf();
-  await new Promise((r) => setTimeout(r, 20));
-  assert(page.data.aid.state === 'empty' && page.data.aid.weakDesc.includes('还没有发音画像'),
-    'F1 无画像：空态文案承接');
-  assert(page.data.shelf.state === 'empty', 'F1 空书架：心愿工坊 CTA 空态');
-  page.onPhonemeGo();
-  assert(switchedTabs.length === 1 && switchedTabs[0] === '/pages/review/index' &&
-    storage.get('review:pendingTab') === 2,
-    'F2 无画像 CTA → 复习页发音 Tab（pendingTab=2 预约）');
-
-  // —— 场景 G：游客 → 登录引导 ——
-  authStore.getState().isLoggedIn = false;
-  page._syncAuthState();
-  await new Promise((r) => setTimeout(r, 20));
-  assert(page.data.aid.state === 'guest' && page.data.shelf.state === 'guest',
-    'G1 游客：急救箱/书架均为登录引导态');
-  navigations.length = 0;
-  page.onPhonemeGo();
-  assert(navigations[0] === '/pages/auth/index', 'G2 游客 CTA → 登录页');
-
-  console.log('----------------------------------------');
-  if (failed === 0) console.log('ALL TRAINING-TAB TESTS PASSED');
-  else { console.error(failed + ' TEST(S) FAILED'); process.exitCode = 1; }
-})();
+console.log('✓ discover-tags 全部通过');

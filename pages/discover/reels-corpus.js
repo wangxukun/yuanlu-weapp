@@ -1,0 +1,363 @@
+/**
+ * pages/discover/reels-corpus.js — 原声微流切片语料（12 条）
+ *
+ * 移植自 B工程 server.ts 的 NATIVE_CORPUS（GET /api/clips/feed 数据源），
+ * 字段一字不差：id / showTitle / topic / difficulty / audioUrl / coverUrl /
+ * start / end / textEn / textCn / words（词级时间戳）/ phoneticTip / keywords。
+ *
+ * 沙箱音源适配（A工程 与 B工程 后端互不相通 + InnerAudioContext 不支持 ogg）：
+ *   原 coffee_shop.ogg 的 5 条（story-01/02/03、ted-02、story-06）按序改挂
+ *   SoundHelix-Song-1/2/3.mp3（B 语料本就使用的公测直链，DevTools 需保持
+ *   「不校验合法域名」，真机需将 soundhelix.com 加入 downloadFile 白名单；
+ *   封面/头像已全部本地化到 assets/covers|avatars，无外链图片域名）。
+ *
+ * 迁移 yuanlu-weapp 时：本模块退役，改接生产端切片接口（词级时间戳口径
+ * 对齐 /api/clips/[id]/audio 签链 + corpus 三库切片表）。
+ *
+ * 已知 B 源怪癖（按复刻原则原样保留）：clip-econ-01 的 words 数组较 textEn
+ * 少一词 "environmental"（B 端渲染同样以 words 数组为准，两句不一致是
+ * B 原型自带的数据缺陷）；迁移生产语料时自然消除。
+ */
+module.exports = [
+  {
+    id: 'clip-story-01',
+    showTitle: 'StoryCorps',
+    topic: '人生故事·人道医疗',
+    difficulty: 'B2',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    coverUrl: '/assets/covers/cv-photo-1478737270239-2f02b77fc618.jpg',
+    start: 0.0,
+    end: 4.2,
+    textEn: "Welcome to today's episode of our English learning journey.",
+    textCn: "欢迎收听今天的英语精听学习节目。",
+    words: [
+      { word: "Welcome", start: 0.0, end: 0.6 },
+      { word: "to", start: 0.6, end: 0.8 },
+      { word: "today's", start: 0.8, end: 1.4 },
+      { word: "episode", start: 1.4, end: 2.1 },
+      { word: "of", start: 2.1, end: 2.3 },
+      { word: "our", start: 2.3, end: 2.6 },
+      { word: "English", start: 2.6, end: 3.1 },
+      { word: "learning", start: 3.1, end: 3.6 },
+      { word: "journey.", start: 3.6, end: 4.2 }
+    ],
+    phoneticTip: "注意 'to today's' 中的齿龈音连读和弱读 /tə/。",
+    keywords: ["journey", "episode", "welcome"]
+  },
+  {
+    id: 'clip-story-02',
+    showTitle: 'StoryCorps',
+    topic: '深度思考·全球卫生',
+    difficulty: 'B2',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    coverUrl: '/assets/covers/cv-photo-1505751172876-fa1923c5c528.jpg',
+    start: 4.3,
+    end: 9.1,
+    textEn: "Today we are diving into an intriguing question that affects global healthcare.",
+    textCn: "今天我们要深入探讨一个影响全球医疗卫生的引人深思的问题。",
+    words: [
+      { word: "Today", start: 4.3, end: 4.8 },
+      { word: "we", start: 4.8, end: 5.0 },
+      { word: "are", start: 5.0, end: 5.2 },
+      { word: "diving", start: 5.2, end: 5.7 },
+      { word: "into", start: 5.7, end: 6.0 },
+      { word: "an", start: 6.0, end: 6.2 },
+      { word: "intriguing", start: 6.2, end: 7.1 },
+      { word: "question", start: 7.1, end: 7.7 },
+      { word: "that", start: 7.7, end: 7.9 },
+      { word: "affects", start: 7.9, end: 8.4 },
+      { word: "global", start: 8.4, end: 8.7 },
+      { word: "healthcare.", start: 8.7, end: 9.1 }
+    ],
+    phoneticTip: "'diving into an' 出现连读，'intriguing' 读作 /ɪnˈtriː.ɡɪŋ/。",
+    keywords: ["intriguing", "healthcare", "affects", "diving"]
+  },
+  {
+    id: 'clip-story-03',
+    showTitle: 'StoryCorps',
+    topic: '人道援助·社会价值',
+    difficulty: 'C1',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    coverUrl: '/assets/covers/cv-photo-1469571486292-0ba58a3f068b.jpg',
+    start: 9.2,
+    end: 14.8,
+    textEn: "For over two decades, international humanitarian programs have supported millions of patients.",
+    textCn: "二十多年来，国际人道主义项目为数以百万计的患者提供了支持。",
+    words: [
+      { word: "For", start: 9.2, end: 9.4 },
+      { word: "over", start: 9.4, end: 9.8 },
+      { word: "two", start: 9.8, end: 10.1 },
+      { word: "decades,", start: 10.1, end: 10.9 },
+      { word: "international", start: 10.9, end: 11.9 },
+      { word: "humanitarian", start: 11.9, end: 12.9 },
+      { word: "programs", start: 12.9, end: 13.5 },
+      { word: "have", start: 13.5, end: 13.7 },
+      { word: "supported", start: 13.7, end: 14.3 },
+      { word: "millions", start: 14.3, end: 14.6 },
+      { word: "of", start: 14.6, end: 14.7 },
+      { word: "patients.", start: 14.7, end: 14.8 }
+    ],
+    phoneticTip: "'millions of' 连读为 /ˈmɪljənz‿əv/，注意 humanitarian 重音在 -ta-。",
+    keywords: ["humanitarian", "decades", "patients", "supported"]
+  },
+  {
+    id: 'clip-story-04',
+    showTitle: 'BBC 6 Minute English',
+    topic: '时事思辨·政策讨论',
+    difficulty: 'B2',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    coverUrl: '/assets/covers/cv-photo-1590602847861-f357a9332bbc.jpg',
+    start: 14.9,
+    end: 20.5,
+    textEn: "However, shifting political priorities have sparked intense debate among health policymakers.",
+    textCn: "然而，不断变化的政治重点在卫生政策制定者中引发了激烈辩论。",
+    words: [
+      { word: "However,", start: 14.9, end: 15.6 },
+      { word: "shifting", start: 15.6, end: 16.2 },
+      { word: "political", start: 16.2, end: 16.8 },
+      { word: "priorities", start: 16.8, end: 17.6 },
+      { word: "have", start: 17.6, end: 17.8 },
+      { word: "sparked", start: 17.8, end: 18.5 },
+      { word: "intense", start: 18.5, end: 19.1 },
+      { word: "debate", start: 19.1, end: 19.6 },
+      { word: "among", start: 19.6, end: 19.9 },
+      { word: "health", start: 19.9, end: 20.2 },
+      { word: "policymakers.", start: 20.2, end: 20.5 }
+    ],
+    phoneticTip: "'sparked intense' 中 /t/ 发生不完全爆破，语气更加紧凑有说服力。",
+    keywords: ["priorities", "sparked", "debate", "shifting"]
+  },
+  {
+    id: 'clip-story-05',
+    showTitle: 'TED Radio Hour',
+    topic: '发音精进·影子跟读',
+    difficulty: 'B1',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    coverUrl: '/assets/covers/cv-photo-1516321318423-f06f85e504b3.jpg',
+    start: 20.6,
+    end: 26.2,
+    textEn: "Let's listen closely to the nuances in speech and practice shadowing each sentence together.",
+    textCn: "让我们仔细聆听语音语调中的细微差别，一起跟读练习每一个句子。",
+    words: [
+      { word: "Let's", start: 20.6, end: 21.0 },
+      { word: "listen", start: 21.0, end: 21.4 },
+      { word: "closely", start: 21.4, end: 21.9 },
+      { word: "to", start: 21.9, end: 22.1 },
+      { word: "the", start: 22.1, end: 22.2 },
+      { word: "nuances", start: 22.2, end: 22.9 },
+      { word: "in", start: 22.9, end: 23.1 },
+      { word: "speech", start: 23.1, end: 23.6 },
+      { word: "and", start: 23.6, end: 23.8 },
+      { word: "practice", start: 23.8, end: 24.4 },
+      { word: "shadowing", start: 24.4, end: 25.1 },
+      { word: "each", start: 25.1, end: 25.4 },
+      { word: "sentence", start: 25.4, end: 25.9 },
+      { word: "together.", start: 25.9, end: 26.2 }
+    ],
+    phoneticTip: "'nuances' 法语借词，注意双元音与轻辅音 /njuː.ɑːnsɪz/。",
+    keywords: ["nuances", "shadowing", "closely", "speech"]
+  },
+  {
+    id: 'clip-nomad-01',
+    showTitle: 'BBC 6 Minute English',
+    topic: '现代生活·远程工作',
+    difficulty: 'B1',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    coverUrl: '/assets/avatars/av-photo-1522202176988-66273c2fd55f.jpg',
+    start: 2.0,
+    end: 7.5,
+    textEn: "Digital nomads are revolutionizing the traditional boundaries between career and leisure.",
+    textCn: "数字游民正在彻底革新职业与休闲之间的传统界限。",
+    words: [
+      { word: "Digital", start: 2.0, end: 2.5 },
+      { word: "nomads", start: 2.5, end: 3.1 },
+      { word: "are", start: 3.1, end: 3.3 },
+      { word: "revolutionizing", start: 3.3, end: 4.4 },
+      { word: "the", start: 4.4, end: 4.5 },
+      { word: "traditional", start: 4.5, end: 5.2 },
+      { word: "boundaries", start: 5.2, end: 5.9 },
+      { word: "between", start: 5.9, end: 6.4 },
+      { word: "career", start: 6.4, end: 6.9 },
+      { word: "and", start: 6.9, end: 7.1 },
+      { word: "leisure.", start: 7.1, end: 7.5 }
+    ],
+    phoneticTip: "'revolutionizing' 次重音和主重音分明，'boundaries' 读作 /ˈbaʊn.dər.iz/。",
+    keywords: ["revolutionizing", "boundaries", "nomads", "career"]
+  },
+  {
+    id: 'clip-econ-01',
+    showTitle: 'Planet Money',
+    topic: '商业经济·价格心理',
+    difficulty: 'C1',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    coverUrl: '/assets/covers/cv-photo-1611974789855-9c2a0a7236a3.jpg',
+    start: 5.0,
+    end: 10.8,
+    textEn: "Consumers rarely evaluate price in isolation; they anchor their expectations on subtle environmental cues.",
+    textCn: "消费者极少孤立地评估价格；他们往往将心理预期锚定在微妙的环境暗示上。",
+    words: [
+      { word: "Consumers", start: 5.0, end: 5.7 },
+      { word: "rarely", start: 5.7, end: 6.2 },
+      { word: "evaluate", start: 6.2, end: 6.8 },
+      { word: "price", start: 6.8, end: 7.3 },
+      { word: "in", start: 7.3, end: 7.5 },
+      { word: "isolation;", start: 7.5, end: 8.3 },
+      { word: "they", start: 8.3, end: 8.5 },
+      { word: "anchor", start: 8.5, end: 9.0 },
+      { word: "their", start: 9.0, end: 9.3 },
+      { word: "expectations", start: 9.3, end: 10.0 },
+      { word: "on", start: 10.0, end: 10.2 },
+      { word: "subtle", start: 10.2, end: 10.5 },
+      { word: "cues.", start: 10.5, end: 10.8 }
+    ],
+    phoneticTip: "'subtle' 中字母 b 不发音 /ˈsʌt.əl/，'anchor' 发音为 /ˈæŋ.kər/。",
+    keywords: ["isolation", "anchor", "subtle", "evaluate"]
+  },
+  {
+    id: 'clip-ted-02',
+    showTitle: 'TED Radio Hour',
+    topic: '创造思维·认知心理',
+    difficulty: 'B2',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    coverUrl: '/assets/covers/cv-photo-1516321318423-f06f85e504b3.jpg',
+    start: 2.5,
+    end: 8.5,
+    textEn: "Creative thinking is not a mystical gift; it is a deliberate discipline of mindful observation.",
+    textCn: "创造性思维并非某种神秘的天赋；它是一种保持专注观察的自律习惯。",
+    words: [
+      { word: "Creative", start: 2.5, end: 3.1 },
+      { word: "thinking", start: 3.1, end: 3.6 },
+      { word: "is", start: 3.6, end: 3.8 },
+      { word: "not", start: 3.8, end: 4.1 },
+      { word: "a", start: 4.1, end: 4.2 },
+      { word: "mystical", start: 4.2, end: 4.8 },
+      { word: "gift;", start: 4.8, end: 5.3 },
+      { word: "it", start: 5.3, end: 5.5 },
+      { word: "is", start: 5.5, end: 5.7 },
+      { word: "a", start: 5.7, end: 5.8 },
+      { word: "deliberate", start: 5.8, end: 6.5 },
+      { word: "discipline", start: 6.5, end: 7.1 },
+      { word: "of", start: 7.1, end: 7.3 },
+      { word: "mindful", start: 7.3, end: 7.8 },
+      { word: "observation.", start: 7.8, end: 8.5 }
+    ],
+    phoneticTip: "'is not a' 顺滑连读 /ɪz nɑːt‿ə/，'deliberate' 作形容词时弱读为 /dɪˈlɪb.ɚ.ət/。",
+    keywords: ["deliberate", "discipline", "mystical", "observation"]
+  },
+  {
+    id: 'clip-career-01',
+    showTitle: 'NPR Life Kit',
+    topic: '职场沟通·合作共赢',
+    difficulty: 'B2',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    coverUrl: '/assets/covers/cv-photo-1521737604893-d14cc237f11d.jpg',
+    start: 1.0,
+    end: 7.0,
+    textEn: "When navigating complex team dynamics, active listening always bridges the gap between disparate viewpoints.",
+    textCn: "在处理复杂的团队人际协作时，积极倾听总能消除不同观点之间的分歧。",
+    words: [
+      { word: "When", start: 1.0, end: 1.3 },
+      { word: "navigating", start: 1.3, end: 1.9 },
+      { word: "complex", start: 1.9, end: 2.4 },
+      { word: "team", start: 2.4, end: 2.7 },
+      { word: "dynamics,", start: 2.7, end: 3.4 },
+      { word: "active", start: 3.4, end: 3.8 },
+      { word: "listening", start: 3.8, end: 4.3 },
+      { word: "always", start: 4.3, end: 4.7 },
+      { word: "bridges", start: 4.7, end: 5.1 },
+      { word: "the", start: 5.1, end: 5.2 },
+      { word: "gap", start: 5.2, end: 5.5 },
+      { word: "between", start: 5.5, end: 5.8 },
+      { word: "disparate", start: 5.8, end: 6.3 },
+      { word: "viewpoints.", start: 6.3, end: 7.0 }
+    ],
+    phoneticTip: "'bridges the gap' 中间清辅音阻断，'disparate' 重音在首音节 /ˈdɪs.pɚ.ət/。",
+    keywords: ["dynamics", "disparate", "bridges", "navigating"]
+  },
+  {
+    id: 'clip-story-06',
+    showTitle: 'StoryCorps',
+    topic: '人际沟通·共情交流',
+    difficulty: 'B1',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    coverUrl: '/assets/covers/cv-photo-1573496359142-b8d87734a5a2.jpg',
+    start: 3.0,
+    end: 8.5,
+    textEn: "Genuine empathy requires setting aside our instinctive urge to immediately offer solutions.",
+    textCn: "真正的同理心需要我们克制住本能冲动，不要立刻急着去给出解决建议。",
+    words: [
+      { word: "Genuine", start: 3.0, end: 3.5 },
+      { word: "empathy", start: 3.5, end: 4.1 },
+      { word: "requires", start: 4.1, end: 4.7 },
+      { word: "setting", start: 4.7, end: 5.1 },
+      { word: "aside", start: 5.1, end: 5.5 },
+      { word: "our", start: 5.5, end: 5.7 },
+      { word: "instinctive", start: 5.7, end: 6.4 },
+      { word: "urge", start: 6.4, end: 6.8 },
+      { word: "to", start: 6.8, end: 6.9 },
+      { word: "immediately", start: 6.9, end: 7.6 },
+      { word: "offer", start: 7.6, end: 7.9 },
+      { word: "solutions.", start: 7.9, end: 8.5 }
+    ],
+    phoneticTip: "'setting aside' 连读为 /ˈset̬.ɪŋ‿əˈsaɪd/，'instinctive' 注意清辅音连缀。",
+    keywords: ["empathy", "instinctive", "genuine", "urge"]
+  },
+  {
+    id: 'clip-science-02',
+    showTitle: 'BBC Science Focus',
+    topic: '科学探索·认知进化',
+    difficulty: 'C1',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    coverUrl: '/assets/avatars/av-photo-1507668077129-56e32842fceb.jpg',
+    start: 4.0,
+    end: 10.3,
+    textEn: "Cognitive neuroscientists emphasize that neuroplasticity enables rapid linguistic adaptation at any age.",
+    textCn: "认知神经科学家强调，大脑神经可塑性使人在任何年龄都能实现快速的语言适应。",
+    words: [
+      { word: "Cognitive", start: 4.0, end: 4.5 },
+      { word: "neuroscientists", start: 4.5, end: 5.5 },
+      { word: "emphasize", start: 5.5, end: 6.1 },
+      { word: "that", start: 6.1, end: 6.3 },
+      { word: "neuroplasticity", start: 6.3, end: 7.4 },
+      { word: "enables", start: 7.4, end: 7.9 },
+      { word: "rapid", start: 7.9, end: 8.3 },
+      { word: "linguistic", start: 8.3, end: 8.8 },
+      { word: "adaptation", start: 8.8, end: 9.5 },
+      { word: "at", start: 9.5, end: 9.7 },
+      { word: "any", start: 9.7, end: 9.9 },
+      { word: "age.", start: 9.9, end: 10.3 }
+    ],
+    phoneticTip: "'neuroplasticity' 次重音与主重音 /ˈnʊr.oʊ.plæsˈtɪs.ə.t̬i/，字母 t 闪音。",
+    keywords: ["neuroplasticity", "adaptation", "cognitive", "linguistic"]
+  },
+  {
+    id: 'clip-business-02',
+    showTitle: 'Planet Money',
+    topic: '商业经济·创业思维',
+    difficulty: 'B2',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    coverUrl: '/assets/covers/cv-photo-1486406146926-c627a92ad1ab.jpg',
+    start: 2.0,
+    end: 7.9,
+    textEn: "Sustainable innovation rarely happens by accident; it stems from rigorous testing and customer empathy.",
+    textCn: "可持续的商业创新极少出于偶然；它源自严格的实验迭代与对客户的深刻同理。",
+    words: [
+      { word: "Sustainable", start: 2.0, end: 2.7 },
+      { word: "innovation", start: 2.7, end: 3.4 },
+      { word: "rarely", start: 3.4, end: 3.8 },
+      { word: "happens", start: 3.8, end: 4.2 },
+      { word: "by", start: 4.2, end: 4.4 },
+      { word: "accident;", start: 4.4, end: 4.9 },
+      { word: "it", start: 4.9, end: 5.1 },
+      { word: "stems", start: 5.1, end: 5.5 },
+      { word: "from", start: 5.5, end: 5.7 },
+      { word: "rigorous", start: 5.7, end: 6.2 },
+      { word: "testing", start: 6.2, end: 6.6 },
+      { word: "and", start: 6.6, end: 6.8 },
+      { word: "customer", start: 6.8, end: 7.3 },
+      { word: "empathy.", start: 7.3, end: 7.9 }
+    ],
+    phoneticTip: "'stems from' /z/ 顺滑过渡，'rigorous' 元音读作 /ˈrɪɡ.ɚ.əs/。",
+    keywords: ["sustainable", "rigorous", "innovation", "stems"]
+  }
+];

@@ -1,3 +1,7 @@
 {
-  "navigationBarTitleText": "专项特训"
+  "navigationBarTitleText": "原声微流",
+  "usingComponents": {
+    "vocabulary-modal": "/components/vocabulary-modal/index",
+    "premium-modal": "/components/premium-modal/index"
+  }
 }

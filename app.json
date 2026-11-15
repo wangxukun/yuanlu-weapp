@@ -47,9 +47,9 @@
       },
       {
         "pagePath": "pages/discover/index",
-        "text": "特训",
-        "iconPath": "assets/icons/layers.png",
-        "selectedIconPath": "assets/icons/layers-active.png"
+        "text": "原声微流",
+        "iconPath": "assets/icons/reels.png",
+        "selectedIconPath": "assets/icons/reels-active.png"
       },
       {
         "pagePath": "pages/review/index",

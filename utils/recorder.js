@@ -25,6 +25,52 @@ const audioBus = require('./audio-bus');
 const PCM_RATE = 16000;
 const MIN_INTERVAL_MS = 100; // 音量回调节流
 
+/**
+ * [devtools 2026-11-13] 开发者工具模拟器对 PCM 帧流（onFrameRecorded/
+ * frameSize）支持不完整——start 表面成功但帧永不回调，录音恒为空。
+ * 工具分支改走 WAV 直录 + onStop 文件产物（模拟器对 wav 支持完整）：
+ *   start: format 'wav'（无实时帧 → 音量为合成动画，仅 UI 反馈）
+ *   stop : onStop tempFilePath 读文件 → 已是完整 WAV，跳过 pcmToWav
+ * 真机路径（PCM 帧流）零变化。platform 惰性求值一次（node 测试 mock
+ * 非 devtools 环境走真机分支）。
+ */
+let _devtools = null;
+function isDevtools() {
+  if (_devtools === null) {
+    try {
+      _devtools = wx.getSystemInfoSync().platform === 'devtools';
+    } catch (e) {
+      _devtools = false;
+    }
+  }
+  return _devtools;
+}
+
+/** buf 是否已是完整 WAV 文件（'RIFF' 头）——是则产物路径跳过 PCM 封装 */
+function isWavFile(buf) {
+  return (
+    !!buf &&
+    buf.byteLength > 44 &&
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+  );
+}
+
+/** 工具录音音量合成动画（仅 devtools：无实时帧，UI 反馈用；评测数据不经过此） */
+let simAmpTimer = null;
+function startSimAmplitude() {
+  stopSimAmplitude();
+  simAmpTimer = setInterval(() => {
+    notifyAmplitude(28 + Math.round(Math.random() * 44));
+  }, 120);
+}
+function stopSimAmplitude() {
+  if (simAmpTimer) {
+    clearInterval(simAmpTimer);
+    simAmpTimer = null;
+  }
+  if (ampListeners.size) notifyAmplitude(0);
+}
+
 let rm = null;
 let started = false; // 事件是否已注册（单例只注册一次）
 let session = 0; // 会话令牌：start 递增，迟到事件按令牌丢弃
@@ -98,7 +144,14 @@ function ensureRecorder() {
     started = true;
     rm.onStart(() => {
       // onStart 只在真正起录后触发（权限拒绝不会到这里）
+      // 页面可能在硬件起录回调前已取消。不能让迟到回调重新置为录音中。
+      if (!frames) {
+        recording = false;
+        try { rm.stop(); } catch (e) { /* 已释放时忽略 */ }
+        return;
+      }
       recording = true;
+      if (isDevtools()) startSimAmplitude(); // 工具无实时帧 → 合成音量动画
     });
     rm.onFrameRecorded((res) => {
       if (!frames) return; // 已停止/已收尾：丢弃迟到帧
@@ -123,7 +176,7 @@ function ensureRecorder() {
       recording = false;
       frames = null;
       pending = null;
-      if (ampListeners.size) notifyAmplitude(0);
+      stopSimAmplitude();
     });
   }
   return rm;
@@ -143,13 +196,23 @@ function start(opts) {
     frames = [];
     lastAmpAt = 0;
     try {
-      ensureRecorder().start({
-        format: 'PCM', // 实时帧 → 音量波形 + 停止时端内封装 WAV
-        sampleRate: PCM_RATE,
-        numberOfChannels: 1,
-        frameSize: 1, // 1KB/帧 ≈ 32ms
-        duration: 60000, // 60s 上限：到点自动停止（onStop 兜底）
-      });
+      if (isDevtools()) {
+        // 工具模拟器：PCM 帧不回调 → WAV 直录，产物走 onStop 文件路径
+        ensureRecorder().start({
+          format: 'wav',
+          sampleRate: PCM_RATE,
+          numberOfChannels: 1,
+          duration: 60000,
+        });
+      } else {
+        ensureRecorder().start({
+          format: 'PCM', // 实时帧 → 音量波形 + 停止时端内封装 WAV
+          sampleRate: PCM_RATE,
+          numberOfChannels: 1,
+          frameSize: 1, // 1KB/帧 ≈ 32ms
+          duration: 60000, // 60s 上限：到点自动停止（onStop 兜底）
+        });
+      }
       recording = true;
       return true;
     } catch (e) {
@@ -170,6 +233,7 @@ function start(opts) {
  *          帧全空时 base64=''、duration=0（「录音太短」判定交调用方）
  */
 function stop() {
+  stopSimAmplitude(); // devtools 合成音量动画终止（无操作则空跑）
   if (!recording && !frames) {
     return Promise.resolve({ base64: '', duration: 0, wavPath: '', bytes: 0 });
   }
@@ -224,6 +288,7 @@ function cancel() {
   frames = null;
   recording = false;
   pending = null;
+  stopSimAmplitude();
   try {
     rm && rm.stop();
   } catch (e) {
@@ -234,6 +299,11 @@ function cancel() {
 /** PCM 帧序列 → WAV 落盘 + base64 + 时长（16kHz/mono/16bit → bytes/32000 秒） */
 let lastWavPath = '';
 function buildResult(allFrames) {
+  // 单块且已是完整 WAV（devtools 直录 onStop 产物）：直接落盘出 base64，
+  // 跳过 pcmToWav（二次封装会损坏头）
+  if (allFrames.length === 1 && isWavFile(allFrames[0])) {
+    return buildWavFileResult(allFrames[0]);
+  }
   let total = 0;
   for (let i = 0; i < allFrames.length; i++) total += allFrames[i].byteLength;
   if (!total) return { base64: '', duration: 0, wavPath: '', bytes: 0 };
@@ -254,8 +324,35 @@ function buildResult(allFrames) {
   }
 }
 
+/**
+ * 完整 WAV 文件（devtools 直录产物）→ 落盘 + base64 + 时长。
+ * 时长按字节估算（44 字节头 + PCM 数据 / 32000 Bps），onStop 的 duration
+ * 字段在工具上不可靠。
+ */
+function buildWavFileResult(buf) {
+  try {
+    const fs = wx.getFileSystemManager();
+    const wavPath = wx.env.USER_DATA_PATH + '/recorder_' + Date.now() + '.wav';
+    fs.writeFileSync(wavPath, buf, 'binary');
+    const base64 = fs.readFileSync(wavPath, 'base64');
+    if (lastWavPath && lastWavPath !== wavPath) {
+      try { fs.unlinkSync(lastWavPath); } catch (e) { /* 忽略 */ }
+    }
+    lastWavPath = wavPath;
+    return {
+      base64,
+      duration: Math.max(0, (buf.byteLength - 44) / (PCM_RATE * 2)),
+      wavPath,
+      bytes: buf.byteLength,
+    };
+  } catch (e) {
+    return { base64: '', duration: Math.max(0, (buf.byteLength - 44) / (PCM_RATE * 2)), wavPath: '', bytes: buf.byteLength };
+  }
+}
+
 module.exports = {
   PCM_RATE,
+  isDevtools,
   ensurePermission,
   start,
   stop,

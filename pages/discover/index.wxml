@@ -1,78 +1,226 @@
 <!--
-  pages/discover — 专项特训（第二 Tab，工具化转型重构；2026-11-05 去 mock）
-  发音急救箱（真发音画像）/ 语境卡册书架（真卡册）/ 今日一测（日期种子换题）；
-  三段式，无信息流无滚动容器
+  pages/discover/index.wxml — 原声微流（SoundBite Reels · yuanlu 真实语料）
+
+  结构：
+    背景毛玻璃封面层（当前切片封面，加载失败回落品牌渐变）
+    顶栏（ping 绿点 + 标题 + 沙箱语料徽章 | 日/月切换 + 计数）
+    纵向 swiper（上下轻划切换切片；词级扫光句仅当前项点亮）
+      · 话题 pills（节目名/主题/难度/会员专享）
+      · 英文原句（词级卡拉OK，点词查词）
+      · 中文译文 + 连读弱读 tip + 评测横幅
+    右侧操作栏（播放/循环/倍速/透视/跟读/收藏）
+    底部切换条（上一条 | 轻划提示 | 下一条）
+    弹窗层（透视 bottom-sheet + vocabulary-modal + premium-modal）
 -->
-<view class="train-container {{themeClass}}">
+<view class="rl-page {{themeClass}}">
 
-  <!-- ── 1. 发音急救箱（薄弱音素诊断卡） ── -->
-  <view class="card aid-card col">
-    <view class="row between w-full">
-      <text class="t-h3 text-bold">发音急救箱</text>
-      <text class="aid-tag">诊断</text>
-    </view>
-    <block wx:if="{{aid.state === 'loading'}}">
-      <view class="aid-desc mt-3"><view class="loading-spinner loading-spinner--sm" /></view>
-    </block>
-    <block wx:elif="{{aid.state === 'guest'}}">
-      <text class="aid-desc mt-3">登录后开启发音诊断，定位你最容易失分的音素</text>
-    </block>
-    <block wx:else>
-      <text class="aid-desc mt-3">{{aid.weakDesc}}</text>
-      <text wx:if="{{aid.state === 'ready'}}" class="aid-weak mt-1">{{aid.weakLabel}}</text>
-    </block>
-    <view class="aid-go center tap-scale" bindtap="onPhonemeGo">
-      <text class="aid-go-text">{{aid.state === 'ready' ? '立即攻克' : (aid.state === 'guest' ? '去登录' : '去做跟读')}}</text>
-    </view>
+  <!-- ═══ 首刷装载态 ═══ -->
+  <view wx:if="{{feedLoading}}" class="rl-feed-loading">
+    <view class="rl-feed-spin" />
+    <text class="rl-feed-loading-text">正在装载原声切片…</text>
   </view>
 
-  <!-- ── 2. 语境卡册书架（两列网格 · 真卡册） ── -->
-  <view class="section-title mt-6 mb-3 row between w-full">
-    <text class="t-h3 text-bold">语境卡册书架</text>
-    <view wx:if="{{shelf.state === 'ready'}}" class="t-mini text-secondary tap-scale" bindtap="onAllBooks">全部卡册</view>
+  <!-- ═══ 背景氛围层：模糊封面 + 遮罩 ═══ -->
+  <view class="rl-bg">
+    <image wx:if="{{coverOk && clip.coverUrl}}" class="rl-bg-img" src="{{clip.coverUrl}}"
+           mode="aspectFill" binderror="onCoverError" />
+    <view class="rl-bg-mask" />
   </view>
 
-  <!-- 游客：登录承接卡 -->
-  <view wx:if="{{shelf.state === 'guest'}}" class="card book-card col center tap-scale" bindtap="onPhonemeGo">
-    <view class="book-cover center">
-      <image class="book-cover-ic" src="/assets/icons/work-primary.svg" mode="aspectFit" />
+  <!-- ═══ 顶栏 ═══ -->
+  <view class="rl-header">
+    <view class="rl-brand">
+      <view class="rl-ping" />
+      <text class="rl-brand-text">原声微流 • SoundBite Reels</text>
+      <text wx:if="{{sourceLocal}}" class="rl-src-badge">沙箱语料</text>
     </view>
-    <text class="book-title ellipsis mt-2">登录后查看你的卡册</text>
-    <text class="t-mini text-secondary mt-1">心愿定制的原声特训都在这里</text>
-  </view>
-
-  <!-- 空态：心愿工坊 CTA -->
-  <view wx:elif="{{shelf.state === 'empty'}}" class="card book-card col center tap-scale" bindtap="onAllBooks">
-    <view class="book-cover center">
-      <image class="book-cover-ic" src="/assets/icons/record-voice-over-primary.svg" mode="aspectFit" />
-    </view>
-    <text class="book-title ellipsis mt-2">还没有卡册</text>
-    <text class="t-mini text-secondary mt-1">去心愿工坊，定制第一份原声卡册</text>
-  </view>
-
-  <!-- 真卡册网格 -->
-  <view wx:else class="shelf-grid">
-    <view class="card book-card col" wx:for="{{shelf.books}}" wx:key="key"
-          data-pathid="{{item.pathid}}" bindtap="onBookTap">
-      <view class="book-cover center">
-        <image class="{{item.isIcon ? 'book-cover-ic' : 'book-cover-img'}}" src="{{item.cover}}"
-               mode="{{item.isIcon ? 'aspectFit' : 'aspectFill'}}" />
+    <view class="rl-header-right">
+      <view class="rl-theme-btn" hover-class="rl-theme-btn--hover" bindtap="onToggleTheme">
+        <text class="rl-theme-ic">{{dark ? '☀️' : '🌙'}}</text>
       </view>
-      <text class="book-title ellipsis mt-2">《{{item.title}}》</text>
-      <progress class="book-progress mt-2" percent="{{item.progress}}" stroke-width="6"
-                activeColor="#1f7a5c" backgroundColor="rgba(0,0,0,0.08)" border-radius="3" />
-      <text class="t-mini text-secondary mt-1">{{item.progressText}}</text>
+      <text class="rl-counter">{{index + 1}} / {{reels.length}}</text>
     </view>
   </view>
 
-  <!-- ── 3. 今日一测（固定高度单卡，不滚动） ── -->
-  <view class="daily-card col center">
-    <view class="daily-tag center"><text class="daily-tag-text">每天 1 题</text></view>
-    <text class="daily-title">今日微剧场听写</text>
-    <text class="daily-sub">一段 30 秒真实语境 · 听音记句 · 即时校对</text>
-    <view class="daily-go center tap-scale {{testBusy ? 'is-busy' : ''}}" bindtap="onDailyTestTap">
-      <view wx:if="{{testBusy}}" class="loading-spinner loading-spinner--sm loading-spinner--onbtn"></view>
-      <text wx:else class="daily-go-text">开始测试</text>
+  <!-- ═══ 纵向轻划切片流 ═══ -->
+  <view class="rl-swiper-wrap">
+    <!-- DIY 下拉刷新（竖滑 swiper 手势不被原生 onPullDownRefresh 捕获） -->
+    <view class="rl-pull-hint {{refreshReady ? 'rl-pull-hint--ready' : ''}}"
+          style="opacity: {{pullShift > 0 || refreshing ? 1 : 0}}; transform: translateY({{pullHintY}}px)">
+      <text>{{refreshing ? '↻ 正在刷新…' : refreshReady ? '↑ 释放刷新' : '↓ 下拉刷新'}}</text>
+    </view>
+    <swiper class="rl-swiper" vertical current="{{index}}" duration="240"
+            easing-function="easeOutCubic" bindchange="onSwiperChange"
+            bindtouchstart="onPullTouchStart" bindtouchmove="onPullTouchMove"
+            bindtouchend="onPullTouchEnd" bindtouchcancel="onPullTouchCancel">
+      <swiper-item wx:for="{{reels}}" wx:for-item="reel" wx:for-index="ci" wx:key="id">
+        <view class="rl-center">
+
+          <!-- 话题 pills：节目名 / 主题 / 难度 / 会员专享 -->
+          <view class="rl-pills">
+            <text class="rl-pill rl-pill--show">{{reel.showTitle}}</text>
+            <text wx:if="{{reel.topic}}" class="rl-pill rl-pill--topic">{{reel.topic}}</text>
+            <text wx:if="{{reel.difficulty}}" class="rl-pill rl-pill--diff">{{reel.difficulty}}</text>
+            <text wx:if="{{reel.isExclusive}}" class="rl-pill rl-pill--vip">👑 会员专享</text>
+          </view>
+
+          <!-- 英文原句：词级卡拉OK扫光（仅当前项点亮；间隙无高亮，暂停全回落） -->
+          <view class="rl-sentence">
+            <block wx:if="{{reel.words.length > 0}}">
+              <text
+                wx:for="{{reel.words}}"
+                wx:for-item="w"
+                wx:for-index="wi"
+                wx:key="wi"
+                class="rl-word {{playing && ci === index && activeWordIndex === wi ? 'rl-word--cur' : playing && ci === index && activeWordIndex > wi ? 'rl-word--past' : ''}}"
+                data-wi="{{wi}}"
+                bindtap="onWordTap">{{w.word}}</text>
+            </block>
+            <text wx:else class="rl-word" bindtap="onWordTap">{{reel.textEn}}</text>
+          </view>
+
+          <!-- 中文译文 -->
+          <text class="rl-zh" user-select>{{reel.textCn}}</text>
+
+          <!-- 连读弱读机密（真实语料无 phoneticTip 字段时由扫光句自身体现） -->
+          <view wx:if="{{reel.phoneticTip}}" class="rl-tip">
+            <image class="rl-tip-ic" src="/assets/icons/volume-up-accent.svg" />
+            <text class="rl-tip-text">{{reel.phoneticTip}}</text>
+          </view>
+
+          <!-- 跟读测评结果横幅（仅当前项） -->
+          <view wx:if="{{ci === index && evalScore}}" class="rl-eval">
+            <view class="rl-eval-head">
+              <image class="rl-eval-ic" src="/assets/icons/check-circle-primary.svg" />
+              <text class="rl-eval-title">跟读发音评分: {{evalScore}} 分</text>
+            </view>
+            <text class="rl-eval-fb">{{evalFeedback}}</text>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <!-- ═══ 右侧竖排浮动操作栏 ═══ -->
+  <view class="rl-rail">
+    <!-- 播放 / 暂停 / 切片懒取中 -->
+    <view class="rl-play {{audioLoading ? 'rl-play--loading' : ''}}" hover-class="{{audioLoading ? '' : 'rl-play--hover'}}" bindtap="onTogglePlay">
+      <view wx:if="{{audioLoading}}" class="rl-play-spin" />
+      <image wx:else class="rl-play-ic" src="{{playing ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled.svg'}}" />
+    </view>
+
+    <!-- 单句循环 -->
+    <view class="rl-act {{isLooping ? 'rl-act--loop' : ''}}" hover-class="rl-act--hover" bindtap="onToggleLoop">
+      <image class="rl-act-ic" src="{{isLooping ? '/assets/icons/repeat-one-primary.svg' : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')}}" />
+    </view>
+
+    <!-- 倍速 0.75x / 1x / 1.25x -->
+    <view class="rl-act" hover-class="rl-act--hover" bindtap="onToggleRate">
+      <text class="rl-rate-label">{{rateLabel}}</text>
+    </view>
+
+    <!-- 语言学深度透视（服务端四维分析） -->
+    <view class="rl-act rl-act--ai" hover-class="rl-act--hover" bindtap="onDeepDive">
+      <image class="rl-act-ic" src="/assets/icons/auto-awesome-primary.svg" />
+    </view>
+
+    <!-- 跟读录音测评（评测中脉冲） -->
+    <view class="rl-act {{isEvaluating ? 'rl-act--rec rl-act--rec-pulse' : ''}}" hover-class="rl-act--hover" bindtap="onShadowing">
+      <image class="rl-act-ic" src="{{isEvaluating ? '/assets/icons/mic-filled.svg' : (dark ? '/assets/icons/mic-tertiary-dark.svg' : '/assets/icons/mic-tertiary.svg')}}" />
+    </view>
+
+    <!-- 收藏到句子本（真实切片走服务端） -->
+    <view class="rl-act {{isSaved ? 'rl-act--saved' : ''}}" hover-class="rl-act--hover" bindtap="onToggleBookmark">
+      <image class="rl-act-ic" src="{{isSaved ? '/assets/icons/bookmark-filled-primary.svg' : (dark ? '/assets/icons/bookmark-tertiary-dark.svg' : '/assets/icons/bookmark-border.svg')}}" />
     </view>
   </view>
+
+  <!-- ═══ 底部切片切换条（与轻划互通） ═══ -->
+  <view class="rl-footer">
+    <view class="rl-switch {{canPrev ? '' : 'rl-switch--off'}}" hover-class="{{canPrev ? 'rl-switch--hover' : ''}}" bindtap="onPrev">
+      <image class="rl-switch-ic" src="{{dark ? '/assets/icons/keyboard-arrow-up-primary-dark.svg' : '/assets/icons/keyboard-arrow-up-gray.svg'}}" />
+      <text class="rl-switch-text">上一条切片</text>
+    </view>
+
+    <text class="rl-hint">上下轻划切换 • 点击单词即查</text>
+
+    <view class="rl-switch {{canNext ? '' : 'rl-switch--off'}}" hover-class="{{canNext ? 'rl-switch--hover' : ''}}" bindtap="onNext">
+      <text class="rl-switch-text">下一条切片</text>
+      <image class="rl-switch-ic" src="{{dark ? '/assets/icons/keyboard-arrow-down-primary-dark.svg' : '/assets/icons/keyboard-arrow-down-gray.svg'}}" />
+    </view>
+  </view>
+
+  <!-- ═══ 深度透视 bottom-sheet ═══ -->
+  <view wx:if="{{deepOpen}}" class="rl-mask" bindtap="onDeepClose">
+    <view class="rl-sheet" catchtap="noop">
+      <view class="rl-sheet-head">
+        <view class="rl-sheet-title-row">
+          <image class="rl-sheet-spark" src="/assets/icons/auto-awesome-primary.svg" />
+          <text class="rl-sheet-title">原声语言学深度透视</text>
+        </view>
+        <view class="rl-sheet-x" bindtap="onDeepClose">
+          <text class="rl-sheet-x-glyph">✕</text>
+        </view>
+      </view>
+
+      <view class="rl-deep-quote">
+        <text class="rl-deep-quote-label">剖析句子</text>
+        <text class="rl-deep-quote-text" user-select>"{{deepSentence}}"</text>
+      </view>
+
+      <view wx:if="{{deepLoading}}" class="rl-deep-loading">
+        <image class="rl-deep-loading-ic" src="/assets/icons/auto-awesome-amber.svg" />
+        <text class="rl-deep-loading-text">正在解构连读规律与语调潜台词…</text>
+      </view>
+
+      <block wx:elif="{{deepAnalysis}}">
+        <view wx:if="{{deepSource === 'fallback'}}" class="rl-deep-fallback-note">
+          <text>服务暂不可用 · 基础速览</text>
+        </view>
+
+        <view class="rl-card rl-card--green">
+          <view class="rl-card-head">
+            <image class="rl-card-ic" src="/assets/icons/volume-up-primary-m.svg" />
+            <text class="rl-card-title rl-card-title--green">连读、同化与弱读机密 (Connected Speech)</text>
+          </view>
+          <text class="rl-card-body" user-select>{{deepAnalysis.connectedSpeech}}</text>
+        </view>
+
+        <view class="rl-card rl-card--amber">
+          <view class="rl-card-head">
+            <image class="rl-card-ic" src="/assets/icons/lightbulb-accent.svg" />
+            <text class="rl-card-title rl-card-title--amber">说话者语气与语用场合 (Tone & Nuance)</text>
+          </view>
+          <text class="rl-card-body" user-select>{{deepAnalysis.toneAndMood}}</text>
+        </view>
+
+        <view class="rl-card rl-card--blue">
+          <view class="rl-card-head">
+            <text class="rl-card-ic-emoji">💬</text>
+            <text class="rl-card-title rl-card-title--blue">母语者地道同义替换 (Paraphrase)</text>
+          </view>
+          <text class="rl-card-body" user-select>{{deepAnalysis.paraphrase}}</text>
+        </view>
+
+        <view class="rl-card rl-card--plain">
+          <text class="rl-card-title rl-card-title--plain">🎙️ 脱离中式发音秘诀:</text>
+          <text class="rl-card-body rl-card-body--muted" user-select>{{deepAnalysis.speakingTip}}</text>
+        </view>
+      </block>
+
+      <view class="rl-sheet-btn" hover-class="rl-sheet-btn--hover" bindtap="onDeepClose">
+        <text class="rl-sheet-btn-text">掌握并返回</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ 生词弹窗（A工程 成熟组件） ═══ -->
+  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    episode-title="{{clip ? clip.showTitle : ''}}"
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+
+  <!-- ═══ 会员转化弹窗（词典/生词/句子配额墙） ═══ -->
+  <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
 </view>
