@@ -41,9 +41,9 @@
     "list": [
       {
         "pagePath": "pages/home/index",
-        "text": "主页",
-        "iconPath": "assets/icons/home.png",
-        "selectedIconPath": "assets/icons/home-active.png"
+        "text": "原声工坊",
+        "iconPath": "assets/icons/workshop.png",
+        "selectedIconPath": "assets/icons/workshop-active.png"
       },
       {
         "pagePath": "pages/discover/index",
