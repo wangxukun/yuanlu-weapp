@@ -12,6 +12,7 @@
 //   （deck onShow 消费后清空）
 const sentenceCore = require('../../../utils/sentence-core');
 const audioClip = require('../../../utils/audio-clip');
+const episodeContext = require('../../../utils/episode-context');
 const theme = require('../../../utils/theme');
 const { get } = require('../../../utils/request');
 
@@ -91,7 +92,7 @@ Page({
     this.setData({ subtitle: null }); // 换句先置空（eval-card observers 重置态）
     let audioUrl = '';
     let off = typeof s.clipOffset === 'number' ? s.clipOffset : 0;
-    const rawWords = Array.isArray(s.clipWords) ? s.clipWords : [];
+    let rawWords = Array.isArray(s.clipWords) ? s.clipWords : [];
     const textEn = s.enText;
     const textCn = s.zhText;
     const subtitleId = s.subtitleId;
@@ -111,6 +112,30 @@ Page({
         }
       } catch (e) {
         // 切片解析失败：收藏句字段兜底（无原声，仍可录音评测）
+      }
+    }
+
+    // 非 clip 收藏句（缺切片数据）→ 2026-11-15 红线放开：整集字幕兜底。
+    // 签名整集 URL 时间轴=字幕绝对秒（off=0，下方换算原样透传）；有字幕
+    // 窗口直接用，否则按句文本三级匹配并取匹配行词级时间戳（绝对轴）。
+    if (!audioUrl && s.episodeid) {
+      try {
+        const hasWindow =
+          Number.isFinite(Number(s.startTime)) &&
+          Number(s.endTime) > Number(s.startTime);
+        const r = hasWindow
+          ? await episodeContext
+              .resolveEpisode(s.episodeid)
+              .then((ep) => ({ url: ep.url, words: [] }))
+          : await episodeContext.resolveContext({
+              episodeid: s.episodeid,
+              text: s.enText || '',
+            });
+        audioUrl = r.url;
+        off = 0;
+        if (Array.isArray(r.words) && r.words.length) rawWords = r.words;
+      } catch (e) {
+        // 整集兜底失败：无原声，仍可录音评测（原口径）
       }
     }
 
