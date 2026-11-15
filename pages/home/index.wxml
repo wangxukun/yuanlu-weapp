@@ -182,7 +182,7 @@
   </view>
 
   <!-- 真实生词复习：到期队列、词典内容、原声字幕与服务端间隔重复 -->
-  <view class="st-rv">
+  <view class="st-rv" id="stReviewDeck">
     <view class="st-rv-head">
       <view class="st-rv-head-left">
         <view class="st-rv-ic"><image class="st-rv-ic-img" src="/assets/icons/psychology-primary.svg" /></view>
@@ -323,7 +323,7 @@
 
 
   <!-- ═══ 底部模块：四格分段 tab（今日挑战 → 跟读接力 → 排行榜 → 自由定制） ═══ -->
-  <view class="st-tabs">
+  <view class="st-tabs" id="stTabsRow">
     <view wx:for="{{tabs}}" wx:key="key" wx:for-item="tab"
           class="st-tab {{activeTab === tab.key ? 'st-tab--on' : ''}}"
           hover-class="st-tab--hover" data-key="{{tab.key}}" bindtap="onTabTap">

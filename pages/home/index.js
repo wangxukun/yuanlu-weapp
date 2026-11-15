@@ -557,6 +557,7 @@ Page({
         header: TAB_META.find((t) => t.key === 'daily'),
         isLooping: true, // B playClip(nextClip, { loop: true })
       });
+      this._scrollAnchorToTop('#stTabsRow');
       if (target >= 0) {
         this._applyDailyClip(target);
         return;
@@ -572,7 +573,18 @@ Page({
         on: o.v === rec.suggestedLevel,
       })),
     });
+    this._scrollAnchorToTop('#stTabsRow');
     this.generate(rec.suggestedPrompt);
+  },
+
+  /**
+   * 锚点置顶滚动：目标元素滚至距页面顶部 12px 呼吸间距；tab 面板为
+   * wx:if 异步渲染，延迟一拍再定位（pageScrollTo selector 模式）
+   */
+  _scrollAnchorToTop(selector) {
+    setTimeout(() => {
+      wx.pageScrollTo({ selector, offsetTop: 12, duration: 320, fail: () => {} });
+    }, 80);
   },
 
   /** 三指标入口均指向已接真实后端的功能。 */
@@ -584,13 +596,16 @@ Page({
       activeTab: 'leaderboard',
       header: TAB_META.find((t) => t.key === 'leaderboard'),
     });
+    this._scrollAnchorToTop('#stTabsRow');
   },
 
   onMetricVocabulary() {
     if (!authStore.getState().isLoggedIn) return this._promptLogin('登录后先复习生词');
     // [2026-11-13] 用户口径：点击改为切换闪卡清单展开/收起（不再跳全屏复习窗口）
     this._pausePlayback();
-    this.setData({ reviewDeckOpen: !this.data.reviewDeckOpen });
+    const open = !this.data.reviewDeckOpen;
+    this.setData({ reviewDeckOpen: open });
+    if (open) this._scrollAnchorToTop('#stReviewDeck');
   },
 
   onMetricSentences() {
