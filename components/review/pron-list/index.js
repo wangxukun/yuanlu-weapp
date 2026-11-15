@@ -22,6 +22,8 @@
 const pronCore = require('../../../utils/pron-core');
 const theme = require('../../../utils/theme');
 const { get } = require('../../../utils/request');
+const audioClip = require('../../../utils/audio-clip');
+const episodeContext = require('../../../utils/episode-context');
 
 Component({
   options: { styleIsolation: 'apply-shared' },
@@ -46,6 +48,9 @@ Component({
     // 弱项句列表
     rows: [],
     lockedCount: 0,
+    // 语境原声播放态（弱项行内耳机按钮）
+    ctxPlayingId: null,
+    ctxLoadingId: null,
     // 锁定卡弹窗（vars: {totalErrors: lockedCount}）
     premiumVisible: false,
     premiumVars: null,
@@ -60,9 +65,21 @@ Component({
     attached() {
       this._syncTheme();
       this._applyNotebook();
+      // 语境原声播放态（audio-clip 全局状态 → 行内高亮）
+      this._clipUnsub = audioClip.subscribe(() => {
+        const s = audioClip.getState();
+        const playingId = s.playingKey && s.playingKey.indexOf('plctx-') === 0 ? Number(s.playingKey.slice(6)) : null;
+        const loadingId = s.loadingKey && s.loadingKey.indexOf('plctx-') === 0 ? Number(s.loadingKey.slice(6)) : null;
+        if (playingId !== this.data.ctxPlayingId || loadingId !== this.data.ctxLoadingId) {
+          this.setData({ ctxPlayingId: playingId, ctxLoadingId: loadingId });
+        }
+      });
     },
     ready() {
       this._drawRadar();
+    },
+    detached() {
+      if (this._clipUnsub) this._clipUnsub();
     },
   },
 
@@ -203,6 +220,30 @@ Component({
         })
         .catch(() => {
           wx.showToast({ title: '原声定位失败，稍后再试', icon: 'none' });
+        });
+    },
+
+    /**
+     * 语境原声试听（2026-11-15 红线放开）：字幕接口按 targetText 解析该弱项句
+     * 窗口 → 整集绝对窗口播放（同 key 再点 = 停止）；不跳页就地听。
+     */
+    onPlayContext(e) {
+      const i = e.currentTarget.dataset.index;
+      const row = this.data.rows[i];
+      if (!row || !row.episodeid) return;
+      const key = 'plctx-' + row.recognitionid;
+      if (audioClip.getState().playingKey === key) {
+        audioClip.stop();
+        return;
+      }
+      if (audioClip.getState().loadingKey === key) return;
+      episodeContext
+        .resolveContext({ episodeid: row.episodeid, text: row.targetText })
+        .then((r) => {
+          audioClip.play({ key, url: r.url, startTime: r.start, endTime: r.end });
+        })
+        .catch((err) => {
+          wx.showToast({ title: (err && err.message) || '语境原声加载失败', icon: 'none' });
         });
     },
 

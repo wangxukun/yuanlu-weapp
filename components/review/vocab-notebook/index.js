@@ -20,6 +20,8 @@ const vocabCore = require('../../../utils/vocab-core');
 const { get, post } = require('../../../utils/request');
 const membershipStore = require('../../../store/membershipStore');
 const tts = require('../../../utils/tts');
+const audioClip = require('../../../utils/audio-clip');
+const episodeContext = require('../../../utils/episode-context');
 const theme = require('../../../utils/theme');
 
 Component({
@@ -49,6 +51,9 @@ Component({
     expandedId: null,
     scrollInto: '',
 
+    ctxPlayingId: null, // 语境原声播放中的词 id（行内高亮）
+    ctxLoadingId: null,
+
     showPremiumModal: false,
     premiumSource: '',
 
@@ -65,6 +70,15 @@ Component({
       this._quotaHandler = (source) => {
         this.setData({ showPremiumModal: true, premiumSource: source });
       };
+      // 语境原声播放态（audio-clip 全局状态 → 行内高亮）
+      this._clipUnsub = audioClip.subscribe(() => {
+        const s = audioClip.getState();
+        const playingId = s.playingKey && s.playingKey.indexOf('vnctx-') === 0 ? Number(s.playingKey.slice(6)) : null;
+        const loadingId = s.loadingKey && s.loadingKey.indexOf('vnctx-') === 0 ? Number(s.loadingKey.slice(6)) : null;
+        if (playingId !== this.data.ctxPlayingId || loadingId !== this.data.ctxLoadingId) {
+          this.setData({ ctxPlayingId: playingId, ctxLoadingId: loadingId });
+        }
+      });
       this._syncTheme();
       if (this.data.active) {
         this.registerQuotaHandler();
@@ -74,6 +88,7 @@ Component({
     detached() {
       // 释放 TTS 配额槽位（复习页 tabBar 常驻，此清理仅在页面卸载时发生）
       tts.setQuotaHandler(null);
+      if (this._clipUnsub) this._clipUnsub();
     },
   },
 
@@ -235,6 +250,35 @@ Component({
         item.speakUrl ||
         '';
       tts.playUrl(url, item.word);
+    },
+
+    /**
+     * 语境原声（2026-11-15 红线放开）：字幕接口解析该词收藏语境句 →
+     * 整集绝对窗口播放（A工程同款三级匹配；同 key 再点 = 停止）。
+     */
+    onPlayContext(e) {
+      const id = e.currentTarget.dataset.id;
+      const item = this.findItem(id);
+      if (!item || !item.episodeid) return;
+      const key = 'vnctx-' + id;
+      if (audioClip.getState().playingKey === key) {
+        audioClip.stop();
+        return;
+      }
+      if (audioClip.getState().loadingKey === key) return;
+      episodeContext
+        .resolveContext({
+          episodeid: item.episodeid,
+          text: item.contextSentence || '',
+          word: item.word,
+          timestamp: typeof item.timestamp === 'number' ? item.timestamp : null,
+        })
+        .then((r) => {
+          audioClip.play({ key, url: r.url, startTime: r.start, endTime: r.end });
+        })
+        .catch((err) => {
+          wx.showToast({ title: (err && err.message) || '语境原声加载失败', icon: 'none' });
+        });
     },
 
     /** 展开面板音标胶囊发音（指定英/美音源） */

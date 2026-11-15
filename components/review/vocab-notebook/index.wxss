@@ -737,3 +737,8 @@ quota-card {
   margin-top: 14rpx;
   text-align: center;
 }
+
+/* 语境原声按钮（与 TTS 词发音并排，耳机图标；播放中切换为喇叭图标高亮） */
+.vn-play--ctx {
+  margin-left: 8rpx;
+}

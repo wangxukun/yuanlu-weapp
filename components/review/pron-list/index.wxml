@@ -96,6 +96,11 @@
               <text class="pl-row-date">{{item.dateText}}</text>
             </view>
           </view>
+          <!-- 语境原声试听（就地听，不进评测页；点击行其余区域仍直达攻克） -->
+          <view class="pl-row-ctx center {{ctxPlayingId === item.recognitionid ? 'pl-row-ctx--on' : ''}}"
+                hover-class="tap-dim" catchtap="onPlayContext" data-index="{{index}}">
+            <image class="pl-row-ctx-ic" src="{{ctxPlayingId === item.recognitionid ? '/assets/icons/volume-up-primary70.svg' : '/assets/icons/headset.svg'}}" />
+          </view>
         </view>
         <view wx:if="{{lockedCount > 0}}" class="pl-locked" hover-class="pl-locked-hover" bindtap="openUnlock">
           <view class="pl-icon-badge pl-icon-badge--primary">

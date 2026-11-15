@@ -12,6 +12,7 @@
  *   （600ms 静默窗防真机陈旧 currentTime 误触发，见 audio-clip 注释）
  */
 const audioClip = require('../../../utils/audio-clip');
+const episodeContext = require('../../../utils/episode-context');
 const theme = require('../../../utils/theme');
 
 Component({
@@ -76,12 +77,28 @@ Component({
 
     onTogglePlay() {
       if (this.data.loading) return;
+      // 切片直连（clipId / clipAudioUrl 在场时 audio-clip 零整集字幕请求）；
+      // 无切片源（早期收藏句）→ 2026-11-15 红线放开：经字幕接口解析签名
+      // 整集 URL，按 startTime→endTime 绝对窗口兜底播放
+      if (!this.data.clipId && !this.data.clipAudioUrl && this.data.episodeid) {
+        episodeContext
+          .resolveEpisode(this.data.episodeid)
+          .then((r) => {
+            audioClip.play({
+              key: this._key,
+              url: r.url,
+              startTime: this.data.startTime,
+              endTime: this.data.endTime,
+            });
+          })
+          .catch(() => wx.showToast({ title: '原声加载失败，请重试', icon: 'none' }));
+        return;
+      }
       audioClip.play({
         key: this._key,
         episodeid: this.data.episodeid,
         startTime: this.data.startTime,
         endTime: this.data.endTime,
-        // 切片直连（clipId / clipAudioUrl 在场时 audio-clip 零整集字幕请求）
         clipId: this.data.clipId || undefined,
         clipAudioUrl: this.data.clipAudioUrl || undefined,
         clipOffset: this.data.clipOffset || 0,

@@ -142,6 +142,15 @@
               >
                 <image class="vn-play-ic" src="{{dark ? '/assets/icons/volume-up-primary70-dark.svg' : '/assets/icons/volume-up-primary70.svg'}}" />
               </view>
+              <!-- 语境原声（字幕接口解析收藏句窗口；与 TTS 词发音并排） -->
+              <view
+                wx:if="{{item.episodeid && expandedId !== item.vocabularyid}}"
+                class="vn-play vn-play--ctx center tap-dim"
+                data-id="{{item.vocabularyid}}"
+                catchtap="onPlayContext"
+              >
+                <image class="vn-play-ic" src="{{ctxPlayingId === item.vocabularyid ? (dark ? '/assets/icons/volume-up-primary70-dark.svg' : '/assets/icons/volume-up-primary70.svg') : '/assets/icons/headset.svg'}}" />
+              </view>
             </view>
             <text class="vn-def ellipsis">{{item.defText}}</text>
             <text wx:if="{{item.contextSentence}}" class="vn-quote ellipsis">“{{item.contextSentence}}”</text>

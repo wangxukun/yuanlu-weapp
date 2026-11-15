@@ -578,3 +578,21 @@
   color: var(--pl-osv-60);
   margin-top: 4rpx;
 }
+
+/* 弱项行内「语境原声」耳机按钮（就地试听；播放中换喇叭图标高亮） */
+.pl-row-ctx {
+  flex-shrink: 0;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.pl-row-ctx-ic {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.pl-row-ctx--on .pl-row-ctx-ic {
+  transform: scale(1.08);
+}

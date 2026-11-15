@@ -100,7 +100,9 @@ const FORBIDDEN = [
   { re: /download-manager/, label: '整集离线下载模块残留' },
   { re: /transcript-preview/, label: '整集文稿预览模块残留' },
   { re: /\/api\/comment/, label: 'UGC 评论接口残留' },
-  { re: /\/api\/episode\/(detail|subtitles|deep-dive)/, label: '整集接口残留' },
+  // 2026-11-15 用户裁决：subtitles 放开（「听原声语境」经字幕接口解析语境窗口，
+  // utils/episode-context.js + audio-clip 显式 url 通道）；detail/deep-dive 仍禁
+  { re: /\/api\/episode\/(detail|deep-dive)/, label: '整集接口残留' },
   { re: /\/api\/speech\/practice-data/, label: '整集评测接口残留' },
   { re: /ai-deep-dive|subtitle-cache/, label: '已退役整集组件/缓存残留' },
   { re: /\/pages\/(intensive-listening|speech-eval)\/index\?id=/, label: '已退役 ?id= 剧集路由残留' },

@@ -1,6 +1,8 @@
 /**
  * utils/audio-clip.js — 语料切片原声播放底座
- * 完成「零整集 URL」改造（RESHAPE-TASK T2.1）：
+ * 完成「零整集 URL」改造（RESHAPE-TASK T2.1）；2026-11-15 用户裁决放开
+ * 「听原声语境」红线：新增显式 url 通道（episode-context 经字幕接口解析的
+ * 签名整集 URL + 字幕绝对窗口），切片直连仍为优先通道。
  *
  * 调用方传入 clipAudioUrl（或 clipId 由 GET /api/clips/{id}/audio 解析签名直链）时，
  * 直接播放服务端物理切片（单文件 ≤40s），网络层不出现任何整集长音频请求；
@@ -199,12 +201,14 @@ function startWindow(url, key, token, winStart, winEnd, offset) {
  * 播放一段语料切片原声。
  * @param {Object} params
  * @param {string} params.key 播放项唯一标识，用于状态高亮
- * @param {string} [params.clipAudioUrl] 服务端物理切片签名直链（切片直连）
+ * @param {string} [params.clipAudioUrl] 服务端物理切片签名直链（切片直连，优先）
  * @param {string} [params.clipId] 语料切片 id（经 /api/clips/{id}/audio 解析直链）
  * @param {number} [params.clipDuration] 切片时长（秒；无显式窗口时整段播放）
  * @param {number} [params.clipOffset] 切片在原字幕时间轴上的起点（秒）
  * @param {number} [params.startTime] 目标起点（字幕绝对时间秒）
  * @param {number} [params.endTime] 目标终点（字幕绝对时间秒）
+ * @param {string} [params.url] 显式签名直链（2026-11-15 红线放开：episode-context
+ *   由字幕接口解析的整集 URL；配 startTime/endTime 绝对窗口播放，无切片源时生效）
  * @param {Function} [params.onBeforePlay] 播放前回调（页面级额外清理）
  */
 async function play(params) {
@@ -213,7 +217,7 @@ async function play(params) {
     clipId, clipAudioUrl,
   } =
     params || {};
-  if (!key || (!episodeid && !clipAudioUrl && !clipId)) return;
+  if (!key || (!episodeid && !clipAudioUrl && !clipId && !params.url)) return;
   if (playingKey === key) {
     stop(); // 同 key 再点 = 停止（toggle）
     return;
@@ -232,32 +236,39 @@ async function play(params) {
   loadingKey = key;
   notify();
   try {
-    // ── 切片直连（唯一合规通道，零整集 URL）：显式 startTime/endTime 为字幕绝对时间 →
-    //    换算切片内相对窗口；无显式窗口整段播放（0 ~ duration）
+    // ── 通道一：切片直连（优先，零整集 URL）：显式 startTime/endTime 为字幕
+    //    绝对时间 → 换算切片内相对窗口；无显式窗口整段播放（0 ~ duration）
     const clip = resolveClipSource(params);
-    if (!clip) {
-      wx.showToast({ title: '暂时无法播放原声', icon: 'none' });
+    if (clip) {
+      const resolved = await clip;
+      if (token !== playToken) return;
+      if (!resolved.url) {
+        wx.showToast({ title: '暂时无法播放原声', icon: 'none' });
+        return;
+      }
+      const offset = resolved.offset || 0;
+      const explicit =
+        typeof startTime === 'number' &&
+        isFinite(startTime) &&
+        typeof endTime === 'number' &&
+        isFinite(endTime);
+      if (explicit) {
+        startWindow(resolved.url, key, token, Math.max(0, startTime - offset), endTime - offset, offset);
+      } else if (resolved.duration > 0) {
+        startWindow(resolved.url, key, token, 0, resolved.duration, offset);
+      } else {
+        startWindow(resolved.url, key, token, 0, null, offset);
+      }
       return;
     }
-    const resolved = await clip;
-    if (token !== playToken) return;
-    if (!resolved.url) {
-      wx.showToast({ title: '暂时无法播放原声', icon: 'none' });
+    // ── 通道二：显式签名 URL（2026-11-15 用户裁决放开「听原声语境」红线：
+    //    调用方经 episode-context 由字幕接口解析的整集 URL + 字幕绝对窗口；
+    //    startTime/endTime 为绝对秒，无偏移直接开播）
+    if (params.url) {
+      startWindow(params.url, key, token, startTime || 0, endTime || null, 0);
       return;
     }
-    const offset = resolved.offset || 0;
-    const explicit =
-      typeof startTime === 'number' &&
-      isFinite(startTime) &&
-      typeof endTime === 'number' &&
-      isFinite(endTime);
-    if (explicit) {
-      startWindow(resolved.url, key, token, Math.max(0, startTime - offset), endTime - offset, offset);
-    } else if (resolved.duration > 0) {
-      startWindow(resolved.url, key, token, 0, resolved.duration, offset);
-    } else {
-      startWindow(resolved.url, key, token, 0, null, offset);
-    }
+    wx.showToast({ title: '暂时无法播放原声', icon: 'none' });
   } catch (e) {
     wx.showToast({ title: '原声信息加载失败', icon: 'none' });
     stop();
