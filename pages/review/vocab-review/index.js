@@ -21,6 +21,7 @@ const { get, post } = require('../../../utils/request');
 const tts = require('../../../utils/tts');
 const theme = require('../../../utils/theme');
 const audioClip = require('../../../utils/audio-clip');
+const episodeContext = require('../../../utils/episode-context');
 
 /**
  * 复习状态码 → UI 元数据映射（总结页四宫格主题色 + 逐词列表右侧文本色共用，
@@ -175,35 +176,27 @@ Page({
   },
 
   /**
-   * 背面「原声出处」卡右上角：听语境句原声。语境句懒解析为 corpus 切片
-   * （/api/vocabulary/context-clip）→ audioClip 窗口播放（clipId 直连切片
-   * 网关，含缓存与同键 toggle；音频侧错误由 audio-clip 内部 toast）
+   * 背面「原声出处」卡右上角：听语境句原声。2026-11-15 红线放开——
+   * 字幕接口解析（episode-context 三级匹配 + 剧集缓存）→ audioClip 显式
+   * url 窗口播放（生产即时生效，不依赖 context-clip 端点部署）
    */
   async onPlayContext() {
     const item = this.data.current;
-    if (!item || !item.contextSentence || !item.episodeid) return;
+    if (!item || !item.episodeid) return;
     const key = 'vrctx:' + (item.vocabularyid || item.word);
     tts.stop();
+    const state = audioClip.getState();
+    if (state && state.playingKey === key) return audioClip.stop();
     try {
-      const state = audioClip.getState();
-      if (state && state.playingKey === key) return audioClip.stop();
-      const q = await get('/api/vocabulary/context-clip', {
+      const r = await episodeContext.resolveContext({
         episodeid: item.episodeid,
-        text: item.contextSentence,
+        text: item.contextSentence || '',
         word: item.word,
-        timestamp: item.timestamp == null ? undefined : item.timestamp,
-      }, { showError: false });
-      if (!q || !q.success || !q.data) {
-        throw new Error((q && (q.error || q.message)) || '未找到该词的原声语境');
-      }
-      audioClip.play({
-        key,
-        clipId: q.data.clipid,
-        startTime: q.data.start,
-        endTime: q.data.end,
+        timestamp: typeof item.timestamp === 'number' ? item.timestamp : null,
       });
+      audioClip.play({ key, url: r.url, startTime: r.start, endTime: r.end });
     } catch (err) {
-      wx.showToast({ title: err.message || '原声加载失败，请重试', icon: 'none' });
+      wx.showToast({ title: (err && err.message) || '原声加载失败，请重试', icon: 'none' });
     }
   },
 

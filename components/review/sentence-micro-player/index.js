@@ -89,6 +89,7 @@ Component({
               url: r.url,
               startTime: this.data.startTime,
               endTime: this.data.endTime,
+              loop: this.data.loop,
             });
           })
           .catch(() => wx.showToast({ title: '原声加载失败，请重试', icon: 'none' }));
@@ -103,6 +104,7 @@ Component({
         clipAudioUrl: this.data.clipAudioUrl || undefined,
         clipOffset: this.data.clipOffset || 0,
         clipDuration: this.data.clipDuration || 0,
+        loop: this.data.loop,
       });
     },
 

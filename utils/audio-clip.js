@@ -209,6 +209,10 @@ function startWindow(url, key, token, winStart, winEnd, offset) {
  * @param {number} [params.endTime] 目标终点（字幕绝对时间秒）
  * @param {string} [params.url] 显式签名直链（2026-11-15 红线放开：episode-context
  *   由字幕接口解析的整集 URL；配 startTime/endTime 绝对窗口播放，无切片源时生效）
+ * @param {boolean} [params.loop=false] 到窗终是否回句首续播——**按次传入**：
+ *   微播放器单句循环是其专属交互，此前模块级全局 looping 会从微播放器
+ *   泄漏到其他入口（语境原声播完无限循环），现默认每次播放重置为 false，
+ *   微播放器显式携带自身循环开关；播放中切换仍走 setLoop 不打断
  * @param {Function} [params.onBeforePlay] 播放前回调（页面级额外清理）
  */
 async function play(params) {
@@ -231,6 +235,10 @@ async function play(params) {
     }
   }
   audioBus.stopAll(CLIP_STOP); // 停 TTS 等其余发声源（互斥）
+
+  // 循环按次初始化（默认关）：防其他入口（微播放器等）遗留的全权循环态
+  // 泄漏到本次播放——语境原声等播到窗终即自动停止
+  looping = !!params.loop;
 
   const token = ++playToken;
   loadingKey = key;
