@@ -19,6 +19,7 @@
 //   左滑/下一句 = 跳过不评分
 const sentenceCore = require('../../../utils/sentence-core');
 const audioClip = require('../../../utils/audio-clip');
+const episodeContext = require('../../../utils/episode-context');
 const membershipStore = require('../../../store/membershipStore');
 const theme = require('../../../utils/theme');
 const srs = require('../../../utils/srs');
@@ -282,10 +283,33 @@ Page({
 
   /* ---------------- 卡片交互 ---------------- */
 
-  /** 重听原音（audio-clip 显式窗口 + 互斥；再点停止 toggle） */
+  /**
+   * 重听原音（audio-clip 显式窗口 + 互斥；再点停止 toggle）。
+   * 切片直连优先；非 clip 句子（早期收藏句缺切片数据）→ 2026-11-15 红线
+   * 放开后走整集窗口兜底：字幕绝对窗口在场直接用，否则按句文本三级匹配。
+   */
   onReplay() {
     const card = this.data.card;
     if (!card) return;
+    if (!card.clipId && !card.clipAudioUrl && card.episodeid) {
+      const hasWindow =
+        typeof card.startTime === 'number' &&
+        typeof card.endTime === 'number' &&
+        card.endTime > card.startTime;
+      const resolve = hasWindow
+        ? episodeContext
+            .resolveEpisode(card.episodeid)
+            .then((r) => ({ url: r.url, start: card.startTime, end: card.endTime }))
+        : episodeContext.resolveContext({ episodeid: card.episodeid, text: card.enText || '' });
+      resolve
+        .then((r) => {
+          audioClip.play({ key: 'deck:' + card.id, url: r.url, startTime: r.start, endTime: r.end });
+        })
+        .catch((err) => {
+          wx.showToast({ title: (err && err.message) || '原声加载失败，请重试', icon: 'none' });
+        });
+      return;
+    }
     audioClip.play({
       key: 'deck:' + card.id,
       episodeid: card.episodeid,
