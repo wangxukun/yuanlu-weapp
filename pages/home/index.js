@@ -298,7 +298,7 @@ Page({
     // ── 切片播放（clip/scene/daily/relay 分时复用同一私有播放器） ──
     activeIdx: -1, // plan.clips 下标（custom 卡）
     playing: false,
-    isLooping: true,
+    isLooping: false, // [2026-11-15] 听原声默认单次播放（句末循环钮可手动开；时段冲刺/挑战同款仍按需置 true）
     activeWordIndex: -1,
     loadingClipIdx: -1, // 懒取直链中的卡片（播放键转 spinner）
 
