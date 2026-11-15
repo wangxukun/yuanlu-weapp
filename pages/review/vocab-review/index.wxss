@@ -387,6 +387,31 @@
   border-radius: var(--r-lg);
   padding: 28rpx;
 }
+/* 卡头行：标签左 + 「听原声语境」图标按钮右 */
+.vr-ctx-head {
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+.vr-ctx-head .vr-sec-label {
+  align-self: center;
+}
+.vr-ctx-play {
+  flex-shrink: 0;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: rgba(31, 122, 92, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vr-ctx-play--hover {
+  opacity: 0.72;
+}
+.vr-ctx-play-ic {
+  width: 32rpx;
+  height: 32rpx;
+}
 .vr-ctx-sentence {
   font-size: 28rpx; /* bodySmall 12sp（原声例句） */
   color: var(--vr-ink);

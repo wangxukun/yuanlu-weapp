@@ -145,9 +145,14 @@
               </view>
               <text wx:elif="{{current.definition}}" class="vr-def-fallback">{{current.definition}}</text>
 
-              <!-- 原声出处卡（渐变底 + 描边；目标词加粗主题绿） -->
+              <!-- 原声出处卡（渐变底 + 描边；目标词加粗主题绿；右上角语境原声播放） -->
               <view wx:if="{{current.contextSentence}}" class="vr-ctx col">
-                <text class="vr-sec-label">原声出处</text>
+                <view class="row vr-ctx-head">
+                  <text class="vr-sec-label">原声出处</text>
+                  <view class="vr-ctx-play" hover-class="vr-ctx-play--hover" bindtap="onPlayContext">
+                    <image class="vr-ctx-play-ic" src="/assets/icons/volume-up-secondary.svg" />
+                  </view>
+                </view>
                 <view class="vr-ctx-sentence">
                   <text wx:for="{{current.contextParts}}" wx:for-item="seg" wx:key="index"
                         class="{{seg.hit ? 'vr-ctx-hl' : ''}}">{{seg.text}}</text>

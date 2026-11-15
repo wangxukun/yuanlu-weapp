@@ -174,6 +174,39 @@ Page({
     tts.playUrl(url, item.word);
   },
 
+  /**
+   * 背面「原声出处」卡右上角：听语境句原声。语境句懒解析为 corpus 切片
+   * （/api/vocabulary/context-clip）→ audioClip 窗口播放（clipId 直连切片
+   * 网关，含缓存与同键 toggle；音频侧错误由 audio-clip 内部 toast）
+   */
+  async onPlayContext() {
+    const item = this.data.current;
+    if (!item || !item.contextSentence || !item.episodeid) return;
+    const key = 'vrctx:' + (item.vocabularyid || item.word);
+    tts.stop();
+    try {
+      const state = audioClip.getState();
+      if (state && state.playingKey === key) return audioClip.stop();
+      const q = await get('/api/vocabulary/context-clip', {
+        episodeid: item.episodeid,
+        text: item.contextSentence,
+        word: item.word,
+        timestamp: item.timestamp == null ? undefined : item.timestamp,
+      }, { showError: false });
+      if (!q || !q.success || !q.data) {
+        throw new Error((q && (q.error || q.message)) || '未找到该词的原声语境');
+      }
+      audioClip.play({
+        key,
+        clipId: q.data.clipid,
+        startTime: q.data.start,
+        endTime: q.data.end,
+      });
+    } catch (err) {
+      wx.showToast({ title: err.message || '原声加载失败，请重试', icon: 'none' });
+    }
+  },
+
   syncAudioState() {
     const { playingText } = tts.getState();
     const { playingKey, loadingKey } = audioClip.getState();
