@@ -699,8 +699,9 @@
             <text class="st-a4-t st-a4-t--coach">评测记录</text>
           </view>
 
-          <!-- 真实录音：再次点击停止，最长 60 秒 -->
-          <view class="st-a4 st-a4--shadow {{recordingClipId === dclip.id ? 'st-a4--shadow-rec' : ''}} {{evaluatingClipId === dclip.id ? 'st-a4--shadow-eval' : ''}} {{dclip.completed ? 'st-a4--shadow-done' : ''}}"
+          <!-- 真实录音：再次点击停止，最长 60 秒（状态类互斥：录音>评分>完成，
+               否则已完成卡重录时 done 浅灰底覆盖 rec 红底，白字不可读） -->
+          <view class="st-a4 st-a4--shadow {{recordingClipId === dclip.id ? 'st-a4--shadow-rec' : evaluatingClipId === dclip.id ? 'st-a4--shadow-eval' : dclip.completed ? 'st-a4--shadow-done' : ''}}"
                 data-idx="{{di}}" bindtap="onDailyShadowStart">
             <image class="st-a4-ic" src="{{recordingClipId === dclip.id || (!dclip.completed && evaluatingClipId !== dclip.id) ? '/assets/icons/mic-filled.svg' : '/assets/icons/mic-gray.svg'}}" />
             <text class="st-a4-t {{recordingClipId === dclip.id || (!dclip.completed && evaluatingClipId !== dclip.id) ? 'st-a4-t--white' : 'st-a4-t--muted'}}">{{recordingClipId === dclip.id ? '停止并评测 (' + recordingSeconds + 's)' : shadowPreparingId === dclip.id ? '准备录音…' : evaluatingClipId === dclip.id ? '评分中...' : dclip.evalResult ? '重录跟读' : '开始跟读挑战'}}</text>
