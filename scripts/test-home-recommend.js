@@ -53,6 +53,8 @@ assert(js.includes("_scrollAnchorToTop('#stReviewDeck')"), 'E1 展开闪卡清�
 // —— 场景 E2：趣味合集连播链契约（T11——连播态不被单棒播放路径清空） ——
 assert(js.includes('if (!(opts && opts.compilation)) this._stopCompilation()'), 'E2 连播链内旁路清连播态');
 assert(js.split('compilation: true').length - 1 >= 2, 'E2 连播两调用点（起播/棒次推进）携 compilation 标记');
+assert(js.includes('_advanceBaton') && js.includes('_armBatonFallback') && !js.includes('_scheduleBaton(room'),
+  'E2 连播推进=自然播完事件驱动（_advanceBaton）+时长兜底（_armBatonFallback），固定 5.2s 定时器退役');
 
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');

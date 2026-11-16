@@ -1332,6 +1332,12 @@ Page({
     if (this._activeKind === 'relay' || this._activeKind === 'review' || this._activeKind === 'shadow-user' || this._activeKind === 'shadow-word') {
       this._atEnd = true;
       this._relPos = 0;
+      // 连播中：本棒自然播完即时推进（T9——固定 5.2s 会掐断长句；末棒
+      // 无下一棒定时器故此前总能播完，即本 BUG 的不对称表现）
+      if (this._activeKind === 'relay' && this.data.playingRoomId) {
+        const room = (this.data.relayRooms || []).find((r) => r.id === this.data.playingRoomId);
+        if (room) this._advanceBaton(room, this.data.playingStep);
+      }
       return;
     }
     if (this.data.isLooping) {
@@ -1968,25 +1974,35 @@ Page({
     this._activeKind = 'relay';
     this.setData({ playingRoomId: room.id, playingStep: 1, relayActiveSegId: '' });
     this._playRelaySeg(room.segments[0], { sweep: false, compilation: true });
-    this._scheduleBaton(room, 1);
+    this._armBatonFallback(room, 1);
   },
 
-  /** 5.2s 接力棒：到点推进下一棒，末棒自然收播复位（B useEffect 编译棒） */
-  _scheduleBaton(room, step) {
+  /** 推进到下一棒（末棒则收播复位）——由本棒自然播完（_onClipEnd）触发 */
+  _advanceBaton(room, step) {
+    if (this.data.playingRoomId !== room.id) return;
+    const next = step + 1;
+    if (next <= room.segments.length) {
+      this.setData({ playingStep: next });
+      this._playRelaySeg(room.segments[next - 1], { sweep: false, compilation: true });
+      this._armBatonFallback(room, next);
+    } else {
+      this._stopCompilation();
+    }
+  },
+
+  /**
+   * 兜底定时器（本棒时长 + 3s）：正常由 _onClipEnd 事件推进并在此重置；
+   * 仅当结束事件丢失（懒取失败/低版本异常）时接管，防止连播悬挂
+   */
+  _armBatonFallback(room, step) {
     if (this._batonTimer) clearTimeout(this._batonTimer);
+    const seg = room.segments[step - 1] || {};
+    const dur = Math.max(1, Number(seg.duration) || 5.2);
     this._batonTimer = setTimeout(() => {
       this._batonTimer = null;
-      // 期间可能已被停止/换了房间
       if (this.data.playingRoomId !== room.id) return;
-      const next = step + 1;
-      if (next <= room.segments.length) {
-        this.setData({ playingStep: next });
-        this._playRelaySeg(room.segments[next - 1], { sweep: false, compilation: true });
-        this._scheduleBaton(room, next);
-      } else {
-        this._stopCompilation();
-      }
-    }, 5200);
+      this._advanceBaton(room, step);
+    }, dur * 1000 + 3000);
   },
 
   _stopCompilation() {
