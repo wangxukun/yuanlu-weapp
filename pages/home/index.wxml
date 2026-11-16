@@ -887,6 +887,7 @@
               <text wx:if="{{room.status === 'recruiting'}}" class="st-room-status st-room-status--rec">📡 待你接第 {{room.segments.length + 1}} 棒</text>
               <text wx:else class="st-room-status st-room-status--done">🎞 趣味合集已生成</text>
               <text class="st-room-topic">{{room.topic}}</text>
+              <text wx:if="{{room.isDemo}}" class="st-room-demo">演示数据</text>
               <text class="st-room-meta">{{room.difficulty}} · 发起人 {{room.initiatorName}}</text>
             </view>
             <text class="st-room-title">{{room.title}}</text>

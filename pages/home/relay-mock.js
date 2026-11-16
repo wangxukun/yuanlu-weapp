@@ -120,7 +120,8 @@ function buildInitialRooms() {
 let rooms = buildInitialRooms();
 
 function listRooms() {
-  return rooms;
+  // isDemo：未登录兜底演示房标识（前端据此显示「演示数据」，防假分误解）
+  return rooms.map((r) => Object.assign({}, r, { isDemo: true }));
 }
 
 /** 发起接力（B /api/relay/create 逐字；starter 为完整切片对象而非仅 id） */
