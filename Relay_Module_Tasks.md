@@ -10,7 +10,7 @@
 
 - [x] **T1 招募房红标闪烁动画**（✅ 2026-11-16 已实施）：`st-room-status--rec` 加 `st-pulse` 1.2s 呼吸闪烁（复用录音键同款 keyframes）。
 - [x] **T2 语伴头像状态环**（✅ 2026-11-16 已实施）：已录=绿实环（既有 --on）、待接=琥珀黄虚线环（新增 --wait）。
-- [ ] **T3 跟读接力 tab 动态角标**：`recruitingCount` 现只在接力页 hero 显示——补 tab 右上角玫红色角标（待接棒房间数，>0 才显示）。
+- [x] **T3 跟读接力 tab 动态角标**（✅ 2026-11-16 已实施）：tab 右上角玫红圆角标显示待接棒房间数（recruitingCount >0 才渲染）。
 - [x] **T9 连播棒次按时长推进**（✅ 2026-11-16 已实施，超预期方案）：废弃固定 5.2s 定时器——改「本棒自然播完事件（_onClipEnd）驱动推进 + 本棒时长+3s 兜底定时器」，长句不掐断、短句不空等、事件丢失有兜底。
 - [x] **T11 修复「一键连播趣味合集」只播第一棒**（用户报障，✅ 2026-11-16 已修复）：
   - 根因初判：`_playRelaySeg` 开头调用 `_stopCompilation()` 清空 `playingRoomId`；`_scheduleBaton` 定时器回调先 `_playRelaySeg(seg2)` 再检查 `playingRoomId !== room.id` → 恒成立而提前 return，第二棒起永不推进。

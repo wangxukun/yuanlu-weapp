@@ -329,6 +329,7 @@
           hover-class="st-tab--hover" data-key="{{tab.key}}" bindtap="onTabTap">
       <text class="st-tab-ic">{{tab.icon}}</text>
       <text class="st-tab-label">{{tab.label}}</text>
+      <view wx:if="{{tab.key === 'relay' && recruitingCount > 0}}" class="st-tab-badge">{{recruitingCount}}</view>
     </view>
   </view>
 
