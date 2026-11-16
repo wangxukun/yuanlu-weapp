@@ -50,6 +50,10 @@ assert(wxmlHome.includes('id="stTabsRow"') && wxmlHome.includes('id="stReviewDec
 assert(js.split("_scrollAnchorToTop('#stTabsRow')").length - 1 >= 4, 'E1 四入口滚动 tab 栏（今日跟读/思辨特训/跟读冲刺/发起接力）');
 assert(js.includes("_scrollAnchorToTop('#stReviewDeck')"), 'E1 展开闪卡清单滚动置顶（积累单词量/到期生词复习）');
 
+// —— 场景 E2：趣味合集连播链契约（T11——连播态不被单棒播放路径清空） ——
+assert(js.includes('if (!(opts && opts.compilation)) this._stopCompilation()'), 'E2 连播链内旁路清连播态');
+assert(js.split('compilation: true').length - 1 >= 2, 'E2 连播两调用点（起播/棒次推进）携 compilation 标记');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');

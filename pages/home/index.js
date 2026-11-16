@@ -1917,7 +1917,10 @@ Page({
   _playRelaySeg(seg, opts) {
     const kind = (opts && opts.kind) || 'relay';
     this._pausePlayback();
-    this._stopCompilation();
+    // 连播链内（opts.compilation）不清连播态——_stopCompilation 会清
+    // playingRoomId/playingStep，令 _scheduleBaton 守卫恒提前退出（T11）；
+    // 单棒试听/示范等手动播放仍默认停连播
+    if (!(opts && opts.compilation)) this._stopCompilation();
     this._activeKind = kind;
     this._lastWordIdx = -99;
     this._relaySeg = { id: seg.id, words: seg.words || [], offset: 0, winEnd: seg.end };
@@ -1964,7 +1967,7 @@ Page({
     this._pausePlayback();
     this._activeKind = 'relay';
     this.setData({ playingRoomId: room.id, playingStep: 1, relayActiveSegId: '' });
-    this._playRelaySeg(room.segments[0], { sweep: false });
+    this._playRelaySeg(room.segments[0], { sweep: false, compilation: true });
     this._scheduleBaton(room, 1);
   },
 
@@ -1978,7 +1981,7 @@ Page({
       const next = step + 1;
       if (next <= room.segments.length) {
         this.setData({ playingStep: next });
-        this._playRelaySeg(room.segments[next - 1], { sweep: false });
+        this._playRelaySeg(room.segments[next - 1], { sweep: false, compilation: true });
         this._scheduleBaton(room, next);
       } else {
         this._stopCompilation();
