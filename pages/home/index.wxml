@@ -901,7 +901,7 @@
           <view class="st-room-invited-left">
             <view class="st-room-avas">
               <image wx:for="{{room.invitedUsers}}" wx:for-item="u" wx:key="name"
-                     class="st-rl-ava-sm {{u.status === 'joined' ? 'st-rl-ava-sm--on' : ''}}" src="{{u.avatar}}" />
+                     class="st-rl-ava-sm {{u.status === 'joined' ? 'st-rl-ava-sm--on' : 'st-rl-ava-sm--wait'}}" src="{{u.avatar}}" />
             </view>
             <view class="st-room-invited-names">
               <text wx:for="{{room.invitedUsers}}" wx:for-item="u" wx:key="name" class="st-room-invited-name">

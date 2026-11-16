@@ -2177,6 +2177,12 @@
   border-color: var(--primary-500);
 }
 
+.st-rl-ava-sm--wait {
+  /* T2：受邀待接=琥珀黄虚线环（B 规格，与已录绿实环相对） */
+  border-color: #d28a17;
+  border-style: dashed;
+}
+
 .st-rl-hero-partners-text {
   font-size: 20rpx;
   color: rgba(232, 227, 217, 0.7);
