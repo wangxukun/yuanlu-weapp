@@ -2427,6 +2427,8 @@
 .st-room-status--rec {
   color: var(--error-500);
   background: rgba(210, 80, 63, 0.12);
+  /* T1：招募态红标呼吸闪烁（B 规格，复用录音键同款 keyframes） */
+  animation: st-pulse 1.2s ease-in-out infinite;
 }
 
 .st-room-status--done {
