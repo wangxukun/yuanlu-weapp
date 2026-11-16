@@ -2292,18 +2292,20 @@
   font-size: 22rpx;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* T14：取消单行截断，完整换行显示 */
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .st-rl-clip-zh {
   display: block;
   font-size: 20rpx;
   color: rgba(232, 227, 217, 0.6);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* T14：取消单行截断，完整换行显示 */
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
   margin-top: 4rpx;
 }
 
@@ -2316,7 +2318,11 @@
 .st-rl-title-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 18rpx 24rpx;
+  /* T14：增高并使输入文本垂直居中完整显示 */
+  min-height: 88rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
   border-radius: 24rpx;
   background: rgba(0, 0, 0, 0.3);
   border: 1rpx solid rgba(255, 255, 255, 0.15);
