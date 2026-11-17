@@ -5588,3 +5588,12 @@
 .st-rl-draft-btn--hover{opacity:0.72}
 .st-rl-draft-btn--go{flex:1.2;background:linear-gradient(100deg,var(--primary-600),#2f9e8a)}
 .st-rl-draft-discard{font-size:20rpx;color:rgba(232,227,217,0.45);text-decoration:underline}
+
+/* 草稿态：提示文案与领读评分卡改上下布局（评分卡整宽不再与长文案左右互挤） */
+.st-rl-drawer-foot--draft {
+  flex-direction: column;
+  align-items: stretch;
+}
+.st-rl-drawer-foot--draft .st-rl-drawer-foot-note {
+  width: 100%;
+}

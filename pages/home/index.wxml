@@ -857,7 +857,7 @@
                maxlength="30" placeholder="例如：深夜慢读接力 · 寻找同频声音..."
                placeholder-class="st-rl-title-ph" />
 
-        <view class="st-rl-drawer-foot">
+        <view class="st-rl-drawer-foot {{relayDraft ? 'st-rl-drawer-foot--draft' : ''}}">
           <text class="st-rl-drawer-foot-note">录制完成后，语伴将自动接棒第 2 棒，第 3 棒留给下一位语伴压轴并合成趣味合集</text>
           <!-- T12：评测后草稿面板（试听/重录/满意提交/放弃） -->
           <view wx:if="{{relayDraft}}" class="st-rl-draft">
