@@ -61,6 +61,7 @@ function mapRoom(r) {
     initiatorAvatar: r.initiatorAvatar,
     likes: r.likes || 0,
     likedByMe: !!r.likedByMe,
+    isMine: !!r.isMine,
     invitedUsers: r.invitedUsers || [],
     segments: (r.segments || []).map(mapSegment),
     nextPromptSegment: r.nextPromptSegment
@@ -106,4 +107,15 @@ async function likeRoom(roomId) {
   return body.data;
 }
 
-module.exports = { fetchRooms, createRoom, joinRoom, likeRoom };
+/** 发起人撤销未完成接力 → 房间与棒次删除（评测/连胜保留） */
+async function cancelRoom(roomId) {
+  const body = await post('/api/relay/cancel', { roomId }, { showError: false });
+  if (!body || !body.success) {
+    const err = new Error((body && body.error) || '撤销失败');
+    err.body = body || null;
+    throw err;
+  }
+  return body;
+}
+
+module.exports = { fetchRooms, createRoom, joinRoom, likeRoom, cancelRoom };

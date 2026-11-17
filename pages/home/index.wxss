@@ -5597,3 +5597,19 @@
 .st-rl-drawer-foot--draft .st-rl-drawer-foot-note {
   width: 100%;
 }
+
+/* 发起人撤销入口（仅招募中的自己房） */
+.st-room-cancel {
+  padding: 8rpx 18rpx;
+  border-radius: 18rpx;
+  background: rgba(210, 80, 63, 0.1);
+  border: 1rpx solid rgba(210, 80, 63, 0.35);
+}
+.st-room-cancel--hover {
+  opacity: 0.7;
+}
+.st-room-cancel-text {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--error-500);
+}

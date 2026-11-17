@@ -906,6 +906,10 @@
             </view>
             <text class="st-room-title">{{room.title}}</text>
           </view>
+          <view wx:if="{{room.isMine && room.status === 'recruiting' && !room.isDemo}}" class="st-room-cancel" hover-class="st-room-cancel--hover"
+                data-rid="{{room.id}}" bindtap="onCancelRelay">
+            <text class="st-room-cancel-text">撤销接力</text>
+          </view>
           <view class="st-room-like" hover-class="st-room-like--hover" data-rid="{{room.id}}" bindtap="onLikeRelay">
             <text class="st-room-like-heart">♥</text>
             <text class="st-room-like-count">{{room.likes}}</text>

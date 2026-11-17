@@ -1926,6 +1926,34 @@ Page({
     });
   },
 
+  /** 发起人撤销接力（任务单第十三项）：仅招募中且第 3 棒无真人的自己房 */
+  onCancelRelay(e) {
+    const rid = e.currentTarget.dataset.rid;
+    const room = this.data.relayRooms.find((r) => r.id === rid);
+    if (!room || !room.isMine || room.status !== 'recruiting' || room.isDemo) return;
+    if (this.data.relaySubmitting || this.data.relayRecording) return;
+    wx.showModal({
+      title: '撤销这条接力？',
+      content: '撤销后房间与已录棒次将删除，无法恢复（你的评测成绩与连胜保留）。',
+      confirmText: '撤销',
+      confirmColor: '#d2503f',
+      success: (res) => {
+        if (!res.confirm) return;
+        relayApi.cancelRoom(rid).then(() => {
+          const rooms = this.data.relayRooms.filter((r) => r.id !== rid);
+          this.setData({
+            relayRooms: rooms,
+            recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
+          });
+          if (this.data.playingRoomId === rid) this._stopCompilation();
+          wx.showToast({ title: '已撤销', icon: 'success' });
+        }).catch((err) => {
+          wx.showToast({ title: (err.body && err.body.error) || err.message || '撤销失败，请重试', icon: 'none' });
+        });
+      },
+    });
+  },
+
   /** 点赞（真实房当日幂等；未登录/mock 房保留乐观） */
   onLikeRelay(e) {
     const rid = e.currentTarget.dataset.rid;

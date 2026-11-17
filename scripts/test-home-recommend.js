@@ -60,6 +60,12 @@ assert(js.includes('_advanceBaton') && js.includes('_armBatonFallback') && !js.i
 assert(read('pages/home/index.js').includes('relayDraft') && read('pages/home/index.js').includes('onSubmitRelayDraft') && read('pages/home/index.js').includes('onRetryRelayDraft') && read('pages/home/index.js').includes('onPlayRelayDraft'), 'E3 草稿三态处理器齐（试听/重录/提交）');
 assert(read('pages/home/index.js').includes('_relayRoomCreated'), 'E3 建房成功收尾抽公共函数');
 
+// —— 场景 E4：发起人撤销契约（撤销接口+isMine 透传+二次确认） ——
+const relayApiSrc = read('pages/home/relay-api.js');
+assert(relayApiSrc.includes('cancelRoom') && relayApiSrc.includes('/api/relay/cancel'), 'E4 撤销 API 存在');
+assert(relayApiSrc.includes('isMine: !!r.isMine'), 'E4 mapRoom 透传 isMine（映射层铁律）');
+assert(read('pages/home/index.js').includes('onCancelRelay') && read('pages/home/index.js').includes('wx.showModal'), 'E4 撤销处理器含二次确认');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');
