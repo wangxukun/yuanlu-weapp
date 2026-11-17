@@ -285,6 +285,7 @@ Page({
     relayRecording: '', // 'create' | roomId —— 录音中（真录音链，relayCountdown=已录秒数）
     relayCountdown: 0,
     relaySubmitting: false, // 录音已停、评测+建房/接棒提交中
+    relayDraft: null, // T12：录第 1 棒评测后草稿（试听/重录/满意后提交）
     playingRoomId: '', // 合集连播中的房间
     playingStep: 0, // 连播当前棒（1 基）
     relayActiveSegId: '', // 单棒试听中的段 id
@@ -1734,6 +1735,76 @@ Page({
   },
 
   /** 停录→评测→建房/接棒（提交期 relaySubmitting 挡住按钮重复点击） */
+  /** 建房/接棒成功收尾：新房置顶、清输入、刷榜点灯、连播（create/join 共用） */
+  _relayRoomCreated(room, recognitionId, isCreate) {
+    const rooms = [room].concat(this.data.relayRooms.filter((r) => r.id !== room.id));
+    this.setData({
+      relayRooms: rooms,
+      recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
+      showCreateRelay: isCreate ? false : this.data.showCreateRelay,
+      newRelayTitle: isCreate ? '' : this.data.newRelayTitle,
+      relayDraft: null,
+    });
+    this._loadLeaderboard();
+    if (recognitionId) this._igniteStreakBySpeech(recognitionId); // 接力开口也算连胜验收
+    // 工具模拟器录音评测恒 0 分（微信官方限制）：链路照走，归因提示
+    if (recorder.isDevtools()) {
+      wx.showToast({ title: '工具录音评分恒 0 分（微信限制），真机预览出真分', icon: 'none' });
+    }
+    this._startCompilation(room);
+  },
+
+  /** T12 草稿·试听自己的第 1 棒录音（本机临时文件直连播放） */
+  onPlayRelayDraft() {
+    const d = this.data.relayDraft;
+    if (!d || !d.wavPath || this.data.relaySubmitting) return;
+    this._playRelaySeg(
+      { id: 'relay-draft', real: false, clipAudioUrl: d.wavPath, start: 0, end: d.duration || 10, words: [] },
+      { sweep: false }
+    );
+  },
+
+  /** T12 草稿·重录：弃稿重走完整录音链（配额/权限照常校验） */
+  onRetryRelayDraft() {
+    if (this.data.relaySubmitting || this.data.relayRecording) return;
+    this.setData({ relayDraft: null });
+    this.onStartCreateRelay();
+  },
+
+  /** T12 草稿·放弃 */
+  onDiscardRelayDraft() {
+    if (this.data.relaySubmitting || this.data.relayRecording) return;
+    this.setData({ relayDraft: null });
+    wx.showToast({ title: '已放弃本次领读草稿', icon: 'none' });
+  },
+
+  /** T12 草稿·满意提交：此刻才建房（评测行/录音随请求落库） */
+  onSubmitRelayDraft() {
+    const d = this.data.relayDraft;
+    if (!d || this.data.relaySubmitting || this.data.relayRecording) return;
+    this.setData({ relaySubmitting: true });
+    const token = this._shadowToken();
+    const current = () => token === this._shadowToken();
+    relayApi.createRoom({
+      clipId: d.clipId, title: d.title,
+      recognitionId: d.recognitionId, audioBase64: d.audioBase64,
+    })
+      .then((room) => {
+        if (!current()) return;
+        this._relayRoomCreated(room, d.recognitionId, true);
+      })
+      .catch((err) => {
+        if (!current()) return;
+        const code = err && (err.error || err.code || (err.body && err.body.error));
+        if (code === 'EVALUATION_QUOTA_EXCEEDED' || code === 'REVIEW_EVAL_QUOTA_EXCEEDED') {
+          this.setData({ showPremiumModal: true, premiumSource: 'review_eval_quota' });
+        } else {
+          wx.showToast({ title: (err.body && err.body.error) || err.message || '提交失败，请重试', icon: 'none' });
+        }
+      })
+      .then(() => { if (current()) this.setData({ relaySubmitting: false }); });
+  },
+
   _relayRecordFinish() {
     const ctx = this._relayRecCtx;
     if (!ctx || !this.data.relayRecording) return;
@@ -1759,31 +1830,33 @@ Page({
           err.body = body || null;
           throw err;
         }
-        const room = ctx.mode === 'create'
-          ? await relayApi.createRoom({
-              clipId: ctx.clipId, title: this.data.newRelayTitle,
-              recognitionId: evalData.recognitionId, audioBase64: audio.base64,
-            })
-          : await relayApi.joinRoom({
-              roomId: ctx.roomId,
-              recognitionId: evalData.recognitionId, audioBase64: audio.base64,
-            });
-        if (!current()) return;
-        // 新房置顶去重，招募计数重算（B finishCreate/finishJoin 同款收尾）
-        const rooms = [room].concat(this.data.relayRooms.filter((r) => r.id !== room.id));
-        this.setData({
-          relayRooms: rooms,
-          recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
-          showCreateRelay: ctx.mode === 'create' ? false : this.data.showCreateRelay,
-          newRelayTitle: ctx.mode === 'create' ? '' : this.data.newRelayTitle,
-        });
-        this._loadLeaderboard();
-        this._igniteStreakBySpeech(evalData.recognitionId); // 接力开口也算连胜验收
-        // 工具模拟器录音评测恒 0 分（微信官方限制）：链路照走，归因提示
-        if (recorder.isDevtools()) {
-          wx.showToast({ title: '工具录音评分恒 0 分（微信限制），真机预览出真分', icon: 'none' });
+        // T12：第 1 棒评测后不立即建房——存草稿进入「试听/重录/满意提交」
+        // 三态（提交前不落库不计接力；重录走完整录音链=配额自然约束）
+        if (ctx.mode === 'create') {
+          this.setData({
+            relayDraft: {
+              clipId: ctx.clipId,
+              title: this.data.newRelayTitle,
+              recognitionId: evalData.recognitionId,
+              audioBase64: audio.base64,
+              wavPath: audio.wavPath || '',
+              duration: audio.duration || 0,
+              score: Math.round(
+                (evalData.details && evalData.details.overall) || evalData.score || 0
+              ),
+            },
+          });
+          if (recorder.isDevtools()) {
+            wx.showToast({ title: '工具录音评分恒 0 分（微信限制），真机预览出真分', icon: 'none' });
+          }
+          return;
         }
-        this._startCompilation(room);
+        const room = await relayApi.joinRoom({
+          roomId: ctx.roomId,
+          recognitionId: evalData.recognitionId, audioBase64: audio.base64,
+        });
+        if (!current()) return;
+        this._relayRoomCreated(room, evalData.recognitionId, false);
       } catch (err) {
         if (!current()) return;
         const code = err && (err.error || err.code || (err.body && err.body.error));

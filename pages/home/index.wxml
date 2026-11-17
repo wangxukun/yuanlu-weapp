@@ -859,7 +859,21 @@
 
         <view class="st-rl-drawer-foot">
           <text class="st-rl-drawer-foot-note">录制完成后，语伴将自动接棒第 2 棒，第 3 棒留给下一位语伴压轴并合成趣味合集</text>
-          <view class="st-rl-rec {{relayRecording === 'create' || relaySubmitting ? 'st-rl-rec--busy' : ''}}"
+          <!-- T12：评测后草稿面板（试听/重录/满意提交/放弃） -->
+          <view wx:if="{{relayDraft}}" class="st-rl-draft">
+            <view class="st-rl-draft-score">
+              <text class="st-rl-draft-score-n">{{relayDraft.score}}</text>
+              <text class="st-rl-draft-score-u">分 · 本次领读评分</text>
+            </view>
+            <text class="st-rl-draft-tip">先试听再决定：满意才提交发起（此前不建房）；重录将再次评测并消耗评测次数</text>
+            <view class="st-rl-draft-actions">
+              <view class="st-rl-draft-btn" hover-class="st-rl-draft-btn--hover" bindtap="onPlayRelayDraft">🔊 试听</view>
+              <view class="st-rl-draft-btn" hover-class="st-rl-draft-btn--hover" bindtap="onRetryRelayDraft">🔄 重录</view>
+              <view class="st-rl-draft-btn st-rl-draft-btn--go" hover-class="st-rl-draft-btn--hover" bindtap="onSubmitRelayDraft">✅ 提交发起</view>
+            </view>
+            <text class="st-rl-draft-discard" bindtap="onDiscardRelayDraft">放弃本次草稿</text>
+          </view>
+          <view wx:else class="st-rl-rec {{relayRecording === 'create' || relaySubmitting ? 'st-rl-rec--busy' : ''}}"
                 hover-class="{{relayRecording === 'create' || relaySubmitting ? '' : 'st-rl-rec--hover'}}"
                 bindtap="onStartCreateRelay">
             <text class="st-rl-rec-ic">🎤</text>

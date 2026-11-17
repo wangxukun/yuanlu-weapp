@@ -56,6 +56,10 @@ assert(js.split('compilation: true').length - 1 >= 2, 'E2 连播两调用点（�
 assert(js.includes('_advanceBaton') && js.includes('_armBatonFallback') && !js.includes('_scheduleBaton(room'),
   'E2 连播推进=自然播完事件驱动（_advanceBaton）+时长兜底（_armBatonFallback），固定 5.2s 定时器退役');
 
+// —— 场景 E3：接力第 1 棒草稿三态契约（评测后不立即建房） ——
+assert(read('pages/home/index.js').includes('relayDraft') && read('pages/home/index.js').includes('onSubmitRelayDraft') && read('pages/home/index.js').includes('onRetryRelayDraft') && read('pages/home/index.js').includes('onPlayRelayDraft'), 'E3 草稿三态处理器齐（试听/重录/提交）');
+assert(read('pages/home/index.js').includes('_relayRoomCreated'), 'E3 建房成功收尾抽公共函数');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');
