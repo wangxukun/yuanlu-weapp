@@ -66,6 +66,11 @@ assert(relayApiSrc.includes('cancelRoom') && relayApiSrc.includes('/api/relay/ca
 assert(relayApiSrc.includes('isMine: !!r.isMine'), 'E4 mapRoom 透传 isMine（映射层铁律）');
 assert(read('pages/home/index.js').includes('onCancelRelay') && read('pages/home/index.js').includes('wx.showModal'), 'E4 撤销处理器含二次确认');
 
+// —— 场景 E5：接力分层小窗口契约（T15+T7） ——
+const relayApi2 = read('pages/home/relay-api.js');
+assert(relayApi2.includes('recruitBatch') && relayApi2.includes('totalRecruiting') && relayApi2.includes('recruitHasMore'), 'E5 分层响应三字段透传（映射层铁律）');
+assert(read('pages/home/index.js').includes('onRelaySwapRecruits') && read('pages/home/index.js').includes('relayTotalRecruiting'), 'E5 换一批处理器+全站计数');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');

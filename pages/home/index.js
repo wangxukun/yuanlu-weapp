@@ -286,6 +286,8 @@ Page({
     relayCountdown: 0,
     relaySubmitting: false, // 录音已停、评测+建房/接棒提交中
     relayDraft: null, // T12：录第 1 棒评测后草稿（试听/重录/满意后提交）
+    relayTotalRecruiting: 0, // T15：全站招募真实总数（hero 副文案）
+    relayRecruitHasMore: false, // T15：推荐层是否还有下一批
     playingRoomId: '', // 合集连播中的房间
     playingStep: 0, // 连播当前棒（1 基）
     relayActiveSegId: '', // 单棒试听中的段 id
@@ -1645,19 +1647,32 @@ Page({
 
   /* ---------------- 跟读接力（yuanlu /api/relay/*；未登录/接口失败回落 relay-mock） ---------------- */
 
-  async _loadRelayRooms() {
-    const apply = (rooms) => this.setData({
+  async _loadRelayRooms(batch) {
+    this._relayRecruitBatch = batch > 1 ? batch : 1;
+    const apply = (rooms, total) => this.setData({
       relayRooms: rooms,
+      // 角标口径（T16 并入）：窗口内可接数（我的招募+推荐层），非全站总数
       recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
+      // hero 副文案口径：全站真实招募总数（传递氛围不施压）
+      relayTotalRecruiting: total != null ? total : rooms.filter((r) => r.status === 'recruiting').length,
       relayLoading: false,
     });
     // 未登录不发请求（401 会全局 toast「登录已过期」），直接本地演示房兜底
     if (!this._shadowToken()) return apply(relayMock.listRooms());
     try {
-      apply(await relayApi.fetchRooms());
+      const r = await relayApi.fetchRooms(this._relayRecruitBatch);
+      apply(r.rooms, r.totalRecruiting);
+      this.setData({ relayRecruitHasMore: r.recruitHasMore });
     } catch (e) {
       apply(relayMock.listRooms());
+      this.setData({ relayRecruitHasMore: false });
     }
+  },
+
+  /** T15：推荐层「换一批」（仅推荐 5 席轮换，我的房与合集层不动） */
+  onRelaySwapRecruits() {
+    if (this.data.relayLoading) return;
+    this._loadRelayRooms((this._relayRecruitBatch || 1) + 1);
   },
 
   /** 展开/收起发起面板（展开时预选今日挑战第 1 条切片） */

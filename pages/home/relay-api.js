@@ -71,11 +71,18 @@ function mapRoom(r) {
   };
 }
 
-/** 房间列表（招募优先）。失败/未登录抛错，调用方回落 mock。 */
-async function fetchRooms() {
-  const body = await get('/api/relay/list', null, { showError: false });
+/** 分层小窗口（T15）：recruitBatch=推荐层换一批页码。
+ * 返回 { rooms, totalRecruiting, recruitHasMore }——我的招募≤5 → 推荐接棒×5
+ * → 最近完成合集×3；读取前服务端已懒清扫 24h 过期招募房（T7）。 */
+async function fetchRooms(recruitBatch) {
+  const q = recruitBatch > 1 ? '?recruitBatch=' + recruitBatch : '';
+  const body = await get('/api/relay/list' + q, null, { showError: false });
   if (!body || !body.success || !body.data) throw new Error('relay list unavailable');
-  return (body.data.rooms || []).map(mapRoom);
+  return {
+    rooms: (body.data.rooms || []).map(mapRoom),
+    totalRecruiting: body.data.totalRecruiting || 0,
+    recruitHasMore: !!body.data.recruitHasMore,
+  };
 }
 
 /** 发起第 1 棒。params: { clipId, title, recognitionId, audioBase64 } */

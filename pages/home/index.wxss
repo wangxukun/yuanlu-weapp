@@ -5613,3 +5613,21 @@
   font-weight: 700;
   color: var(--error-500);
 }
+
+/* T15：推荐层换一批 */
+.st-rl-swap {
+  display: flex;
+  justify-content: center;
+  padding: 20rpx 0 8rpx;
+}
+.st-rl-swap-text {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--st-green-tint);
+  border-radius: 24rpx;
+  padding: 12rpx 32rpx;
+}
+.st-rl-swap--hover {
+  opacity: 0.72;
+}

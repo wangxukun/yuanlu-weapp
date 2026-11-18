@@ -814,6 +814,7 @@
           <view class="st-rl-hero-title-row">
             <text class="st-rl-hero-title">口语跟读接力 • 趣味合集坊</text>
             <text wx:if="{{recruitingCount > 0}}" class="st-rl-hero-count">{{recruitingCount}} 个待你接棒</text>
+            <text wx:elif="{{relayTotalRecruiting > 0}}" class="st-rl-hero-count">全站 {{relayTotalRecruiting}} 个接力进行中</text>
           </view>
           <text class="st-rl-hero-desc">发起第一棒原声跟读，系统自动邀请语伴接力后续台词，自动混音生成趣味小剧场合集！</text>
         </view>
@@ -1145,6 +1146,10 @@
                   <text class="st-lb-card-dot">•</text>
                   <text>{{lbe.lastActive}}</text>
                 </block>
+      <!-- T15：推荐层换一批（我的房与合集层不动） -->
+      <view wx:if="{{relayRecruitHasMore && relayRooms.length}}" class="st-rl-swap" hover-class="st-rl-swap--hover" bindtap="onRelaySwapRecruits">
+        <text class="st-rl-swap-text">🔄 换一批推荐</text>
+      </view>
               </view>
             </view>
           </view>
