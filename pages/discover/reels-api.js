@@ -20,8 +20,16 @@
 const { get, post } = require('../../utils/request');
 const corpus = require('./reels-corpus');
 
+/** Tokenize sentence by whitespace for word-tap when timed words are absent */
+function tokenizeTextEn(textEn) {
+  if (!textEn || typeof textEn !== 'string') return [];
+  return textEn.trim().split(/\s+/).filter(Boolean);
+}
+
 /** 后端 feed item → 统一视图模型 */
 function fromFeedItem(it) {
+  const words = Array.isArray(it.words) ? it.words : [];
+  const textEn = it.textEn || '';
   return {
     id: it.clipid,
     episodeid: it.episodeid,
@@ -33,9 +41,10 @@ function fromFeedItem(it) {
     start: it.start,
     end: it.end,
     duration: it.duration,
-    textEn: it.textEn,
+    textEn,
     textCn: it.textCn,
-    words: Array.isArray(it.words) ? it.words : [],
+    words,
+    tokens: words.length > 0 ? [] : tokenizeTextEn(textEn),
     phoneticTip: it.phoneticTip || '',
     wpm: it.wpm || 0,
     isExclusive: !!it.isExclusive,
@@ -49,6 +58,8 @@ function fromFeedItem(it) {
 
 /** 本地 mock 语料 → 同构视图模型（整轨窗口，offset=0） */
 function fromLocalClip(c) {
+  const words = Array.isArray(c.words) ? c.words : [];
+  const textEn = c.textEn || '';
   return {
     id: c.id,
     episodeid: '',
@@ -60,9 +71,11 @@ function fromLocalClip(c) {
     start: c.start,
     end: c.end,
     duration: c.end - c.start,
-    textEn: c.textEn,
+    textEn,
     textCn: c.textCn,
-    words: c.words || [],
+    words,
+    tokens: words.length > 0 ? [] : tokenizeTextEn(textEn),
+    phoneticTip: c.phoneticTip || '',
     wpm: 0,
     isExclusive: false,
     clipAudioUrl: c.audioUrl, // soundhelix 整轨即音源
@@ -179,4 +192,4 @@ async function fetchPresetIdeas() {
   return null;
 }
 
-module.exports = { fromFeedItem, fetchFeed, fetchClipAudio, fetchDeepDive, localReels, matchStudio, fetchPresetIdeas };
+module.exports = { fromFeedItem, fromLocalClip, tokenizeTextEn, fetchFeed, fetchClipAudio, fetchDeepDive, localReels, matchStudio, fetchPresetIdeas };

@@ -75,6 +75,7 @@ Page({
     isLooping: true,
     rateLabel: '1x',
     activeWordIndex: -1,
+    pastWordIndex: -1,
     coverOk: true,
 
     isSaved: false,
@@ -118,7 +119,11 @@ Page({
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
+    this._lastPastIdx = -99;
     this._evalTimer = null;
+    this._evalToken = 0;
+    this._deepToken = 0;
+    this._deepCache = {};
     this._vocabSet = {};
     this._saved = this._loadSaved(); // 本地 mock 句子本
     this._savedSub = {}; // 真实句子书签：'episodeid:subtitleId' → true
@@ -167,6 +172,14 @@ Page({
   onHide() {
     // 切 tab 礼让音频互斥总线：停窗口播放（回 tab 不自动续播，重按播放键续）
     this._pausePlayback();
+    this._evalToken += 1;
+    if (this._evalTimer) {
+      clearTimeout(this._evalTimer);
+      this._evalTimer = null;
+    }
+    if (this.data.isEvaluating) {
+      this.setData({ isEvaluating: false });
+    }
     this._flushSession();
   },
 
@@ -386,7 +399,13 @@ Page({
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
+    this._lastPastIdx = -99;
     this._prepToken += 1; // 作废在途懒取
+    this._evalToken += 1; // 作废在途跟读评测
+    if (this._evalTimer) {
+      clearTimeout(this._evalTimer);
+      this._evalTimer = null;
+    }
     this._audioMeta = null;
 
     // 游标只随最远到达下标前进（回划不倒退游标；预取未看条下次启动仍可出现）
@@ -409,6 +428,7 @@ Page({
       canPrev: idx > 0,
       canNext: idx < this._reels.length - 1,
       activeWordIndex: -1,
+      pastWordIndex: -1,
       coverOk: true,
       isSaved: this._isClipSaved(clip),
       isEvaluating: false,
@@ -560,9 +580,9 @@ Page({
   /* ---------------- 词级扫光（毫秒时间戳 − clipOffset） ---------------- */
 
   /**
-   * 词窗判定（B 语义）：pos∈[w.start,w.end) 为当前词，间隙 -1，到窗终为
-   * words.length；渲染端以 playing 门控。pos 为音源轨内时间，真实切片词
-   * 时间戳在字幕轨上，比对前减 audioOffset。50ms 一帧仅索引翻转才 setData。
+   * 词窗判定：pos∈[w.start,w.end) 为当前词 activeWordIndex；pos >= w.end 为已读词
+   * pastWordIndex（词间间隙 activeWordIndex=-1，但 pastWordIndex 保持上一个已读词，
+   * 避免已读绿词在词间间隙闪回原色）。50ms 一帧仅索引翻转才 setData。
    */
   _onTick(pos) {
     const clip = this.data.clip;
@@ -571,8 +591,10 @@ Page({
     const offset = meta ? meta.offset : 0;
     const winEnd = meta ? meta.winEnd : clip.end;
     let idx = -1;
+    let pastIdx = -1;
     if (pos >= winEnd) {
       idx = clip.words.length;
+      pastIdx = clip.words.length - 1;
     } else {
       for (let i = 0; i < clip.words.length; i++) {
         const w = clip.words[i];
@@ -580,13 +602,18 @@ Page({
         const e = w.end - offset;
         if (pos >= s && pos < e) {
           idx = i;
+          pastIdx = i - 1;
           break;
+        }
+        if (pos >= e) {
+          pastIdx = i;
         }
       }
     }
-    if (idx !== this._lastWordIdx) {
+    if (idx !== this._lastWordIdx || pastIdx !== this._lastPastIdx) {
       this._lastWordIdx = idx;
-      this.setData({ activeWordIndex: idx });
+      this._lastPastIdx = pastIdx;
+      this.setData({ activeWordIndex: idx, pastWordIndex: pastIdx });
     }
   },
 
@@ -607,8 +634,16 @@ Page({
   onWordTap(e) {
     const clip = this.data.clip;
     if (!clip) return;
-    const wi = Number(e.currentTarget.dataset.wi);
-    const raw = (Array.isArray(clip.words) && clip.words[wi] && clip.words[wi].word) || clip.textEn;
+    const ds = (e && e.currentTarget && e.currentTarget.dataset) || {};
+    let raw = ds.word;
+    if (!raw && ds.wi !== undefined) {
+      const wi = Number(ds.wi);
+      raw =
+        (Array.isArray(clip.words) && clip.words[wi] && clip.words[wi].word) ||
+        (Array.isArray(clip.tokens) && clip.tokens[wi]) ||
+        '';
+    }
+    if (!raw) raw = (Array.isArray(clip.tokens) && clip.tokens[0]) || clip.textEn;
     const clean = String(raw).replace(/^[^\w]+|[^\w]+$/g, ''); // B 的首尾标点清洗
     if (!clean) return;
 
@@ -746,16 +781,35 @@ Page({
   onDeepDive() {
     const clip = this.data.clip;
     if (!clip) return;
+    const sentence = clip.textEn || '';
+    const token = (this._deepToken = (this._deepToken || 0) + 1);
+    const cached = this._deepCache && this._deepCache[sentence];
+    if (cached) {
+      this.setData({
+        deepOpen: true,
+        deepLoading: false,
+        deepAnalysis: cached,
+        deepSentence: sentence,
+        deepSource: cached.source || 'llm',
+      });
+      return;
+    }
     this.setData({
       deepOpen: true,
       deepLoading: true,
       deepAnalysis: null,
-      deepSentence: clip.textEn,
+      deepSentence: sentence,
       deepSource: '',
     });
     reelsApi
-      .fetchDeepDive(clip.textEn)
+      .fetchDeepDive(sentence)
       .then((a) => {
+        if (token !== this._deepToken || !this.data.deepOpen || this.data.deepSentence !== sentence) {
+          return;
+        }
+        if (a && this._deepCache) {
+          this._deepCache[sentence] = a;
+        }
         this.setData({
           deepLoading: false,
           deepAnalysis: a || DEEP_FALLBACK,
@@ -763,12 +817,16 @@ Page({
         });
       })
       .catch(() => {
+        if (token !== this._deepToken || !this.data.deepOpen || this.data.deepSentence !== sentence) {
+          return;
+        }
         this.setData({ deepLoading: false, deepAnalysis: DEEP_FALLBACK, deepSource: 'fallback' });
       });
   },
 
   onDeepClose() {
-    this.setData({ deepOpen: false });
+    this._deepToken = (this._deepToken || 0) + 1;
+    this.setData({ deepOpen: false, deepLoading: false });
   },
 
   noop() {},
@@ -777,10 +835,14 @@ Page({
 
   onShadowing() {
     if (this.data.isEvaluating) return;
+    const evalToken = (this._evalToken = (this._evalToken || 0) + 1);
+    const targetClipId = this.data.clip && this.data.clip.id;
     this.setData({ isEvaluating: true, evalScore: 0 });
     if (this._evalTimer) clearTimeout(this._evalTimer);
     this._evalTimer = setTimeout(() => {
       this._evalTimer = null;
+      if (evalToken !== this._evalToken) return;
+      if (!this.data.clip || this.data.clip.id !== targetClipId) return;
       this.setData({
         isEvaluating: false,
         evalScore: Math.floor(88 + Math.random() * 10),
@@ -847,24 +909,39 @@ Page({
     )
       .then((body) => {
         this._savingBusy = false;
+        const isCurrentClip =
+          this.data.clip &&
+          this.data.clip.episodeid === clip.episodeid &&
+          this.data.clip.subtitleId === clip.subtitleId;
         if (!body || !body.success || !body.data) {
-          this.setData({ isSaved: wasSaved });
+          if (isCurrentClip) this.setData({ isSaved: wasSaved });
           wx.showToast({ title: (body && body.message) || '收藏失败，请重试', icon: 'none' });
           return;
         }
         if (body.data.saved) {
           this._savedSub[key] = true;
-          this.setData({ isSaved: true });
+          if (!this._savedKeysByEp[clip.episodeid]) {
+            this._savedKeysByEp[clip.episodeid] = {};
+          }
+          this._savedKeysByEp[clip.episodeid][key] = true;
+          if (isCurrentClip) this.setData({ isSaved: true });
           wx.showToast({ title: '已收藏到句子本', icon: 'none' });
         } else {
-          delete this._savedSub[key];
-          this.setData({ isSaved: false });
+          this._savedSub[key] = false;
+          if (this._savedKeysByEp[clip.episodeid]) {
+            delete this._savedKeysByEp[clip.episodeid][key];
+          }
+          if (isCurrentClip) this.setData({ isSaved: false });
           wx.showToast({ title: '已取消收藏', icon: 'none' });
         }
       })
       .catch((err) => {
         this._savingBusy = false;
-        this.setData({ isSaved: wasSaved });
+        const isCurrentClip =
+          this.data.clip &&
+          this.data.clip.episodeid === clip.episodeid &&
+          this.data.clip.subtitleId === clip.subtitleId;
+        if (isCurrentClip) this.setData({ isSaved: wasSaved });
         if (err && err.code === 'SENTENCE_QUOTA_EXCEEDED') {
           this.setData({ showPremiumModal: true, premiumSource: 'sentence_quota' });
           return;
@@ -875,7 +952,7 @@ Page({
 
   _isClipSaved(clip) {
     if (clip.real && clip.episodeid && clip.subtitleId != null) {
-      return !!this._savedSub[clip.episodeid + ':' + clip.subtitleId];
+      return this._savedSub[clip.episodeid + ':' + clip.subtitleId] === true;
     }
     return this._isSavedText(clip.textEn);
   },
@@ -890,9 +967,12 @@ Page({
     get('/api/sentences/keys?episodeid=' + encodeURIComponent(episodeid), null, { showError: false })
       .then((body) => {
         if (!body || !body.success || !body.data) return;
-        const ids = {};
+        const ids = this._savedKeysByEp[episodeid] || {};
         ((body.data.subtitleIds || []) || []).forEach((id) => {
-          ids[episodeid + ':' + id] = true;
+          const k = episodeid + ':' + id;
+          if (this._savedSub[k] === false) return; // 用户在请求期间已显式取消收藏
+          ids[k] = true;
+          this._savedSub[k] = true;
         });
         this._savedKeysByEp[episodeid] = ids;
         this._applySavedKeys(episodeid, ids);
@@ -903,8 +983,9 @@ Page({
   _applySavedKeys(episodeid, ids) {
     const clip = this.data.clip;
     if (!clip || clip.episodeid !== episodeid) return;
-    const hit = ids[episodeid + ':' + clip.subtitleId];
-    if (!!hit !== this.data.isSaved) this.setData({ isSaved: !!hit });
+    const key = episodeid + ':' + clip.subtitleId;
+    const hit = !!(ids && ids[key]);
+    if (hit !== this.data.isSaved) this.setData({ isSaved: hit });
   },
 
   /* ---------------- 本地 mock 句子本 storage ---------------- */

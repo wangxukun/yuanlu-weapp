@@ -64,7 +64,7 @@
             <text wx:if="{{reel.isExclusive}}" class="rl-pill rl-pill--vip">👑 会员专享</text>
           </view>
 
-          <!-- 英文原句：词级卡拉OK扫光（仅当前项点亮；间隙无高亮，暂停全回落） -->
+          <!-- 英文原句：词级卡拉OK扫光（仅当前项点亮；间隙保持已读绿词，暂停全回落） -->
           <view class="rl-sentence">
             <block wx:if="{{reel.words.length > 0}}">
               <text
@@ -72,11 +72,22 @@
                 wx:for-item="w"
                 wx:for-index="wi"
                 wx:key="wi"
-                class="rl-word {{playing && ci === index && activeWordIndex === wi ? 'rl-word--cur' : playing && ci === index && activeWordIndex > wi ? 'rl-word--past' : ''}}"
+                class="rl-word {{playing && ci === index && activeWordIndex === wi ? 'rl-word--cur' : playing && ci === index && pastWordIndex >= wi ? 'rl-word--past' : ''}}"
                 data-wi="{{wi}}"
+                data-word="{{w.word}}"
                 bindtap="onWordTap">{{w.word}}</text>
             </block>
-            <text wx:else class="rl-word" bindtap="onWordTap">{{reel.textEn}}</text>
+            <block wx:elif="{{reel.tokens && reel.tokens.length > 0}}">
+              <text
+                wx:for="{{reel.tokens}}"
+                wx:for-item="tok"
+                wx:for-index="ti"
+                wx:key="ti"
+                class="rl-word"
+                data-word="{{tok}}"
+                bindtap="onWordTap">{{tok}}</text>
+            </block>
+            <text wx:else class="rl-word" data-word="{{reel.textEn}}" bindtap="onWordTap">{{reel.textEn}}</text>
           </view>
 
           <!-- 中文译文 -->
