@@ -126,4 +126,15 @@ async function cancelRoom(roomId) {
   return body;
 }
 
-module.exports = { fetchRooms, createRoom, joinRoom, likeRoom, cancelRoom };
+/** 管理员删除接力房/趣味合集（内容治理，不限状态） */
+async function adminDeleteRoom(roomId) {
+  const body = await post('/api/relay/admin-delete', { roomId }, { showError: false });
+  if (!body || !body.success) {
+    const err = new Error((body && body.error) || '删除失败');
+    err.body = body || null;
+    throw err;
+  }
+  return body;
+}
+
+module.exports = { fetchRooms, createRoom, joinRoom, likeRoom, cancelRoom, adminDeleteRoom };

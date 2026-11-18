@@ -289,6 +289,7 @@ Page({
     relayTotalRecruiting: 0, // T15：全站招募真实总数（hero 副文案）
     relayRecruitHasMore: false, // T15：推荐层是否还有下一批
     relayInitMap: {}, // T16：我发起中房的起始切片 id → true（抽屉标记）
+    relayIsAdmin: false, // 管理员角色（趣味合集治理删除入口）
     playingRoomId: '', // 合集连播中的房间
     playingStep: 0, // 连播当前棒（1 基）
     relayActiveSegId: '', // 单棒试听中的段 id
@@ -1650,7 +1651,10 @@ Page({
 
   async _loadRelayRooms(batch) {
     this._relayRecruitBatch = batch > 1 ? batch : 1;
+    const auth = authStore.getState();
+    const isAdmin = !!(auth.userInfo && auth.userInfo.role === 'ADMIN');
     const apply = (rooms, total) => this.setData({
+      relayIsAdmin: isAdmin,
       relayInitMap: rooms.reduce((m, r) => {
         if (r.isMine && r.status === 'recruiting' && r.starterClipId) m[r.starterClipId] = true;
         return m;
@@ -1980,6 +1984,34 @@ Page({
           wx.showToast({ title: '已撤销', icon: 'success' });
         }).catch((err) => {
           wx.showToast({ title: (err.body && err.body.error) || err.message || '撤销失败，请重试', icon: 'none' });
+        });
+      },
+    });
+  },
+
+  /** 管理员删除接力房/趣味合集（内容治理，不限状态） */
+  onDeleteRelayByAdmin(e) {
+    const rid = e.currentTarget.dataset.rid;
+    const room = this.data.relayRooms.find((r) => r.id === rid);
+    if (!room || !this.data.relayIsAdmin || room.isDemo) return;
+    if (this.data.relaySubmitting || this.data.relayRecording) return;
+    wx.showModal({
+      title: '删除这条接力？',
+      content: '管理员删除：房间与棒次将移除，无法恢复。',
+      confirmText: '删除',
+      confirmColor: '#d2503f',
+      success: (res) => {
+        if (!res.confirm) return;
+        relayApi.adminDeleteRoom(rid).then(() => {
+          const rooms = this.data.relayRooms.filter((r) => r.id !== rid);
+          this.setData({
+            relayRooms: rooms,
+            recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
+          });
+          if (this.data.playingRoomId === rid) this._stopCompilation();
+          wx.showToast({ title: '已删除', icon: 'success' });
+        }).catch((err) => {
+          wx.showToast({ title: (err.body && err.body.error) || err.message || '删除失败，请重试', icon: 'none' });
         });
       },
     });

@@ -911,6 +911,10 @@
                 data-rid="{{room.id}}" bindtap="onCancelRelay">
             <text class="st-room-cancel-text">撤销接力</text>
           </view>
+          <view wx:if="{{relayIsAdmin && !room.isDemo}}" class="st-room-admdel" hover-class="st-room-admdel--hover"
+                data-rid="{{room.id}}" bindtap="onDeleteRelayByAdmin">
+            <text class="st-room-admdel-text">🗑 删除</text>
+          </view>
           <view class="st-room-like" hover-class="st-room-like--hover" data-rid="{{room.id}}" bindtap="onLikeRelay">
             <text class="st-room-like-heart">♥</text>
             <text class="st-room-like-count">{{room.likes}}</text>

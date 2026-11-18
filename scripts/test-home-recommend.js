@@ -78,6 +78,10 @@ assert(js6.includes('relayInitMap') && js6.includes('已发起过接力'), 'E6 �
 assert(js6.includes("d.mode === 'join'") && js6.includes('提交交接棒') === false, 'E6 接棒草稿提交分支');
 assert(js6.includes('请先处理当前草稿'), 'E6 草稿期间锁发起/接棒入口');
 
+// —— 场景 E7：管理员治理删除契约 ——
+assert(read('pages/home/relay-api.js').includes('adminDeleteRoom'), 'E7 管理员删除 API 存在');
+assert(read('pages/home/index.js').includes('onDeleteRelayByAdmin') && read('pages/home/index.js').includes('relayIsAdmin'), 'E7 删除处理器+角色门禁');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');
