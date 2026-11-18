@@ -47,7 +47,7 @@
 
 ## P1 · 功能缺失 / 不完整
 
-- [ ] **F1 收藏后自动弹出「完善句子笔记与标签」抽屉**（规范 ⑦）
+- [x] **F1 收藏后自动弹出「完善句子笔记与标签」抽屉**（规范 ⑦）
   - 在 `index.json` 注册 `sentence-tag-drawer`。
   - 真实切片：`/api/sentences/toggle` 返回 `saved=true` 时，用 `body.data.sentence` 设置 `drawerSentence` 唤起抽屉；`bind:updated` 回写本地书签记录，`bind:close` 置空。
   - 沙箱语料：标签与笔记**仅存本地 storage**（`reels_saved_sentences` 记录追加 `tags` / `note`）；需为抽屉增加本地模式（如 `local` 属性或 `save` 事件交给宿主处理），本地模式不调 `/api/sentences/meta`。

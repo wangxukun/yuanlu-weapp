@@ -27,6 +27,8 @@ Component({
   properties: {
     /** 待编辑的句子（SavedSentenceItem）；null 时抽屉关闭（对齐 Web sentence prop） */
     sentence: { type: Object, value: null },
+    /** 本地模式（如沙箱兜底语料）：保存时不调后端 /api/sentences/meta，仅触发 updated 事件由宿主持久化 */
+    local: { type: Boolean, value: false },
   },
 
   data: {
@@ -99,13 +101,26 @@ Component({
       this.triggerEvent('close');
     },
 
-    /** 保存标签与笔记：POST /api/sentences/meta，成功 toast + updated + close */
+    /** 保存标签与笔记：本地模式直接回传；远端模式 POST /api/sentences/meta，成功 toast + updated + close */
     async onSave() {
       if (this.data.isSaving || !this.data.sentence) return;
-      this.setData({ isSaving: true });
       const finalTags =
         this.data.selectedTags.length > 0 ? this.data.selectedTags : ['地道表达'];
       const finalNote = this.data.note.trim() || null;
+
+      if (this.data.local || this.data.sentence.local) {
+        wx.showToast({ title: '✨ 句子笔记与标签已保存！', icon: 'none' });
+        this.triggerEvent('updated', {
+          id: this.data.sentence.id,
+          tags: finalTags,
+          note: finalNote,
+          local: true,
+        });
+        this.triggerEvent('close');
+        return;
+      }
+
+      this.setData({ isSaving: true });
       try {
         const res = await post(
           '/api/sentences/meta',

@@ -24,8 +24,8 @@
 
         <!-- ── 原句预览（英文衬线 + 中文） ── -->
         <view class="std-preview">
-          <text class="std-preview-en font-serif ellipsis-2">"{{sentence.enText}}"</text>
-          <text wx:if="{{sentence.zhText}}" class="std-preview-zh ellipsis">{{sentence.zhText}}</text>
+          <text class="std-preview-en font-serif ellipsis-2">"{{sentence.enText || sentence.textEn}}"</text>
+          <text wx:if="{{sentence.zhText || sentence.textCn}}" class="std-preview-zh ellipsis">{{sentence.zhText || sentence.textCn}}</text>
         </view>
 
         <!-- ── 选择分类标签（预设多选 + 自定义） ── -->

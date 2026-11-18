@@ -79,6 +79,8 @@ Page({
     coverOk: true,
 
     isSaved: false,
+    drawerSentence: null,
+    drawerLocal: false,
 
     isEvaluating: false,
     evalScore: 0,
@@ -126,7 +128,8 @@ Page({
     this._deepCache = {};
     this._vocabSet = {};
     this._saved = this._loadSaved(); // 本地 mock 句子本
-    this._savedSub = {}; // 真实句子书签：'episodeid:subtitleId' → true
+    this._savedSub = {}; // 真实句子书签：'episodeid:subtitleId' → true|false
+    this._savedRecords = {}; // 真实句子记录缓存：'episodeid:subtitleId' → SavedSentenceItem
     this._savedKeysByEp = {}; // episodeid → subtitleIds 集合缓存
     this._savingBusy = false;
     this._prepToken = 0; // 音频懒取令牌（快速轻划丢弃过期结果）
@@ -431,6 +434,8 @@ Page({
       pastWordIndex: -1,
       coverOk: true,
       isSaved: this._isClipSaved(clip),
+      drawerSentence: null,
+      drawerLocal: false,
       isEvaluating: false,
       evalScore: 0,
       audioLoading: false,
@@ -859,11 +864,11 @@ Page({
       this._toggleRealSentence(clip);
       return;
     }
-    // 本地 mock：wx storage 句子本（B 的收藏记录字段原样）
+    // 本地 mock：wx storage 句子本（B 的收藏记录字段原样，支持标签与笔记本地持久化）
     if (this._isSavedText(clip.textEn)) {
       this._saved = this._saved.filter((s) => s.textEn !== clip.textEn);
       this._persistSaved();
-      this.setData({ isSaved: false });
+      this.setData({ isSaved: false, drawerSentence: null, drawerLocal: false });
       wx.showToast({ title: '已移出句子本', icon: 'none' });
       return;
     }
@@ -874,16 +879,24 @@ Page({
       start: clip.start,
       textEn: clip.textEn,
       textCn: clip.textCn,
+      enText: clip.textEn,
+      zhText: clip.textCn || '',
       tags: ['原声微流', clip.topic || '精听'],
+      note: null,
+      local: true,
       savedAt: new Date().toISOString().split('T')[0],
     };
     this._saved.unshift(record);
     this._persistSaved();
-    this.setData({ isSaved: true });
+    this.setData({
+      isSaved: true,
+      drawerSentence: record,
+      drawerLocal: true,
+    });
     wx.showToast({ title: '已收藏到句子本', icon: 'none' });
   },
 
-  /** 真实切片收藏：/api/sentences/toggle 乐观翻转（intensive 同款契约） */
+  /** 真实切片收藏：/api/sentences/toggle 乐观翻转 + 收藏成功后唤起完善标签抽屉 */
   _toggleRealSentence(clip) {
     if (!authStore.getState().isLoggedIn) {
       this._promptLogin('登录后即可收藏句子到句子本');
@@ -891,7 +904,7 @@ Page({
     }
     if (this._savingBusy) return;
     const key = clip.episodeid + ':' + clip.subtitleId;
-    const wasSaved = !!this._savedSub[key];
+    const wasSaved = this._savedSub[key] === true;
     this._savingBusy = true;
     this.setData({ isSaved: !wasSaved });
 
@@ -924,14 +937,33 @@ Page({
             this._savedKeysByEp[clip.episodeid] = {};
           }
           this._savedKeysByEp[clip.episodeid][key] = true;
-          if (isCurrentClip) this.setData({ isSaved: true });
+          const sentRecord = body.data.sentence || {
+            id: body.data.id || key,
+            episodeid: clip.episodeid,
+            subtitleId: clip.subtitleId,
+            enText: clip.textEn,
+            zhText: clip.textCn || '',
+            tags: ['地道表达'],
+            note: null,
+          };
+          this._savedRecords[key] = sentRecord;
+          if (isCurrentClip) {
+            this.setData({
+              isSaved: true,
+              drawerSentence: sentRecord,
+              drawerLocal: false,
+            });
+          }
           wx.showToast({ title: '已收藏到句子本', icon: 'none' });
         } else {
           this._savedSub[key] = false;
+          delete this._savedRecords[key];
           if (this._savedKeysByEp[clip.episodeid]) {
             delete this._savedKeysByEp[clip.episodeid][key];
           }
-          if (isCurrentClip) this.setData({ isSaved: false });
+          if (isCurrentClip) {
+            this.setData({ isSaved: false, drawerSentence: null, drawerLocal: false });
+          }
           wx.showToast({ title: '已取消收藏', icon: 'none' });
         }
       })
@@ -948,6 +980,40 @@ Page({
         }
         wx.showToast({ title: (err && err.message) || '收藏失败，请重试', icon: 'none' });
       });
+  },
+
+  onDrawerClose() {
+    this.setData({ drawerSentence: null, drawerLocal: false });
+  },
+
+  /** 句子标签与笔记完善抽屉保存回调：本地模式写 storage，真实切片更新缓存记录 */
+  onDrawerUpdated(e) {
+    const detail = (e && e.detail) || {};
+    const { id, tags, note, local } = detail;
+    if (local || this.data.drawerLocal) {
+      let updated = false;
+      this._saved = (this._saved || []).map((item) => {
+        if (item.id === id) {
+          updated = true;
+          return Object.assign({}, item, {
+            tags: Array.isArray(tags) ? tags : item.tags,
+            note: note !== undefined ? note : item.note,
+          });
+        }
+        return item;
+      });
+      if (updated) this._persistSaved();
+      return;
+    }
+    Object.keys(this._savedRecords || {}).forEach((k) => {
+      const rec = this._savedRecords[k];
+      if (rec && rec.id === id) {
+        this._savedRecords[k] = Object.assign({}, rec, {
+          tags: Array.isArray(tags) ? tags : rec.tags,
+          note: note !== undefined ? note : rec.note,
+        });
+      }
+    });
   },
 
   _isClipSaved(clip) {

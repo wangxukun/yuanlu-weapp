@@ -30,7 +30,8 @@ assert(fs.existsSync(path.join(__dirname, '../assets/icons/reels.png')) &&
 const json = JSON.parse(read('pages/discover/index.json'));
 assert(json.navigationBarTitleText === '原声微流', 'B 页面标题「原声微流」');
 assert(!!json.usingComponents && !!json.usingComponents['vocabulary-modal'] &&
-  !!json.usingComponents['premium-modal'], 'B 组件注册（词卡/会员弹窗）');
+  !!json.usingComponents['sentence-tag-drawer'] &&
+  !!json.usingComponents['premium-modal'], 'B 组件注册（词卡/标签抽屉/会员弹窗）');
 
 // —— 场景 C：微流骨架（竖滑 swiper + DIY 下拉 + 游标去重） ——
 const wxml = read('pages/discover/index.wxml');
@@ -38,6 +39,8 @@ const wxss = read('pages/discover/index.wxss');
 const js = read('pages/discover/index.js');
 assert(wxml.includes('<swiper') && wxml.includes('vertical'), 'C 竖滑 swiper 切片流');
 assert(wxml.includes('rl-pull-hint') && wxml.includes('onPullTouchStart'), 'C DIY 下拉刷新提示条与手势');
+assert(wxml.includes('<sentence-tag-drawer') && wxml.includes('drawerSentence') && wxml.includes('drawerLocal'),
+  'C 挂载 sentence-tag-drawer 并绑定 drawerSentence 与 drawerLocal');
 assert(js.includes("require('./reels-session')"), 'C 环形游标会话模块挂载');
 assert(js.includes('PAGE_SIZE_CAP') && js.includes('PRELOAD_MARGIN'), 'C 渲染封顶与预取边界常量');
 assert(fs.existsSync(path.join(__dirname, '../pages/discover/reels-session.js')), 'C reels-session 模块存在');
@@ -63,8 +66,8 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     'E 零旧特训残留「' + w + '」');
 });
 
-// —— 场景 F：P0 6 个 Bug 回归验证（B1~B6） ——
-(function runP0RegressionTests() {
+// —— 场景 F：P0 6 个 Bug + P1-F1 回归验证 ——
+(function runRegressionTests() {
   const vm = require('node:vm');
   const corpus = require('../pages/discover/reels-corpus.js');
 
@@ -86,10 +89,13 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   let postHandler = () => Promise.resolve(null);
   let deepDiveHandler = () => Promise.resolve(null);
   let timers = [];
+  const storageMap = {};
 
   const mockWx = {
-    getStorageSync: () => null,
-    setStorageSync: () => {},
+    getStorageSync: (k) => storageMap[k],
+    setStorageSync: (k, v) => {
+      storageMap[k] = JSON.parse(JSON.stringify(v));
+    },
     showToast: () => {},
     showModal: () => {},
     navigateTo: () => {},
@@ -141,6 +147,27 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     'F-B5 无词级时间戳时生成按空格切分的 tokens'
   );
   assert(wxml.includes('reel.tokens') && wxml.includes('data-word="{{tok}}"'), 'F-B5 WXML 渲染 tokens 并绑定单字 data-word');
+
+  // Load sentence-tag-drawer/index.js in VM to verify local mode
+  let drawerCompDef = null;
+  vm.runInNewContext(read('components/sentence-tag-drawer/index.js'), {
+    Component: (def) => {
+      drawerCompDef = def;
+    },
+    require: (id) => {
+      if (id === '../../utils/request') return mockRequest;
+      return {};
+    },
+    wx: mockWx,
+    Promise,
+    Array,
+    Object,
+    String,
+  });
+  assert(
+    !!drawerCompDef && !!drawerCompDef.properties.local,
+    'F1 sentence-tag-drawer 支持 local 属性'
+  );
 
   // Load pages/discover/index.js in VM to test Page methods
   let pageDef = null;
@@ -229,7 +256,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   });
   ctx.onLoad();
 
-  // Setup two test clips in the same episode
+  // Setup two test clips in the same episode + one sandbox clip
   const clip0 = {
     id: 'clip-0',
     episodeid: 'ep-100',
@@ -264,7 +291,23 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     audioOffset: 20,
     real: true,
   };
-  ctx._reels = [clip0, clip1];
+  const clipLocal = {
+    id: 'local-1',
+    episodeid: '',
+    subtitleId: null,
+    showTitle: 'Sandbox Show',
+    topic: '日常会话',
+    start: 0,
+    end: 4,
+    textEn: 'Sandbox local sentence.',
+    textCn: '沙箱本地句子。',
+    words: [],
+    tokens: ['Sandbox', 'local', 'sentence.'],
+    clipAudioUrl: 'https://example.com/c.mp3',
+    audioOffset: 0,
+    real: false,
+  };
+  ctx._reels = [clip0, clip1, clipLocal];
   ctx._applyClip(0, { autoplay: false });
   ctx._audioMeta = { url: clip0.clipAudioUrl, offset: 10, winStart: 0, winEnd: 5 };
 
@@ -329,12 +372,97 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   Promise.resolve()
     .then(() => {
       assert(ctx.data.isSaved === false, 'F-B3 取消收藏后 isSaved=false');
+      assert(ctx.data.drawerSentence === null, 'F1 取消收藏不弹标签抽屉');
       assert(!ctx._savedKeysByEp['ep-100']['ep-100:1'], 'F-B3 _savedKeysByEp 同步移除已取消的 key');
       // 滑到 clip1 再滑回 clip0
       ctx._applyClip(1, { autoplay: false });
       ctx._applyClip(0, { autoplay: false });
       assert(ctx.data.isSaved === false, 'F-B3 滑走再滑回同集切片，书签态不被旧缓存覆盖');
 
+      // F1 真实切片：收藏成功后自动弹出 drawerSentence（drawerLocal=false）
+      ctx.onToggleBookmark();
+      togglePromiseResolve({
+        success: true,
+        data: {
+          saved: true,
+          sentence: {
+            id: 'srv-sent-99',
+            episodeid: 'ep-100',
+            subtitleId: 1,
+            enText: clip0.textEn,
+            zhText: clip0.textCn,
+            tags: ['地道表达'],
+            note: null,
+          },
+        },
+      });
+    })
+    .then(() => {
+      assert(
+        ctx.data.isSaved === true &&
+          ctx.data.drawerSentence &&
+          ctx.data.drawerSentence.id === 'srv-sent-99' &&
+          ctx.data.drawerLocal === false,
+        'F1 真实切片收藏成功自动唤起标签与笔记抽屉'
+      );
+      ctx.onDrawerUpdated({
+        detail: { id: 'srv-sent-99', tags: ['地道表达', '发音重点'], note: '注意连读' },
+      });
+      assert(
+        ctx._savedRecords['ep-100:1'].note === '注意连读' &&
+          ctx._savedRecords['ep-100:1'].tags.includes('发音重点'),
+        'F1 真实切片抽屉 updated 事件回写本地记录缓存'
+      );
+      ctx.onDrawerClose();
+      assert(ctx.data.drawerSentence === null, 'F1 关闭抽屉置空 drawerSentence');
+
+      // F1 沙箱语料：收藏自动弹出本地模式抽屉，保存时仅存本地 storage 不调 /api/sentences/meta
+      ctx._applyClip(2, { autoplay: false });
+      ctx.onToggleBookmark();
+      assert(
+        ctx.data.isSaved === true &&
+          ctx.data.drawerLocal === true &&
+          ctx.data.drawerSentence &&
+          ctx.data.drawerSentence.textEn === clipLocal.textEn,
+        'F1 沙箱语料收藏后自动打开本地模式标签抽屉'
+      );
+
+      let metaCalled = false;
+      postHandler = (url) => {
+        if (url === '/api/sentences/meta') metaCalled = true;
+        return Promise.resolve({ success: true });
+      };
+      const drawerEvents = [];
+      const drawerInst = Object.assign({}, drawerCompDef.methods, {
+        data: Object.assign({}, JSON.parse(JSON.stringify(drawerCompDef.data)), {
+          sentence: ctx.data.drawerSentence,
+          local: true,
+          selectedTags: ['发音重点', '连读弱读'],
+          note: '沙箱本地心得笔记',
+        }),
+        setData(p) {
+          Object.assign(this.data, p);
+        },
+        triggerEvent(name, detail) {
+          drawerEvents.push({ name, detail });
+          if (name === 'updated') ctx.onDrawerUpdated({ detail });
+          if (name === 'close') ctx.onDrawerClose();
+        },
+      });
+      return drawerInst.onSave().then(() => {
+        assert(metaCalled === false, 'F1 沙箱本地模式保存不请求 /api/sentences/meta');
+        const savedList = storageMap['reels_saved_sentences'];
+        assert(
+          Array.isArray(savedList) &&
+            savedList.length === 1 &&
+            savedList[0].note === '沙箱本地心得笔记' &&
+            savedList[0].tags.includes('连读弱读'),
+          'F1 沙箱语料标签与笔记仅持久化至本地 storage'
+        );
+        assert(ctx.data.drawerSentence === null, 'F1 沙箱抽屉保存后自动关闭');
+      });
+    })
+    .then(() => {
       // 测试 B6：在 clip0 打开深度透视 -> 切到 clip1 打开深度透视 -> 慢请求 1 先后返回不覆盖请求 2
       ctx._applyClip(0, { autoplay: false });
       ctx.onDeepDive();

@@ -232,6 +232,10 @@
                     episode-title="{{clip ? clip.showTitle : ''}}"
                     bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
 
+  <!-- ═══ 句子笔记与标签完善抽屉 ═══ -->
+  <sentence-tag-drawer sentence="{{drawerSentence}}" local="{{drawerLocal}}"
+                       bind:close="onDrawerClose" bind:updated="onDrawerUpdated" />
+
   <!-- ═══ 会员转化弹窗（词典/生词/句子配额墙） ═══ -->
   <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />
 </view>

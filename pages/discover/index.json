@@ -2,6 +2,7 @@
   "navigationBarTitleText": "原声微流",
   "usingComponents": {
     "vocabulary-modal": "/components/vocabulary-modal/index",
+    "sentence-tag-drawer": "/components/sentence-tag-drawer/index",
     "premium-modal": "/components/premium-modal/index"
   }
 }
