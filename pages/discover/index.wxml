@@ -64,30 +64,44 @@
             <text wx:if="{{reel.isExclusive}}" class="rl-pill rl-pill--vip">👑 会员专享</text>
           </view>
 
-          <!-- 英文原句：词级卡拉OK扫光（仅当前项点亮；间隙保持已读绿词，暂停全回落） -->
+          <!-- 英文原句：词级卡拉OK扫光 + 跟读逐词得分 + 句末回放我的发音按钮 -->
           <view class="rl-sentence">
             <block wx:if="{{reel.words.length > 0}}">
-              <text
+              <view
                 wx:for="{{reel.words}}"
                 wx:for-item="w"
                 wx:for-index="wi"
                 wx:key="wi"
-                class="rl-word {{playing && ci === index && activeWordIndex === wi ? 'rl-word--cur' : playing && ci === index && pastWordIndex >= wi ? 'rl-word--past' : ''}}"
+                class="rl-word-wrap"
                 data-wi="{{wi}}"
                 data-word="{{w.word}}"
-                bindtap="onWordTap">{{w.word}}</text>
+                bindtap="onWordTap">
+                <text class="rl-word {{playing && ci === index && activeWordIndex === wi ? 'rl-word--cur' : playing && ci === index && pastWordIndex >= wi ? 'rl-word--past' : ''}}">{{w.word}}</text>
+                <text wx:if="{{ci === index && evalWordScores[wi]}}" class="rl-word-score rl-word-score--{{evalWordScores[wi].tier}}">{{evalWordScores[wi].score}}</text>
+              </view>
             </block>
             <block wx:elif="{{reel.tokens && reel.tokens.length > 0}}">
-              <text
+              <view
                 wx:for="{{reel.tokens}}"
                 wx:for-item="tok"
                 wx:for-index="ti"
                 wx:key="ti"
-                class="rl-word"
+                class="rl-word-wrap"
+                data-wi="{{ti}}"
                 data-word="{{tok}}"
-                bindtap="onWordTap">{{tok}}</text>
+                bindtap="onWordTap">
+                <text class="rl-word">{{tok}}</text>
+                <text wx:if="{{ci === index && evalWordScores[ti]}}" class="rl-word-score rl-word-score--{{evalWordScores[ti].tier}}">{{evalWordScores[ti].score}}</text>
+              </view>
             </block>
             <text wx:else class="rl-word" data-word="{{reel.textEn}}" bindtap="onWordTap">{{reel.textEn}}</text>
+            <view
+              wx:if="{{ci === index && evalUserAudioPath}}"
+              class="rl-play-self {{playingUserAudio ? 'rl-play-self--on' : ''}}"
+              hover-class="rl-play-self--hover"
+              bindtap="onPlayUserAudio">
+              <image class="rl-play-self-ic" src="{{playingUserAudio ? '/assets/icons/volume-up-white.svg' : '/assets/icons/volume-up-primary.svg'}}" />
+            </view>
           </view>
 
           <!-- 中文译文 -->
@@ -104,6 +118,11 @@
             <view class="rl-eval-head">
               <image class="rl-eval-ic" src="/assets/icons/check-circle-primary.svg" />
               <text class="rl-eval-title">跟读发音评分: {{evalScore}} 分</text>
+            </view>
+            <view wx:if="{{evalFluency || evalPronunciation || evalIntegrity}}" class="rl-eval-metrics">
+              <text wx:if="{{evalPronunciation}}" class="rl-eval-metric">准确度 {{evalPronunciation}}%</text>
+              <text wx:if="{{evalFluency}}" class="rl-eval-metric">流利度 {{evalFluency}}%</text>
+              <text wx:if="{{evalIntegrity}}" class="rl-eval-metric">完整度 {{evalIntegrity}}%</text>
             </view>
             <text class="rl-eval-fb">{{evalFeedback}}</text>
           </view>
@@ -135,9 +154,10 @@
       <image class="rl-act-ic" src="/assets/icons/auto-awesome-primary.svg" />
     </view>
 
-    <!-- 跟读录音测评（评测中脉冲） -->
+    <!-- 跟读录音测评（录音中脉冲 / 评测中 spinner） -->
     <view class="rl-act {{isEvaluating ? 'rl-act--rec rl-act--rec-pulse' : ''}}" hover-class="rl-act--hover" bindtap="onShadowing">
-      <image class="rl-act-ic" src="{{isEvaluating ? '/assets/icons/mic-filled.svg' : (dark ? '/assets/icons/mic-tertiary-dark.svg' : '/assets/icons/mic-tertiary.svg')}}" />
+      <view wx:if="{{evalPhase === 'processing'}}" class="rl-rec-spin" />
+      <image wx:else class="rl-act-ic" src="{{isEvaluating ? '/assets/icons/mic-filled.svg' : (dark ? '/assets/icons/mic-tertiary-dark.svg' : '/assets/icons/mic-tertiary.svg')}}" />
     </view>
 
     <!-- 收藏到句子本（真实切片走服务端） -->

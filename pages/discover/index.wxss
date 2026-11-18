@@ -280,9 +280,14 @@
   margin-bottom: 28rpx;
 }
 
+.rl-word-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  margin-right: 12rpx;
+}
+
 .rl-word {
   display: inline-block;
-  margin-right: 12rpx;
   padding: 0 8rpx;
   border-radius: 8rpx;
   color: var(--ink-700);
@@ -300,6 +305,56 @@
 /* 已读词：品牌绿（B: text-emerald-600 dark:text-emerald-400） */
 .rl-word--past {
   color: var(--color-primary);
+}
+
+/* 单词跟读发音得分（紧跟单词之后的小字号分层着色） */
+.rl-word-score {
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 2rpx;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.rl-word-score--good {
+  color: var(--color-primary, #1f7a5c);
+}
+
+.rl-word-score--mid {
+  color: var(--accent-500, #d98a17);
+}
+
+.rl-word-score--bad {
+  color: var(--error-500, #d2503f);
+}
+
+/* 句末回放我的发音图标按钮 */
+.rl-play-self {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 52rpx;
+  height: 52rpx;
+  margin-left: 8rpx;
+  border-radius: 50%;
+  background: var(--rl-green-tint);
+  border: 1rpx solid var(--rl-green-tint-border);
+  transition: transform 0.12s ease;
+}
+
+.rl-play-self--on {
+  background: var(--primary-500);
+  border-color: var(--primary-500);
+}
+
+.rl-play-self--hover {
+  transform: scale(0.92);
+}
+
+.rl-play-self-ic {
+  width: 30rpx;
+  height: 30rpx;
 }
 
 .rl-zh {
@@ -361,6 +416,23 @@
   font-size: 24rpx;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+.rl-eval-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.rl-eval-metric {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--rl-green-tint);
+  border: 1rpx solid var(--rl-green-tint-border);
+  border-radius: 999rpx;
+  padding: 2rpx 14rpx;
 }
 
 .rl-eval-fb {
@@ -458,6 +530,15 @@
 
 .rl-act--rec-pulse {
   animation: rl-pulse 1.2s ease-in-out infinite;
+}
+
+.rl-rec-spin {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: rl-spin 0.9s linear infinite;
 }
 
 @keyframes rl-pulse {

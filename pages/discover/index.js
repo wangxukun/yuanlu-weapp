@@ -32,13 +32,17 @@ const authStore = require('../../store/authStore');
 const { get, post } = require('../../utils/request');
 const { createClipPlayer } = require('../../utils/clip-player');
 const { sentenceWindow } = require('../../utils/clip-window');
+const recorder = require('../../utils/recorder');
+const speechCore = require('../../utils/speech-core');
 const reelsApi = require('./reels-api');
 const reelsSession = require('./reels-session');
 
 const RATES = [0.75, 1, 1.25];
 const SAVED_KEY = 'reels_saved_sentences'; // 本地 mock 句子本（真实切片走服务端）
 const EVAL_FEEDBACK = '流利度 94%！特别注意连读处的舌尖轻触，整体语感极佳。';
-const EVAL_DURATION_MS = 2200; // B 原型假评测时长
+const EVAL_DURATION_MS = 2200; // 沙箱兜底模拟评测时长
+const RECORD_MAX_MS = 12000; // 单句跟读录音自动停止上限（12s）
+const MIN_RECORD_BYTES = 1600; // 最短有效录音（16kHz/16bit 约 50ms，对齐 eval-card）
 const PAGE_SIZE_CAP = 48; // swiper 渲染上限（翻页追加封顶）
 const PULL_THRESHOLD = 80; // DIY 下拉刷新阈值（px）
 const PRELOAD_MARGIN = 3; // 距底多少条预取下一页
@@ -50,6 +54,67 @@ const DEEP_FALLBACK = {
   paraphrase: '可替换为更加通俗的日常口语表述，或更加严谨的书面用词。',
   speakingTip: '注意喉头放松，腹式呼吸送气，重点实词重读，虚词快速带过。',
 };
+
+/** 分数分层（对齐 eval-card ec.wxs：≥85 good / ≥60 mid / <60 bad） */
+function scoreTier(score) {
+  if (score >= 85) return 'good';
+  if (score >= 60) return 'mid';
+  return 'bad';
+}
+
+/** 将评测返回的逐词得分对齐到当前切片的显示单词列表（words 或 tokens） */
+function mapEvalWordScores(clip, evalWords) {
+  if (!clip || !Array.isArray(evalWords) || !evalWords.length) return [];
+  const displayList =
+    Array.isArray(clip.words) && clip.words.length > 0
+      ? clip.words.map((w) => (w && w.word) || '')
+      : Array.isArray(clip.tokens) && clip.tokens.length > 0
+        ? clip.tokens
+        : [];
+  if (!displayList.length) return [];
+  let cursor = 0;
+  return displayList.map((rawWord, idx) => {
+    const target = speechCore.cleanWordKey(rawWord);
+    let matched = null;
+    for (let j = cursor; j < Math.min(cursor + 3, evalWords.length); j++) {
+      if (evalWords[j] && speechCore.cleanWordKey(evalWords[j].word) === target) {
+        matched = evalWords[j];
+        cursor = j + 1;
+        break;
+      }
+    }
+    if (!matched && evalWords[idx]) {
+      matched = evalWords[idx];
+    }
+    if (!matched || matched.score == null) return null;
+    const s = Math.round(Number(matched.score) || 0);
+    return { score: s, tier: scoreTier(s) };
+  });
+}
+
+/** 根据真实评测结果构建微流评分横幅的精炼反馈文案 */
+function buildEvalFeedback(res) {
+  if (!res) return EVAL_FEEDBACK;
+  const parts = [];
+  if (res.fluency > 0) parts.push('流利度 ' + res.fluency + '%');
+  if (res.pronunciation > 0) parts.push('准确度 ' + res.pronunciation + '%');
+  if (res.integrity > 0) parts.push('完整度 ' + res.integrity + '%');
+  const weakWords = (Array.isArray(res.words) ? res.words : [])
+    .filter((w) => w && w.word && w.score > 0 && w.score < 75)
+    .slice(0, 2)
+    .map((w) => w.word);
+  let comment = '';
+  if (weakWords.length > 0) {
+    comment = '建议重点打磨 "' + weakWords.join('", "') + '" 的咬字与连读过渡。';
+  } else if (res.overallScore >= 85) {
+    comment = '特别注意连读处的舌尖轻触，整体语感极佳！';
+  } else if (res.overallScore >= 70) {
+    comment = '节奏稳健，注意实词重读与虚词弱读的对比。';
+  } else {
+    comment = '建议先慢速听清原声连读，再放慢语速跟读一遍。';
+  }
+  return (parts.length ? parts.join(' · ') + '！' : '') + comment;
+}
 
 Page({
   data: {
@@ -83,8 +148,16 @@ Page({
     drawerLocal: false,
 
     isEvaluating: false,
+    evalPhase: 'idle', // 'idle' | 'recording' | 'processing'
     evalScore: 0,
+    evalFluency: 0,
+    evalPronunciation: 0,
+    evalIntegrity: 0,
     evalFeedback: EVAL_FEEDBACK,
+    evalWordScores: [], // 当前句每个单词的发音得分 [{score, tier:'good'|'mid'|'bad'}]
+    evalUserAudioPath: '', // 本次评测临时录音文件路径（仅内存持有，不持久化）
+    playingUserAudio: false, // 是否正在回放「我的发音」
+    evalQuotaLocked: false,
 
     deepOpen: false,
     deepLoading: false,
@@ -124,6 +197,8 @@ Page({
     this._lastPastIdx = -99;
     this._evalTimer = null;
     this._evalToken = 0;
+    this._resumeAfterEval = false;
+    this._resumeAfterUserAudio = false;
     this._deepToken = 0;
     this._deepCache = {};
     this._vocabSet = {};
@@ -143,17 +218,25 @@ Page({
           clearTimeout(this._playingFalseTimer);
           this._playingFalseTimer = null;
         }
-        if (k !== null) {
-          this.setData({ playing: true });
+        if (k === 'user') {
+          this.setData({ playing: false, playingUserAudio: true });
+        } else if (k !== null) {
+          this.setData({ playing: true, playingUserAudio: false });
         } else {
+          if (this.data.playingUserAudio) {
+            this.setData({ playingUserAudio: false });
+          }
           this._playingFalseTimer = setTimeout(() => {
             this._playingFalseTimer = null;
             this.setData({ playing: false });
           }, 120);
         }
       },
-      onTick: (pos) => this._onTick(pos),
-      onEnded: () => this._onClipEnd(),
+      onTick: (pos) => {
+        if (this.data.playingUserAudio) return;
+        this._onTick(pos);
+      },
+      onEnded: (k) => this._onClipEnd(k),
     });
 
     this._syncTheme();
@@ -173,23 +256,16 @@ Page({
   },
 
   onHide() {
-    // 切 tab 礼让音频互斥总线：停窗口播放（回 tab 不自动续播，重按播放键续）
+    // 切 tab 礼让音频互斥总线：停窗口播放，取消在途录音/评测
     this._pausePlayback();
-    this._evalToken += 1;
-    if (this._evalTimer) {
-      clearTimeout(this._evalTimer);
-      this._evalTimer = null;
-    }
-    if (this.data.isEvaluating) {
-      this.setData({ isEvaluating: false });
-    }
+    this._cancelEvaluation();
     this._flushSession();
   },
 
   onUnload() {
     this._flushSession();
     this._player.stop();
-    if (this._evalTimer) clearTimeout(this._evalTimer);
+    this._cancelEvaluation();
     if (this._playingFalseTimer) clearTimeout(this._playingFalseTimer);
   },
 
@@ -404,11 +480,7 @@ Page({
     this._lastWordIdx = -99;
     this._lastPastIdx = -99;
     this._prepToken += 1; // 作废在途懒取
-    this._evalToken += 1; // 作废在途跟读评测
-    if (this._evalTimer) {
-      clearTimeout(this._evalTimer);
-      this._evalTimer = null;
-    }
+    this._cancelEvaluation();
     this._audioMeta = null;
 
     // 游标只随最远到达下标前进（回划不倒退游标；预取未看条下次启动仍可出现）
@@ -437,7 +509,15 @@ Page({
       drawerSentence: null,
       drawerLocal: false,
       isEvaluating: false,
+      evalPhase: 'idle',
       evalScore: 0,
+      evalFluency: 0,
+      evalPronunciation: 0,
+      evalIntegrity: 0,
+      evalFeedback: EVAL_FEEDBACK,
+      evalWordScores: [],
+      evalUserAudioPath: '',
+      playingUserAudio: false,
       audioLoading: false,
     });
 
@@ -534,18 +614,31 @@ Page({
 
   /** 暂停：clip-player 无 pause 口，记相对位置后停实例 */
   _pausePlayback() {
-    if (!this.data.playing) return;
-    const meta = this._audioMeta;
-    const clip = this.data.clip;
-    const pos = this._player.estimatedPos();
-    if (meta && clip && pos != null) {
-      this._relPos = Math.min(Math.max(pos - meta.winStart, 0), meta.winEnd - meta.winStart);
+    if (!this.data.playing && !this.data.playingUserAudio) return;
+    if (this.data.playing) {
+      const meta = this._audioMeta;
+      const clip = this.data.clip;
+      const pos = this._player.estimatedPos();
+      if (meta && clip && pos != null) {
+        this._relPos = Math.min(Math.max(pos - meta.winStart, 0), meta.winEnd - meta.winStart);
+      }
     }
-    this._player.stop(); // → onPlaying(null) → playing=false
+    this._resumeAfterUserAudio = false;
+    this._player.stop();
+    if (this._playingFalseTimer) {
+      clearTimeout(this._playingFalseTimer);
+      this._playingFalseTimer = null;
+    }
+    this.setData({ playing: false, playingUserAudio: false });
   },
 
   onTogglePlay() {
     if (this.data.audioLoading) return;
+    if (this.data.playingUserAudio) {
+      this._resumeAfterUserAudio = false;
+      this._player.stop();
+      this.setData({ playingUserAudio: false });
+    }
     if (this.data.playing) {
       this._pausePlayback();
       return;
@@ -554,8 +647,17 @@ Page({
     this._startPlayback(this._atEnd ? 0 : this._relPos);
   },
 
-  /** 到窗终：循环则重放；否则停驻 */
-  _onClipEnd() {
+  /** 到窗终：若为回放「我的发音」则按需恢复原声循环；若为原声且循环开启则重放 */
+  _onClipEnd(kind) {
+    if (kind === 'user') {
+      this.setData({ playingUserAudio: false });
+      const shouldResume = this._resumeAfterUserAudio;
+      this._resumeAfterUserAudio = false;
+      if (shouldResume && this.data.clip && !this.data.playing) {
+        this._startPlayback(0);
+      }
+      return;
+    }
     if (this.data.isLooping) {
       this._startPlayback(0);
       return;
@@ -836,23 +938,255 @@ Page({
 
   noop() {},
 
-  /* ---------------- 跟读测评（B 原型假评测；迁移换 eval-card） ---------------- */
+  /* ---------------- 跟读录音测评（utils/recorder + POST /api/speech/evaluate） ---------------- */
 
-  onShadowing() {
-    if (this.data.isEvaluating) return;
+  /** 取消在途录音与评测请求（切换切片 / 隐藏 / 卸载时统一收尾） */
+  _cancelEvaluation() {
+    this._evalToken = (this._evalToken || 0) + 1;
+    if (this._evalTimer) {
+      clearTimeout(this._evalTimer);
+      this._evalTimer = null;
+    }
+    this._resumeAfterEval = false;
+    try {
+      const st = recorder.getState && recorder.getState();
+      if (st && st.recording) recorder.cancel();
+    } catch (e) {
+      /* 忽略 */
+    }
+    if (this.data.isEvaluating || this.data.evalPhase !== 'idle') {
+      this.setData({ isEvaluating: false, evalPhase: 'idle' });
+    }
+  },
+
+  /** 录音/评测结束后按需恢复原声循环 */
+  _restoreLoopAfterEval() {
+    const shouldResume = this._resumeAfterEval;
+    this._resumeAfterEval = false;
+    if (shouldResume && this.data.clip && !this.data.playing) {
+      this._startPlayback(0);
+    }
+  },
+
+  async onShadowing() {
+    const clip = this.data.clip;
+    if (!clip) return;
+    if (this.data.evalPhase === 'processing') return;
+
+    // 录音中再次点击麦克风 → 立即结束录音并提交评测
+    if (this.data.evalPhase === 'recording') {
+      await this._finishRecording();
+      return;
+    }
+
+    // 沙箱本地语料（无真实 episodeid）：保留本地模拟评测体验
+    if (!clip.real || !clip.episodeid) {
+      if (this.data.isEvaluating) return;
+      const evalToken = (this._evalToken = (this._evalToken || 0) + 1);
+      const targetClipId = clip.id;
+      this._resumeAfterEval = !!this.data.playing;
+      if (this.data.playing || this.data.playingUserAudio) this._pausePlayback();
+      this.setData({
+        isEvaluating: true,
+        evalPhase: 'recording',
+        evalScore: 0,
+        evalFluency: 0,
+        evalPronunciation: 0,
+        evalIntegrity: 0,
+        evalWordScores: [],
+        evalUserAudioPath: '',
+        playingUserAudio: false,
+      });
+      if (this._evalTimer) clearTimeout(this._evalTimer);
+      this._evalTimer = setTimeout(() => {
+        this._evalTimer = null;
+        if (evalToken !== this._evalToken) return;
+        if (!this.data.clip || this.data.clip.id !== targetClipId) return;
+        const score = Math.floor(88 + Math.random() * 10);
+        this.setData({
+          isEvaluating: false,
+          evalPhase: 'idle',
+          evalScore: score,
+          evalFluency: 94,
+          evalPronunciation: score,
+          evalIntegrity: 100,
+          evalFeedback: EVAL_FEEDBACK,
+        });
+        this._restoreLoopAfterEval();
+      }, EVAL_DURATION_MS);
+      return;
+    }
+
+    // 真实语料：检查登录与评测配额锁
+    if (!authStore.getState().isLoggedIn) {
+      this._promptLogin('请先登录后再进行跟读发音评测');
+      return;
+    }
+    if (this.data.evalQuotaLocked) {
+      this.setData({ showPremiumModal: true, premiumSource: 'review_eval_quota' });
+      return;
+    }
+
     const evalToken = (this._evalToken = (this._evalToken || 0) + 1);
-    const targetClipId = this.data.clip && this.data.clip.id;
-    this.setData({ isEvaluating: true, evalScore: 0 });
+    const targetClipId = clip.id;
+    const wasPlaying = !!(this.data.playing || this._resumeAfterUserAudio);
+    if (this.data.playing || this.data.playingUserAudio) this._pausePlayback();
+
+    const ok = await recorder.start();
+    // 权限弹窗等待期间若已切换切片，立即释放麦克风并中止
+    if (evalToken !== this._evalToken || !this.data.clip || this.data.clip.id !== targetClipId) {
+      if (ok) recorder.cancel();
+      return;
+    }
+    if (!ok) {
+      wx.showToast({ title: '无法访问麦克风，请检查权限设置', icon: 'none' });
+      if (wasPlaying) this._startPlayback(this._relPos);
+      return;
+    }
+
+    this._resumeAfterEval = wasPlaying;
+    this.setData({
+      isEvaluating: true,
+      evalPhase: 'recording',
+      evalScore: 0,
+      evalFluency: 0,
+      evalPronunciation: 0,
+      evalIntegrity: 0,
+      evalWordScores: [],
+      evalUserAudioPath: '',
+      playingUserAudio: false,
+    });
+
+    // 超时自动停止录音并提交评测
     if (this._evalTimer) clearTimeout(this._evalTimer);
     this._evalTimer = setTimeout(() => {
       this._evalTimer = null;
-      if (evalToken !== this._evalToken) return;
-      if (!this.data.clip || this.data.clip.id !== targetClipId) return;
-      this.setData({
-        isEvaluating: false,
-        evalScore: Math.floor(88 + Math.random() * 10),
+      if (evalToken === this._evalToken && this.data.evalPhase === 'recording') {
+        this._finishRecording();
+      }
+    }, RECORD_MAX_MS);
+  },
+
+  async _finishRecording() {
+    if (this.data.evalPhase !== 'recording') return;
+    if (this._evalTimer) {
+      clearTimeout(this._evalTimer);
+      this._evalTimer = null;
+    }
+    const evalToken = this._evalToken;
+    const clip = this.data.clip;
+    this.setData({ isEvaluating: true, evalPhase: 'processing' });
+
+    const { base64, wavPath, bytes } = await recorder.stop();
+    if (evalToken !== this._evalToken || !this.data.clip || !clip || this.data.clip.id !== clip.id) {
+      return;
+    }
+    if (!base64 || bytes < MIN_RECORD_BYTES) {
+      this.setData({ isEvaluating: false, evalPhase: 'idle' });
+      wx.showToast({ title: '录音太短，请重试', icon: 'none' });
+      this._restoreLoopAfterEval();
+      return;
+    }
+    this._evaluateSpeech(clip, base64, wavPath, evalToken);
+  },
+
+  _evaluateSpeech(clip, audioBase64, wavPath, evalToken) {
+    post(
+      '/api/speech/evaluate',
+      {
+        episodeId: clip.episodeid,
+        subtitleId: clip.subtitleId != null ? clip.subtitleId : undefined,
+        targetText: clip.textEn,
+        audioBase64,
+        rate: recorder.PCM_RATE || 16000,
+        scenario: 'learn',
+      },
+      { timeout: 60000, showError: false }
+    )
+      .then((body) => {
+        if (evalToken !== this._evalToken || !this.data.clip || this.data.clip.id !== clip.id) {
+          return;
+        }
+        if (!body || body.success === false) {
+          throw Object.assign(
+            new Error((body && (body.message || body.error)) || '评测失败，请重试'),
+            { body }
+          );
+        }
+        const result = speechCore.parseEvalResponse(body);
+        result.userAudioPath = wavPath || '';
+        const feedback = buildEvalFeedback(result);
+        const wordScores = mapEvalWordScores(clip, result.words);
+        this.setData({
+          isEvaluating: false,
+          evalPhase: 'idle',
+          evalScore: result.overallScore || 0,
+          evalFluency: result.fluency || 0,
+          evalPronunciation: result.pronunciation || 0,
+          evalIntegrity: result.integrity || 0,
+          evalFeedback: feedback,
+          evalWordScores: wordScores,
+          evalUserAudioPath: wavPath || '',
+        });
+        this._restoreLoopAfterEval();
+        this._refreshEvalQuota();
+      })
+      .catch((err) => {
+        if (evalToken !== this._evalToken || !this.data.clip || this.data.clip.id !== clip.id) {
+          return;
+        }
+        this.setData({ isEvaluating: false, evalPhase: 'idle' });
+        this._restoreLoopAfterEval();
+        const errCode = (err && err.code) || (err && err.body && err.body.error) || '';
+        if (
+          (err && err.statusCode === 403) ||
+          errCode === 'EVALUATION_QUOTA_EXCEEDED' ||
+          errCode === 'REVIEW_EVAL_QUOTA_EXCEEDED'
+        ) {
+          const msg =
+            (err && err.body && err.body.message) ||
+            (err && err.message) ||
+            '今日免费评测次数已用完';
+          wx.showToast({ title: msg, icon: 'none', duration: 2500 });
+          this.setData({
+            evalQuotaLocked: true,
+            showPremiumModal: true,
+            premiumSource: 'review_eval_quota',
+          });
+          return;
+        }
+        wx.showToast({ title: (err && err.message) || '评测失败，请重试', icon: 'none' });
       });
-    }, EVAL_DURATION_MS);
+  },
+
+  /** 点击英语句末图标按钮：回放我的发音（仅使用内存临时录音路径，不持久化） */
+  onPlayUserAudio() {
+    if (this.data.isEvaluating) return;
+    const source = this.data.evalUserAudioPath;
+    if (!source) {
+      wx.showToast({ title: '暂无录音可回放', icon: 'none' });
+      return;
+    }
+    if (this.data.playingUserAudio) {
+      this._player.stop();
+      this.setData({ playingUserAudio: false });
+      const shouldResume = this._resumeAfterUserAudio;
+      this._resumeAfterUserAudio = false;
+      if (shouldResume && this.data.clip) {
+        this._startPlayback(0);
+      }
+      return;
+    }
+    const wasPlaying = !!this.data.playing;
+    if (wasPlaying) {
+      this._pausePlayback();
+    }
+    this._resumeAfterUserAudio = wasPlaying;
+    this._player.playUrl(source, 'user');
+  },
+
+  _refreshEvalQuota() {
+    get('/api/speech/quota?scenario=learn', null, { showError: false }).catch(() => {});
   },
 
   /* ---------------- 句子收藏（真实切片走服务端 toggle） ---------------- */
