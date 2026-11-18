@@ -288,6 +288,7 @@ Page({
     relayDraft: null, // T12：录第 1 棒评测后草稿（试听/重录/满意后提交）
     relayTotalRecruiting: 0, // T15：全站招募真实总数（hero 副文案）
     relayRecruitHasMore: false, // T15：推荐层是否还有下一批
+    relayInitMap: {}, // T16：我发起中房的起始切片 id → true（抽屉标记）
     playingRoomId: '', // 合集连播中的房间
     playingStep: 0, // 连播当前棒（1 基）
     relayActiveSegId: '', // 单棒试听中的段 id
@@ -1650,6 +1651,10 @@ Page({
   async _loadRelayRooms(batch) {
     this._relayRecruitBatch = batch > 1 ? batch : 1;
     const apply = (rooms, total) => this.setData({
+      relayInitMap: rooms.reduce((m, r) => {
+        if (r.isMine && r.status === 'recruiting' && r.starterClipId) m[r.starterClipId] = true;
+        return m;
+      }, {}),
       relayRooms: rooms,
       // 角标口径（T16 并入）：窗口内可接数（我的招募+推荐层），非全站总数
       recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
@@ -1687,7 +1692,12 @@ Page({
   },
 
   onSelectRelayClip(e) {
-    this.setData({ selectedRelayClipId: e.currentTarget.dataset.id });
+    const id = e.currentTarget.dataset.id;
+    if (this.data.relayInitMap[id]) {
+      wx.showToast({ title: '已发起过接力（进行中），换一句试试', icon: 'none' });
+      return;
+    }
+    this.setData({ selectedRelayClipId: id });
   },
 
   onRelayTitleInput(e) {
@@ -1800,13 +1810,19 @@ Page({
     this.setData({ relaySubmitting: true });
     const token = this._shadowToken();
     const current = () => token === this._shadowToken();
-    relayApi.createRoom({
-      clipId: d.clipId, title: d.title,
-      recognitionId: d.recognitionId, audioBase64: d.audioBase64,
-    })
+    (d.mode === 'join'
+      ? relayApi.joinRoom({
+          roomId: d.roomId,
+          recognitionId: d.recognitionId, audioBase64: d.audioBase64,
+        })
+      : relayApi.createRoom({
+          clipId: d.clipId, title: d.title,
+          recognitionId: d.recognitionId, audioBase64: d.audioBase64,
+        })
+    )
       .then((room) => {
         if (!current()) return;
-        this._relayRoomCreated(room, d.recognitionId, true);
+        this._relayRoomCreated(room, d.recognitionId, d.mode !== 'join');
       })
       .catch((err) => {
         if (!current()) return;
@@ -1847,31 +1863,25 @@ Page({
         }
         // T12：第 1 棒评测后不立即建房——存草稿进入「试听/重录/满意提交」
         // 三态（提交前不落库不计接力；重录走完整录音链=配额自然约束）
-        if (ctx.mode === 'create') {
-          this.setData({
-            relayDraft: {
-              clipId: ctx.clipId,
-              title: this.data.newRelayTitle,
-              recognitionId: evalData.recognitionId,
-              audioBase64: audio.base64,
-              wavPath: audio.wavPath || '',
-              duration: audio.duration || 0,
-              score: Math.round(
-                (evalData.details && evalData.details.overall) || evalData.score || 0
-              ),
-            },
-          });
-          if (recorder.isDevtools()) {
-            wx.showToast({ title: '工具录音评分恒 0 分（微信限制），真机预览出真分', icon: 'none' });
-          }
-          return;
-        }
-        const room = await relayApi.joinRoom({
-          roomId: ctx.roomId,
-          recognitionId: evalData.recognitionId, audioBase64: audio.base64,
+        this.setData({
+          relayDraft: {
+            mode: ctx.mode,
+            roomId: ctx.roomId || '',
+            clipId: ctx.clipId,
+            title: this.data.newRelayTitle,
+            recognitionId: evalData.recognitionId,
+            audioBase64: audio.base64,
+            wavPath: audio.wavPath || '',
+            duration: audio.duration || 0,
+            score: Math.round(
+              (evalData.details && evalData.details.overall) || evalData.score || 0
+            ),
+          },
         });
-        if (!current()) return;
-        this._relayRoomCreated(room, evalData.recognitionId, false);
+        if (recorder.isDevtools()) {
+          wx.showToast({ title: '工具录音评分恒 0 分（微信限制），真机预览出真分', icon: 'none' });
+        }
+        return; // T17：第 1/3 棒评测后统一停草稿，满意才提交
       } catch (err) {
         if (!current()) return;
         const code = err && (err.error || err.code || (err.body && err.body.error));
@@ -1903,7 +1913,12 @@ Page({
   onStartCreateRelay() {
     if (this.data.relaySubmitting || (this.data.relayRecording && this.data.relayRecording !== 'create')) return;
     if (this.data.relayRecording === 'create') return this._relayRecordFinish(); // 再点=停录提交
+    if (this.data.relayDraft) return wx.showToast({ title: '请先处理当前草稿（试听/重录/提交/放弃）', icon: 'none' });
     if (!this._shadowToken()) return this._promptLogin('登录后发起跟读接力');
+    // T16：同句仅一接力（我发起中的房）
+    if (this.data.relayInitMap[this.data.selectedRelayClipId]) {
+      return wx.showToast({ title: '这句话你已发起过接力，等语伴接棒或先撤销', icon: 'none' });
+    }
     const clips = (this.data.daily && this.data.daily.clips) || [];
     const clip = clips.find((c) => c.id === this.data.selectedRelayClipId) || clips[0];
     if (!clip) {
@@ -1925,6 +1940,7 @@ Page({
   onJoinRelay(e) {
     const roomId = e.currentTarget.dataset.rid;
     if (!roomId || this.data.relaySubmitting || (this.data.relayRecording && this.data.relayRecording !== roomId)) return;
+    if (this.data.relayDraft) return wx.showToast({ title: '请先处理当前草稿（试听/重录/提交/放弃）', icon: 'none' });
     if (this.data.relayRecording === roomId) return this._relayRecordFinish(); // 再点=停录提交
     if (!this._shadowToken()) return this._promptLogin('登录后接棒压轴');
     const room = this.data.relayRooms.find((r) => r.id === roomId);

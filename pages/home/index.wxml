@@ -842,7 +842,7 @@
 
         <scroll-view scroll-y class="st-rl-clip-list">
           <view wx:for="{{daily.clips}}" wx:for-item="rclip" wx:for-index="ri" wx:key="id"
-                class="st-rl-clip {{selectedRelayClipId === rclip.id ? 'st-rl-clip--on' : ''}}"
+                class="st-rl-clip {{selectedRelayClipId === rclip.id ? 'st-rl-clip--on' : ''}} {{relayInitMap[rclip.id] ? 'st-rl-clip--off' : ''}}"
                 data-id="{{rclip.id}}" bindtap="onSelectRelayClip">
             <view class="st-rl-clip-meta">
               <text class="st-rl-clip-topic">#{{ri + 1}} · {{rclip.topic}}</text>
@@ -861,16 +861,16 @@
         <view class="st-rl-drawer-foot {{relayDraft ? 'st-rl-drawer-foot--draft' : ''}}">
           <text class="st-rl-drawer-foot-note">录制完成后，语伴将自动接棒第 2 棒，第 3 棒留给下一位语伴压轴并合成趣味合集</text>
           <!-- T12：评测后草稿面板（试听/重录/满意提交/放弃） -->
-          <view wx:if="{{relayDraft}}" class="st-rl-draft">
+          <view wx:if="{{relayDraft && relayDraft.mode !== 'join'}}" class="st-rl-draft">
             <view class="st-rl-draft-score">
               <text class="st-rl-draft-score-n">{{relayDraft.score}}</text>
-              <text class="st-rl-draft-score-u">分 · 本次领读评分</text>
+              <text class="st-rl-draft-score-u">分 · {{relayDraft.mode === 'join' ? '本次接棒评分' : '本次领读评分'}}</text>
             </view>
             <text class="st-rl-draft-tip">先试听再决定：满意才提交发起（此前不建房）；重录将再次评测并消耗评测次数</text>
             <view class="st-rl-draft-actions">
               <view class="st-rl-draft-btn" hover-class="st-rl-draft-btn--hover" bindtap="onPlayRelayDraft">🔊 试听</view>
               <view class="st-rl-draft-btn" hover-class="st-rl-draft-btn--hover" bindtap="onRetryRelayDraft">🔄 重录</view>
-              <view class="st-rl-draft-btn st-rl-draft-btn--go" hover-class="st-rl-draft-btn--hover" bindtap="onSubmitRelayDraft">✅ 提交发起</view>
+              <view class="st-rl-draft-btn st-rl-draft-btn--go" hover-class="st-rl-draft-btn--hover" bindtap="onSubmitRelayDraft">{{relayDraft.mode === 'join' ? '✅ 提交接棒' : '✅ 提交发起'}}</view>
             </view>
             <text class="st-rl-draft-discard" bindtap="onDiscardRelayDraft">放弃本次草稿</text>
           </view>
@@ -975,7 +975,19 @@
             </view>
             <view class="st-prompt-foot">
               <text class="st-prompt-foot-note">完成后将自动合成 3 人趣味原声合集</text>
-              <view class="st-prompt-join {{relayRecording === room.id || relaySubmitting ? 'st-prompt-join--busy' : ''}}"
+              <view wx:if="{{relayDraft && relayDraft.mode === 'join' && relayDraft.roomId === room.id}}" class="st-rl-draft st-rl-draft--join">
+                <view class="st-rl-draft-score">
+                  <text class="st-rl-draft-score-n">{{relayDraft.score}}</text>
+                  <text class="st-rl-draft-score-u">分 · 本次接棒评分</text>
+                </view>
+                <view class="st-rl-draft-actions">
+                  <view class="st-rl-draft-btn" hover-class="st-rl-draft-btn--hover" bindtap="onPlayRelayDraft">🔊 试听</view>
+                  <view class="st-rl-draft-btn" hover-class="st-rl-draft-btn--hover" bindtap="onRetryRelayDraft">🔄 重录</view>
+                  <view class="st-rl-draft-btn st-rl-draft-btn--go" hover-class="st-rl-draft-btn--hover" bindtap="onSubmitRelayDraft">✅ 提交接棒</view>
+                </view>
+                <text class="st-rl-draft-discard" bindtap="onDiscardRelayDraft">放弃本次草稿</text>
+              </view>
+              <view wx:else class="st-prompt-join {{relayRecording === room.id || relaySubmitting ? 'st-prompt-join--busy' : ''}}"
                     hover-class="{{relayRecording === room.id || relaySubmitting ? '' : 'st-prompt-join--hover'}}"
                     data-rid="{{room.id}}" bindtap="onJoinRelay">
                 <text class="st-prompt-join-text">{{relaySubmitting ? '评测提交中...' : relayRecording === room.id ? '点击停录提交 (' + relayCountdown + 's)' : '录制接力并生成趣味合集'}}</text>

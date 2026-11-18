@@ -71,6 +71,13 @@ const relayApi2 = read('pages/home/relay-api.js');
 assert(relayApi2.includes('recruitBatch') && relayApi2.includes('totalRecruiting') && relayApi2.includes('recruitHasMore'), 'E5 分层响应三字段透传（映射层铁律）');
 assert(read('pages/home/index.js').includes('onRelaySwapRecruits') && read('pages/home/index.js').includes('relayTotalRecruiting'), 'E5 换一批处理器+全站计数');
 
+// —— 场景 E6：同句仅一接力+接棒草稿三态契约（T16/T17） ——
+const js6 = read('pages/home/index.js');
+assert(read('pages/home/relay-api.js').includes('starterClipId'), 'E6 starterClipId 映射层透传');
+assert(js6.includes('relayInitMap') && js6.includes('已发起过接力'), 'E6 同句拦截（map+提示）');
+assert(js6.includes("d.mode === 'join'") && js6.includes('提交交接棒') === false, 'E6 接棒草稿提交分支');
+assert(js6.includes('请先处理当前草稿'), 'E6 草稿期间锁发起/接棒入口');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');

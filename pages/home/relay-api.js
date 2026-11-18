@@ -62,6 +62,7 @@ function mapRoom(r) {
     likes: r.likes || 0,
     likedByMe: !!r.likedByMe,
     isMine: !!r.isMine,
+    starterClipId: r.starterClipId || '',
     invitedUsers: r.invitedUsers || [],
     segments: (r.segments || []).map(mapSegment),
     nextPromptSegment: r.nextPromptSegment

@@ -5631,3 +5631,13 @@
 .st-rl-swap--hover {
   opacity: 0.72;
 }
+
+/* T16：已发起接力的句子（进行中）置灰 */
+.st-rl-clip--off {
+  opacity: 0.45;
+}
+.st-rl-draft--join {
+  margin-top: 12rpx;
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+}
