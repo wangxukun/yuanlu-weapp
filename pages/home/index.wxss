@@ -5581,13 +5581,13 @@
 .st-rl-draft{width:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:14rpx;padding:24rpx;border-radius:24rpx;background:rgba(31,122,92,0.14);border:1rpx solid rgba(31,122,92,0.4)}
 .st-rl-draft-score{display:flex;align-items:baseline;gap:8rpx}
 .st-rl-draft-score-n{font-size:56rpx;font-weight:800;color:#ffffff}
-.st-rl-draft-score-u{font-size:22rpx;color:rgba(232,227,217,0.7)}
+.st-rl-draft-score-u{font-size:22rpx;color:rgba(255,255,255,0.92)}
 .st-rl-draft-tip{font-size:20rpx;line-height:1.6;color:rgba(232,227,217,0.55);text-align:center}
 .st-rl-draft-actions{display:flex;gap:16rpx;width:100%}
 .st-rl-draft-btn{flex:1;box-sizing:border-box;padding:14rpx 0;border-radius:20rpx;text-align:center;font-size:22rpx;font-weight:700;color:#ffffff;background:rgba(0,0,0,0.32)}
 .st-rl-draft-btn--hover{opacity:0.72}
 .st-rl-draft-btn--go{flex:1.1;background:linear-gradient(100deg,var(--primary-600),#2f9e8a)}
-.st-rl-draft-discard{font-size:20rpx;color:rgba(232,227,217,0.45);text-decoration:underline}
+.st-rl-draft-discard{font-size:20rpx;color:rgba(255,255,255,0.75);text-decoration:underline}
 
 /* 草稿态：提示文案与领读评分卡改上下布局（评分卡整宽不再与长文案左右互挤） */
 .st-rl-drawer-foot--draft {
@@ -5638,6 +5638,16 @@
 }
 .st-rl-draft--join {
   margin-top: 12rpx;
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.2);
+  width: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+/* 接棒 foot 草稿态：提示与评分卡上下排（评分卡与第3棒句卡同宽对齐） */
+.st-prompt-foot--draft {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12rpx;
+}
+.st-prompt-foot--draft .st-prompt-foot-note {
+  width: 100%;
 }

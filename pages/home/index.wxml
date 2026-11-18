@@ -973,7 +973,7 @@
               <text class="st-prompt-zh">{{room.nextPromptSegment.textCn}}</text>
               <text wx:if="{{room.nextPromptSegment.phoneticTip}}" class="st-prompt-tip">💡 接棒贴士：{{room.nextPromptSegment.phoneticTip}}</text>
             </view>
-            <view class="st-prompt-foot">
+            <view class="st-prompt-foot {{relayDraft && relayDraft.mode === 'join' && relayDraft.roomId === room.id ? 'st-prompt-foot--draft' : ''}}">
               <text class="st-prompt-foot-note">完成后将自动合成 3 人趣味原声合集</text>
               <view wx:if="{{relayDraft && relayDraft.mode === 'join' && relayDraft.roomId === room.id}}" class="st-rl-draft st-rl-draft--join">
                 <view class="st-rl-draft-score">
