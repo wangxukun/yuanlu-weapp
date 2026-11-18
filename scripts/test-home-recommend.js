@@ -82,6 +82,11 @@ assert(js6.includes('请先处理当前草稿'), 'E6 草稿期间锁发起/接�
 assert(read('pages/home/relay-api.js').includes('adminDeleteRoom'), 'E7 管理员删除 API 存在');
 assert(read('pages/home/index.js').includes('onDeleteRelayByAdmin') && read('pages/home/index.js').includes('relayIsAdmin'), 'E7 删除处理器+角色门禁');
 
+// —— 场景 E8：起录预备倒计时契约（T8） ——
+const js8 = read('pages/home/index.js');
+assert(js8.includes('_startRelayPrep') && js8.includes('_relayRecordGo') && js8.includes('_cancelRelayPrep'), 'E8 预备倒计时三件套（起/开麦/取消）');
+assert(js8.includes('relayPrepCountdown') && read('pages/home/index.wxml').includes('st-rl-prep'), 'E8 预备浮层数据与节点');
+
 // —— 场景 E：榜「挑战同款」加练契约（课外金句 → 今日挑战第 6+ 句） ——
 const lbApi = read('pages/home/leaderboard-api.js');
 assert(lbApi.includes('featuredClip: e.featuredClip'), 'E 映射层透传 featuredClip（丢弃即退化为仅播放）');

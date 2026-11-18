@@ -290,6 +290,7 @@ Page({
     relayRecruitHasMore: false, // T15：推荐层是否还有下一批
     relayInitMap: {}, // T16：我发起中房的起始切片 id → true（抽屉标记）
     relayIsAdmin: false, // 管理员角色（趣味合集治理删除入口）
+    relayPrepCountdown: 0, // T8：起录前 3-2-1 预备倒计时（0=关闭）
     playingRoomId: '', // 合集连播中的房间
     playingStep: 0, // 连播当前棒（1 基）
     relayActiveSegId: '', // 单棒试听中的段 id
@@ -432,6 +433,7 @@ Page({
     if (this._relayRecTimer) clearInterval(this._relayRecTimer);
     this._cancelRelayRecording();
     if (this._batonTimer) clearTimeout(this._batonTimer);
+    if (this._relayPrepTimer) clearInterval(this._relayPrepTimer);
     if (this._clockTimer) clearInterval(this._clockTimer);
     if (this._cheerTimer) clearTimeout(this._cheerTimer);
     if (this._streakPopTimer) clearTimeout(this._streakPopTimer);
@@ -1746,21 +1748,53 @@ Page({
       const permitted = await recorder.ensurePermission();
       if (token !== this._shadowToken()) return;
       if (!permitted) throw new Error('需要麦克风权限，请授权后重试');
-      if (!recorder.start({ ensurePerm: false })) throw new Error('录音启动失败，请重试');
-      this._relayRecCtx = Object.assign({ token, startedAt: Date.now() }, opts);
-      this.setData({ relayRecording: opts.busyKey, relayCountdown: 0 });
-      if (this._relayRecTimer) clearInterval(this._relayRecTimer);
-      this._relayRecTimer = setInterval(() => {
-        const ctx = this._relayRecCtx;
-        if (!ctx || !this.data.relayRecording) return this._cancelRelayRecording();
-        const seconds = Math.min(RELAY_MAX_SECONDS, Math.floor((Date.now() - ctx.startedAt) / 1000));
-        this.setData({ relayCountdown: seconds });
-        if (seconds >= RELAY_MAX_SECONDS || !recorder.getState().recording) this._relayRecordFinish();
-      }, 250);
+      // T8：权限通过后先进 3-2-1 预备倒计时（仪式感；不替换真实录音/评测，
+      // 倒计时结束才开麦；期间可点击预备浮层取消）
+      this._startRelayPrep(opts, token);
     } catch (err) {
       this._cancelRelayRecording();
       wx.showToast({ title: err.message || '录音启动失败，请重试', icon: 'none' });
     }
+  },
+
+  /** T8：起录前 3-2-1 预备倒计时 → 归零开麦 */
+  _startRelayPrep(opts, token) {
+    this._cancelRelayPrep();
+    this.setData({ relayPrepCountdown: 3 });
+    this._relayPrepTimer = setInterval(() => {
+      if (token !== this._shadowToken()) return this._cancelRelayPrep();
+      const c = this.data.relayPrepCountdown - 1;
+      if (c > 0) {
+        this.setData({ relayPrepCountdown: c });
+        return;
+      }
+      this._cancelRelayPrep();
+      this._relayRecordGo(opts, token);
+    }, 1000);
+  },
+
+  _cancelRelayPrep() {
+    if (this._relayPrepTimer) clearInterval(this._relayPrepTimer);
+    this._relayPrepTimer = null;
+    if (this.data.relayPrepCountdown) this.setData({ relayPrepCountdown: 0 });
+  },
+
+  /** 预备结束真正开麦（原 _relayRecordStart 直启段） */
+  _relayRecordGo(opts, token) {
+    if (!recorder.start({ ensurePerm: false })) {
+      wx.showToast({ title: '录音启动失败，请重试', icon: 'none' });
+      return;
+    }
+    this._relayRecCtx = Object.assign({ token, startedAt: Date.now() }, opts);
+    this.setData({ relayRecording: opts.busyKey, relayCountdown: 0 });
+    if (this._relayRecTimer) clearInterval(this._relayRecTimer);
+    this._relayRecTimer = setInterval(() => {
+      const ctx = this._relayRecCtx;
+      if (!ctx || !this.data.relayRecording) return this._cancelRelayRecording();
+      const seconds = Math.min(RELAY_MAX_SECONDS, Math.floor((Date.now() - ctx.startedAt) / 1000));
+      this.setData({ relayCountdown: seconds });
+      if (seconds >= RELAY_MAX_SECONDS || !recorder.getState().recording) this._relayRecordFinish();
+    }, 250);
   },
 
   /** 停录→评测→建房/接棒（提交期 relaySubmitting 挡住按钮重复点击） */
@@ -1905,6 +1939,7 @@ Page({
 
   _cancelRelayRecording() {
     this._relayRecCtx = null;
+    this._cancelRelayPrep();
     if (this._relayRecTimer) clearInterval(this._relayRecTimer);
     this._relayRecTimer = null;
     if (this.data.relayRecording || this.data.relaySubmitting) {
@@ -2160,6 +2195,7 @@ Page({
    */
   _armBatonFallback(room, step) {
     if (this._batonTimer) clearTimeout(this._batonTimer);
+    if (this._relayPrepTimer) clearInterval(this._relayPrepTimer);
     const seg = room.segments[step - 1] || {};
     const dur = Math.max(1, Number(seg.duration) || 5.2);
     this._batonTimer = setTimeout(() => {

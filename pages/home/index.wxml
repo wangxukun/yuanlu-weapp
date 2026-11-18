@@ -885,6 +885,12 @@
     </view>
 
     <!-- 装载态 -->
+    <!-- T8：起录前 3-2-1 预备倒计时浮层（点击取消） -->
+    <view wx:if="{{relayPrepCountdown > 0}}" class="st-rl-prep" bindtap="_cancelRelayPrep">
+      <view class="st-rl-prep-num">{{relayPrepCountdown}}</view>
+      <text class="st-rl-prep-tip">准备开麦… 点击取消</text>
+    </view>
+
     <view wx:if="{{relayLoading}}" class="st-db-loading">
       <view class="st-gen-spin st-db-loading-spin" />
       <text class="st-db-loading-text">正在加载口语接力房间与趣味合集...</text>

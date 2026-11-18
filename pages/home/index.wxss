@@ -5667,3 +5667,30 @@
   font-weight: 700;
   color: rgba(232, 227, 217, 0.8);
 }
+
+/* T8：起录前 3-2-1 预备倒计时浮层 */
+.st-rl-prep {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+  background: rgba(15, 14, 11, 0.78);
+  animation: st-pulse 1s ease-in-out infinite;
+}
+.st-rl-prep-num {
+  font-size: 160rpx;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+.st-rl-prep-tip {
+  font-size: 24rpx;
+  color: rgba(232, 227, 217, 0.75);
+}
