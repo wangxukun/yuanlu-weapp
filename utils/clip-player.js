@@ -89,6 +89,45 @@ function createClipPlayer(hooks) {
     return finishedKind;
   }
 
+  let rateApplied = false;
+
+  /**
+   * 尝试将目标倍速写入底层 InnerAudioContext（带 0.75→0.8 / 1.25→1.5 平台容错回退）
+   */
+  function applyRate(ctx, r) {
+    if (!ctx || !r) return;
+    const target = r === 1 ? 1.0 : r;
+    try {
+      ctx.playbackRate = target;
+    } catch (e) {
+      if (target < 1) {
+        try { ctx.playbackRate = 0.8; } catch (e2) { /* 忽略 */ }
+      } else if (target > 1) {
+        try { ctx.playbackRate = 1.5; } catch (e2) { /* 忽略 */ }
+      }
+    }
+  }
+
+  /**
+   * 动态切换倍速（在播时直接就地修改 ctx.playbackRate 并重锚外推时钟，
+   * 无需销毁重建实例，彻底避免部分机型重建后 onPlay 不触发或重置回 1.0x 的问题）。
+   * @param {number} newRate 目标倍速（如 0.75 / 1.0 / 1.25）
+   */
+  function setRate(newRate) {
+    const r = Number(newRate) || 1;
+    const now = Date.now();
+    if (anchorAt && !stalledAt) {
+      anchorPos = anchorPos + ((now - anchorAt) / 1000) * (rate || 1);
+      anchorAt = now;
+    }
+    rate = r !== 1 ? r : 0;
+    rateApplied = false;
+    if (audio && anchorAt) {
+      applyRate(audio, r);
+      rateApplied = true;
+    }
+  }
+
   /**
    * 播放一段 URL（可带窗口与倍速；同 kind 再点由调用方自行 toggle）。
    * @param {string} url 音源（OSS 直链 / 本地 wav 路径 / dictvoice 直链）
@@ -110,6 +149,7 @@ function createClipPlayer(hooks) {
     startSec = o.startSec > 0 ? o.startSec : 0;
     endSec = o.endSec != null && isFinite(o.endSec) ? o.endSec : null;
     rate = o.rate && o.rate !== 1 ? o.rate : 0;
+    rateApplied = false;
     anchorPos = startSec; // 外推锚点（起播前先按预期落点占位）
     anchorAt = 0;
 
@@ -118,22 +158,26 @@ function createClipPlayer(hooks) {
     ctx.onCanplay(() => {
       if (audio !== ctx) return;
       ctx.play();
+      // play() 调用后立即记下起播锚点（兼容不触发 onPlay 的模拟器/平台）
+      if (!anchorAt) anchorAt = Date.now();
       notifyPlaying(kind);
     });
     ctx.onPlay(() => {
       if (audio !== ctx) return;
       anchorAt = Date.now();
-      // 慢速倍速只能在起播后设置（提前设置部分平台忽略或重置进度到 0）
+      // 慢速/倍速只在起播后设置（在 onCanplay 内提前设置部分真机平台会忽略或重置进度到 0）
       if (rate) {
-        try {
-          ctx.playbackRate = rate;
-        } catch (e) {
-          try { ctx.playbackRate = 0.8; } catch (e2) { /* 忽略 */ }
-        }
+        applyRate(ctx, rate);
+        rateApplied = true;
       }
     });
     ctx.onTimeUpdate(() => {
       if (audio !== ctx) return;
+      // 兜底：若平台未触发 onPlay（如部分环境/模拟器），在首帧 timeupdate 立即补设 playbackRate
+      if (rate && !rateApplied) {
+        applyRate(ctx, rate);
+        rateApplied = true;
+      }
       const reported = ctx.currentTime || 0;
       const prevReported = lastReported;
       lastReported = reported;
@@ -193,6 +237,10 @@ function createClipPlayer(hooks) {
         clearWatchdog();
         return;
       }
+      if (rate && !rateApplied && anchorAt) {
+        applyRate(ctx, rate);
+        rateApplied = true;
+      }
       const t = estimatedPos();
       if (t == null) return; // 缓冲停顿中：不判停、不外推
       if (typeof cb.onTick === 'function') {
@@ -211,7 +259,7 @@ function createClipPlayer(hooks) {
     return kind;
   }
 
-  return { playUrl, stop, getKind, estimatedPos };
+  return { playUrl, stop, setRate, getKind, estimatedPos };
 }
 
 module.exports = { createClipPlayer };

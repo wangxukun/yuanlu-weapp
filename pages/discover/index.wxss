@@ -37,6 +37,9 @@
   --rl-solid-btn-bg: #221f18; /* B 底部主按钮 bg-stone-900 */
   /* 深析弹窗内引句卡 */
   --rl-quote-bg: var(--page-bg);
+  /* U1：背景氛围层双态透明度（浅色 opacity-25 + mask 75%；深色 opacity-35 + mask 70%） */
+  --rl-bg-opacity: 0.25;
+  --rl-mask-opacity: 0.75;
 
   position: relative;
   height: 100vh;
@@ -67,6 +70,8 @@
     --rl-footer-bg: rgba(0, 0, 0, 0.42);
     --rl-solid-btn-bg: #322d23;
     --rl-quote-bg: var(--page-bg);
+    --rl-bg-opacity: 0.35;
+    --rl-mask-opacity: 0.70;
   }
 }
 
@@ -88,6 +93,8 @@
   --rl-footer-bg: rgba(0, 0, 0, 0.42);
   --rl-solid-btn-bg: #322d23;
   --rl-quote-bg: var(--page-bg);
+  --rl-bg-opacity: 0.35;
+  --rl-mask-opacity: 0.70;
 }
 
 /* ═══════════ 手动浅色（系统深色下全量还原） ═══════════ */
@@ -108,9 +115,11 @@
   --rl-footer-bg: rgba(255, 255, 255, 0.82);
   --rl-solid-btn-bg: #221f18;
   --rl-quote-bg: var(--page-bg);
+  --rl-bg-opacity: 0.25;
+  --rl-mask-opacity: 0.75;
 }
 
-/* ═══════════ 背景氛围层 ═══════════ */
+/* ═══════════ 背景氛围层（U1：blur-3xl ≈ 128rpx + scale-125；U2：双层交替 opacity transition） ═══════════ */
 .rl-bg {
   position: absolute;
   left: 0;
@@ -119,17 +128,28 @@
   bottom: 0;
   z-index: 0;
   overflow: hidden;
-  opacity: 0.3;
   /* 封面图加载失败时兜底的品牌渐变 */
   background: linear-gradient(160deg, rgba(46, 143, 111, 0.35), rgba(217, 138, 23, 0.25));
   pointer-events: none;
 }
 
 .rl-bg-img {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
   height: 100%;
-  filter: blur(52rpx);
+  filter: blur(128rpx);
   transform: scale(1.25);
+  transition: opacity 0.45s ease-in-out;
+}
+
+.rl-bg-img--active {
+  opacity: var(--rl-bg-opacity);
+}
+
+.rl-bg-img--inactive {
+  opacity: 0;
 }
 
 .rl-bg-mask {
@@ -139,7 +159,7 @@
   top: 0;
   bottom: 0;
   background: var(--page-bg);
-  opacity: 0.72;
+  opacity: var(--rl-mask-opacity);
 }
 
 /* ═══════════ 顶栏 ═══════════ */
@@ -534,14 +554,38 @@
   border-color: var(--rl-green-tint-border);
 }
 
-/* 跟读评测中：陶土红实底白图标 + 脉冲（B: bg-rose-500 text-white animate-pulse） */
+/* 跟读评测中：陶土红实底白图标 + 外圈扩散光环 + 脉冲（B: bg-rose-500 text-white animate-pulse） */
 .rl-act--rec {
+  position: relative;
   background: var(--error-500);
   border-color: var(--error-500);
 }
 
 .rl-act--rec-pulse {
   animation: rl-pulse 1.2s ease-in-out infinite;
+}
+
+.rl-rec-halo {
+  position: absolute;
+  left: -8rpx;
+  right: -8rpx;
+  top: -8rpx;
+  bottom: -8rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--error-500, #d2503f);
+  pointer-events: none;
+  animation: rl-halo-ring 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes rl-halo-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.48);
+    opacity: 0;
+  }
 }
 
 .rl-rec-spin {

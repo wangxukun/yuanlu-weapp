@@ -20,10 +20,14 @@
     <text class="rl-feed-loading-text">正在装载原声切片…</text>
   </view>
 
-  <!-- ═══ 背景氛围层：模糊封面 + 遮罩 ═══ -->
+  <!-- ═══ 背景氛围层：双层交替模糊封面 + 遮罩（U1 & U2） ═══ -->
   <view class="rl-bg">
-    <image wx:if="{{coverOk && clip.coverUrl}}" class="rl-bg-img" src="{{clip.coverUrl}}"
-           mode="aspectFill" binderror="onCoverError" />
+    <image wx:if="{{coverOk && bgUrlA}}"
+           class="rl-bg-img {{bgSlot === 0 ? 'rl-bg-img--active' : 'rl-bg-img--inactive'}}"
+           src="{{bgUrlA}}" mode="aspectFill" binderror="onCoverError" />
+    <image wx:if="{{coverOk && bgUrlB}}"
+           class="rl-bg-img {{bgSlot === 1 ? 'rl-bg-img--active' : 'rl-bg-img--inactive'}}"
+           src="{{bgUrlB}}" mode="aspectFill" binderror="onCoverError" />
     <view class="rl-bg-mask" />
   </view>
 
@@ -64,7 +68,7 @@
             <text wx:if="{{reel.isExclusive}}" class="rl-pill rl-pill--vip">👑 会员专享</text>
           </view>
 
-          <!-- 英文原句：词级卡拉OK扫光 + 跟读逐词得分 + 句末回放我的发音按钮 -->
+          <!-- 英文原句：词级卡拉OK扫光（U5：路径补丁收敛至当前 reel 项字段）+ 跟读逐词得分 + 句末回放我的发音按钮 -->
           <view class="rl-sentence">
             <block wx:if="{{reel.words.length > 0}}">
               <view
@@ -76,7 +80,7 @@
                 data-wi="{{wi}}"
                 data-word="{{w.word}}"
                 bindtap="onWordTap">
-                <text class="rl-word {{playing && ci === index && activeWordIndex === wi ? 'rl-word--cur' : playing && ci === index && pastWordIndex >= wi ? 'rl-word--past' : ''}}">{{w.word}}</text>
+                <text class="rl-word {{reel.swOn && reel.activeIdx === wi ? 'rl-word--cur' : reel.swOn && reel.pastIdx >= wi ? 'rl-word--past' : ''}}">{{w.word}}</text>
                 <text wx:if="{{ci === index && evalWordScores[wi]}}" class="rl-word-score rl-word-score--{{evalWordScores[wi].tier}}">{{evalWordScores[wi].score}}</text>
               </view>
             </block>
@@ -116,15 +120,16 @@
             <text class="rl-tip-text">{{reel.phoneticTip}}</text>
           </view>
 
-          <!-- 跟读测评结果横幅（仅当前项） -->
+          <!-- 跟读测评结果横幅（仅当前项；U4：含流利度 / 连读分项小标签） -->
           <view wx:if="{{ci === index && evalScore}}" class="rl-eval">
             <view class="rl-eval-head">
               <image class="rl-eval-ic" src="/assets/icons/check-circle-primary.svg" />
               <text class="rl-eval-title">跟读发音评分: {{evalScore}} 分</text>
             </view>
-            <view wx:if="{{evalFluency || evalPronunciation || evalIntegrity}}" class="rl-eval-metrics">
-              <text wx:if="{{evalPronunciation}}" class="rl-eval-metric">准确度 {{evalPronunciation}}%</text>
+            <view wx:if="{{evalFluency || evalPronunciation || evalIntegrity || evalLinking}}" class="rl-eval-metrics">
               <text wx:if="{{evalFluency}}" class="rl-eval-metric">流利度 {{evalFluency}}%</text>
+              <text wx:if="{{evalLinking}}" class="rl-eval-metric">连读 {{evalLinking}}</text>
+              <text wx:if="{{evalPronunciation}}" class="rl-eval-metric">准确度 {{evalPronunciation}}%</text>
               <text wx:if="{{evalIntegrity}}" class="rl-eval-metric">完整度 {{evalIntegrity}}%</text>
             </view>
             <text class="rl-eval-fb">{{evalFeedback}}</text>
@@ -147,7 +152,7 @@
       <image class="rl-act-ic" src="{{isLooping ? '/assets/icons/repeat-one-primary.svg' : (dark ? '/assets/icons/repeat-graydark.svg' : '/assets/icons/repeat-gray.svg')}}" />
     </view>
 
-    <!-- 倍速 0.75x / 1x / 1.25x -->
+    <!-- 倍速 0.75x / 1.0x / 1.25x -->
     <view class="rl-act" hover-class="rl-act--hover" bindtap="onToggleRate">
       <text class="rl-rate-label">{{rateLabel}}</text>
     </view>
@@ -157,8 +162,9 @@
       <image class="rl-act-ic" src="/assets/icons/auto-awesome-primary.svg" />
     </view>
 
-    <!-- 跟读录音测评（录音中脉冲 / 评测中 spinner） -->
+    <!-- 跟读录音测评（U4：录音中外圈扩散光环 + 脉冲 / 评测中 spinner） -->
     <view class="rl-act {{isEvaluating ? 'rl-act--rec rl-act--rec-pulse' : ''}}" hover-class="rl-act--hover" bindtap="onShadowing">
+      <view wx:if="{{evalPhase === 'recording'}}" class="rl-rec-halo" />
       <view wx:if="{{evalPhase === 'processing'}}" class="rl-rec-spin" />
       <image wx:else class="rl-act-ic" src="{{isEvaluating ? '/assets/icons/mic-filled.svg' : (dark ? '/assets/icons/mic-tertiary-dark.svg' : '/assets/icons/mic-tertiary.svg')}}" />
     </view>

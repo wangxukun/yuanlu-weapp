@@ -74,6 +74,9 @@ function fromFeedItem(it) {
     // 预签条为精确 cutStart；懒取条先用 start 近似，网关取回后覆盖
     audioOffset: typeof it.clipOffset === 'number' ? it.clipOffset : it.start,
     ringKey: it.ringKey || '',
+    swOn: false,
+    activeIdx: -1,
+    pastIdx: -1,
     real: true,
   };
 }
@@ -103,6 +106,9 @@ function fromLocalClip(c) {
     isExclusive: false,
     clipAudioUrl: c.audioUrl, // soundhelix 整轨即音源
     audioOffset: 0,
+    swOn: false,
+    activeIdx: -1,
+    pastIdx: -1,
     real: false,
   };
 }

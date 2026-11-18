@@ -114,6 +114,20 @@ function mapEvalWordScores(clip, evalWords) {
   });
 }
 
+/** 倍速文案格式化（U3：0.75x / 1.0x / 1.25x） */
+function formatRateLabel(rate) {
+  return rate === 1 ? '1.0x' : String(rate) + 'x';
+}
+
+/** 连读分项小标签计算（U4：根据流利度与综合分生成连读评级文案） */
+function buildLinkingLabel(fluency, overall) {
+  const f = Number(fluency) || Number(overall) || 0;
+  if (!f) return '';
+  if (f >= 85) return '顺滑';
+  if (f >= 70) return '自然';
+  return '待加强';
+}
+
 /** 根据真实评测结果构建微流评分横幅的精炼反馈文案 */
 function buildEvalFeedback(res) {
   if (!res) return EVAL_FEEDBACK;
@@ -151,6 +165,11 @@ Page({
     canPrev: false,
     canNext: true,
 
+    // U2：背景双层封面交替淡入淡出
+    bgUrlA: '',
+    bgUrlB: '',
+    bgSlot: 0,
+
     // DIY 下拉刷新（竖滑 swiper 拦截手势，原生 onPullDownRefresh 不可用）
     pullShift: 0, // 下拉位移（px，含阻尼）
     pullHintY: -60, // 提示条 translateY（px，负值藏于顶上）
@@ -160,7 +179,7 @@ Page({
     playing: false,
     audioLoading: false, // 切片直链懒取中（播放键转 spinner）
     isLooping: true,
-    rateLabel: '1x',
+    rateLabel: '1.0x',
     activeWordIndex: -1,
     pastWordIndex: -1,
     coverOk: true,
@@ -173,6 +192,7 @@ Page({
     evalPhase: 'idle', // 'idle' | 'recording' | 'processing'
     evalScore: 0,
     evalFluency: 0,
+    evalLinking: '',
     evalPronunciation: 0,
     evalIntegrity: 0,
     evalFeedback: EVAL_FEEDBACK,
@@ -242,17 +262,34 @@ Page({
           clearTimeout(this._playingFalseTimer);
           this._playingFalseTimer = null;
         }
+        const curIdx = this.data.index;
         if (k === 'user') {
-          this.setData({ playing: false, playingUserAudio: true });
+          const patch = { playing: false, playingUserAudio: true };
+          if (this._reels && this._reels[curIdx]) {
+            this._reels[curIdx].swOn = false;
+            patch['reels[' + curIdx + '].swOn'] = false;
+          }
+          this.setData(patch);
         } else if (k !== null) {
-          this.setData({ playing: true, playingUserAudio: false });
+          const patch = { playing: true, playingUserAudio: false };
+          if (this._reels && this._reels[curIdx]) {
+            this._reels[curIdx].swOn = true;
+            patch['reels[' + curIdx + '].swOn'] = true;
+          }
+          this.setData(patch);
         } else {
           if (this.data.playingUserAudio) {
             this.setData({ playingUserAudio: false });
           }
           this._playingFalseTimer = setTimeout(() => {
             this._playingFalseTimer = null;
-            this.setData({ playing: false });
+            const i = this.data.index;
+            const patch = { playing: false };
+            if (this._reels && this._reels[i]) {
+              this._reels[i].swOn = false;
+              patch['reels[' + i + '].swOn'] = false;
+            }
+            this.setData(patch);
           }, 120);
         }
       },
@@ -514,6 +551,7 @@ Page({
   _applyClip(idx, opts) {
     const clip = this._reels[idx];
     if (!clip) return;
+    const prevIdx = this.data.index;
     const autoplay = !opts || opts.autoplay !== false;
     this._relPos = 0;
     this._atEnd = false;
@@ -537,7 +575,23 @@ Page({
       }
     }
 
-    this.setData({
+    // U2：双层封面交替淡入淡出
+    const nextCover = clip.coverUrl || '';
+    const curCover = this.data.bgSlot === 0 ? this.data.bgUrlA : this.data.bgUrlB;
+    let nextSlot = this.data.bgSlot;
+    let bgUrlA = this.data.bgUrlA;
+    let bgUrlB = this.data.bgUrlB;
+    if (!curCover) {
+      nextSlot = 0;
+      bgUrlA = nextCover;
+    } else if (nextCover !== curCover) {
+      nextSlot = this.data.bgSlot === 0 ? 1 : 0;
+      if (nextSlot === 0) bgUrlA = nextCover;
+      else bgUrlB = nextCover;
+    }
+
+    // U5：清理上一条与当前条的词级扫光路径字段
+    const patch = {
       clip,
       index: idx,
       canPrev: idx > 0,
@@ -545,6 +599,9 @@ Page({
       activeWordIndex: -1,
       pastWordIndex: -1,
       coverOk: true,
+      bgUrlA,
+      bgUrlB,
+      bgSlot: nextSlot,
       isSaved: this._isClipSaved(clip),
       drawerSentence: null,
       drawerLocal: false,
@@ -552,6 +609,7 @@ Page({
       evalPhase: 'idle',
       evalScore: 0,
       evalFluency: 0,
+      evalLinking: '',
       evalPronunciation: 0,
       evalIntegrity: 0,
       evalFeedback: EVAL_FEEDBACK,
@@ -559,7 +617,23 @@ Page({
       evalUserAudioPath: '',
       playingUserAudio: false,
       audioLoading: false,
-    });
+    };
+    if (prevIdx !== idx && this._reels[prevIdx]) {
+      this._reels[prevIdx].swOn = false;
+      this._reels[prevIdx].activeIdx = -1;
+      this._reels[prevIdx].pastIdx = -1;
+      patch['reels[' + prevIdx + '].swOn'] = false;
+      patch['reels[' + prevIdx + '].activeIdx'] = -1;
+      patch['reels[' + prevIdx + '].pastIdx'] = -1;
+    }
+    clip.swOn = false;
+    clip.activeIdx = -1;
+    clip.pastIdx = -1;
+    patch['reels[' + idx + '].swOn'] = false;
+    patch['reels[' + idx + '].activeIdx'] = -1;
+    patch['reels[' + idx + '].pastIdx'] = -1;
+
+    this.setData(patch);
 
     if (autoplay) this._startPlayback(0);
     if (clip.real && clip.episodeid) this._fetchSavedKeys(clip.episodeid);
@@ -669,7 +743,13 @@ Page({
       clearTimeout(this._playingFalseTimer);
       this._playingFalseTimer = null;
     }
-    this.setData({ playing: false, playingUserAudio: false });
+    const curIdx = this.data.index;
+    const patch = { playing: false, playingUserAudio: false };
+    if (this._reels && this._reels[curIdx]) {
+      this._reels[curIdx].swOn = false;
+      patch['reels[' + curIdx + '].swOn'] = false;
+    }
+    this.setData(patch);
   },
 
   onTogglePlay() {
@@ -710,26 +790,31 @@ Page({
     this.setData({ isLooping: !this.data.isLooping });
   },
 
-  /** 倍速 0.75/1/1.25 循环；播放中保位重放，暂停中仅记速 */
+  /** 倍速 0.75/1.0/1.25 循环；播放中就地修改 playbackRate 并重锚时钟，暂停中仅记速 */
   onToggleRate() {
     const idx = RATES.indexOf(this._rate);
     const next = RATES[(idx + 1) % RATES.length];
     this._rate = next;
-    this.setData({ rateLabel: String(next) + 'x' });
+    this.setData({ rateLabel: formatRateLabel(next) });
     if (this.data.playing) {
-      const meta = this._audioMeta;
-      const pos = this._player.estimatedPos();
-      const rel = meta && pos != null ? pos - meta.winStart : 0;
-      this._startPlayback(rel);
+      if (this._player && typeof this._player.setRate === 'function') {
+        this._player.setRate(next);
+      } else {
+        const meta = this._audioMeta;
+        const pos = this._player.estimatedPos();
+        const rel = meta && pos != null ? pos - meta.winStart : 0;
+        this._startPlayback(rel);
+      }
     }
   },
 
-  /* ---------------- 词级扫光（毫秒时间戳 − clipOffset） ---------------- */
+  /* ---------------- 词级扫光（毫秒时间戳 − clipOffset；U5：路径补丁收敛至当前项） ---------------- */
 
   /**
    * 词窗判定：pos∈[w.start,w.end) 为当前词 activeWordIndex；pos >= w.end 为已读词
    * pastWordIndex（词间间隙 activeWordIndex=-1，但 pastWordIndex 保持上一个已读词，
-   * 避免已读绿词在词间间隙闪回原色）。50ms 一帧仅索引翻转才 setData。
+   * 避免已读绿词在词间间隙闪回原色）。50ms 一帧仅索引翻转才 setData，并以路径补丁
+   * reels[curIdx].activeIdx / pastIdx 局部更新当前卡片，避免其他 swiper-item 重算。
    */
   _onTick(pos) {
     const clip = this.data.clip;
@@ -760,7 +845,17 @@ Page({
     if (idx !== this._lastWordIdx || pastIdx !== this._lastPastIdx) {
       this._lastWordIdx = idx;
       this._lastPastIdx = pastIdx;
-      this.setData({ activeWordIndex: idx, pastWordIndex: pastIdx });
+      const curIdx = this.data.index;
+      if (this._reels && this._reels[curIdx]) {
+        this._reels[curIdx].activeIdx = idx;
+        this._reels[curIdx].pastIdx = pastIdx;
+      }
+      this.setData({
+        activeWordIndex: idx,
+        pastWordIndex: pastIdx,
+        ['reels[' + curIdx + '].activeIdx']: idx,
+        ['reels[' + curIdx + '].pastIdx']: pastIdx,
+      });
     }
   },
 
@@ -1060,6 +1155,7 @@ Page({
         evalPhase: 'recording',
         evalScore: 0,
         evalFluency: 0,
+        evalLinking: '',
         evalPronunciation: 0,
         evalIntegrity: 0,
         evalWordScores: [],
@@ -1077,6 +1173,7 @@ Page({
           evalPhase: 'idle',
           evalScore: score,
           evalFluency: 94,
+          evalLinking: buildLinkingLabel(94, score),
           evalPronunciation: score,
           evalIntegrity: 100,
           evalFeedback: EVAL_FEEDBACK,
@@ -1119,6 +1216,7 @@ Page({
       evalPhase: 'recording',
       evalScore: 0,
       evalFluency: 0,
+      evalLinking: '',
       evalPronunciation: 0,
       evalIntegrity: 0,
       evalWordScores: [],
@@ -1191,6 +1289,7 @@ Page({
           evalPhase: 'idle',
           evalScore: result.overallScore || 0,
           evalFluency: result.fluency || 0,
+          evalLinking: buildLinkingLabel(result.fluency, result.overallScore),
           evalPronunciation: result.pronunciation || 0,
           evalIntegrity: result.integrity || 0,
           evalFeedback: feedback,

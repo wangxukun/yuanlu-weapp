@@ -66,24 +66,62 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     'E 零旧特训残留「' + w + '」');
 });
 
-// —— 场景 F：P0 6 个 Bug + P1-F1 回归验证 ——
+// —— 场景 F：P0 6 个 Bug + P1 (F1~F5) + P2 (U1~U5) 回归验证 ——
 (function runRegressionTests() {
   const vm = require('node:vm');
   const corpus = require('../pages/discover/reels-corpus.js');
 
   function setByPath(obj, k, v) {
-    if (!k.includes('.')) {
+    if (!k.includes('.') && !k.includes('[')) {
       obj[k] = v;
       return;
     }
-    const parts = k.split('.');
+    const tokens = k
+      .replace(/\[(\d+)\]/g, '.$1')
+      .split('.')
+      .filter(Boolean);
     let cur = obj;
-    for (let i = 0; i < parts.length - 1; i++) {
-      if (!cur[parts[i]]) cur[parts[i]] = {};
-      cur = cur[parts[i]];
+    for (let i = 0; i < tokens.length - 1; i++) {
+      const seg = tokens[i];
+      if (cur[seg] == null) {
+        cur[seg] = /^\d+$/.test(tokens[i + 1]) ? [] : {};
+      }
+      cur = cur[seg];
     }
-    cur[parts[parts.length - 1]] = v;
+    cur[tokens[tokens.length - 1]] = v;
   }
+
+  // U1: 背景模糊参数与双轨透明度验证
+  assert(
+    wxss.includes('blur(128rpx)') &&
+      wxss.includes('--rl-bg-opacity: 0.25') &&
+      wxss.includes('--rl-bg-opacity: 0.35') &&
+      wxss.includes('--rl-mask-opacity: 0.75') &&
+      wxss.includes('--rl-mask-opacity: 0.70'),
+    'U1 背景高斯模糊 blur(128rpx) 及浅色(0.25/0.75)与深色(0.35/0.70)双轨透明度对齐规范'
+  );
+  // U2: 双层封面交替与 opacity transition
+  assert(
+    wxml.includes('bgUrlA') &&
+      wxml.includes('bgUrlB') &&
+      wxss.includes('rl-bg-img--active') &&
+      wxss.includes('transition: opacity'),
+    'U2 封面双层交替渲染 + opacity transition 平滑过渡'
+  );
+  // U4: 录音中外圈扩散光环 + 横幅流利度/连读标签
+  assert(
+    wxml.includes('rl-rec-halo') &&
+      wxss.includes('@keyframes rl-halo-ring') &&
+      wxml.includes('连读 {{evalLinking}}'),
+    'U4 录音中外圈扩散光环 rl-rec-halo 与评分横幅「流利度 / 连读」分项标签'
+  );
+  // U5: 扫光渲染收敛至当前项 reel.swOn / reel.activeIdx / reel.pastIdx
+  assert(
+    wxml.includes('reel.swOn && reel.activeIdx === wi') &&
+      wxml.includes('reel.swOn && reel.pastIdx >= wi') &&
+      !wxml.includes('activeWordIndex === wi'),
+    'U5 WXML 词级扫光仅依赖当前项 reel.swOn/activeIdx/pastIdx，消除跨卡片重算'
+  );
 
   let getHandler = () => Promise.resolve(null);
   let postHandler = () => Promise.resolve(null);
@@ -212,6 +250,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   let playStopCount = 0;
   let playStartCount = 0;
   let lastPlayStartSec = 0;
+  let lastSetRate = 1;
 
   // Load pages/discover/index.js in VM to test Page methods
   let pageDef = null;
@@ -244,11 +283,15 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
               playUrl: (_url, kind, opts) => {
                 playStartCount += 1;
                 lastPlayStartSec = opts && typeof opts.startSec === 'number' ? opts.startSec : 0;
+                if (opts && opts.rate) lastSetRate = opts.rate;
                 if (playerHooks && playerHooks.onPlaying) playerHooks.onPlaying(kind || 'reel');
               },
               stop: () => {
                 playStopCount += 1;
                 if (playerHooks && playerHooks.onPlaying) playerHooks.onPlaying(null);
+              },
+              setRate: (r) => {
+                lastSetRate = r;
               },
               estimatedPos: () => 1.2,
             };
@@ -311,12 +354,22 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   });
   ctx.onLoad();
 
+  // U3: 倍速文案 1.0x / 1.25x / 0.75x 循环
+  assert(ctx.data.rateLabel === '1.0x', 'U3 默认倍速文案为 1.0x');
+  ctx.onToggleRate();
+  assert(ctx.data.rateLabel === '1.25x', 'U3 第一次切换倍速为 1.25x');
+  ctx.onToggleRate();
+  assert(ctx.data.rateLabel === '0.75x', 'U3 第二次切换倍速为 0.75x');
+  ctx.onToggleRate();
+  assert(ctx.data.rateLabel === '1.0x', 'U3 第三次切换倍速回到 1.0x');
+
   // Setup two test clips in the same episode + one sandbox clip
   const clip0 = {
     id: 'clip-0',
     episodeid: 'ep-100',
     subtitleId: 1,
     showTitle: 'Test Show',
+    coverUrl: '/assets/covers/cover-a.jpg',
     start: 10,
     end: 15,
     textEn: 'First sentence here.',
@@ -336,6 +389,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     episodeid: 'ep-100',
     subtitleId: 2,
     showTitle: 'Test Show',
+    coverUrl: '/assets/covers/cover-b.jpg',
     start: 20,
     end: 25,
     textEn: 'Second sentence, untimed!',
@@ -352,6 +406,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     subtitleId: null,
     showTitle: 'Sandbox Show',
     topic: '日常会话',
+    coverUrl: '/assets/covers/cover-c.jpg',
     start: 0,
     end: 4,
     textEn: 'Sandbox local sentence.',
@@ -367,19 +422,41 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     .then(() => Promise.resolve())
     .then(() => {
       ctx._reels = [clip0, clip1, clipLocal];
+      ctx.setData({ reels: JSON.parse(JSON.stringify(ctx._reels)), bgUrlA: '', bgUrlB: '', bgSlot: 0 });
+      ctx._applyClip(0, { autoplay: false });
+      assert(ctx.data.bgUrlA === '/assets/covers/cover-a.jpg' && ctx.data.bgSlot === 0, 'U2 首条封面落入槽位 0');
+      ctx._applyClip(1, { autoplay: false });
+      assert(
+        ctx.data.bgUrlA === '/assets/covers/cover-a.jpg' &&
+          ctx.data.bgUrlB === '/assets/covers/cover-b.jpg' &&
+          ctx.data.bgSlot === 1,
+        'U2 切换切片时封面交替写入槽位 1 实现双层淡入淡出'
+      );
       ctx._applyClip(0, { autoplay: false });
       ctx._audioMeta = { url: clip0.clipAudioUrl, offset: 10, winStart: 0, winEnd: 5 };
 
-      // B1: 词间间隙不闪回原色
+      // B1 + U5: 词间间隙不闪回原色，且路径补丁同步更新 reels[0].activeIdx / pastIdx
       ctx._onTick(0.2); // 在 'First' [0, 0.4) 内
-      assert(ctx.data.activeWordIndex === 0 && ctx.data.pastWordIndex === -1, 'F-B1 首词朗读中 active=0, past=-1');
+      assert(
+        ctx.data.activeWordIndex === 0 &&
+          ctx.data.pastWordIndex === -1 &&
+          ctx.data.reels[0].activeIdx === 0 &&
+          ctx.data.reels[0].pastIdx === -1,
+        'F-B1/U5 首词朗读中 active=0, past=-1 且路径补丁更新 reels[0]'
+      );
       ctx._onTick(0.6); // 在 'First' 与 'sentence' 之间的间隙 [0.4, 0.8)
-      assert(ctx.data.activeWordIndex === -1 && ctx.data.pastWordIndex === 0, 'F-B1 词间间隙 active=-1 但 past=0 保持已读绿词不闪回');
+      assert(
+        ctx.data.activeWordIndex === -1 &&
+          ctx.data.pastWordIndex === 0 &&
+          ctx.data.reels[0].activeIdx === -1 &&
+          ctx.data.reels[0].pastIdx === 0,
+        'F-B1/U5 词间间隙 active=-1 但 past=0 保持已读绿词不闪回'
+      );
       ctx._onTick(1.0); // 在 'sentence' [0.8, 1.3) 内
       assert(ctx.data.activeWordIndex === 1 && ctx.data.pastWordIndex === 0, 'F-B1 第二词朗读中 active=1, past=0');
       ctx._onTick(1.45); // 在第二词与第三词间隙 [1.3, 1.6)
       assert(ctx.data.activeWordIndex === -1 && ctx.data.pastWordIndex === 1, 'F-B1 第二间隙 past=1 保持前两词绿色');
-      assert(wxml.includes('pastWordIndex >= wi'), 'F-B1 WXML 使用 pastWordIndex >= wi 判定已读态');
+      assert(wxml.includes('reel.pastIdx >= wi'), 'F-B1/U5 WXML 使用 reel.pastIdx >= wi 判定已读态');
 
       // B5 & F3: 点词查词仅查该词，且将当前切片 textEn/textCn 组装为 corpusExamples（命中词 hl=true）注入弹窗
       let queriedDictUrl = '';
@@ -436,6 +513,24 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
       assert(
         ctx.data.playing === true && Math.abs(lastPlayStartSec - 1.2) < 1e-6,
         'F5 回到 Tab 时自动从离开相对位置 1.2s 续播'
+      );
+
+      // U3 + 倍速真生效验证：播放中点击倍速切换直接调用 _player.setRate 就地变更为 1.25 / 0.75 / 1.0，不销毁重建播放器
+      const stopsBeforeRate = playStopCount;
+      ctx.onToggleRate();
+      assert(
+        ctx.data.rateLabel === '1.25x' && lastSetRate === 1.25 && playStopCount === stopsBeforeRate,
+        'U3 播放中切换 1.25x 就地调用 setRate(1.25) 且不中断播放'
+      );
+      ctx.onToggleRate();
+      assert(
+        ctx.data.rateLabel === '0.75x' && lastSetRate === 0.75 && playStopCount === stopsBeforeRate,
+        'U3 播放中切换 0.75x 就地调用 setRate(0.75) 且不中断播放'
+      );
+      ctx.onToggleRate();
+      assert(
+        ctx.data.rateLabel === '1.0x' && lastSetRate === 1 && playStopCount === stopsBeforeRate,
+        'U3 播放中切换 1.0x 就地调用 setRate(1) 且不中断播放'
       );
 
       // B2 + F2: 录音评测跨切片取消 & 真实跟读录音测评完整链路
