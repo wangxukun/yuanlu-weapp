@@ -26,10 +26,32 @@ function tokenizeTextEn(textEn) {
   return textEn.trim().split(/\s+/).filter(Boolean);
 }
 
+/** Generate a persistent pronunciation secret tip when backend phoneticTip is absent */
+function buildFallbackPhoneticTip(textEn, wpm, words) {
+  const numWpm = Number(wpm) || 0;
+  if (numWpm > 0) {
+    return '本句语速 ' + numWpm + ' 词/分钟，建议 0.75x 慢速跟上后再常速跟读。';
+  }
+  const list =
+    Array.isArray(words) && words.length > 0
+      ? words.map((w) => (w && w.word) || '')
+      : tokenizeTextEn(textEn);
+  // Detect common consonant-to-vowel linking pair
+  for (let i = 0; i < list.length - 1; i++) {
+    const a = String(list[i] || '').replace(/[^\w']/g, '');
+    const b = String(list[i + 1] || '').replace(/[^\w']/g, '');
+    if (a && b && /[bcdfghjklmnpqrstvwxz]$/i.test(a) && /^[aeiou]/i.test(b)) {
+      return "注意 '" + a + ' ' + b + "' 处的辅元连读与介词/冠词弱读过渡。";
+    }
+  }
+  return '注意句中实词重读与虚词弱读的节奏对比，跟随扫光捕捉母语语感。';
+}
+
 /** 后端 feed item → 统一视图模型 */
 function fromFeedItem(it) {
   const words = Array.isArray(it.words) ? it.words : [];
   const textEn = it.textEn || '';
+  const wpm = it.wpm || 0;
   return {
     id: it.clipid,
     episodeid: it.episodeid,
@@ -45,8 +67,8 @@ function fromFeedItem(it) {
     textCn: it.textCn,
     words,
     tokens: words.length > 0 ? [] : tokenizeTextEn(textEn),
-    phoneticTip: it.phoneticTip || '',
-    wpm: it.wpm || 0,
+    phoneticTip: it.phoneticTip || buildFallbackPhoneticTip(textEn, wpm, words),
+    wpm,
     isExclusive: !!it.isExclusive,
     clipAudioUrl: it.clipAudioUrl || null,
     // 预签条为精确 cutStart；懒取条先用 start 近似，网关取回后覆盖
@@ -60,6 +82,7 @@ function fromFeedItem(it) {
 function fromLocalClip(c) {
   const words = Array.isArray(c.words) ? c.words : [];
   const textEn = c.textEn || '';
+  const wpm = c.wpm || 0;
   return {
     id: c.id,
     episodeid: '',
@@ -75,8 +98,8 @@ function fromLocalClip(c) {
     textCn: c.textCn,
     words,
     tokens: words.length > 0 ? [] : tokenizeTextEn(textEn),
-    phoneticTip: c.phoneticTip || '',
-    wpm: 0,
+    phoneticTip: c.phoneticTip || buildFallbackPhoneticTip(textEn, wpm, words),
+    wpm,
     isExclusive: false,
     clipAudioUrl: c.audioUrl, // soundhelix 整轨即音源
     audioOffset: 0,
@@ -192,4 +215,4 @@ async function fetchPresetIdeas() {
   return null;
 }
 
-module.exports = { fromFeedItem, fromLocalClip, tokenizeTextEn, fetchFeed, fetchClipAudio, fetchDeepDive, localReels, matchStudio, fetchPresetIdeas };
+module.exports = { fromFeedItem, fromLocalClip, tokenizeTextEn, buildFallbackPhoneticTip, fetchFeed, fetchClipAudio, fetchDeepDive, localReels, matchStudio, fetchPresetIdeas };

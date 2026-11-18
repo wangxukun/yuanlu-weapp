@@ -62,14 +62,14 @@
   - 沙箱语料（无 `subtitleId`）：提示“该切片暂不支持评测”或按 `targetText` 评测（以后端契约为准）。
   - 切片切换 / 页面隐藏时取消录音与在途评测（与 B2 合并处理）。
 
-- [ ] **F3 词典弹窗注入原声语境例句**（规范 ⑤）
+- [x] **F3 词典弹窗注入原声语境例句**（规范 ⑤）
   - 将当前切片 `textEn / textCn` 组装为 `corpusExamples: [{ clipid, zh, parts: [{ t, hl }] }]`（命中词 `hl=true`）传入 `vocabulary-modal`。
 
-- [ ] **F4 发音机密贴士常驻**（规范 ④ / 第 2 步）
+- [x] **F4 发音机密贴士常驻**（规范 ④ / 第 2 步）
   - 后端 `phoneticTip` 为 null 时前端生成通用兜底文案（如基于 wpm / 句中连读候选）。
   - 胶囊增加「🔊 发音机密」标题，还原琥珀胶囊样式。
 
-- [ ] **F5 回到 Tab 自动续播**（规范 ② 进入即播）
+- [x] **F5 回到 Tab 自动续播**（规范 ② 进入即播）
   - `onHide` 记录 `_resumeOnShow = playing` 与相对位置；`onShow` 若 `_resumeOnShow` 为真则 `_startPlayback(this._relPos)`。
   - 弹窗打开（词典 / 深度透视 / 标签抽屉）或录音中时不自动续播。
 

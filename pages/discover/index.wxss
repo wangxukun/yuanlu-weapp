@@ -366,28 +366,40 @@
   margin-bottom: 36rpx;
 }
 
-/* ── 连读弱读机密 pill ── */
+/* ── 常驻发音机密琥珀胶囊（规范 ④） ── */
 .rl-tip {
   display: flex;
-  align-items: flex-start;
-  gap: 14rpx;
-  padding: 24rpx;
-  border-radius: 32rpx;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 20rpx 26rpx;
+  border-radius: 28rpx;
   background: var(--rl-tip-bg);
   border: 1rpx solid var(--rl-tip-border);
   margin-bottom: 28rpx;
 }
 
+.rl-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
 .rl-tip-ic {
-  width: 30rpx;
-  height: 30rpx;
+  width: 28rpx;
+  height: 28rpx;
   flex-shrink: 0;
-  margin-top: 4rpx;
+}
+
+.rl-tip-label {
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+  color: var(--accent-600, #b87110);
 }
 
 .rl-tip-text {
   font-size: 24rpx;
-  line-height: 1.7;
+  line-height: 1.65;
   color: var(--accent-500);
 }
 

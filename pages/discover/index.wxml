@@ -107,9 +107,12 @@
           <!-- 中文译文 -->
           <text class="rl-zh" user-select>{{reel.textCn}}</text>
 
-          <!-- 连读弱读机密（真实语料无 phoneticTip 字段时由扫光句自身体现） -->
+          <!-- 常驻发音机密琥珀胶囊（规范 ④ / 第 2 步） -->
           <view wx:if="{{reel.phoneticTip}}" class="rl-tip">
-            <image class="rl-tip-ic" src="/assets/icons/volume-up-accent.svg" />
+            <view class="rl-tip-head">
+              <image class="rl-tip-ic" src="/assets/icons/volume-up-accent.svg" />
+              <text class="rl-tip-label">发音机密</text>
+            </view>
             <text class="rl-tip-text">{{reel.phoneticTip}}</text>
           </view>
 
@@ -247,10 +250,13 @@
 
   <!-- ═══ 生词弹窗（A工程 成熟组件） ═══ -->
   <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
-                    dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
+                    dict-data="{{wordModal.dictData}}"
+                    corpus-examples="{{wordModal.corpusExamples}}"
+                    loading="{{wordModal.loading}}"
                     saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
                     episode-title="{{clip ? clip.showTitle : ''}}"
-                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+                    bind:close="onVocabClose" bind:save="onVocabSave"
+                    bind:complete="onVocabComplete" bind:gopractice="onVocabGoPractice" />
 
   <!-- ═══ 句子笔记与标签完善抽屉 ═══ -->
   <sentence-tag-drawer sentence="{{drawerSentence}}" local="{{drawerLocal}}"

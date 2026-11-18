@@ -34,6 +34,7 @@ const { createClipPlayer } = require('../../utils/clip-player');
 const { sentenceWindow } = require('../../utils/clip-window');
 const recorder = require('../../utils/recorder');
 const speechCore = require('../../utils/speech-core');
+const dictTool = require('../../utils/dict-tool');
 const reelsApi = require('./reels-api');
 const reelsSession = require('./reels-session');
 
@@ -54,6 +55,27 @@ const DEEP_FALLBACK = {
   paraphrase: '可替换为更加通俗的日常口语表述，或更加严谨的书面用词。',
   speakingTip: '注意喉头放松，腹式呼吸送气，重点实词重读，虚词快速带过。',
 };
+
+/** 组装当前切片的原声语境例句并合并词典接口返回的例句（命中词 hl=true） */
+function buildClipCorpusExamples(clip, word, apiExamples) {
+  const list = [];
+  if (clip && clip.textEn) {
+    list.push({
+      clipid: String(clip.id || clip.episodeid || 'current-clip'),
+      enText: clip.textEn,
+      zh: clip.textCn || '',
+      parts: dictTool.splitHighlight(clip.textEn, word),
+      isCurrentClip: true,
+    });
+  }
+  const extra = dictTool.buildCorpusExampleVms(apiExamples, word);
+  extra.forEach((ex) => {
+    if (!list.some((it) => it.clipid === ex.clipid || it.enText === ex.enText)) {
+      list.push(ex);
+    }
+  });
+  return list.slice(0, 2);
+}
 
 /** 分数分层（对齐 eval-card ec.wxs：≥85 good / ≥60 mid / <60 bad） */
 function scoreTier(score) {
@@ -169,6 +191,7 @@ Page({
       visible: false,
       word: '',
       dictData: null,
+      corpusExamples: [],
       loading: false,
       saving: false,
       isSaved: false,
@@ -199,6 +222,7 @@ Page({
     this._evalToken = 0;
     this._resumeAfterEval = false;
     this._resumeAfterUserAudio = false;
+    this._resumeOnShow = false;
     this._deepToken = 0;
     this._deepCache = {};
     this._vocabSet = {};
@@ -253,10 +277,26 @@ Page({
       this._sessionState = reelsSession.loadSession(this._owner);
       this._nextCursor = this._sessionState.cursor;
     }
+    if (this._resumeOnShow) {
+      this._resumeOnShow = false;
+      const modalOpen =
+        (this.data.wordModal && this.data.wordModal.visible) ||
+        this.data.deepOpen ||
+        !!this.data.drawerSentence ||
+        this.data.showPremiumModal;
+      if (!modalOpen && !this.data.isEvaluating && this.data.clip && !this.data.playing) {
+        this._startPlayback(this._atEnd ? 0 : this._relPos);
+      }
+    }
   },
 
   onHide() {
-    // 切 tab 礼让音频互斥总线：停窗口播放，取消在途录音/评测
+    // 切 tab 礼让音频互斥总线：记录离开前是否在播，回到 Tab 时自动续播（F5）
+    this._resumeOnShow = !!(
+      this.data.playing ||
+      this._resumeAfterEval ||
+      this._resumeAfterUserAudio
+    );
     this._pausePlayback();
     this._cancelEvaluation();
     this._flushSession();
@@ -755,11 +795,13 @@ Page({
     if (!clean) return;
 
     const lower = clean.toLowerCase();
+    const initialCorpusExamples = buildClipCorpusExamples(clip, clean, null);
     this.setData({
       wordModal: {
         visible: true,
         word: clean,
         dictData: null,
+        corpusExamples: initialCorpusExamples,
         loading: true,
         saving: false,
         isSaved: !!this._vocabSet[lower],
@@ -771,7 +813,15 @@ Page({
         const m = this.data.wordModal;
         if (!m.visible || m.word !== clean) return; // 期间已换词/关闭则丢弃
         if (body && body.success && body.data) {
-          this.setData({ 'wordModal.dictData': body.data, 'wordModal.loading': false });
+          this.setData({
+            'wordModal.dictData': body.data,
+            'wordModal.corpusExamples': buildClipCorpusExamples(
+              clip,
+              clean,
+              body.data.corpusExamples
+            ),
+            'wordModal.loading': false,
+          });
         } else {
           this.setData({ 'wordModal.loading': false });
         }
@@ -792,6 +842,25 @@ Page({
 
   onVocabComplete() {
     this.setData({ 'wordModal.visible': false });
+  },
+
+  /** 词典弹窗点击原声语境例句「前往跟读」：本切片直接关闭弹窗就地跟读，其他切片跳训练室 */
+  onVocabGoPractice(e) {
+    const example = e && e.detail && e.detail.example;
+    const word = this.data.wordModal && this.data.wordModal.word;
+    this.setData({ 'wordModal.visible': false });
+    if (!example || example.isCurrentClip) {
+      return;
+    }
+    if (example.clipid && word) {
+      wx.navigateTo({
+        url:
+          '/pages/practice-room/index?word=' +
+          encodeURIComponent(word) +
+          '&clipId=' +
+          encodeURIComponent(example.clipid),
+      });
+    }
   },
 
   /** 保存生词（登录门控 + 配额墙；真实切片带真实 episodeid） */

@@ -132,7 +132,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     'F-B4 本地兜底语料保留 phoneticTip 字段'
   );
 
-  // B5: 无词级时间戳时按空格切分 tokens
+  // B5: 无词级时间戳时按空格切分 tokens，F4: 后端 phoneticTip 为空时自动生成常驻发音机密
   const untimedClip = reelsApi.fromFeedItem({
     clipid: 'c-untimed',
     episodeid: 'ep-1',
@@ -140,11 +140,24 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     textEn: 'Hello, world! How are you?',
     textCn: '你好，世界！',
     words: [],
+    phoneticTip: null,
   });
   assert(
     Array.isArray(untimedClip.tokens) &&
       untimedClip.tokens.join('|') === 'Hello,|world!|How|are|you?',
     'F-B5 无词级时间戳时生成按空格切分的 tokens'
+  );
+  assert(
+    typeof untimedClip.phoneticTip === 'string' && untimedClip.phoneticTip.length > 0,
+    'F4 后端 phoneticTip 为 null 时前端自动生成常驻发音机密文案'
+  );
+  assert(
+    wxml.includes('rl-tip-label') && wxml.includes('发音机密'),
+    'F4 WXML 发音机密琥珀胶囊包含「发音机密」常驻标题'
+  );
+  assert(
+    wxml.includes('corpus-examples="{{wordModal.corpusExamples}}"'),
+    'F3 WXML vocabulary-modal 绑定 corpus-examples'
   );
   assert(wxml.includes('reel.tokens') && wxml.includes('data-word="{{tok}}"'), 'F-B5 WXML 渲染 tokens 并绑定单字 data-word');
 
@@ -170,6 +183,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   );
 
   const speechCore = require('../utils/speech-core.js');
+  const dictTool = require('../utils/dict-tool.js');
 
   let recState = { recording: false };
   let recStartResult = true;
@@ -197,6 +211,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
   let isLoggedIn = true;
   let playStopCount = 0;
   let playStartCount = 0;
+  let lastPlayStartSec = 0;
 
   // Load pages/discover/index.js in VM to test Page methods
   let pageDef = null;
@@ -220,13 +235,15 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
       if (id === '../../utils/request') return mockRequest;
       if (id === '../../utils/recorder') return mockRecorder;
       if (id === '../../utils/speech-core') return speechCore;
+      if (id === '../../utils/dict-tool') return dictTool;
       if (id === '../../utils/clip-player') {
         return {
           createClipPlayer: (hooks) => {
             playerHooks = hooks;
             return {
-              playUrl: (_url, kind) => {
+              playUrl: (_url, kind, opts) => {
                 playStartCount += 1;
+                lastPlayStartSec = opts && typeof opts.startSec === 'number' ? opts.startSec : 0;
                 if (playerHooks && playerHooks.onPlaying) playerHooks.onPlaying(kind || 'reel');
               },
               stop: () => {
@@ -364,16 +381,61 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
       assert(ctx.data.activeWordIndex === -1 && ctx.data.pastWordIndex === 1, 'F-B1 第二间隙 past=1 保持前两词绿色');
       assert(wxml.includes('pastWordIndex >= wi'), 'F-B1 WXML 使用 pastWordIndex >= wi 判定已读态');
 
-      // B5: 无词级时间戳切片点击单个 token 只查该词而非整句
+      // B5 & F3: 点词查词仅查该词，且将当前切片 textEn/textCn 组装为 corpusExamples（命中词 hl=true）注入弹窗
       let queriedDictUrl = '';
       getHandler = (url) => {
         queriedDictUrl = url;
-        return Promise.resolve({ success: true, data: { word: 'sentence' } });
+        return Promise.resolve({
+          success: true,
+          data: {
+            word: 'sentence',
+            corpusExamples: [
+              { clipid: 'other-clip-1', enText: 'Another sentence example.', zhText: '另一个例句。' },
+            ],
+          },
+        });
       };
       ctx.onWordTap({ currentTarget: { dataset: { word: 'sentence,' } } });
       assert(
         ctx.data.wordModal.word === 'sentence' && queriedDictUrl === '/api/dict/sentence',
         'F-B5 点击无时间戳 token 清洗标点后仅查该词'
+      );
+      const initEx = ctx.data.wordModal.corpusExamples;
+      assert(
+        Array.isArray(initEx) &&
+          initEx.length === 1 &&
+          initEx[0].clipid === 'clip-0' &&
+          initEx[0].zh === '第一句。' &&
+          initEx[0].parts.some((p) => p.hl === true && p.t.toLowerCase() === 'sentence'),
+        'F3 点词即刻注入当前切片原声语境例句且命中词 hl=true'
+      );
+      ctx.onVocabClose();
+
+      // F5: 切 Tab 隐藏记录在播状态与相对位置，回到 Tab 自动续播；有弹窗打开时不自动续播
+      ctx._applyClip(0, { autoplay: true });
+      return Promise.resolve().then(() => Promise.resolve());
+    })
+    .then(() => {
+      assert(ctx.data.playing === true, 'F5 切 Tab 前处于播放态');
+      ctx.onHide();
+      assert(
+        ctx.data.playing === false && ctx._resumeOnShow === true && ctx._relPos === 1.2,
+        'F5 onHide 记录 _resumeOnShow=true 与离开时的相对位置 1.2s'
+      );
+      // 若此时有弹窗打开，onShow 不自动续播
+      ctx.setData({ deepOpen: true });
+      ctx._resumeOnShow = true;
+      ctx.onShow();
+      assert(ctx.data.playing === false, 'F5 弹窗打开时 onShow 不自动续播');
+      ctx.setData({ deepOpen: false });
+
+      // 正常回到 Tab 自动从离开时的相对位置续播
+      ctx._resumeOnShow = true;
+      lastPlayStartSec = -1;
+      ctx.onShow();
+      assert(
+        ctx.data.playing === true && Math.abs(lastPlayStartSec - 1.2) < 1e-6,
+        'F5 回到 Tab 时自动从离开相对位置 1.2s 续播'
       );
 
       // B2 + F2: 录音评测跨切片取消 & 真实跟读录音测评完整链路
