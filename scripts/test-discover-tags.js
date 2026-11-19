@@ -42,7 +42,10 @@ assert(wxml.includes('rl-pull-hint') && wxml.includes('onPullTouchStart'), 'C DI
 assert(wxml.includes('<sentence-tag-drawer') && wxml.includes('drawerSentence') && wxml.includes('drawerLocal'),
   'C 挂载 sentence-tag-drawer 并绑定 drawerSentence 与 drawerLocal');
 assert(js.includes("require('./reels-session')"), 'C 环形游标会话模块挂载');
-assert(js.includes('PAGE_SIZE_CAP') && js.includes('PRELOAD_MARGIN'), 'C 渲染封顶与预取边界常量');
+assert(wxml.includes('item-id="{{reel.id}}"') && wxml.includes('bindanimationfinish="onSwiperFinish"'),
+  'C 滑动窗口绑定切片身份与动画结束事件');
+assert(wxml.includes('第 {{sentenceNumber}} 句') && wxml.includes('点击重试'),
+  'C 展示连续句序并提供末卡重试');
 assert(fs.existsSync(path.join(__dirname, '../pages/discover/reels-session.js')), 'C reels-session 模块存在');
 assert(fs.existsSync(path.join(__dirname, '../pages/discover/reels-corpus.js')), 'C 本地语料兜底存在');
 
@@ -151,6 +154,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     exports: apiMod.exports,
     require: (id) => {
       if (id === '../../utils/request') return mockRequest;
+      if (id === './reels-filters') return require('../pages/discover/reels-filters');
       if (id === './reels-corpus') return corpus;
       return {};
     },
@@ -162,6 +166,14 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
     encodeURIComponent,
   });
   const reelsApi = apiMod.exports;
+  let filterUrl;
+  getHandler = (url) => { filterUrl = url; return Promise.resolve(null); };
+  reelsApi.fetchFeed({ page: 3, cursor: 'ab', filters: {
+    minWords: 8, maxWords: 15, minWpm: 110, maxWpm: 145, level: 'A2,B1',
+  } });
+  assert(filterUrl === '/api/clips/feed?page=3&cursor=ab&minWords=8&maxWords=15&minWpm=110&maxWpm=145&level=A2%2CB1',
+    '分页请求携带完整筛选条件');
+  getHandler = () => Promise.resolve(null);
 
   // B4: fromLocalClip 保留 phoneticTip
   const localItems = reelsApi.localReels();
@@ -317,6 +329,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
           fetchDeepDive: (s) => deepDiveHandler(s),
         });
       }
+      if (id === './reels-filters') return require('../pages/discover/reels-filters');
       if (id === './reels-session') {
         return {
           subject: () => 'user:u1',

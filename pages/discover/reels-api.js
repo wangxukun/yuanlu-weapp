@@ -18,6 +18,7 @@
  * 网络不可达时页面回落 reels-corpus 本地语料（real:false），沙箱永不白屏。
  */
 const { get, post } = require('../../utils/request');
+const { filterKey } = require('./reels-filters');
 const corpus = require('./reels-corpus');
 
 /** Tokenize sentence by whitespace for word-tap when timed words are absent */
@@ -127,7 +128,10 @@ async function fetchFeed(pageOrOpts, level) {
   }
   let url = '/api/clips/feed?page=' + page;
   if (cursor !== null) url += '&cursor=' + encodeURIComponent(cursor);
-  if (lvl) url += '&level=' + encodeURIComponent(lvl);
+  const extra = pageOrOpts && typeof pageOrOpts === 'object' && pageOrOpts.filters;
+  const query = extra && filterKey(extra);
+  if (query) url += '&' + query;
+  if (lvl && !(extra && extra.level)) url += '&level=' + encodeURIComponent(lvl);
   const body = await get(url, null, { showError: false });
   if (body && body.success && Array.isArray(body.data && body.data.items)) {
     return {

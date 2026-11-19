@@ -37,6 +37,7 @@ const speechCore = require('../../utils/speech-core');
 const dictTool = require('../../utils/dict-tool');
 const reelsApi = require('./reels-api');
 const reelsSession = require('./reels-session');
+const { LEVELS, parseFilters, filterKey, matchesFilters } = require('./reels-filters');
 
 const RATES = [0.75, 1, 1.25];
 const SAVED_KEY = 'reels_saved_sentences'; // 本地 mock 句子本（真实切片走服务端）
@@ -44,7 +45,7 @@ const EVAL_FEEDBACK = '流利度 94%！特别注意连读处的舌尖轻触，�
 const EVAL_DURATION_MS = 2200; // 沙箱兜底模拟评测时长
 const RECORD_MAX_MS = 12000; // 单句跟读录音自动停止上限（12s）
 const MIN_RECORD_BYTES = 1600; // 最短有效录音（16kHz/16bit 约 50ms，对齐 eval-card）
-const PAGE_SIZE_CAP = 48; // swiper 渲染上限（翻页追加封顶）
+const WINDOW_SIZE = 48; // 同时挂载的卡片数
 const PULL_THRESHOLD = 80; // DIY 下拉刷新阈值（px）
 const PRELOAD_MARGIN = 3; // 距底多少条预取下一页
 
@@ -158,10 +159,26 @@ Page({
     dark: false,
 
     feedLoading: true, // 首刷 feed 装载态
+    filterOpen: false,
+    filterActive: false,
+    filterDraft: {},
+    filterError: '',
+    filterErrorField: '',
+    filterLevels: LEVELS,
+    filterGroups: [
+      { title: '句子长度', low: 'minWords', high: 'maxWords', lowLabel: '最少单词数', highLabel: '最多单词数' },
+      { title: '原声语速（词/分钟）', low: 'minWpm', high: 'maxWpm', lowLabel: '最低 WPM', highLabel: '最高 WPM' },
+    ],
+    selectedLevels: {},
+    feedState: '',
     sourceLocal: false, // true = 后端不可达，回落本地 mock 语料
     reels: [], // swiper 渲染列表（统一视图模型）
     clip: null, // 当前切片镜像（顶栏/操作栏/弹窗取字段）
     index: 0,
+    sentenceNumber: 0,
+    swiperDuration: 240,
+    feedRetry: false,
+    loadingMore: false,
     canPrev: false,
     canNext: true,
 
@@ -225,9 +242,10 @@ Page({
 
   onLoad() {
     this._reels = [];
+    this._feedGeneration = 0;
+    this._windowStart = 0;
     this._page = 1;
     this._hasMore = false;
-    this._fetchingFeed = false;
     this._owner = reelsSession.subject();
     this._sessionState = reelsSession.loadSession(this._owner);
     this._nextCursor = this._sessionState.cursor;
@@ -306,19 +324,32 @@ Page({
   },
 
   onShow() {
+    this._hidden = false;
     this._syncTheme();
     const currentOwner = reelsSession.subject();
     if (currentOwner !== 'pending' && currentOwner !== this._owner) {
       this._flushSession();
+      this._pausePlayback();
       this._owner = currentOwner;
       this._sessionState = reelsSession.loadSession(this._owner);
       this._nextCursor = this._sessionState.cursor;
+      this._resumeOnShow = false;
+      this.setData({ filterOpen: false });
+      this._bootstrap();
+      return;
     }
+    if (this._firstClipPending && !this.data.filterOpen) {
+      this._firstClipPending = false;
+      this._resumeOnShow = false;
+      this._applyClip(0, { autoplay: true });
+      return;
+    }
+    this._commitPendingPage();
     if (this._resumeOnShow) {
       this._resumeOnShow = false;
       const modalOpen =
         (this.data.wordModal && this.data.wordModal.visible) ||
-        this.data.deepOpen ||
+        this.data.filterOpen || this.data.deepOpen ||
         !!this.data.drawerSentence ||
         this.data.showPremiumModal;
       if (!modalOpen && !this.data.isEvaluating && this.data.clip && !this.data.playing) {
@@ -328,9 +359,14 @@ Page({
   },
 
   onHide() {
+    this._hidden = true;
+    this._touching = false;
+    this._swiperMoving = false;
+    clearTimeout(this._swiperIdleTimer);
+    this._swiperIdleTimer = null;
     // 切 tab 礼让音频互斥总线：记录离开前是否在播，回到 Tab 时自动续播（F5）
     this._resumeOnShow = !!(
-      this.data.playing ||
+      this.data.playing || this.data.audioLoading || this._player.getKind() === 'reel' ||
       this._resumeAfterEval ||
       this._resumeAfterUserAudio
     );
@@ -340,6 +376,10 @@ Page({
   },
 
   onUnload() {
+    this._prepToken++;
+    this._feedGeneration++;
+    this._hidden = true;
+    clearTimeout(this._swiperIdleTimer);
     this._flushSession();
     this._player.stop();
     this._cancelEvaluation();
@@ -355,45 +395,49 @@ Page({
     reelsSession.saveSession(this._owner, this._sessionState);
   },
 
-  async _fetchRingPageWithSeenFilter(cursor) {
-    let cur = cursor || this._sessionState.cursor;
-    const rawPool = [];
-    let hasMore = false;
+  async _fetchRingPageWithSeenFilter(cursor, page, excluded = new Set(), origin = null) {
+    const generation = this._feedGeneration;
+    const pool = [];
+    const visited = new Set();
+    const filters = this._sessionState.filters;
     let wrapped = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const r = await reelsApi.fetchFeed({ page: this._page, cursor: cur });
-      if (!r || !r.items.length) break;
-      rawPool.push(...r.items);
-      hasMore = r.hasMore;
-      if (r.wrapped) wrapped = true;
-      cur = r.nextCursor || cur;
-      const filtered = reelsSession.filterAndFallback(
-        this._sessionState,
-        rawPool,
-        12
-      );
-      if (!filtered.softFallbackUsed && filtered.items.length >= 6) {
-        return {
-          items: filtered.items,
-          hasMore,
-          nextCursor: cur,
-          wrapped,
-        };
+    let result;
+    for (let attempt = 0; attempt < 3; attempt++, page++) {
+      const r = await reelsApi.fetchFeed({ page, cursor, filters });
+      if (generation !== this._feedGeneration) return null;
+      if (!r) throw new Error('feed unavailable');
+      visited.add(cursor);
+      wrapped = wrapped || r.wrapped;
+      for (const clip of r.items) {
+        if (!excluded.has(reelsSession.clipSeenKey(clip)) && matchesFilters(clip, filters)) pool.push(clip);
       }
-      if (!r.hasMore || !r.nextCursor || r.nextCursor === cur) break;
+      const pick = reelsSession.filterAndFallback(this._sessionState, pool, 12);
+      const nextCursor = r.nextCursor || cursor;
+      result = { items: pick.items, nextCursor, hasMore: r.hasMore, wrapped, page };
+      if (!pick.softFallbackUsed && pick.items.length >= 6) {
+        // 合并多页时保留超出本批的未看句，下一次从最后选中的句子之后续取。
+        const last = pick.items[pick.items.length - 1];
+        if (r.mode !== 'legacy' && pick.items.length === 12 && last.ringKey && pool.indexOf(last) < pool.length - 1) {
+          result.nextCursor = last.ringKey;
+          result.hasMore = true;
+        }
+        break;
+      }
+      // 空池的有界扫描可以分多次继续。跨过本轮起点后才确认整圈无匹配。
+      if (!pick.items.length && origin != null && r.mode === 'ring') {
+        const completedLap = nextCursor < cursor
+          ? origin > cursor || origin <= nextCursor
+          : origin > cursor && origin <= nextCursor;
+        if (completedLap) result.hasMore = false;
+      }
+      if (!result.hasMore) break;
+      if (r.mode !== 'legacy' && visited.has(nextCursor)) {
+        if (!pick.items.length) result.hasMore = false;
+        break;
+      }
+      cursor = nextCursor;
     }
-    if (!rawPool.length) return null;
-    const finalPick = reelsSession.filterAndFallback(
-      this._sessionState,
-      rawPool,
-      12
-    );
-    return {
-      items: finalPick.items,
-      hasMore,
-      nextCursor: cur,
-      wrapped,
-    };
+    return result;
   },
 
   _syncTheme() {
@@ -406,15 +450,18 @@ Page({
 
   /* ---------------- feed 装载（真实语料 + 本地回落） ---------------- */
 
-  /* ── DIY 下拉刷新：首条(index=0)向下拖拽 → 阈值内跟手提示 → 释放刷新 ── */
+  /* ── DIY 下拉刷新：本轮第 1 句向下拖拽 → 阈值内跟手提示 → 释放刷新 ── */
 
   onPullTouchStart(e) {
+    this._touching = true;
+    this._dragged = false;
     const t = e.touches && e.touches[0];
     this._pullY0 = t ? t.clientY : null;
-    this._pullActive = t != null && this.data.index === 0 && !this.data.refreshing;
+    this._pullActive = t != null && this.data.sentenceNumber === 1 && !this.data.refreshing;
   },
 
   onPullTouchMove(e) {
+    this._dragged = true;
     if (!this._pullActive || this._pullY0 == null || this.data.refreshing) return;
     const t = e.touches && e.touches[0];
     if (!t) return;
@@ -434,14 +481,18 @@ Page({
   },
 
   onPullTouchEnd() {
+    this._touching = false;
     this._pullActive = false;
     this._pullY0 = null;
     if (this.data.refreshing) return;
     if (this.data.refreshReady) return this._refreshFeed();
     if (this.data.pullShift) this.setData({ pullShift: 0, pullHintY: -60, refreshReady: false });
+    this._settleTouch();
   },
 
   onPullTouchCancel() {
+    this._touching = false;
+    this._settleTouch();
     this._pullActive = false;
     this._pullY0 = null;
     if (!this.data.refreshing && this.data.pullShift) {
@@ -451,51 +502,173 @@ Page({
 
   /** 释放刷新：从最远已看游标续取新一批 → 回到首条自动起播 */
   async _refreshFeed() {
-    this.setData({ refreshReady: false, refreshing: true, pullShift: PULL_THRESHOLD, pullHintY: 24 });
+    this.setData({ refreshReady: false, refreshing: true, loadingMore: false, pullShift: PULL_THRESHOLD, pullHintY: 24 });
     this._pausePlayback();
     this._flushSession();
-    this._page = 1;
-    this._furthestIdx = -1;
-    this._hasMore = false;
+    if (this.data.filterActive) return this._bootstrap();
+    const generation = ++this._feedGeneration;
     let ok = false;
     try {
-      const startCursor = this._sessionState.cursor || this._nextCursor;
-      const r = await this._fetchRingPageWithSeenFilter(startCursor);
+      const r = await this._fetchRingPageWithSeenFilter(this._sessionState.cursor, 1);
+      if (generation !== this._feedGeneration) return;
       if (r && r.items.length) {
-        this._reels = r.items;
-        this._hasMore = r.hasMore;
-        this._nextCursor = r.nextCursor || startCursor;
-        if (r.wrapped) this._sessionState.lap = (this._sessionState.lap || 0) + 1;
-        this.setData({ reels: this._reels, sourceLocal: false, index: 0 });
+        this._replaceFeed(r);
       } else {
         this._useLocalFallback();
-        this.setData({ index: 0 });
       }
       ok = true;
     } catch (e) {
-      ok = false;
+      if (generation !== this._feedGeneration) return;
     }
     this.setData({ refreshing: false, pullShift: 0, pullHintY: -60 });
-    if (ok) this._applyClip(0, { autoplay: true });
+    if (ok) this._showFirstClip();
     wx.showToast({ title: ok ? '已刷新' : '刷新失败，稍后再试', icon: 'none' });
   },
 
-  async _bootstrap() {
+  async _bootstrap(scan) {
+    const generation = ++this._feedGeneration;
+    const filters = this._sessionState.filters || {};
+    const filtered = !!filterKey(filters);
+    const origin = this._sessionState.cursor;
+    const start = scan || { cursor: origin, page: 1 };
+    this._firstScan = start;
+    this._pausePlayback();
+    this._cancelEvaluation();
+    this._prepToken++;
+    this._deepToken++;
+    this._pendingPage = null;
+    this._firstClipPending = false;
+    this._audioMeta = null;
+    this._reels = [];
+    this._hasMore = false;
+    this.setData({
+      feedLoading: true, feedState: '', refreshing: false, loadingMore: false, feedRetry: false,
+      pullShift: 0, pullHintY: -60, sourceLocal: false, filterActive: filtered, clip: null,
+      reels: [], index: 0, sentenceNumber: 0, canPrev: false, canNext: false,
+      bgUrlA: '', bgUrlB: '', playing: false, playingUserAudio: false, audioLoading: false,
+    });
     try {
-      const r = await this._fetchRingPageWithSeenFilter(this._sessionState.cursor);
-      if (r && r.items.length) {
-        this._reels = r.items;
-        this._hasMore = r.hasMore;
-        this._nextCursor = r.nextCursor || this._sessionState.cursor;
-        if (r.wrapped) this._sessionState.lap = (this._sessionState.lap || 0) + 1;
-        this.setData({ reels: this._reels, sourceLocal: false, feedLoading: false });
-      } else {
-        this._useLocalFallback();
-      }
+      const r = await this._fetchRingPageWithSeenFilter(start.cursor, start.page, new Set(), filtered ? origin : null);
+      if (generation !== this._feedGeneration) return;
+      if (r.items.length) this._replaceFeed(r);
+      else if (filtered) {
+        this._firstScan = { cursor: r.nextCursor, page: r.page + 1 };
+        this.setData({ feedLoading: false, feedState: r.hasMore ? 'more' : 'empty' });
+        return;
+      } else this._useLocalFallback();
     } catch (e) {
+      if (generation !== this._feedGeneration) return;
+      if (filtered) {
+        this.setData({ feedLoading: false, feedState: 'error' });
+        return;
+      }
       this._useLocalFallback();
     }
-    this._applyClip(0, { autoplay: true });
+    this._showFirstClip();
+  },
+
+  onRetryFirstPage() {
+    if (!this.data.feedLoading) return this._bootstrap(this._firstScan);
+  },
+
+  _showFirstClip() {
+    this._firstClipPending = !!(this._hidden || this.data.filterOpen);
+    if (!this._firstClipPending) this._applyClip(0, { autoplay: true });
+  },
+
+  onOpenFilters() {
+    if (this.data.filterOpen) return;
+    const draft = Object.assign({}, this._sessionState.filters);
+    const kind = this._player.getKind();
+    this._filterUserResume = kind === 'user' && this.data.evalUserAudioPath ? {
+      path: this.data.evalUserAudioPath, position: this._player.estimatedPos() || 0,
+      resumeOriginal: this._resumeAfterUserAudio,
+    } : null;
+    this._resumeAfterFilter = !!(this.data.playing || this.data.audioLoading ||
+      kind === 'reel' || this._resumeAfterEval || this._resumeAfterUserAudio);
+    this._pausePlayback();
+    const selectedLevels = {};
+    for (const level of (draft.level || '').split(',')) if (level) selectedLevels[level] = true;
+    this.setData({ filterOpen: true, filterDraft: draft, selectedLevels, filterError: '' });
+  },
+
+  onFilterInput(e) {
+    this.setData({ ['filterDraft.' + e.currentTarget.dataset.field]: e.detail.value, filterError: '' });
+  },
+
+  onFilterLevel(e) {
+    const level = e.currentTarget.dataset.level;
+    const selected = Object.assign({}, this.data.selectedLevels);
+    selected[level] = !selected[level];
+    this.setData({
+      selectedLevels: selected,
+      'filterDraft.level': LEVELS.filter((l) => selected[l]).join(','),
+    });
+  },
+
+  onAllLevels() {
+    this.setData({ selectedLevels: {}, 'filterDraft.level': '' });
+  },
+
+  onResetFilterDraft() {
+    this.setData({ filterDraft: {}, selectedLevels: {}, filterError: '' });
+  },
+
+  onCloseFilters() {
+    const resume = this._resumeAfterFilter;
+    this._resumeAfterFilter = false;
+    this.setData({ filterOpen: false });
+    const user = this._filterUserResume;
+    this._filterUserResume = null;
+    if (this._firstClipPending) this._showFirstClip();
+    else if (user && user.path === this.data.evalUserAudioPath && !this._hidden) {
+      this._resumeAfterUserAudio = user.resumeOriginal;
+      this._player.playUrl(user.path, 'user', { startSec: user.position });
+    } else if (resume && this.data.clip && !this.data.isEvaluating) this._startPlayback(this._relPos);
+  },
+
+  onApplyFilters() {
+    const parsed = parseFilters(this.data.filterDraft);
+    if (parsed.error) {
+      this.setData({ filterError: parsed.error, filterErrorField: parsed.field });
+      return;
+    }
+    return this._changeFilters(parsed.filters);
+  },
+
+  onClearFilters() {
+    return this._changeFilters({});
+  },
+
+  _changeFilters(filters) {
+    if (filterKey(filters) === filterKey(this._sessionState.filters || {})) return this.onCloseFilters();
+    this._flushSession();
+    reelsSession.switchFilters(this._sessionState, this._owner, filters);
+    reelsSession.saveSession(this._owner, this._sessionState);
+    this._resumeAfterFilter = false;
+    this._filterUserResume = null;
+    this._resumeOnShow = false;
+    this.setData({ filterOpen: false });
+    return this._bootstrap();
+  },
+
+  _replaceFeed(page, local = false) {
+    clearTimeout(this._swiperIdleTimer);
+    this._swiperIdleTimer = null;
+    this._swiperMoving = false;
+    this._pendingPage = null;
+    this._windowStart = 0;
+    this._furthestIdx = -1;
+    this._moreScanOrigin = null;
+    this._reels = page.items;
+    this._hasMore = page.hasMore;
+    this._nextCursor = page.nextCursor;
+    this._page = page.page;
+    if (page.wrapped) this._sessionState.lap++;
+    this.setData({
+      reels: page.items, index: 0, sentenceNumber: page.items.length ? 1 : 0,
+      sourceLocal: local, feedLoading: false, feedRetry: false, swiperDuration: 240,
+    });
   },
 
   _useLocalFallback() {
@@ -505,47 +678,104 @@ Page({
       allLocal,
       allLocal.length
     );
-    this._reels = filtered.items.length ? filtered.items : allLocal;
-    this._hasMore = false;
-    this.setData({ reels: this._reels, sourceLocal: true, feedLoading: false });
+    this._replaceFeed({
+      items: filtered.items.length ? filtered.items : allLocal,
+      hasMore: false, nextCursor: this._sessionState.cursor, page: 1,
+    }, true);
   },
 
-  /** 翻页追加（滑至倒数 PRELOAD_MARGIN 条触发；swiper 渲染封顶） */
-  _loadMore() {
-    if (this._fetchingFeed || !this._hasMore || this.data.sourceLocal) return;
-    if (this._reels.length >= PAGE_SIZE_CAP) return;
-    this._fetchingFeed = true;
-    this._page += 1;
-    this._fetchRingPageWithSeenFilter(this._nextCursor)
-      .then((r) => {
-        this._fetchingFeed = false;
-        if (r && r.items.length) {
-          const existingKeys = new Set(this._reels.map(reelsSession.clipSeenKey));
-          const deduped = r.items.filter(
-            (it) => !existingKeys.has(reelsSession.clipSeenKey(it))
-          );
-          this._reels = this._reels.concat(deduped).slice(0, PAGE_SIZE_CAP);
-          this._hasMore = r.hasMore;
-          this._nextCursor = r.nextCursor || this._nextCursor;
-          if (r.wrapped) this._sessionState.lap = (this._sessionState.lap || 0) + 1;
-          this.setData({ reels: this._reels });
-        } else {
-          this._hasMore = false;
-        }
-      })
-      .catch(() => {
-        this._fetchingFeed = false;
-        this._hasMore = false;
+  async _loadMore(manual = false) {
+    if (this.data.loadingMore || !this._hasMore || this._pendingPage || this.data.refreshing ||
+        this.data.feedLoading || this.data.sourceLocal || (this.data.feedRetry && !manual)) return;
+    this.setData({ loadingMore: true });
+    let retry = false;
+    const generation = this._feedGeneration;
+    const excluded = new Set(this._reels.map(reelsSession.clipSeenKey));
+    try {
+      // 小筛选池可能已全部在窗口中；跨多批续查也要识别完整一圈。
+      const origin = this.data.filterActive ? (this._moreScanOrigin || this._nextCursor) : null;
+      const page = await this._fetchRingPageWithSeenFilter(this._nextCursor, this._page + 1, excluded, origin);
+      if (generation !== this._feedGeneration) return;
+      this._page = page.page;
+      this._hasMore = page.hasMore;
+      this._nextCursor = page.nextCursor;
+      if (page.wrapped) this._sessionState.lap++;
+      if (page.items.length) {
+        this._pendingPage = page.items;
+        this._commitPendingPage();
+      }
+      retry = !page.items.length && page.hasMore;
+      this._moreScanOrigin = retry ? origin : null;
+    } catch (e) {
+      retry = true;
+    } finally {
+      if (generation === this._feedGeneration) this.setData({ feedRetry: retry, loadingMore: false });
+    }
+  },
+
+  _commitPendingPage() {
+    if (!this._pendingPage || this._hidden || this._touching || this._swiperMoving ||
+        this._swiperIdleTimer || this.data.refreshing) return;
+    const remove = Math.max(0, this._reels.length + this._pendingPage.length - WINDOW_SIZE);
+    const clip = this.data.clip;
+    const current = clip ? this._reels.findIndex((it) => it.id === clip.id) : -1;
+    if (current < 0) return;
+    // 回划后继续保留历史，等用户再次进入预取区才淘汰前面的卡片。
+    if (remove && current < this._reels.length - PRELOAD_MARGIN) return;
+    const index = current - remove;
+    this._reels = this._reels.slice(remove).concat(this._pendingPage);
+    this._pendingPage = null;
+    this._windowStart += remove;
+    // 当前切片身份未变，仅调整视图坐标；保留播放、扫光和跟读状态。
+    const patch = {
+      reels: this._reels, index, sentenceNumber: this._windowStart + index + 1,
+      canPrev: index > 0, canNext: index < this._reels.length - 1,
+    };
+    if (remove) {
+      patch.swiperDuration = 0;
+      const generation = this._feedGeneration;
+      this.setData(patch, () => {
+        if (generation === this._feedGeneration) this.setData({ swiperDuration: 240 });
       });
+    } else {
+      this.setData(patch);
+    }
   },
 
-  /* ---------------- 切片切换（轻划 swiper / 按钮） ---------------- */
+  _settleTouch() {
+    if (this._dragged && !this._swiperMoving) this._waitForSwiperChange();
+    else this._commitPendingPage();
+  },
 
-  /** swiper 纵向轻划（e.detail.current 为目标下标） */
+  _waitForSwiperChange() {
+    clearTimeout(this._swiperIdleTimer);
+    // 等待原生确认。边缘回弹或合并的按钮操作可能没有 change/finish。
+    this._swiperIdleTimer = setTimeout(() => {
+      this._swiperIdleTimer = null;
+      this._commitPendingPage();
+    }, 320);
+  },
+
+  onSwiperFinish(e) {
+    const id = e.detail.currentItemId;
+    if (!this.data.clip || (id && id !== this.data.clip.id) || e.detail.current !== this.data.index) return;
+    clearTimeout(this._swiperIdleTimer);
+    this._swiperIdleTimer = null;
+    this._swiperMoving = false;
+    this._commitPendingPage();
+  },
+
   onSwiperChange(e) {
-    const idx = e.detail.current;
-    if (idx === this.data.index) return;
-    this._applyClip(idx, { autoplay: true });
+    const { current, currentItemId, source } = e.detail;
+    const clip = this._reels[current];
+    if (this._hidden || this.data.filterOpen || this.data.feedLoading || this.data.refreshing || !clip ||
+        (currentItemId && currentItemId !== clip.id)) return;
+    // 按钮已主动切句，程序重映射也会触发 change；两者都不再重复记看/起播。
+    if (source === '' || (this.data.clip && clip.id === this.data.clip.id)) return;
+    clearTimeout(this._swiperIdleTimer);
+    this._swiperIdleTimer = null;
+    this._swiperMoving = true; // 已确认的手势切换等 animationfinish 后再换窗。
+    this._applyClip(current, { autoplay: true });
   },
 
   _applyClip(idx, opts) {
@@ -562,10 +792,11 @@ Page({
     this._audioMeta = null;
 
     // 游标只随最远到达下标前进（回划不倒退游标；预取未看条下次启动仍可出现）
+    const absoluteIdx = this._windowStart + idx;
     if (this._sessionState) {
       this._seenBuffer.push(clip);
-      if (idx > this._furthestIdx) {
-        this._furthestIdx = idx;
+      if (absoluteIdx > this._furthestIdx) {
+        this._furthestIdx = absoluteIdx;
         if (clip.real && clip.ringKey) {
           this._sessionState.cursor = clip.ringKey;
         }
@@ -594,6 +825,7 @@ Page({
     const patch = {
       clip,
       index: idx,
+      sentenceNumber: absoluteIdx + 1,
       canPrev: idx > 0,
       canNext: idx < this._reels.length - 1,
       activeWordIndex: -1,
@@ -641,12 +873,18 @@ Page({
   },
 
   onPrev() {
-    if (this.data.index <= 0) return;
+    if (this.data.refreshing || this.data.feedLoading || this.data.index <= 0) return;
+    this._waitForSwiperChange();
     this._applyClip(this.data.index - 1, { autoplay: true });
   },
 
   onNext() {
-    if (this.data.index >= this._reels.length - 1) return;
+    if (this.data.refreshing || this.data.feedLoading) return;
+    if (this.data.index >= this._reels.length - 1) {
+      if (this.data.feedRetry) return this._loadMore(true);
+      return;
+    }
+    this._waitForSwiperChange();
     this._applyClip(this.data.index + 1, { autoplay: true });
   },
 
@@ -689,7 +927,7 @@ Page({
   /** 窗口起播：fromRel 为切片内相对位置（暂停续播/换速保位复用） */
   _startPlayback(fromRel) {
     const clip = this.data.clip;
-    if (!clip) return;
+    if (!clip || this._hidden || this.data.filterOpen) return;
     this._atEnd = false;
 
     if (this._audioMeta) {
@@ -728,7 +966,9 @@ Page({
 
   /** 暂停：clip-player 无 pause 口，记相对位置后停实例 */
   _pausePlayback() {
-    if (!this.data.playing && !this.data.playingUserAudio) return;
+    if (!this.data.playing && !this.data.playingUserAudio &&
+        !this.data.audioLoading && !this._player.getKind()) return;
+    this._prepToken++;
     if (this.data.playing) {
       const meta = this._audioMeta;
       const clip = this.data.clip;
@@ -744,7 +984,7 @@ Page({
       this._playingFalseTimer = null;
     }
     const curIdx = this.data.index;
-    const patch = { playing: false, playingUserAudio: false };
+    const patch = { playing: false, playingUserAudio: false, audioLoading: false };
     if (this._reels && this._reels[curIdx]) {
       this._reels[curIdx].swOn = false;
       patch['reels[' + curIdx + '].swOn'] = false;

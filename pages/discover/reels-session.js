@@ -6,6 +6,8 @@
  */
 const { subject, hashHex8 } = require('../../utils/subject');
 
+const { parseFilters, filterKey } = require('./reels-filters');
+
 const VERSION = 1;
 const CAPACITY = 600;
 const TTL_DAYS = 30;
@@ -61,6 +63,8 @@ function normalizeState(raw, owner, nowDay) {
       cursor: fallbackCursor,
       lap: 0,
       updatedAt: Date.now(),
+      filters: {},
+      positions: {},
       seen: [],
     };
   }
@@ -83,6 +87,8 @@ function normalizeState(raw, owner, nowDay) {
     cursor: validCursor(raw.cursor) ? raw.cursor : fallbackCursor,
     lap: Number.isInteger(raw.lap) && raw.lap >= 0 ? raw.lap : 0,
     updatedAt: Number(raw.updatedAt) || Date.now(),
+    filters: parseFilters(raw.filters || {}).filters || {},
+    positions: raw.positions && typeof raw.positions === 'object' ? raw.positions : {},
     seen,
   };
 }
@@ -108,6 +114,16 @@ function loadSession(owner, nowMs) {
 function saveSession(owner, state) {
   if (!owner || owner === 'pending') return;
   write(storageKey(owner), state);
+}
+
+// 当前池的 cursor/lap 继续写入旧字段，已有用户的不限池进度可直接沿用。
+function switchFilters(state, owner, filters) {
+  const positions = state.positions;
+  positions[filterKey(state.filters) || 'all'] = { cursor: state.cursor, lap: state.lap };
+  const saved = positions[filterKey(filters) || 'all'];
+  state.filters = filters;
+  state.cursor = saved && validCursor(saved.cursor) ? saved.cursor : initialCursor(owner);
+  state.lap = saved && Number.isInteger(saved.lap) ? saved.lap : 0;
 }
 
 function recordSeen(state, clips, nowMs) {
@@ -170,6 +186,7 @@ module.exports = {
   clipSeenKey,
   loadSession,
   saveSession,
+  switchFilters,
   recordSeen,
   filterAndFallback,
   todayDayNum,

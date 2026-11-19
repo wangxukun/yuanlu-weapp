@@ -44,6 +44,7 @@ function load(file, imports = {}) {
 const subjectMod = load('utils/subject.js', { '../store/authStore': authStore });
 const sessionMod = load('pages/discover/reels-session.js', {
   '../../utils/subject': subjectMod,
+  './reels-filters': require('../pages/discover/reels-filters'),
 });
 
 // 1. Guest initial cursor is deterministic per anonymousId, and distinct across subjects

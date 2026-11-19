@@ -14,12 +14,6 @@
 -->
 <view class="rl-page {{themeClass}}">
 
-  <!-- ═══ 首刷装载态 ═══ -->
-  <view wx:if="{{feedLoading}}" class="rl-feed-loading">
-    <view class="rl-feed-spin" />
-    <text class="rl-feed-loading-text">正在装载原声切片…</text>
-  </view>
-
   <!-- ═══ 背景氛围层：双层交替模糊封面 + 遮罩（U1 & U2） ═══ -->
   <view class="rl-bg">
     <image wx:if="{{coverOk && bgUrlA}}"
@@ -39,25 +33,41 @@
       <text wx:if="{{sourceLocal}}" class="rl-src-badge">沙箱语料</text>
     </view>
     <view class="rl-header-right">
+      <view class="rl-theme-btn {{filterActive ? 'rl-filter-active' : ''}}" hover-class="rl-theme-btn--hover"
+            aria-role="button" aria-label="{{filterActive ? '刷句筛选，已启用' : '刷句筛选'}}" bindtap="onOpenFilters">
+        <image class="rl-filter-icon" src="{{filterActive ? (dark ? '/assets/icons/tune-primary-dark.svg' : '/assets/icons/tune-primary.svg') : (dark ? '/assets/icons/tune-variant-dark.svg' : '/assets/icons/tune-variant.svg')}}" />
+      </view>
       <view class="rl-theme-btn" hover-class="rl-theme-btn--hover" bindtap="onToggleTheme">
         <text class="rl-theme-ic">{{dark ? '☀️' : '🌙'}}</text>
       </view>
-      <text class="rl-counter">{{index + 1}} / {{reels.length}}</text>
+      <text wx:if="{{sentenceNumber}}" class="rl-counter">第 {{sentenceNumber}} 句</text>
     </view>
   </view>
 
   <!-- ═══ 纵向轻划切片流 ═══ -->
   <view class="rl-swiper-wrap">
+    <view wx:if="{{feedLoading}}" class="rl-feed-loading">
+      <view class="rl-feed-spin" />
+      <text class="rl-feed-loading-text">正在装载原声切片…</text>
+    </view>
+    <view wx:elif="{{feedState}}" class="rl-feed-loading rl-filter-empty">
+      <text class="rl-sheet-title">{{feedState === 'empty' ? '没有符合条件的句子' : feedState === 'more' ? '本批暂无匹配句子' : '句子加载失败'}}</text>
+      <view class="rl-filter-actions">
+        <view class="rl-filter-link" bindtap="onClearFilters">清空筛选</view>
+        <view wx:if="{{feedState === 'empty'}}" class="rl-filter-submit" bindtap="onOpenFilters">调整条件</view>
+        <view wx:else class="rl-filter-submit" bindtap="onRetryFirstPage">{{feedState === 'more' ? '继续查找' : '重新加载'}}</view>
+      </view>
+    </view>
     <!-- DIY 下拉刷新（竖滑 swiper 手势不被原生 onPullDownRefresh 捕获） -->
     <view class="rl-pull-hint {{refreshReady ? 'rl-pull-hint--ready' : ''}}"
           style="opacity: {{pullShift > 0 || refreshing ? 1 : 0}}; transform: translateY({{pullHintY}}px)">
       <text>{{refreshing ? '↻ 正在刷新…' : refreshReady ? '↑ 释放刷新' : '↓ 下拉刷新'}}</text>
     </view>
-    <swiper class="rl-swiper" vertical current="{{index}}" duration="240"
-            easing-function="easeOutCubic" bindchange="onSwiperChange"
+    <swiper class="rl-swiper" vertical current="{{index}}" duration="{{swiperDuration}}"
+            easing-function="easeOutCubic" bindchange="onSwiperChange" bindanimationfinish="onSwiperFinish"
             bindtouchstart="onPullTouchStart" bindtouchmove="onPullTouchMove"
             bindtouchend="onPullTouchEnd" bindtouchcancel="onPullTouchCancel">
-      <swiper-item wx:for="{{reels}}" wx:for-item="reel" wx:for-index="ci" wx:key="id">
+      <swiper-item wx:for="{{reels}}" wx:for-item="reel" wx:for-index="ci" wx:key="id" item-id="{{reel.id}}">
         <view class="rl-center">
 
           <!-- 话题 pills：节目名 / 主题 / 难度 / 会员专享 -->
@@ -140,7 +150,7 @@
   </view>
 
   <!-- ═══ 右侧竖排浮动操作栏 ═══ -->
-  <view class="rl-rail">
+  <view wx:if="{{clip}}" class="rl-rail">
     <!-- 播放 / 暂停 / 切片懒取中 -->
     <view class="rl-play {{audioLoading ? 'rl-play--loading' : ''}}" hover-class="{{audioLoading ? '' : 'rl-play--hover'}}" bindtap="onTogglePlay">
       <view wx:if="{{audioLoading}}" class="rl-play-spin" />
@@ -176,7 +186,7 @@
   </view>
 
   <!-- ═══ 底部切片切换条（与轻划互通） ═══ -->
-  <view class="rl-footer">
+  <view wx:if="{{clip}}" class="rl-footer">
     <view class="rl-switch {{canPrev ? '' : 'rl-switch--off'}}" hover-class="{{canPrev ? 'rl-switch--hover' : ''}}" bindtap="onPrev">
       <image class="rl-switch-ic" src="{{dark ? '/assets/icons/keyboard-arrow-up-primary-dark.svg' : '/assets/icons/keyboard-arrow-up-gray.svg'}}" />
       <text class="rl-switch-text">上一条切片</text>
@@ -184,9 +194,44 @@
 
     <text class="rl-hint">上下轻划切换 • 点击单词即查</text>
 
-    <view class="rl-switch {{canNext ? '' : 'rl-switch--off'}}" hover-class="{{canNext ? 'rl-switch--hover' : ''}}" bindtap="onNext">
-      <text class="rl-switch-text">下一条切片</text>
+    <view class="rl-switch {{canNext || (feedRetry && !loadingMore) ? '' : 'rl-switch--off'}}" hover-class="{{canNext || (feedRetry && !loadingMore) ? 'rl-switch--hover' : ''}}" bindtap="onNext">
+      <text class="rl-switch-text">{{canNext ? '下一条切片' : loadingMore ? '加载中…' : feedRetry ? '点击重试' : '下一条切片'}}</text>
       <image class="rl-switch-ic" src="{{dark ? '/assets/icons/keyboard-arrow-down-primary-dark.svg' : '/assets/icons/keyboard-arrow-down-gray.svg'}}" />
+    </view>
+  </view>
+
+  <view wx:if="{{filterOpen}}" class="rl-mask" bindtap="onCloseFilters">
+    <view class="rl-sheet rl-filter-sheet" catchtap="noop">
+      <view class="rl-sheet-head">
+        <text class="rl-sheet-title">刷句筛选</text>
+        <view class="rl-filter-link" bindtap="onCloseFilters">取消</view>
+      </view>
+      <view wx:for="{{filterGroups}}" wx:for-item="group" wx:key="low" class="rl-filter-group">
+        <text class="rl-filter-label">{{group.title}}</text>
+        <view class="rl-filter-range">
+          <label class="rl-filter-field">
+            <text>{{group.lowLabel}}</text>
+            <input type="number" placeholder="不限" value="{{filterDraft[group.low]}}" data-field="{{group.low}}" bindinput="onFilterInput" />
+          </label>
+          <label class="rl-filter-field">
+            <text>{{group.highLabel}}</text>
+            <input type="number" placeholder="不限" value="{{filterDraft[group.high]}}" data-field="{{group.high}}" bindinput="onFilterInput" />
+          </label>
+        </view>
+        <text wx:if="{{filterError && filterErrorField === group.low}}" class="rl-filter-error">{{filterError}}</text>
+      </view>
+      <view class="rl-filter-group">
+        <text class="rl-filter-label">节目难度（CEFR，可多选）</text>
+        <view class="rl-levels">
+          <view class="rl-level {{!filterDraft.level ? 'rl-level-selected' : ''}}" bindtap="onAllLevels">不限</view>
+          <view wx:for="{{filterLevels}}" wx:key="*this" class="rl-level {{selectedLevels[item] ? 'rl-level-selected' : ''}}"
+                data-level="{{item}}" bindtap="onFilterLevel">{{item}}</view>
+        </view>
+      </view>
+      <view class="rl-filter-actions">
+        <view class="rl-filter-link" bindtap="onResetFilterDraft">重置</view>
+        <view class="rl-filter-submit" bindtap="onApplyFilters">应用筛选</view>
+      </view>
     </view>
   </view>
 
