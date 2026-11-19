@@ -790,21 +790,14 @@ Page({
     this.setData({ isLooping: !this.data.isLooping });
   },
 
-  /** 倍速 0.75/1.0/1.25 循环；播放中就地修改 playbackRate 并重锚时钟，暂停中仅记速 */
+  /** 倍速 0.75/1.0/1.25 循环；在播或预备态实时同步至 clip-player，暂停中同时记速 */
   onToggleRate() {
     const idx = RATES.indexOf(this._rate);
     const next = RATES[(idx + 1) % RATES.length];
     this._rate = next;
     this.setData({ rateLabel: formatRateLabel(next) });
-    if (this.data.playing) {
-      if (this._player && typeof this._player.setRate === 'function') {
-        this._player.setRate(next);
-      } else {
-        const meta = this._audioMeta;
-        const pos = this._player.estimatedPos();
-        const rel = meta && pos != null ? pos - meta.winStart : 0;
-        this._startPlayback(rel);
-      }
+    if (this._player && this._player.getKind() === 'reel') {
+      this._player.setRate(next);
     }
   },
 

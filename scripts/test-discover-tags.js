@@ -279,14 +279,18 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         return {
           createClipPlayer: (hooks) => {
             playerHooks = hooks;
+            let currentKind = null;
             return {
+              getKind: () => currentKind,
               playUrl: (_url, kind, opts) => {
+                currentKind = kind;
                 playStartCount += 1;
                 lastPlayStartSec = opts && typeof opts.startSec === 'number' ? opts.startSec : 0;
                 if (opts && opts.rate) lastSetRate = opts.rate;
                 if (playerHooks && playerHooks.onPlaying) playerHooks.onPlaying(kind || 'reel');
               },
               stop: () => {
+                currentKind = null;
                 playStopCount += 1;
                 if (playerHooks && playerHooks.onPlaying) playerHooks.onPlaying(null);
               },
@@ -515,7 +519,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         'F5 回到 Tab 时自动从离开相对位置 1.2s 续播'
       );
 
-      // U3 + 倍速真生效验证：播放中点击倍速切换直接调用 _player.setRate 就地变更为 1.25 / 0.75 / 1.0，不销毁重建播放器
+      // U3 + 倍速真生效验证：播放中点击倍速切换直接调用 _player.setRate 就地变更为 1.25 / 0.75 / 1.0，页面不主动停止播放
       const stopsBeforeRate = playStopCount;
       ctx.onToggleRate();
       assert(
@@ -532,6 +536,159 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         ctx.data.rateLabel === '1.0x' && lastSetRate === 1 && playStopCount === stopsBeforeRate,
         'U3 播放中切换 1.0x 就地调用 setRate(1) 且不中断播放'
       );
+
+      // 模拟原生回调延迟、重复就绪和在播连续换速。
+      {
+        const cpMod = { exports: {} };
+        const toasts = [];
+        const playing = [];
+        const ended = [];
+        let now = 1000;
+        let watchdog;
+        let lastAudio = null;
+        vm.runInNewContext(read('utils/clip-player.js'), {
+          module: cpMod,
+          exports: cpMod.exports,
+          require: (id) => {
+            if (id === './audio-bus') return { stopAll: () => {} };
+            return {};
+          },
+          wx: {
+            getSystemInfoSync: () => ({ platform: 'ios' }),
+            showToast: ({ title }) => toasts.push(title),
+            createInnerAudioContext: () => {
+              const h = {};
+              const ops = [];
+              let rateVal = 1;
+              const a = {
+                src: '',
+                startTime: 0,
+                currentTime: 1.5,
+                ops,
+                onCanplay: (cb) => { h.canplay = cb; },
+                onPlay: (cb) => { h.play = cb; },
+                onSeeked: (cb) => { h.seeked = cb; },
+                onTimeUpdate: (cb) => { h.timeupdate = cb; },
+                onWaiting: (cb) => { h.waiting = cb; },
+                onEnded: (cb) => { h.ended = cb; },
+                onError: (cb) => { h.error = cb; },
+                offCanplay: () => {},
+                offTimeUpdate: () => {},
+                offEnded: () => {},
+                offError: () => {},
+                offPlay: () => {},
+                offWaiting: () => {},
+                offSeeked: () => {},
+                play: () => { ops.push('play:' + rateVal); },
+                pause: () => { ops.push('pause'); },
+                stop: () => { ops.push('stop'); },
+                destroy: () => { ops.push('destroy'); },
+                seek: (s) => { ops.push('seek:' + s); },
+                _fire: (name) => { if (h[name]) h[name](); },
+              };
+              Object.defineProperty(a, 'playbackRate', {
+                get: () => rateVal,
+                set: (v) => {
+                  rateVal = v;
+                  ops.push('rate:' + v);
+                },
+              });
+              lastAudio = a;
+              return a;
+            },
+          },
+          setInterval: (fn) => { watchdog = fn; return fn; },
+          clearInterval: (id) => { if (watchdog === id) watchdog = null; },
+          Date: { now: () => now },
+          Number,
+          isFinite,
+          console,
+        });
+        const realCp = cpMod.exports.createClipPlayer({
+          onPlaying: (k) => playing.push(k),
+          onEnded: (k) => ended.push(k),
+        });
+        const url = 'https://example.com/a.m4a';
+        realCp.playUrl(url, 'reel', { startSec: 1, endSec: 5 });
+        const first = lastAudio;
+        const firstWatchdog = watchdog;
+        first._fire('canplay');
+        first._fire('play');
+        now += 800;
+        realCp.setRate(1.25);
+        const fast = lastAudio;
+        assert(fast !== first && fast.src === url && fast.startTime === 1.8 &&
+          first.ops.join(',') === 'play:1,stop,destroy' && first.startTime === 1,
+          'U3 在播切换从 1.8 秒续播，旧实例只播放一次并释放');
+
+        first._fire('error');
+        first._fire('ended');
+        first._fire('canplay');
+        firstWatchdog();
+        fast._fire('canplay');
+        fast._fire('canplay');
+        fast._fire('play');
+        assert(fast.ops.join(',') === 'rate:1.25,play:1.25' &&
+          !toasts.length && !ended.length && !playing.includes(null),
+          'U3 重复就绪仅起播一次，旧回调不打断当前播放或触发提示');
+
+        now += 400;
+        realCp.setRate(0.75);
+        const slow = lastAudio;
+        realCp.setRate(1);
+        realCp.setRate(1.25);
+        realCp.setRate(0.75);
+        assert(lastAudio === slow && slow !== fast && slow.ops.length === 0 &&
+          Math.abs(realCp.estimatedPos() - 2.3) < 1e-6,
+          'U3 快速连点在准备期间合并，保留按上一档推进的位置');
+        slow._fire('canplay');
+        slow._fire('play');
+        assert(slow.ops.join(',') === 'rate:0.8,play:0.8', 'U3 慢档只按最终原生倍速 0.8 起播一次');
+        now += 1000;
+        slow.currentTime = 3.1;
+        slow._fire('timeupdate');
+        slow._fire('waiting');
+        now += 2000;
+        realCp.setRate(1);
+        const normal = lastAudio;
+        normal._fire('canplay');
+        normal._fire('play');
+        assert(Math.abs(normal.startTime - 3.1) < 1e-6 && normal.ops.join(',') === 'play:1',
+          'U3 缓冲期间切回原速从冻结位置续播');
+        now += 1900;
+        watchdog();
+        normal._fire('ended');
+        assert(ended.join(',') === 'reel' && realCp.getKind() === null,
+          'U3 换速后仍在原句末结束一次');
+
+        // 单句循环使用页面记住的倍速重新起播。
+        realCp.playUrl('https://example.com/a.m4a', 'reel', { startSec: 1.0, endSec: 5.0, rate: 0.75 });
+        lastAudio._fire('canplay');
+        const rateIdx = lastAudio.ops.indexOf('rate:0.8');
+        const playIdx = lastAudio.ops.indexOf('play:0.8');
+        assert(
+          rateIdx >= 0 && playIdx > rateIdx,
+          'U3 真机带倍速起播在 onCanplay 中先设置 playbackRate=0.8 再调用 play()'
+        );
+        // 模拟 iOS startTime seek 完成时底层重置为 1.0
+        lastAudio.playbackRate = 1.0;
+        lastAudio._fire('seeked');
+        assert(lastAudio.playbackRate === 0.8, 'U3 真机 onSeeked 自动将底层重置的倍速恢复为 0.8');
+        lastAudio.playbackRate = 1.0;
+        lastAudio._fire('timeupdate');
+        assert(lastAudio.playbackRate === 0.8, 'U3 真机首帧 onTimeUpdate 自动复核并恢复倍速 0.8');
+        realCp.setRate(1);
+        const pending = lastAudio;
+        realCp.stop();
+        pending._fire('canplay');
+        pending._fire('error');
+        assert(!pending.ops.some((op) => op.startsWith('play:')) && !toasts.length,
+          'U3 手动暂停后迟到的就绪与错误回调不会重启播放');
+        realCp.playUrl(url, 'reel');
+        lastAudio._fire('error');
+        assert(toasts.join(',') === '音频播放失败' && realCp.getKind() === null,
+          'U3 当前音源的真实错误仍提示并停止');
+      }
 
       // B2 + F2: 录音评测跨切片取消 & 真实跟读录音测评完整链路
       timers = [];

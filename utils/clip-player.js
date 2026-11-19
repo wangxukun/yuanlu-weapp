@@ -15,7 +15,7 @@
  *   ③ 50ms 看门狗：外推位置 ≥ endSec 即停（落点误差 ~100ms 级）；
  *      onWaiting（缓冲停顿）冻结判停与外推，恢复需「位置确有推进 +
  *      距停顿 >200ms」双判据
- *   ④ 慢速倍速只在 onPlay 后设置（提前设置部分平台忽略或重置进度回 0）
+ *   ④ 倍速在 canplay 就绪后设置；变速从当前位置重建，旧实例的事件按身份隔离
  *
  * 与 audio-clip.js 的分工：audio-clip 是全局单例的"字幕定位片段播放器"
  * （互斥总线成员）；clip-player 是页面/组件私有的"URL 直连窗口播放器"
@@ -63,69 +63,107 @@ function createClipPlayer(hooks) {
     return anchorPos + ((Date.now() - anchorAt) / 1000) * (rate || 1);
   }
 
-  function stop() {
-    startSec = 0;
-    endSec = null;
-    rate = 0;
-    anchorAt = 0;
-    anchorPos = 0;
-    stalledAt = 0;
-    landingChecked = false;
-    lastReported = 0;
-    clearWatchdog();
+  let playRequested = false;
+
+  /**
+   * 检测当前是否处于微信真机或开发者工具运行时（区分无 platform 字段的 Node 单测桩）
+   */
+  function isWeChatRuntime() {
+    if (typeof wx === 'undefined' || typeof wx.getSystemInfoSync !== 'function') return false;
+    try {
+      const sys = wx.getSystemInfoSync();
+      return !!(
+        sys &&
+        (sys.platform === 'ios' ||
+          sys.platform === 'android' ||
+          sys.platform === 'devtools' ||
+          sys.platform === 'ohos' ||
+          sys.platform === 'mac' ||
+          sys.platform === 'windows')
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * 将业务层倍速归一为微信 InnerAudioContext 原生支持的标准档位。
+   * 微信真机官方支持 0.5 / 0.8 / 1.0 / 1.25 / 1.5 / 2.0；直接传 0.75 在真机不会抛 JS 异常，
+   * 但会被底层静默忽略并保持 1.0x，因此在微信运行时统一将 0.75 归一到 0.8。
+   */
+  function resolveNativeRate(r) {
+    const num = Number(r) || 1;
+    if (num === 0.75 && isWeChatRuntime()) {
+      return 0.8;
+    }
+    return num;
+  }
+
+  function releaseAudio() {
     const ctx = audio;
     audio = null;
-    const finishedKind = kind;
-    kind = null;
+    clearWatchdog();
     if (ctx) {
       try {
         ctx.offCanplay(); ctx.offTimeUpdate(); ctx.offEnded(); ctx.offError();
         ctx.offPlay && ctx.offPlay();
         ctx.offWaiting && ctx.offWaiting();
+        ctx.offSeeked && ctx.offSeeked();
       } catch (e) { /* 低版本基础库 off* 缺失时忽略 */ }
-      try { ctx.stop(); ctx.destroy(); } catch (e) { /* 忽略 */ }
+      try { ctx.stop(); } catch (e) { /* 忽略 */ }
+      try { ctx.destroy(); } catch (e) { /* 忽略 */ }
     }
+  }
+
+  function stop() {
+    releaseAudio();
+    anchorAt = 0;
+    const finishedKind = kind;
+    kind = null;
     if (finishedKind !== null) notifyPlaying(null);
     return finishedKind;
   }
 
-  let rateApplied = false;
-
-  /**
-   * 尝试将目标倍速写入底层 InnerAudioContext（带 0.75→0.8 / 1.25→1.5 平台容错回退）
-   */
-  function applyRate(ctx, r) {
-    if (!ctx || !r) return;
-    const target = r === 1 ? 1.0 : r;
+  function syncRate(ctx) {
+    if (!rate) return;
     try {
-      ctx.playbackRate = target;
+      if (ctx.playbackRate !== rate) ctx.playbackRate = rate;
     } catch (e) {
-      if (target < 1) {
-        try { ctx.playbackRate = 0.8; } catch (e2) { /* 忽略 */ }
-      } else if (target > 1) {
-        try { ctx.playbackRate = 1.5; } catch (e2) { /* 忽略 */ }
-      }
+      const fallback = rate < 1 ? 0.8 : 1.5;
+      try { ctx.playbackRate = fallback; } catch (e2) { /* 旧设备可能不支持倍速 */ }
     }
   }
 
-  /**
-   * 动态切换倍速（在播时直接就地修改 ctx.playbackRate 并重锚外推时钟，
-   * 无需销毁重建实例，彻底避免部分机型重建后 onPlay 不触发或重置回 1.0x 的问题）。
-   * @param {number} newRate 目标倍速（如 0.75 / 1.0 / 1.25）
-   */
+  // 起播或缓冲期间，续播使用已知落点；看门狗仍只使用正在推进的外推时钟。
+  function resumePosition() {
+    if (!audio) return null;
+    if (!anchorAt) return startSec;
+    if (stalledAt) return anchorPos;
+    return estimatedPos();
+  }
+
+  function finishWindow() {
+    const finished = stop();
+    if (finished && typeof cb.onEnded === 'function') {
+      try { cb.onEnded(finished); } catch (e) { /* 忽略 */ }
+    }
+  }
+
   function setRate(newRate) {
-    const r = Number(newRate) || 1;
-    const now = Date.now();
-    if (anchorAt && !stalledAt) {
-      anchorPos = anchorPos + ((now - anchorAt) / 1000) * (rate || 1);
-      anchorAt = now;
+    if (!audio) return;
+    const next = resolveNativeRate(newRate);
+    if (next === (rate || 1)) return;
+    const pos = resumePosition();
+    rate = next === 1 ? 0 : next;
+    // 准备期间只记最后一档，统一由该实例的 canplay 使用。
+    if (!playRequested) return;
+    if (endSec != null && pos >= endSec - 0.02) {
+      finishWindow();
+      return;
     }
-    rate = r !== 1 ? r : 0;
-    rateApplied = false;
-    if (audio && anchorAt) {
-      applyRate(audio, r);
-      rateApplied = true;
-    }
+    const url = audio.src;
+    releaseAudio();
+    startContext(url, pos);
   }
 
   /**
@@ -143,40 +181,45 @@ function createClipPlayer(hooks) {
     audioBus.stopAll(); // 停全局播放器 / TTS / 原声片段（互斥总线）
     stop();
     const o = opts || {};
+    kind = playKind;
+    endSec = o.endSec != null && isFinite(o.endSec) ? o.endSec : null;
+    rate = o.rate && o.rate !== 1 ? resolveNativeRate(o.rate) : 0;
+    startContext(url, o.startSec > 0 ? o.startSec : 0);
+  }
+
+  function startContext(url, position) {
     const ctx = wx.createInnerAudioContext();
     audio = ctx;
-    kind = playKind;
-    startSec = o.startSec > 0 ? o.startSec : 0;
-    endSec = o.endSec != null && isFinite(o.endSec) ? o.endSec : null;
-    rate = o.rate && o.rate !== 1 ? o.rate : 0;
-    rateApplied = false;
-    anchorPos = startSec; // 外推锚点（起播前先按预期落点占位）
+    startSec = position;
+    anchorPos = position;
     anchorAt = 0;
+    stalledAt = 0;
+    lastReported = position;
+    landingChecked = false;
+    playRequested = false;
+    let rateSyncCount = 0;
 
-    if (startSec > 0) ctx.startTime = startSec;
-    ctx.src = url;
     ctx.onCanplay(() => {
-      if (audio !== ctx) return;
+      if (audio !== ctx || playRequested) return;
+      playRequested = true;
+      syncRate(ctx);
       ctx.play();
-      // play() 调用后立即记下起播锚点（兼容不触发 onPlay 的模拟器/平台）
-      if (!anchorAt) anchorAt = Date.now();
-      notifyPlaying(kind);
+      if (audio === ctx) notifyPlaying(kind);
     });
     ctx.onPlay(() => {
       if (audio !== ctx) return;
-      anchorAt = Date.now();
-      // 慢速/倍速只在起播后设置（在 onCanplay 内提前设置部分真机平台会忽略或重置进度到 0）
-      if (rate) {
-        applyRate(ctx, rate);
-        rateApplied = true;
-      }
+      if (!anchorAt) anchorAt = Date.now();
+      syncRate(ctx);
+    });
+    ctx.onSeeked && ctx.onSeeked(() => {
+      if (audio === ctx && playRequested) syncRate(ctx);
     });
     ctx.onTimeUpdate(() => {
-      if (audio !== ctx) return;
-      // 兜底：若平台未触发 onPlay（如部分环境/模拟器），在首帧 timeupdate 立即补设 playbackRate
-      if (rate && !rateApplied) {
-        applyRate(ctx, rate);
-        rateApplied = true;
+      if (audio !== ctx || !playRequested) return;
+      // 前 3 帧 timeupdate 持续复核 playbackRate（兜底未触发 onPlay 或首帧解码重置倍速的机型）
+      if (rate && rateSyncCount < 3) {
+        rateSyncCount += 1;
+        syncRate(ctx);
       }
       const reported = ctx.currentTime || 0;
       const prevReported = lastReported;
@@ -204,6 +247,7 @@ function createClipPlayer(hooks) {
         landingChecked = true;
         if (startSec > 0 && reported < startSec - 0.5) {
           ctx.seek(startSec);
+          rateSyncCount = 0;
           anchorPos = startSec;
           anchorAt = now;
           stalledAt = 0;
@@ -216,14 +260,13 @@ function createClipPlayer(hooks) {
     });
     // 缓冲停顿：播放头不走，冻结外推与判停，恢复由 onTimeUpdate 重锚
     ctx.onWaiting && ctx.onWaiting(() => {
-      if (audio === ctx && !stalledAt) stalledAt = Date.now();
+      if (audio !== ctx || stalledAt) return;
+      if (anchorAt) anchorPos = estimatedPos();
+      stalledAt = Date.now();
     });
     ctx.onEnded(() => {
       if (audio !== ctx) return;
-      const finished = stop();
-      if (finished && typeof cb.onEnded === 'function') {
-        try { cb.onEnded(finished); } catch (e) { /* 忽略 */ }
-      }
+      finishWindow();
     });
     ctx.onError(() => {
       if (audio !== ctx) return;
@@ -231,35 +274,26 @@ function createClipPlayer(hooks) {
       wx.showToast({ title: '音频播放失败', icon: 'none' });
     });
     // 50ms 监控循环（对齐 Android monitorJob 的 delay(50)）
-    clearWatchdog();
     watchdog = setInterval(() => {
-      if (audio !== ctx) {
-        clearWatchdog();
-        return;
-      }
-      if (rate && !rateApplied && anchorAt) {
-        applyRate(ctx, rate);
-        rateApplied = true;
-      }
+      if (audio !== ctx) return;
       const t = estimatedPos();
       if (t == null) return; // 缓冲停顿中：不判停、不外推
       if (typeof cb.onTick === 'function') {
         try { cb.onTick(t); } catch (e) { /* 忽略 */ }
       }
-      if (endSec != null && t >= endSec - 0.02) {
-        const finished = stop();
-        if (finished && typeof cb.onEnded === 'function') {
-          try { cb.onEnded(finished); } catch (e) { /* 忽略 */ }
-        }
+      if (audio === ctx && endSec != null && t >= endSec - 0.02) {
+        finishWindow();
       }
     }, 50);
+    if (position > 0) ctx.startTime = position;
+    ctx.src = url;
   }
 
   function getKind() {
     return kind;
   }
 
-  return { playUrl, stop, setRate, getKind, estimatedPos };
+  return { playUrl, stop, setRate, getKind, estimatedPos: resumePosition };
 }
 
 module.exports = { createClipPlayer };
