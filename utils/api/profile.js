@@ -5,7 +5,6 @@
  *   - GET  /api/user/profile                        裸 user_profile 行 + 嵌套 User（404=无
  *     profile 行，邮箱新注册常态 → 返回 null 交 mapProfile 走 toFallbackProfile 兜底）
  *   - GET  /api/user/stats/overview                 裸 { totalHours, streakDays, wordsLearned, ... }
- *   - GET  /api/user/stats/weekly-activity?weekOffset=0|1   { weeklyActivity: [{day, minutes}] }
  *   - GET  /api/user/stats/learning-report          { days:[{date,minutes,wordsLearned,
  *     isActive}], streakDays, dailyGoalMins }（服务端按会员切片 7/365 天）
  *   - GET  /api/user/achievements                   裸数组 [{key, name, icon(emoji), unlocked, ...}]
@@ -47,14 +46,6 @@ function getProfile() {
 
 function getStatsOverview() {
   return get('/api/user/stats/overview', undefined, { showError: false });
-}
-
-/** weekOffset：0 本周 / 1 上周（后端 parseInt+isNaN→0 兜底） */
-function getWeeklyActivity(weekOffset) {
-  const offset = Number(weekOffset) === 1 ? 1 : 0;
-  return get('/api/user/stats/weekly-activity?weekOffset=' + offset, undefined, {
-    showError: false,
-  });
 }
 
 function getAchievements() {
@@ -151,7 +142,6 @@ function deleteSelfAccount() {
 module.exports = {
   getProfile,
   getStatsOverview,
-  getWeeklyActivity,
   getLearningReport,
   getAchievements,
   saveProfile,

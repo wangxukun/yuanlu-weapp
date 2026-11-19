@@ -3,7 +3,7 @@
  *
  * utils/profile-core.js 全量把门：ProfileUtils.kt 移植口径（换算/等级/脱敏/校验/
  * 密码强度/成就排序/chartYMax 阶梯/formatDate UTC→本地）+ DTO 映射（mapProfile
- * 嵌套展平与 404 兜底、mapStats/mapWeekly/mapAchievements、coerceGoals 钳制）+
+ * 嵌套展平与 404 兜底、mapStats/mapAchievements、coerceGoals 钳制）+
  * 图表几何（monotonePath Fritsch–Carlson、quadMidPath 中点法、折线长度/比例裁剪、
  * milestoneGeometry 波浪坐标/脉冲插值、chartGeometry 时刻度与点位）。
  * 纯函数无 wx 依赖，直接 require 断言。运行：node scripts/test-profile.js
@@ -111,9 +111,6 @@ ok(core.mapStats(null) === null && core.mapStats('x') === null, 'mapStats 坏形
 const st = core.mapStats({ totalHours: 21.8, streakDays: 4, wordsLearned: 120, speechEvalCount: 9, speechHighScoreCount: 3 });
 ok(st.kmText === '109.0' && st.hoursText === '21.8' && st.streakDays === 4 && st.wordsLearned === 120, 'mapStats 派生串');
 ok(core.mapStats({}).totalHours === 0 && core.mapStats({}).kmText === '0.0', 'mapStats 缺省 0');
-ok(JSON.stringify(core.mapWeekly({ weeklyActivity: [{ day: '周一', minutes: 30 }, { day: '周二' }] })) ===
-   JSON.stringify([{ day: '周一', minutes: 30 }, { day: '周二', minutes: 0 }]), 'mapWeekly 信封解包+归零');
-ok(core.mapWeekly({}).length === 0 && core.mapWeekly(null).length === 0, 'mapWeekly 容错');
 const ach = core.mapAchievements([{ key: 'b', unlocked: true, icon: '🔥', name: 'n2' }, { key: 'a', unlocked: false, icon: '🔒', name: 'n1' }]);
 ok(ach.unlockedCount === 1 && ach.items[0].key === 'b' && ach.items[1].unlocked === false, 'mapAchievements 排序+计数');
 ok(core.mapAchievements(null).items.length === 0 && core.mapAchievements('x').unlockedCount === 0, 'mapAchievements 容错');

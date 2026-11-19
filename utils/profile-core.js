@@ -337,21 +337,6 @@ function mapStats(raw) {
 }
 
 /**
- * GET /api/user/stats/weekly-activity（信封 { weeklyActivity: [{day, minutes}] }）
- * → [{ day, minutes }]；day 为服务端中文星期标签，坏项防御性归零。
- */
-function mapWeekly(raw) {
-  const arr = raw && Array.isArray(raw.weeklyActivity) ? raw.weeklyActivity : [];
-  return arr.map(function (item) {
-    const it = item || {};
-    return {
-      day: it.day == null ? '' : String(it.day),
-      minutes: Math.round(Number(it.minutes) || 0),
-    };
-  });
-}
-
-/**
  * GET /api/user/achievements（裸数组）→ { items, unlockedCount }。
  * items = 排序后全量（已解锁稳定排前）；网格取前 8 属页面展示口径（Android
  * state.achievements.take(8)），core 不裁剪。icon 为服务端 emoji 字符串。
@@ -948,7 +933,6 @@ module.exports = {
   xLabelStride: xLabelStride,
   // 映射
   mapStats: mapStats,
-  mapWeekly: mapWeekly,
   mapAchievements: mapAchievements,
   mapProfile: mapProfile,
   sortAchievements: sortAchievements,

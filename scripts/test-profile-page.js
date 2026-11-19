@@ -3,12 +3,9 @@
  *
  * 在 Node 环境中 mock 微信全局对象（wx / Page / getApp），全链路驱动
  * pages/profile/index.js → utils/api/profile.js → utils/request.js → wx.request：
- * 覆盖登录闸、首载四源并行拉取与 DTO→视图模型映射（mapProfile 展平/404 兜底）、
+ * 覆盖登录闸、首载三源并行拉取与 DTO→视图模型映射（mapProfile 展平/404 兜底）、
  * 卡内错误态与重试、Tab 切换、下拉刷新、profileDirty 静默刷新、编辑页跳转、主题接入；
- * 阶段 3：统计三卡视图模型（值/单位/副文案/图标深浅变体/色调类）、canvas 算术定寸、
- * 本周/上周切换（URL 参数/数据替换/幂等）、深浅主题重建图标；
- * 阶段 4：里程碑路图绘制（虚线/实线裁剪/节点旗标/标签/脉冲 RAF 启停）与
- * 成就墙数据位（take(8)/解锁排前/计数/全部查看 toast）；
+ * 勋章墙：真实成绩、分类筛选、预览、刷新和海报导出。
  * 阶段 5：账号与安全——绑定手机/邮箱弹层（scene:BIND 发码/倒计时/业务失败行内/
  * 强度三项/两密一致/校验链/乐观回写）与注销链路（DELETE→logout→1.2s navigateBack）。
  *
@@ -52,55 +49,29 @@ function respond(opts, statusCode, data) {
 
 const flush = () => new Promise((r) => setImmediate(r));
 
-/** 业务四源计数（剔除 onShow 的 membership ensureFresh 订阅校正请求） */
-const bizCalls = () => calls.request.filter((o) => o.url.indexOf('subscription/status') < 0);
-
-/** 按当前 handler 服务一轮四源请求后等全部微任务落定 */
+/** 按当前 handler 服务一轮三源请求后等全部微任务落定 */
 async function settle(times) {
   for (let i = 0; i < (times || 6); i++) await flush();
 }
 
-/** canvas 节点 + 2d 上下文记录桩（fillText/arc 等调用可断言；
- *  scale/moveTo/fillText 坐标也记录——锁「dpr 缩放缺失→内容挤左上角」类回归；
- *  另记 setLineDash/quadraticCurveTo 与 RAF 启停——锁里程碑虚线/平滑路径/脉冲动画） */
-function mockCanvas() {
-  const calls = {
-    fillText: [], fillTextXY: [], moveTo: [], scale: [], fill: 0, stroke: 0,
-    bezier: 0, arc: 0, dash: [], quad: 0, raf: 0, cancelRaf: 0,
-  };
-  let rafCb = null;
+function mockPosterCanvas() {
+  const labels = [];
+  const gradients = [];
   const ctx = {
-    setTransform() {}, scale(...args) { calls.scale.push(args); }, clearRect() {},
-    measureText: (t) => ({ width: String(t).length * 6 }),
-    beginPath() {}, moveTo(x, y) { calls.moveTo.push([x, y]); }, lineTo() {}, closePath() {},
-    quadraticCurveTo() { calls.quad++; },
-    bezierCurveTo() { calls.bezier++; },
-    setLineDash(d) { calls.dash.push(d); },
-    createLinearGradient: () => ({ addColorStop() {} }),
-    fill() { calls.fill++; }, stroke() { calls.stroke++; }, arc() { calls.arc++; },
-    fillText: (t, x, y) => { calls.fillText.push(String(t)); calls.fillTextXY.push([x, y]); },
+    scale() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, arcTo() {},
+    closePath() {}, fill() {}, stroke() {},
+    fillText: (label) => labels.push(label),
+    createLinearGradient() {
+      return { addColorStop: (_, color) => gradients.push(color) };
+    },
   };
-  const node = {
-    width: 0,
-    height: 0,
-    getContext: () => ctx,
-    requestAnimationFrame(cb) { calls.raf++; rafCb = cb; return calls.raf; },
-    cancelAnimationFrame() { calls.cancelRaf++; rafCb = null; },
-  };
-  return {
-    node: node,
-    calls: calls,
-    fireRaf() { if (rafCb) { const cb = rafCb; cb(); } },
-  };
+  return { node: { width: 0, height: 0, getContext: () => ctx }, labels, gradients };
 }
 
-/** 构造页面实例（拷贝 data + 模拟 setData（支持 'a.b.c' 路径键，对齐真机语义）+ 双 canvas 挂载模型：
- *  主内容可见（非骨架/未登录）且对应 Tab 且非该源 loading 时，节点才在树上——
- *  与 wxml 的 wx:if/wx:else 挂载条件一一对应） */
 function makePage() {
   const page = Object.assign({}, pageConfig);
   page.data = JSON.parse(JSON.stringify(pageConfig.data));
-  page.setData = function (patch) {
+  page.setData = function (patch, callback) {
     Object.keys(patch).forEach((k) => {
       if (k.indexOf('.') > 0) {
         const parts = k.split('.');
@@ -111,29 +82,19 @@ function makePage() {
         this.data[k] = patch[k];
       }
     });
+    if (callback) callback();
   };
-  const chart = mockCanvas();
-  const msChart = mockCanvas();
-  page.__chart = chart;
-  page.__ms = msChart;
-  const mounted = function (id) {
-    if (id === '#weeklyChart') {
-      return !page.data.isLoading && !page.data.needLogin &&
-        !page.data.activityLoading && page.data.activeTab === 'journey';
-    }
-    if (id === '#milestoneChart') {
-      return !page.data.isLoading && !page.data.needLogin &&
-        !page.data.statsLoading && page.data.activeTab === 'milestones';
-    }
-    return false;
-  };
+  const poster = mockPosterCanvas();
+  page.__poster = poster;
   page.createSelectorQuery = () => ({
     select(id) {
       return {
         fields() {
-          // 真实 API 形状：res[0] = { node, width, height }
-          const node = id === '#milestoneChart' ? msChart.node : chart.node;
-          return { exec(cb) { cb([mounted(id) ? { node: node } : null]); } };
+          return {
+            exec(callback) {
+              callback(id === '#badgePoster' && page.data.posterOpen ? [{ node: poster.node }] : []);
+            },
+          };
         },
       };
     },
@@ -163,18 +124,16 @@ const PROFILE_DTO = {
 };
 
 const STATS_DTO = { totalHours: 21.8, streakDays: 4, wordsLearned: 120, speechEvalCount: 9, speechHighScoreCount: 3 };
-const WEEKLY_DTO = { weeklyActivity: [{ day: '周一', minutes: 30 }, { day: '周二', minutes: 0 }] };
 const ACH_DTO = [
   { key: 'STREAK_3', name: '三连胜', description: 'd', icon: '🔥', unlocked: true, unlockedAt: '2026-09-01T00:00:00.000Z' },
-  { key: 'VOCAB_50', name: '五十词', description: 'd', icon: '📚', unlocked: false, unlockedAt: null },
+  { key: 'VOCAB_500', name: '词汇大师', description: '积累 500 个生词', icon: '📚', unlocked: false, unlockedAt: null },
+  { key: 'SPEECH_GREAT_10', name: '出口成章', description: '累计 10 次达到 85 分', icon: '🎙️', unlocked: false, unlockedAt: null },
 ];
 
 function serveAll(opts) {
   if (opts.url.indexOf('/api/user/profile') >= 0) return respond(opts, 200, PROFILE_DTO);
   if (opts.url.indexOf('/api/user/stats/overview') >= 0) return respond(opts, 200, STATS_DTO);
-  if (opts.url.indexOf('/api/user/stats/weekly-activity') >= 0) return respond(opts, 200, WEEKLY_DTO);
   if (opts.url.indexOf('/api/user/achievements') >= 0) return respond(opts, 200, ACH_DTO);
-  if (opts.url.indexOf('/api/user/subscription/status') >= 0) return respond(opts, 200, { role: 'USER' });
   respond(opts, 404, { error: 'not found' });
 }
 
@@ -204,8 +163,8 @@ function ok(cond, label) {
   page.onLogin();
   ok(navigations[navigations.length - 1] === '/pages/auth/index', '去登录跳转 auth 页');
 
-  /* ---------- 2. 首载四源并行 ---------- */
-  console.log('== 首载四源并行 ==');
+  /* ---------- 2. 首载三源并行 ---------- */
+  console.log('== 首载三源并行 ==');
   authStore.setLoginData('tok-1', { userid: 'u1', nickname: '兜底昵称', email: 'ab@ex.com' });
   await settle(); // setLoginData 触发的 fetchProfile 也走 serveAll
   calls.request.length = 0;
@@ -217,134 +176,40 @@ function ok(cond, label) {
   await settle();
 
   ok(page.data.isLoading === false && page.data.needLogin === false, '首载完成退出骨架态');
-  ok(bizCalls().length === 4, '四源各一发（profile/overview/weekly/achievements；subscription/status 校正另计）');
+  ok(calls.request.length === 3 && ['/profile', '/stats/overview', '/achievements'].every((suffix) =>
+    calls.request.some((req) => req.url.endsWith(suffix))), '只拉取资料、里程统计和成就');
   const vm = page.data.profile;
   ok(vm && vm.displayName === '远路漫漫' && vm.levelLabel === '初级', 'mapProfile 展平：昵称/等级');
   ok(vm.bioText === '路虽远行则将至，事虽难做则成。', '空签名回退默认座右铭');
   ok(vm.phoneMasked === '138****8000' && vm.hasPhone === true, '安全派生随卡就绪');
   ok(vm.joinDateText.length === 10 && /^\d{4}\/\d{2}\/\d{2}$/.test(vm.joinDateText), '加入日期 yyyy/MM/dd');
-  ok(page.data.stats && page.data.stats.kmText === '109.0', 'stats 映射（21.8h→109.0km）');
-  ok(page.data.weekly.length === 2 && page.data.weekly[1].minutes === 0, 'weekly 解包归零');
-  ok(page.data.achievements && page.data.achievements.unlockedCount === 1, 'achievements 计数');
-  ok(page.data.tabs.length === 3 && page.data.tabs[1].label === '里程碑', '三 Tab 定义');
-  ok(page.data.activeTab === 'journey', '默认 Tab=旅程数据');
+  ok(page.data.medalStats.streakDays === 4 && page.data.medalStats.speechHighScoreCount === 3, '勋章使用服务端统计');
+  ok(page.data.litCount === 1 && page.data.shownMedals.length === 3, '全部徽章包含未解锁成就');
+  ok(page.data.tabs.map((tab) => tab.label).join(',') === '勋章墙,账号与安全', '个人中心标签为勋章墙与账号安全');
+  ok(page.data.activeTab === 'badges', '默认显示勋章墙');
+  page.onTab({ currentTarget: { dataset: { key: 'milestones' } } });
+  ok(page.data.activeTab === 'badges', '旧里程碑入口不再生效');
   ok(page.data.themeClass === '' && page.data.dark === false, '主题跟随系统（空根类）');
 
-  /* ---------- 2b. 旅程数据 Tab（阶段 3） ---------- */
-  console.log('== 旅程数据 Tab ==');
-  ok(page.data.statsLoading === false && page.data.activityLoading === false, '副源 loading 旗标落定');
-  const cards = page.data.statCards;
-  ok(cards.length === 3 && cards[0].label === '累计里程' && cards[0].value === '109.0' &&
-     cards[0].unit === 'km' && cards[0].subtext === '21.8h 精听', '累计里程卡（109.0km + 21.8h 精听）');
-  ok(cards[1].label === '连续天数' && cards[1].value === '4' && cards[1].unit === '天' &&
-     cards[1].subtext === '', '连续天数卡（无副文案）');
-  ok(cards[2].label === '词汇路标' && cards[2].value === '120' && cards[2].unit === '词', '词汇路标卡');
-  ok(cards[0].tintClass === 'tint-primary' && cards[1].tintClass === 'tint-secondary' &&
-     cards[2].tintClass === 'tint-tertiary', '三卡色调类');
-  ok(cards[0].icon === '/assets/icons/hiking-primary.svg' &&
-     cards[1].icon === '/assets/icons/local-fire-department-accent.svg' &&
-     cards[2].icon === '/assets/icons/bookmark-tertiary.svg', '浅色图标变体');
-
-  // 学习报表入口卡（阶段 8）：普通用户（role=USER 校正后）副标题走解锁文案 + 浅色图标
-  ok(page.data.isPremium === false, 'isPremium 订阅校正为 false（USER）');
-  ok(page.data.reportEntryIcon === '/assets/icons/bar-chart-primary.svg' &&
-     page.data.reportArrowIcon === '/assets/icons/keyboard-arrow-right-primary.svg', '入口卡浅色图标变体');
-  page.onOpenLearningReport();
-  ok(navigations.indexOf('/pages/profile/learning-report/index') >= 0, '入口卡跳转学习报表页');
-
-  // onReady：canvas 显式算术 px 定寸（375 屏宽 → 内缩 144rpx → 303px；440rpx → 220px；256rpx → 128px）
-  page.onReady();
-  ok(page.data.chartW === 303 && page.data.chartH === 220, 'onReady 算术定寸 303×220（禁百分比红线）');
-  ok(page.data.msH === 128, '里程碑 canvas 高 256rpx→128px');
-  ok(page._dpScale === 1, 'dpScale=屏宽/375');
-
-  // 周切换：URL 带 weekOffset=1、数据替换、重复点击无操作
-  const WEEKLY_DTO2 = { weeklyActivity: [{ day: '周一', minutes: 11 }, { day: '周二', minutes: 22 }] };
-  requestHandler = (opts) => {
-    if (opts.url.indexOf('/api/user/stats/weekly-activity') >= 0) {
-      return respond(opts, 200, opts.url.indexOf('weekOffset=1') >= 0 ? WEEKLY_DTO2 : WEEKLY_DTO);
-    }
-    serveAll(opts);
-  };
-  calls.request.length = 0;
-  page.onChangeWeek({ currentTarget: { dataset: { offset: 1 } } });
-  ok(page.data.weekOffset === 1 && page.data.activityLoading === true, '切上周 → loading 立起');
-  await settle();
-  ok(page.data.activityLoading === false, '周数据落定 loading 落下');
-  const weekReq = calls.request.find((o) => o.url.indexOf('weekly-activity') >= 0);
-  ok(!!weekReq && weekReq.url.indexOf('weekOffset=1') >= 0, '请求带 weekOffset=1');
-  ok(page.data.weekly.length === 2 && page.data.weekly[1].minutes === 22, '上周数据替换');
-  calls.request.length = 0;
-  page.onChangeWeek({ currentTarget: { dataset: { offset: 1 } } });
-  await settle();
-  ok(calls.request.length === 0, '同周再点无操作');
-
-  // 深色主题：统计卡图标换深变体（onShow 检测生效主题变化重建）
   theme.setMode('dark');
   page.onShow();
-  await settle();
-  ok(page.data.dark === true && page.data.statCards[0].icon === '/assets/icons/hiking-primary-dark.svg' &&
-     page.data.statCards[2].icon === '/assets/icons/bookmark-tertiary-dark.svg', '深色下统计卡图标换 -dark 变体');
+  ok(page.data.dark === true, '个人中心跟随深色设置');
   theme.setMode('system');
   page.onShow();
-  await settle();
-  ok(page.data.dark === false && page.data.statCards[0].icon === '/assets/icons/hiking-primary.svg', '回浅色图标还原');
-
-  // 回本周（供后续场景）
-  page.onChangeWeek({ currentTarget: { dataset: { offset: 0 } } });
-  await settle();
-  ok(page.data.weekOffset === 0 && page.data.weekly[1].minutes === 0, '切回本周');
-  // 周切换后图表确实重绘（canvas 已挂载路径）
-  await new Promise((r) => setTimeout(r, 260)); // 等保险帧
-  ok(page.__chart.calls.fillText.some((t) => t === '周一') &&
-     page.__chart.calls.fillText.some((t) => t.indexOf('m') > 0), 'canvas 绘制含星期标签与 Y 刻度');
-  ok(page.__chart.calls.arc >= 2 && page.__chart.calls.stroke >= 1, 'canvas 绘制数据点与曲线');
-  // dpr 缩放回归锁：缓冲 = W*dpr 设备像素，缺 ctx.scale(dpr) 时内容挤左上 1/dpr 角（真机 dpr=3）
-  ok(page.__chart.calls.scale.some((a) => a[0] === 2 && a[1] === 2), '绘制前应用 ctx.scale(dpr=2)（mock pixelRatio=2）');
-  (function () {
-    const W = page.data.chartW; // 375 窗口 → 303
-    const H = page.data.chartH; // → 220
-    const xs = page.__chart.calls.fillTextXY.map((p) => p[0]).concat(page.__chart.calls.moveTo.map((p) => p[0]));
-    const ys = page.__chart.calls.fillTextXY.map((p) => p[1]).concat(page.__chart.calls.moveTo.map((p) => p[1]));
-    ok(Math.max.apply(null, xs) > W * 0.8 && Math.max.apply(null, ys) > H * 0.6,
-      '绘制坐标铺满逻辑画布（末点 x>0.8W、X 轴标签 y>0.6H，非挤左上角）');
-  })();
-
-  /* ---------- 2c. 首载空白画布 BUG（周数据先落定 + 骨架态未挂载） ---------- */
-  console.log('== 首载空白画布 BUG 回归 ==');
-  // profile 延迟 40ms、周数据即时：复现 requestChartDraw 在 isLoading 翻转前被触发
-  requestHandler = (opts) => {
-    if (opts.url.indexOf('/api/user/profile') >= 0 && opts.url.indexOf('/stats') < 0) {
-      setTimeout(() => respond(opts, 200, PROFILE_DTO), 40);
-      return;
-    }
-    serveAll(opts);
-  };
-  const racePage = makePage();
-  racePage.onLoad();
-  racePage.onReady();
-  racePage.onShow();
-  await new Promise((r) => setTimeout(r, 90)); // profile 延迟落定 + Promise.all 收口
-  ok(racePage.data.isLoading === false, '延迟 profile 落定后退出骨架态');
-  await new Promise((r) => setTimeout(r, 400)); // 挂载重试循环（120ms 步进）+ 保险帧
-  ok(racePage.__chart.calls.fillText.some((t) => t === '周一') &&
-     racePage.__chart.calls.fillText.some((t) => t.indexOf('m') > 0),
-     '修复生效：骨架态查空后经重试循环最终完成绘制');
-  ok(racePage.__chart.calls.arc >= 2, '修复生效：数据点已绘制');
-  requestHandler = serveAll; // 延迟 handler 仅限本场景，防泄漏到后续断言
+  ok(page.data.dark === false, '切回系统浅色');
 
   /* ---------- 3. onShow 幂等与脏标记 ---------- */
   console.log('== onShow 幂等与脏标记 ==');
   calls.request.length = 0;
   page.onShow();
   await settle();
-  ok(bizCalls().length === 0, '已加载且无脏标记 → onShow 不重拉四源（订阅校正除外）');
+  ok(calls.request.length === 0, '已加载且无脏标记 → onShow 不重复请求');
 
   global.getApp = () => ({ globalData: { profileDirty: true } });
   calls.request.length = 0;
   page.onShow();
   await settle();
-  ok(bizCalls().length === 4, 'profileDirty → 静默四源重拉');
+  ok(calls.request.length === 3, 'profileDirty → 静默重拉三源');
   ok(page.data.isLoading !== true, '静默刷新不回骨架态');
 
   /* ---------- 4. Tab 切换 ---------- */
@@ -354,80 +219,55 @@ function ok(cond, label) {
   const before = page.data.activeTab;
   page.onTab({ currentTarget: { dataset: { key: 'security' } } });
   ok(page.data.activeTab === before, '同 Tab 点击无操作');
-  page.onTab({ currentTarget: { dataset: { key: 'milestones' } } });
-  ok(page.data.activeTab === 'milestones', '切到里程碑');
+  page.onTab({ currentTarget: { dataset: { key: 'badges' } } });
+  ok(page.data.activeTab === 'badges', '切回勋章墙');
 
-  /* ---------- 4b. 里程碑 Tab（阶段 4） ---------- */
-  console.log('== 里程碑 Tab ==');
-  await new Promise((r) => setTimeout(r, 300)); // 挂载即时（同步桩）+ 保险帧 120ms
-  const ms = page.__ms.calls;
-  ok(ms.fillText.some((t) => t === '起步') && ms.fillText.some((t) => t === '远路'), '节点名称标签（起步…远路）');
-  ok(ms.fillText.some((t) => t === '1.0km') && ms.fillText.some((t) => t === '100.0km'), 'km 档位标签（1.0km…100.0km）');
-  ok(ms.arc >= 5, '五个节点圆绘制');
-  ok(ms.dash.some((d) => Array.isArray(d) && d.length === 2 && d[0] === 0.1 && d[1] === 9),
-    '全程圆点虚线 setLineDash([0.1, 9dp])（dpScale=1）');
-  ok(ms.quad >= 4, '中点法 quadraticCurveTo 平滑路径（4 段）');
-  ok(ms.stroke >= 2, '虚线全程 + 已完成段实线两笔');
-  ok(ms.scale.some((a) => a[0] === 2 && a[1] === 2), '里程碑 canvas 应用 ctx.scale(dpr)（挤左上回归锁）');
-  ok(ms.raf === 0, '满程 km=109 ≥ 100：脉冲不启动（静态一帧）');
-  ok(page.data.msKmText === '109.0', '卡头胶囊 msKmText=109.0');
-  ok(page.data.achievementsLoading === false, '成就源 loading 落定');
-  ok(page.data.achTiles.length === 2 && page.data.achTiles[0].key === 'STREAK_3' &&
-     page.data.achTiles[0].unlocked === true, 'achTiles=排序后前 8（解锁排前）');
-  page.onAllAchievements();
-  ok(toasts[toasts.length - 1] === '完整成就墙 即将上线', '全部查看 → snackbar 同文案 toast');
+  console.log('== 勋章墙与战报海报 ==');
+  page.onMedalFilter({ currentTarget: { dataset: { key: 'pronunciation' } } });
+  ok(page.data.shownMedals.length === 1 && page.data.selectedMedal.id === 'SPEECH_GREAT_10',
+    '筛选发音成就时同步更新顶部预览');
+  ok(page.data.selectedMedal.progress === 30 && !page.data.selectedMedal.unlocked, '发音勋章保留实际进度及锁定状态');
+  page.onMedalFilter({ currentTarget: { dataset: { key: 'all' } } });
+  page.onSelectMedal({ currentTarget: { dataset: { id: 'STREAK_3' } } });
+  ok(page.data.selectedMedal.status === '已点亮 · 2026-09-01', '点击卡片展示服务端解锁日期');
 
-  // 成就墙 take(8)：10 项（i%3===0 共 4 解锁散布）→ 仅前 8、解锁稳定排前
-  const ACH10 = [];
-  for (let i = 0; i < 10; i++) {
-    ACH10.push({ key: 'K' + i, name: 'n' + i, description: 'd', icon: 'x', unlocked: i % 3 === 0, unlockedAt: null });
-  }
+  const requestsBefore = calls.request.length;
+  let respondAchievements;
   requestHandler = (opts) => {
-    if (opts.url.indexOf('/api/user/achievements') >= 0) return respond(opts, 200, ACH10);
+    if (opts.url.endsWith('/achievements')) { respondAchievements = opts; return; }
     serveAll(opts);
   };
-  page.onPullDownRefresh();
-  await settle();
-  ok(page.data.achTiles.length === 8, '成就墙仅取前 8（Android take(8)）');
-  ok(page.data.achievements.unlockedCount === 4, '解锁计数全量（4/10）');
-  ok(page.data.achTiles.slice(0, 4).every((t) => t.unlocked === true) &&
-     page.data.achTiles[4].unlocked === false, '解锁稳定排前、锁定补位');
+  const refresh = page.onRefreshMedals();
+  page.onRefreshMedals();
+  ok(calls.request.length - requestsBefore === 2 && page.data.medalsLoading, '刷新取统计和成就，进行中重复点击不会再发请求');
+  respond(respondAchievements, 503, { error: 'unavailable' });
+  await refresh;
+  ok(page.data.medals.length === 3 && !!page.data.medalsError, '刷新失败保留上次勋章并提示重试');
+  requestHandler = serveAll;
+  await page.onRefreshMedals();
+  ok(!page.data.medalsError && page.data.selectedMedal.id === 'STREAK_3', '刷新恢复后保留选中的勋章');
 
-  // 脉冲点：低里程（5h→25km ∈ (0,100)）→ RAF 启动；onHide/切走 Tab 必须取消
-  requestHandler = (opts) => {
-    if (opts.url.indexOf('/api/user/stats/overview') >= 0) {
-      return respond(opts, 200, { totalHours: 5, streakDays: 1, wordsLearned: 10 });
-    }
-    serveAll(opts);
-  };
-  page.onPullDownRefresh();
-  await settle();
-  await new Promise((r) => setTimeout(r, 60));
-  ok(page.data.stats.totalKm === 25 && page.data.msKmText === '25.0', '低里程 stats 落定（25km）');
-  ok(page.__ms.calls.raf > 0, '0<km<100 启动脉冲 RAF');
-  const arcBeforePulse = page.__ms.calls.arc;
-  page.__ms.fireRaf();
-  ok(page.__ms.calls.arc >= arcBeforePulse + 2, 'RAF 帧重绘脉冲（呼吸圈+实心点）');
-  const cancelBeforeHide = page.__ms.calls.cancelRaf;
-  page.onHide();
-  ok(page.__ms.calls.cancelRaf > cancelBeforeHide, 'onHide 取消脉冲 RAF（后台耗电红线）');
-  const arcAfterHide = page.__ms.calls.arc;
-  page.__ms.fireRaf(); // 旧帧回调（token 已作废）不应再绘制
-  ok(page.__ms.calls.arc === arcAfterHide, '作废 token 后旧帧不再绘制');
-  // 回前台：profileDirty 静默刷新链路重挂路图 → RAF 续跑
-  const rafBeforeShow = page.__ms.calls.raf;
-  page.onShow();
-  await settle();
-  ok(page.__ms.calls.raf > rafBeforeShow, 'onShow 后脉冲动画续跑');
-  const cancelBeforeLeave = page.__ms.calls.cancelRaf;
+  page.onOpenBadgePoster();
+  const poster = page.__poster;
+  ok(page.data.posterReady && poster.node.width === 1200 && poster.node.height === 1640, '原生画布生成高清战报预览');
+  ok(poster.labels.includes('我的学习战报') && poster.labels.includes('三连胜'), '海报绘制实际点亮的勋章');
+  page.onPosterTheme({ currentTarget: { dataset: { key: 'editorial' } } });
+  ok(page.data.posterTheme === 'editorial' && poster.gradients.includes('#f7f2e7'), '切换海报主题重绘');
+  let saved;
+  let shared;
+  wx.canvasToTempFilePath = (opts) => opts.success({ tempFilePath: 'wxfile://poster.png' });
+  wx.saveImageToPhotosAlbum = (opts) => { saved = opts.filePath; opts.success(); opts.complete(); };
+  wx.showShareImageMenu = (opts) => { shared = opts.path; opts.complete(); };
+  page.onExportBadgePoster({ currentTarget: { dataset: { action: 'save' } } });
+  page.onExportBadgePoster({ currentTarget: { dataset: { action: 'share' } } });
+  ok(saved === 'wxfile://poster.png' && shared === saved && !page.data.posterBusy, '用户点击后通过微信接口保存或分享海报');
+  page.onCloseBadgePoster();
+  ok(!page.data.posterOpen && !page.data.posterReady, '关闭海报释放预览状态');
   page.onTab({ currentTarget: { dataset: { key: 'security' } } });
-  ok(page.data.activeTab === 'security' && page.__ms.calls.cancelRaf > cancelBeforeLeave,
-    '切走里程碑 Tab 取消脉冲 RAF');
-  requestHandler = serveAll; // 覆盖 handler 仅限本段，防泄漏到后续断言
 
   /* ---------- 4c. 账号与安全：绑定手机/邮箱弹层（阶段 5） ---------- */
   console.log('== 账号与安全 · 绑定弹层 ==');
-  ok(page.data.activeTab === 'security', '已在账号与安全 Tab（4b 切走脉冲时落此）');
+  ok(page.data.activeTab === 'security', '已在账号与安全 Tab');
   ok(page.data.profile.hasPhone === true && page.data.profile.hasRealEmail === true &&
      page.data.profile.passwordSet === true, '四卡派生就绪（本账号全绑定态）');
 
@@ -545,7 +385,7 @@ function ok(cond, label) {
   calls.stopPull = 0;
   page.onPullDownRefresh();
   await settle();
-  ok(bizCalls().length === 4 && calls.stopPull === 1, '下拉刷新四源重拉 + stopPullDownRefresh');
+  ok(calls.request.length === 3 && calls.stopPull === 1, '下拉刷新重拉三源 + stopPullDownRefresh');
 
   /* ---------- 7. profile 404 → 兜底合成 ---------- */
   console.log('== profile 404 兜底 ==');

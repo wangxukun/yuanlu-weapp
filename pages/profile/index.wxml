@@ -1,6 +1,4 @@
-<!-- pages/profile/index.wxml — 个人中心主页（阶段 2 骨架 + 用户信息卡 + Tab 行；
-     阶段 3 旅程数据 / 阶段 4 里程碑 / 阶段 5 账号与安全（四卡+绑定弹层+注销确认）均落地，
-     UI 基准 PersonalCenterScreen.kt + BindAccountSheets.kt） -->
+<!-- 个人中心：用户资料、勋章墙与账号安全 -->
 <view class="profile-page {{themeClass}}">
 
   <!-- 首载骨架（HeaderCard 加载态：头像圆 + 三行 shimmer，对齐 L313-324） -->
@@ -63,7 +61,7 @@
       </view>
     </view>
 
-    <!-- ============ 三 Tab 行（CenterTabRow L469-507） ============ -->
+    <!-- ============ 标签栏（CenterTabRow L469-507） ============ -->
     <view class="pf-tabs row">
       <view
         wx:for="{{tabs}}"
@@ -80,95 +78,84 @@
 
     <!-- ============ Tab 面板（wx:if 重建触发进出场动画） ============ -->
     <view class="pf-panel">
-      <!-- 旅程数据（阶段 3：StatsOverview 三卡 + ActivityChartCard） -->
-      <view wx:if="{{activeTab === 'journey'}}" class="pf-panel-inner pf-journey">
-        <block wx:if="{{statsLoading}}">
-          <view class="pf-card pf-stat-skel" wx:for="{{[1, 2, 3]}}" wx:key="*this"></view>
-        </block>
-        <block wx:elif="{{stats}}">
-          <view class="pf-card pf-stat-card row" wx:for="{{statCards}}" wx:key="key">
-            <view class="flex-1">
-              <view class="pf-stat-label">{{item.label}}</view>
-              <view class="row pf-stat-value-row">
-                <view class="pf-stat-value">{{item.value}}</view>
-                <view class="pf-stat-unit">{{item.unit}}</view>
+      <view wx:if="{{activeTab === 'badges'}}" class="pf-badge-wall {{dark ? 'pf-badge-wall-dark' : ''}}">
+        <view class="pf-badge-heading">
+          <view class="pf-badge-award center">
+            <image src="/assets/icons/workspace-premium-white.svg" mode="aspectFit" />
+          </view>
+          <view class="pf-badge-heading-text">
+            <view class="pf-badge-heading-row">
+              <text class="pf-badge-heading-title">学习成就馆 · 全息炫光勋章墙</text>
+              <text wx:if="{{medals.length}}" class="pf-badge-count">已点亮 {{litCount}}/{{medals.length}}</text>
+            </view>
+            <text wx:if="{{medalStats}}" class="pf-badge-summary">连胜 {{medalStats.streakDays}} 天 · 生词 {{medalStats.wordsLearned}} 词 · 85 分及以上 {{medalStats.speechHighScoreCount}} 次</text>
+          </view>
+        </view>
+
+        <view class="pf-badge-actions">
+          <button class="pf-badge-action pf-badge-action-poster" disabled="{{!medals.length}}" bindtap="onOpenBadgePoster">战报海报</button>
+          <button class="pf-badge-action" disabled="{{medalsLoading}}" bindtap="onRefreshMedals">{{medalsLoading ? '刷新中…' : '刷新成就'}}</button>
+        </view>
+        <view wx:if="{{medalsError}}" class="pf-badge-state">{{medalsError}}</view>
+
+        <scroll-view wx:if="{{medals.length}}" scroll-x class="pf-badge-filter-scroll">
+          <view class="pf-badge-filters">
+            <button wx:for="{{medalFilters}}" wx:key="key"
+                    class="pf-badge-filter {{medalDimension === item.key ? 'pf-badge-filter-active' : ''}}"
+                    data-key="{{item.key}}" bindtap="onMedalFilter">{{item.label}}</button>
+          </view>
+        </scroll-view>
+
+        <view wx:if="{{selectedMedal}}" class="pf-medal pf-medal-feature pf-medal-{{selectedMedal.color}}">
+          <view class="pf-medal-glare"></view>
+          <view class="pf-medal-content">
+            <view class="pf-medal-feature-top">
+              <view class="pf-medal-ring center">
+                <view class="pf-medal-ring-edge"></view>
+                <view class="pf-medal-emblem center"><image src="{{selectedMedal.icon}}" mode="aspectFit" /></view>
               </view>
-              <view wx:if="{{item.subtext}}" class="pf-stat-sub">{{item.subtext}}</view>
-            </view>
-            <view class="pf-stat-icon-box center {{item.tintClass}}">
-              <image class="pf-stat-icon" src="{{item.icon}}" mode="aspectFit" />
-            </view>
-          </view>
-        </block>
-
-        <view class="pf-card pf-chart-card">
-          <view class="row between">
-            <view class="pf-chart-title">本周行程记录</view>
-            <view class="row pf-week-seg">
-              <view class="pf-week-opt {{weekOffset === 0 ? 'on' : ''}}" data-offset="0" bindtap="onChangeWeek">本周</view>
-              <view class="pf-week-opt {{weekOffset === 1 ? 'on' : ''}}" data-offset="1" bindtap="onChangeWeek">上周</view>
-            </view>
-          </view>
-          <view class="pf-chart-body">
-            <view wx:if="{{activityLoading}}" class="pf-chart-loading center">
-              <view class="pf-spin"></view>
-            </view>
-            <canvas wx:else type="2d" id="weeklyChart" class="pf-chart-canvas" style="width: {{chartW}}px; height: {{chartH}}px;"></canvas>
-          </view>
-        </view>
-
-        <!-- 学习报表入口（Web personal-center 入口卡：浅绿圆角卡 + 三柱图标 + 权限副标题） -->
-        <view class="pf-report-entry" hover-class="pf-report-entry-hover" bindtap="onOpenLearningReport">
-          <view class="pf-report-icon-box center">
-            <image class="pf-report-icon" src="{{reportEntryIcon}}" mode="aspectFit" />
-          </view>
-          <view class="flex-1 pf-report-text">
-            <view class="pf-report-title">学习报表</view>
-            <view class="pf-report-sub">{{isPremium ? '近7天简报·全年的趋势、热力图与复盘建议' : '近7天简报·升级PRO解锁全年报表'}}</view>
-          </view>
-          <image class="pf-report-arrow" src="{{reportArrowIcon}}" mode="aspectFit" />
-        </view>
-      </view>
-
-      <!-- 里程碑（阶段 4：MilestoneRoadmapCard 路图 + AchievementsCard 成就墙） -->
-      <view wx:elif="{{activeTab === 'milestones'}}" class="pf-panel-inner pf-milestones">
-        <!-- 路图卡（statsLoading → 190dp 整宽骨架；stats 缺失按 km=0 仍渲染卡） -->
-        <view wx:if="{{statsLoading}}" class="pf-ms-skel"></view>
-        <view wx:else class="pf-card pf-ms-card">
-          <view class="row between">
-            <view class="pf-chart-title">远路里程碑</view>
-            <view class="pf-ms-km-pill">{{msKmText}} km</view>
-          </view>
-          <view class="pf-ms-body">
-            <canvas type="2d" id="milestoneChart" class="pf-ms-canvas" style="width: {{chartW}}px; height: {{msH}}px;"></canvas>
-          </view>
-        </view>
-
-        <!-- 成就墙（排序后前 8、4 列两行；emoji 为服务端 icon 直渲） -->
-        <view class="pf-card pf-ach-card">
-          <block wx:if="{{achievementsLoading}}">
-            <view class="pf-ach-skel-title"></view>
-            <view class="pf-ach-grid">
-              <view class="pf-ach-skel-tile" wx:for="{{[1, 2, 3, 4, 5, 6, 7, 8]}}" wx:key="*this"></view>
-            </view>
-          </block>
-          <block wx:else>
-            <view class="row between">
-              <view class="pf-ach-title">远路里程碑 ({{achievements ? achievements.unlockedCount : 0}})</view>
-              <view class="pf-ach-more" bindtap="onAllAchievements">全部查看</view>
-            </view>
-            <view wx:if="{{!achievements || !achievements.items.length}}" class="pf-ach-empty">暂无里程碑数据</view>
-            <view wx:else class="pf-ach-grid">
-              <view
-                wx:for="{{achTiles}}"
-                wx:key="key"
-                class="pf-ach-tile center {{item.unlocked ? 'on' : 'off'}}"
-              >
-                <text class="pf-ach-emoji">{{item.icon}}</text>
+              <view class="pf-medal-feature-labels">
+                <view class="pf-medal-label-row">
+                  <text class="pf-medal-rarity">{{selectedMedal.rarity}}</text>
+                  <text class="pf-medal-dimension">{{selectedMedal.dimensionLabel}}</text>
+                </view>
+                <text class="pf-medal-feature-title">{{selectedMedal.title}}</text>
+                <text wx:if="{{selectedMedal.metric}}" class="pf-medal-engraving">专属铭刻 · {{selectedMedal.metric}}</text>
               </view>
             </view>
-          </block>
+            <view class="pf-medal-details">
+              <text class="pf-medal-description">{{selectedMedal.description}}</text>
+              <view class="pf-medal-progress"><view style="width: {{selectedMedal.progress}}%;"></view></view>
+              <view class="pf-medal-foot">
+                <text wx:if="{{selectedMedal.progressText}}">当前进度 {{selectedMedal.progressText}}</text>
+                <text class="pf-medal-status">{{selectedMedal.status}}</text>
+              </view>
+            </view>
+          </view>
         </view>
+
+        <view wx:if="{{shownMedals.length}}" class="pf-medal-grid">
+          <view wx:for="{{shownMedals}}" wx:key="id" aria-role="button" aria-label="{{item.title}}，{{item.status}}"
+                class="pf-medal pf-medal-tile pf-medal-{{item.color}} {{selectedMedal.id === item.id ? 'pf-medal-selected' : ''}}"
+                data-id="{{item.id}}" bindtap="onSelectMedal">
+            <view class="pf-medal-glare" style="animation-delay: {{index * 0.45}}s;"></view>
+            <view class="pf-medal-content">
+              <view class="pf-medal-row">
+                <view class="pf-medal-emblem center" style="animation-delay: {{index * 0.3}}s;"><image src="{{item.icon}}" mode="aspectFit" /></view>
+                <text class="pf-medal-rarity">{{item.rank}}</text>
+              </view>
+              <text wx:if="{{item.metric}}" class="pf-medal-metric">{{item.metric}}</text>
+              <text class="pf-medal-title">{{item.title}}</text>
+              <text class="pf-medal-caption">{{item.description}}</text>
+              <view class="pf-medal-progress"><view style="width: {{item.progress}}%;"></view></view>
+              <view class="pf-medal-foot">
+                <text>{{item.unlocked ? '已点亮' : '冲刺中'}}</text>
+                <text>{{item.unlocked || item.progressText ? item.progress + '%' : '—'}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view wx:elif="{{!medalsError}}" class="pf-badge-state">{{medalsLoading ? '正在加载勋章…' : '暂无勋章'}}</view>
       </view>
       <!-- 账号与安全（阶段 5：SecuritySection 四卡 + 页内弹层） -->
       <view wx:else class="pf-panel-inner pf-security">
@@ -396,7 +383,25 @@
       </view>
     </view>
 
-    <!-- 底部预留：24dp 间距 + 安全区（对齐 Android 尾部 Spacer 24dp） -->
+    <view wx:if="{{posterOpen}}" class="pf-poster-mask" bindtap="onCloseBadgePoster" catchtouchmove="noop">
+      <view class="pf-poster-sheet" catchtap="noop">
+        <view class="pf-poster-heading row between">
+          <text>学习战报海报</text>
+          <button class="pf-badge-action" bindtap="onCloseBadgePoster">关闭</button>
+        </view>
+        <view class="pf-poster-themes">
+          <button wx:for="{{posterThemes}}" wx:key="key"
+                  class="pf-badge-filter {{posterTheme === item.key ? 'pf-badge-filter-active' : ''}}"
+                  disabled="{{posterBusy}}" data-key="{{item.key}}" bindtap="onPosterTheme">{{item.label}}</button>
+        </view>
+        <canvas type="2d" id="badgePoster" class="pf-poster-canvas"></canvas>
+        <view class="pf-poster-actions">
+          <button class="pf-badge-action pf-badge-action-poster" data-action="share" disabled="{{!posterReady || posterBusy}}" bindtap="onExportBadgePoster">分享海报</button>
+          <button class="pf-badge-action" data-action="save" disabled="{{!posterReady || posterBusy}}" bindtap="onExportBadgePoster">保存到相册</button>
+        </view>
+      </view>
+    </view>
+
     <view class="pf-bottom-space"></view>
   </block>
 
