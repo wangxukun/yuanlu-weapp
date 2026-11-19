@@ -1,6 +1,0 @@
-{
-  "navigationBarTitleText": "卡册详情",
-  "usingComponents": {
-    "sentence-micro-player": "/components/review/sentence-micro-player/index"
-  }
-}

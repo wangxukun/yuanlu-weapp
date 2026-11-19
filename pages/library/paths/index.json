@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "学习路径",
-  "enablePullDownRefresh": true,
-  "usingComponents": {
-    "premium-modal": "/components/premium-modal/index"
-  }
-}

@@ -49,8 +49,10 @@ const RETIRED_PAGES = [
   'pages/search/search',
   'pages/channel/all/index',
   'pages/channel/index',
-  // T5.2 已重建回归：favorites=微剧场收藏+特训卡册 / history=精研足迹（本地），
-  // 均为微剧场粒度，不再是退役时的节目/剧集列表形态
+  'pages/library/history/index',
+  'pages/library/favorites/index',
+  'pages/library/paths/index',
+  'pages/library/paths/detail',
 ];
 RETIRED_PAGES.forEach((p) => {
   ok(!app.pages.includes(p), 'A app.json 未注册已退役页 ' + p);

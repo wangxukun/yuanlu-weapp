@@ -60,11 +60,6 @@ def fetch_material(name):
 
 # (Material 名, 色值, 输出文件)
 JOBS = [
-    # 学习与记录
-    ('school', '#1f7a5c', 'school-primary.svg'),
-    ('school', '#4da989', 'school-primary-dark.svg'),
-    ('history', '#d98a17', 'history-accent.svg'),
-    ('bookmark', '#b96f0f', 'bookmark-accent-deep.svg'),
     # 账户与系统设置
     ('credit_card', '#d98a17', 'credit-card-accent.svg'),
     ('contrast', '#4a7fa5', 'contrast-tertiary.svg'),

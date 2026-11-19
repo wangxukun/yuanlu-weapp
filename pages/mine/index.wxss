@@ -182,9 +182,6 @@
 .menu-icon-box--accent {
   background: rgba(217, 138, 23, 0.12);
 }
-.menu-icon-box--accent-deep {
-  background: rgba(185, 111, 15, 0.12);
-}
 .menu-icon-box--tertiary {
   background: rgba(74, 127, 165, 0.12);
 }

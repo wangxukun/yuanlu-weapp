@@ -180,16 +180,12 @@ const theme = require('../utils/theme');
   ok(/--ink-900: #221f18/.test(appWxss), 'theme-light 全量还原原色阶（手动浅色防串色）');
   ok(/--primary-50: #12261f/.test(appWxss) && /--primary-100: #1a3329/.test(appWxss),
     'primary 浅色档深色翻转（品牌淡底自动双态）');
-  // 第二波页面接线（退役页已移除：podcast/episode/search/channel；favorites/
-  // history 暂注销待 T5.2 重建，themeClass 把门留在文件内）
-  ['pages/contact/index.wxml','pages/library/favorites/index.wxml','pages/library/history/index.wxml',
-   'pages/intensive-listening/index.wxml'].forEach((f) => {
+  ['pages/contact/index.wxml', 'pages/intensive-listening/index.wxml'].forEach((f) => {
     ok(fs.readFileSync(f, 'utf8').includes('{{themeClass}}'), f + ' 根视图挂 themeClass');
   });
   // 全局播放器组件已随整集链路退役（红线 2）：目录不复存在即把门通过
   ok(!fs.existsSync('components/player/mini-player/index.wxss'), '迷你播放条已退役（零整集播放器 UI）');
-  // theme require 解析把门：嵌套目录页（pages/library/favorites 等）曾用
-  // 浅层 '../../' 解析到 pages/utils/theme 不存在而整页白屏
+  // 验证嵌套页面解析到正确的主题模块
   const pathMod = require('path');
   const themeReqFiles = [];
   const walkReq = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach((d) => {

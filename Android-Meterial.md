@@ -20,7 +20,7 @@
 | 四个底栏图标与选中态 | app.json 的 tabBar.list |
 | 普通 SVG / 深色变体 | assets/icons/ 与页面/组件 WXML、JS |
 | 切换主题 | utils/theme.js、app.wxss、theme.json |
-| 我的页通知/收藏 | notifications-ink.svg（通知空态）、notifications-primary(-dark).svg、bookmark-accent-deep.svg |
+| 我的页通知 | notifications-ink.svg（通知空态）、notifications-primary(-dark).svg |
 | 新图标引用 | 修改 usingComponents/WXML/JS 的实际消费点；删除资源前全仓查引用 |
 
 验证浅/深色可见性、填充/镂空、原生尺寸和 tabBar 实际呈现；运行相关组件脚本。不要用历史“lucide 已清零/全部测试通过”替代当次检查。

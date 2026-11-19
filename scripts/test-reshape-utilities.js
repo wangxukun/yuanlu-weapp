@@ -4,7 +4,6 @@
  * 覆盖：
  *   A. speech-core 新增 AB 函数（parseSceneData/buildAbPairs/computeWpmMatch/blindHints）
  *   B. utils/scene-favorites 本地收藏夹（toggle/has/remove/上限淘汰）
- *   C. utils/study-footprint 精研足迹（record 去重置顶/clearAll）
  * 运行：node scripts/test-reshape-utilities.js
  */
 const path = require('path');
@@ -19,7 +18,6 @@ global.wx = {
 
 const core = require(path.join(__dirname, '../utils/speech-core.js'));
 const sceneFavorites = require(path.join(__dirname, '../utils/scene-favorites.js'));
-const footprint = require(path.join(__dirname, '../utils/study-footprint.js'));
 
 let failed = 0;
 function ok(cond, msg) {
@@ -102,26 +100,6 @@ console.log('━━━ B. scene-favorites 本地收藏夹 ━━━');
     'B 精研室画报头卡挂 ♥ 收藏按钮（onSceneFavToggle/il-hero-fav）');
   ok(ilJs.includes('sceneFavorites.toggle(this._favSnapshot)') && ilJs.includes('sceneFav: sceneFavorites.has(sceneid)'),
     'B 精研室接线 scene-favorites（进入回显收藏态 + 点击 toggle）');
-}
-
-console.log('━━━ C. study-footprint 精研足迹 ━━━');
-{
-  storage.clear();
-  ok(footprint.list().length === 0, 'C 初始空态');
-
-  footprint.record({ sceneid: 's1', title: 'T1', duration: 28 });
-  footprint.record({ sceneid: 's2', title: 'T2', duration: 33 });
-  ok(footprint.list().length === 2 && footprint.list()[0].sceneid === 's2', 'C 记录两条（最新在前）');
-
-  footprint.record({ sceneid: 's1', title: 'T1-revisit', duration: 28 });
-  ok(footprint.list().length === 2 && footprint.list()[0].sceneid === 's1' && footprint.list()[0].title === 'T1-revisit',
-    'C 同 sceneid 去重置顶（不涨总数，更新标题）');
-
-  footprint.clearAll();
-  ok(footprint.list().length === 0, 'C clearAll 清空');
-
-  footprint.record(null);
-  ok(footprint.list().length === 0, 'C null 记录防御');
 }
 
 console.log('----------------------------------------');

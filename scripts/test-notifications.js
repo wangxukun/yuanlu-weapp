@@ -639,18 +639,10 @@ function bodies(method, p) {
       WXML_MINE.indexOf('notifications-primary-dark.svg') >= 0,
       '入口 Material 图标引用（Android primary 着色，深浅双变体）');
 
-    // 分组列表重构（2026-10-01）：两组区块标题 + 完整菜单序 + 需求红线
-    assert(WXML_MINE.indexOf('menu-title">学习与记录') >= 0 &&
-      WXML_MINE.indexOf('menu-title">订阅与系统设置') >= 0,
-      'Android 分组卡双区块标题（订阅与系统设置）');
+    assert(['学习与记录', '学习路径', '精研足迹', '我的收藏', '/pages/library/'].every(
+      (entry) => !WXML_MINE.includes(entry)), '我的页已移除学习与记录及三个入口');
     assert(WXML_MINE.indexOf('menu-divider') < 0,
-      '需求红线：分组卡菜单项之间无分隔线（对齐 Android MenuRow 无 divider）');
-    const iStudy = WXML_MINE.indexOf('学习与记录');
-    const iPaths = WXML_MINE.indexOf('学习路径');
-    assert(iStudy >= 0 && iPaths > iStudy, '学习与记录组内序：学习路径在组内');
-    // 收听历史/我的收藏入口随整集链路退役暂隐（T5.2 以精研足迹/收藏微剧场回归）
-    assert(WXML_MINE.indexOf('精研足迹') > 0 && WXML_MINE.indexOf('我的收藏') > 0,
-      '精研足迹/我的收藏入口已随 T5.2 回归（微剧场形态）');
+      '订阅与系统设置卡片各菜单项之间无分隔线');
     const iAccount = WXML_MINE.indexOf('订阅与系统设置');
     const iSub = WXML_MINE.indexOf('我的订阅');
     const iConsole = WXML_MINE.indexOf('控制台');
@@ -676,9 +668,7 @@ function bodies(method, p) {
       'notifications-ink.svg 资产在盘（通知页空态沿用）');
     const ledger = fs.readFileSync(path.join(__dirname, '../Android-Meterial.md'), 'utf8');
     assert(ledger.indexOf('notifications-ink.svg') >= 0, '图标台账已登记');
-    assert(ledger.indexOf('notifications-primary(-dark).svg') >= 0 &&
-      ledger.indexOf('bookmark-accent-deep.svg') >= 0,
-      '图标台账已登记分组列表批（notifications-primary / bookmark-accent-deep）');
+    assert(ledger.includes('notifications-primary(-dark).svg'), '图标台账已登记通知入口');
     assert(fs.readFileSync(path.join(__dirname, '../app.json'), 'utf8')
       .indexOf('pages/notifications/index') >= 0, 'app.json 已注册通知页');
   }
