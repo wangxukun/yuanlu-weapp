@@ -57,7 +57,7 @@ function fromFeedItem(it) {
     id: it.clipid,
     episodeid: it.episodeid,
     subtitleId: it.subtitleId,
-    showTitle: it.showTitle || '原声节目',
+    showTitle: it.podcastTitle || it.showTitle || '原声节目',
     topic: it.topic || '',
     difficulty: it.difficulty || '',
     coverUrl: it.coverUrl || '',

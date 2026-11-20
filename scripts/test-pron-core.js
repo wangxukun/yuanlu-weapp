@@ -446,7 +446,7 @@ section('WXML 与结构（占位期红线）');
 
 const hostWxml = fs.readFileSync(path.join(__dirname, '../pages/review/index.wxml'), 'utf8');
 assert(
-  /<pron-notebook active="\{\{activeTab === 2\}\}" refresh-seq="\{\{refreshSeq\}\}" popup-open="\{\{showCefrHint\}\}" bind:cefrhint="onCefrHint" \/>/.test(hostWxml),
+  /<pron-notebook active="\{\{activeTab === 3\}\}" refresh-seq="\{\{refreshSeq\}\}" popup-open="\{\{showCefrHint\}\}" bind:cefrhint="onCefrHint" \/>/.test(hostWxml),
   '宿主页 pron-notebook 传入 refresh-seq + popup-open + cefrhint 弹窗中继（与 vocab/sentence 同款挂载）',
 );
 

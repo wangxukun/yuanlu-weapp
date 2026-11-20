@@ -836,7 +836,7 @@ async function driveAttach(opts) {
     '空态按钮样式逐值 = 生词本 vn-empty-btn（primary-600/白/26rpx·500/16·40/r-md）');
   assert(WXML.includes('wx:for="{{item.enParts}}"') && WXML.includes("seg.hit ? 'sn-hl'"),
     '高亮段循环 + 命中类切换');
-  assert(REVIEW_WXML.includes('<sentence-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />'),
+  assert(REVIEW_WXML.includes('<sentence-notebook active="{{activeTab === 2}}" refresh-seq="{{refreshSeq}}" />'),
     '宿主页面传递 refresh-seq（onShow 轻刷新链路）');
 
   // T2.2 结构：配额卡 / 横幅 / 筛选面板 / 双空态 / 视图切换

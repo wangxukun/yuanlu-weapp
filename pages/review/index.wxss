@@ -40,7 +40,7 @@
   margin-top: 24rpx;
 }
 
-/* ===== 顶部三 Tab（吸附页面顶部，对齐 Web sticky nav） ===== */
+/* ===== 顶部四 Tab（吸附页面顶部，对齐 Web sticky nav） ===== */
 .review-tabs {
   background: var(--page-bg);
   border-bottom: 1rpx solid var(--border-color);
@@ -57,12 +57,13 @@
   justify-content: center;
 }
 .tab-icon {
-  width: 36rpx;
-  height: 36rpx;
-  margin-right: 8rpx;
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 6rpx;
 }
 .tab-name {
-  font-size: 28rpx;
+  white-space: nowrap;
+  font-size: 25rpx;
   font-weight: 600;
   color: var(--text-tertiary);
 }
@@ -72,7 +73,7 @@
 .tab-indicator {
   position: absolute;
   bottom: 0;
-  width: 33.3333%;
+  width: 25%;
   transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .tab-indicator::after {

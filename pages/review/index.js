@@ -1,5 +1,5 @@
 // pages/review/index — 复习中心（tabBar 页）
-// 顶部三 Tab：生词本 / 句子本 / 发音弱项本，对齐 Web 端 components/main/review/ReviewTabs.tsx。
+// 顶部四 Tab：盲听特训 / 生词本 / 句子本 / 发音弱项本，对齐 Web 端 components/main/review/ReviewTabs.tsx。
 // 未登录渲染整页登录引导态（Web 端为 redirect("/")，tabBar 页不可重定向的等价替代）。
 const authStore = require('../../store/authStore');
 const theme = require('../../utils/theme');
@@ -7,9 +7,14 @@ const theme = require('../../utils/theme');
 // 顶部 Tab 栏高度（rpx，含底部描边），用于换算 swiper 内容区高度
 const TAB_HEADER_RPX = 89;
 
-// 三 Tab 图标严格复刻 Web 端 ReviewTabs 的 lucide 图标（yuanlu node_modules/lucide-react@0.562.0 原始 path）：
+// 复习本图标严格复刻 Web 端 ReviewTabs 的 lucide 图标（yuanlu node_modules/lucide-react@0.562.0 原始 path）：
 // BookA / TextQuote / Mic；未激活 ink-400 + 线宽 1.75，激活 primary-600 + 线宽 2.25（对齐 strokeWidth 切换）。
 const TABS = [
+  {
+    name: '盲听特训',
+    icon: '/assets/icons/ear-gray.svg',
+    activeIcon: '/assets/icons/ear-primary.svg'
+  },
   {
     name: '生词本',
     icon: '/assets/icons/menu-book-gray.svg',
@@ -33,6 +38,7 @@ Page({
     isLoggedIn: false,
     tabs: TABS,
     activeTab: 0,
+    pageVisible: false,
     swiperHeight: 600,
     refreshSeq: 0,
     // CEFR 等级说明弹窗（画像卡「？」入口事件冒泡至页面根渲染；deck 同款交互）
@@ -49,15 +55,16 @@ Page({
   },
 
   onShow() {
+    this.setData({ pageVisible: true });
     this.syncAuthState();
     // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
     this.setData({ themeClass: theme.rootClass() });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
-    // 首页工具入口预约 Tab（switchTab 不能带参，经存储传递：0 生词本 / 2 发音本）
+    // 首页工具入口预约 Tab（switchTab 不能带参，经存储传递：沿用原预约值 0 生词本 / 1 句子本 / 2 发音本）
     try {
       const pending = wx.getStorageSync('review:pendingTab');
       if (pending === 0 || pending === 1 || pending === 2) {
-        this.setData({ activeTab: pending });
+        this.setData({ activeTab: pending + 1 });
         wx.removeStorageSync('review:pendingTab');
       }
     } catch (e) {
@@ -68,6 +75,10 @@ Page({
     if (this.data.isLoggedIn) {
       this.setData({ refreshSeq: ++this._seq });
     }
+  },
+
+  onHide() {
+    this.setData({ pageVisible: false });
   },
 
   onUnload() {

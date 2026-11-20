@@ -1,4 +1,4 @@
-<!-- pages/review/index.wxml — 复习中心：三 Tab + swiper（对齐 Web app/(main)/review） -->
+<!-- pages/review/index.wxml — 复习中心：四 Tab + swiper（对齐 Web app/(main)/review） -->
 <view class="review-page {{themeClass}}">
 
   <!-- 未登录：整页登录引导态（图标与排布对齐 Web 端登录引导态） -->
@@ -10,7 +10,7 @@
     <text class="guest-hint t-mini">登录后即可免费使用三大复习本</text>
   </view>
 
-  <!-- 已登录：顶部三 Tab（滑动指示条）+ swiper 内容区 -->
+  <!-- 已登录：顶部四 Tab（滑动指示条）+ swiper 内容区 -->
   <block wx:else>
     <view class="review-tabs">
       <view class="review-tabs-track">
@@ -29,7 +29,7 @@
           <text class="tab-name">{{item.name}}</text>
         </view>
         <!-- 滑动指示条：left 随 activeTab 过渡（对齐 Web motion layoutId 指示条） -->
-        <view class="tab-indicator" style="left: {{activeTab * 33.3333}}%"></view>
+        <view class="tab-indicator" style="left: {{activeTab * 25}}%"></view>
       </view>
     </view>
 
@@ -40,13 +40,16 @@
       style="height: {{swiperHeight}}px"
     >
       <swiper-item>
-        <vocab-notebook active="{{activeTab === 0}}" refresh-seq="{{refreshSeq}}" />
+        <ear-workout active="{{activeTab === 0 && pageVisible}}" />
       </swiper-item>
       <swiper-item>
-        <sentence-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />
+        <vocab-notebook active="{{activeTab === 1}}" refresh-seq="{{refreshSeq}}" />
       </swiper-item>
       <swiper-item>
-        <pron-notebook active="{{activeTab === 2}}" refresh-seq="{{refreshSeq}}" popup-open="{{showCefrHint}}" bind:cefrhint="onCefrHint" />
+        <sentence-notebook active="{{activeTab === 2}}" refresh-seq="{{refreshSeq}}" />
+      </swiper-item>
+      <swiper-item>
+        <pron-notebook active="{{activeTab === 3}}" refresh-seq="{{refreshSeq}}" popup-open="{{showCefrHint}}" bind:cefrhint="onCefrHint" />
       </swiper-item>
     </swiper>
 

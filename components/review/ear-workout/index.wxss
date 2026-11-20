@@ -1,0 +1,55 @@
+.ear-scroll { height: 100%; }
+.ear-card {
+  margin: 32rpx 28rpx;
+  padding: 36rpx;
+  border: 2rpx solid var(--border-color);
+  border-radius: 44rpx;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: var(--e1);
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.ear-head, .ear-actions, .ear-btn, .ear-play, .ear-badge { display: flex; align-items: center; }
+.ear-head { gap: 14rpx; }
+.ear-badge { justify-content: center; background: #d1fae5; width: 56rpx; height: 56rpx; border-radius: 50%; }
+.ear-badge image { width: 32rpx; height: 32rpx; }
+.ear-titles { flex: 1; }
+.ear-title, .ear-sub, .ear-mask-title, .ear-hint, .ear-answer text { display: block; }
+.ear-title { font-size: 30rpx; font-weight: 700; }
+.ear-sub, .ear-count { color: var(--text-secondary); font-size: 21rpx; }
+.ear-sub { margin-top: 4rpx; }
+.ear-count { font-family: monospace; }
+.ear-box { padding: 36rpx 28rpx; border-radius: 32rpx; background: #1c1917; color: white; text-align: center; }
+.ear-source, .ear-tip { background: #103e32; color: #a7f3d0; border: 1rpx solid #246450; }
+.ear-source { display: inline-block; border-radius: 32rpx; padding: 5rpx 18rpx; font-size: 22rpx; }
+.ear-mask { padding: 36rpx 0; }
+.ear-eye { width: 60rpx; height: 60rpx; opacity: .75; }
+.ear-mask-title { margin: 12rpx 0; color: #d6d3d1; font-size: 25rpx; letter-spacing: 2rpx; }
+.ear-hint, .ear-zh { font-size: 24rpx; color: #bcb6b1; }
+.ear-quiz { padding: 32rpx 0; color: #fcd34d; font-size: 25rpx; }
+.ear-input { margin-top: 18rpx; padding: 16rpx; border-radius: 18rpx; border: 1rpx solid #57534e; background: #292524; color: white; }
+.ear-answer { text-align: left; padding: 28rpx 0; }
+.ear-caption { color: #6ee7b7; font-size: 22rpx; }
+.ear-en { margin: 10rpx 0; font-size: 34rpx; font-weight: 700; line-height: 1.5; }
+.ear-tip, .ear-feedback { padding: 18rpx; border-radius: 16rpx; font-size: 24rpx; line-height: 1.6; }
+.ear-tip { margin-top: 18rpx; }
+.ear-play, .ear-btn {
+  justify-content: center; gap: 8rpx; font-size: 26rpx; font-weight: 650; line-height: 1.5;
+  border-radius: 20rpx; padding: 20rpx 12rpx; margin: 0;
+}
+.ear-btn::after, .ear-play::after { border: 0; }
+.ear-play { display: inline-flex; padding: 14rpx 28rpx; background: #34d399; color: #062d23; }
+.ear-play image, .ear-mic { width: 28rpx; height: 28rpx; }
+.ear-actions { gap: 12rpx; }
+.ear-actions .ear-green { flex: 1; }
+.ear-amber { background: #f59e0b; color: #30200a; }
+.ear-green { background: #08795d; color: white; }
+.ear-muted { background: var(--color-base-200); color: var(--text-primary); }
+.ear-recording { background: #e34966; color: white; animation: ear-pulse 1s ease-in-out infinite alternate; }
+@keyframes ear-pulse { to { opacity: .72; } }
+.ear-score { display: block; color: var(--color-primary); font-size: 26rpx; font-weight: 700; }
+.ear-feedback { background: var(--primary-100); }
+.ear-empty { text-align: center; color: var(--text-secondary); padding: 32rpx 0; }
+.ear-empty .ear-btn { margin-top: 24rpx; }
