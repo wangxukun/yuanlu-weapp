@@ -41,7 +41,14 @@
   <!-- ══ 英文句（衬线 + 翻译图标随文流排在句尾）+ 中文（开关开时） ══ -->
   <view class="ec-subtitle col">
     <view class="ec-sentence font-serif">
-      <text>{{textEn}} </text>
+      <block wx:if="{{subtitle.sentenceTokens.length}}">
+        <block wx:for="{{subtitle.sentenceTokens}}" wx:key="offset">
+          <text wx:if="{{item.before}}">{{item.before}}</text><text
+            class="{{item.target ? 'ec-target' : ''}} {{index === sweepIndex ? 'ec-word-current' : index < sweepIndex ? 'ec-word-read' : ''}}"
+            data-word="{{item.text}}" catchtap="onSentenceWordTap">{{item.text}}</text><text wx:if="{{item.after}}">{{item.after}}</text>
+        </block>
+      </block>
+      <text wx:else>{{textEn}} </text>
       <image class="ec-translate-ic" src="{{showCn ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}"
              bindtap="onToggleCn" />
     </view>

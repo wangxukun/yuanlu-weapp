@@ -284,6 +284,38 @@ section('clip-player（窗口播放内核）');
   assert(card.data.textEn === SUB.textEn && card.data.phase === 'idle' && !card.data.locked,
     '入场派生：textEn 落 data / idle / 未锁');
 
+  const training = makeCard({ subtitle: { ...SUB, sentenceTokens: SUB.words } });
+  training._attached();
+  training.onSentenceWordTap({ currentTarget: { dataset: { word: 'resilient' } } });
+  assert(training.events.some(e => e.name === 'lookup' && e.detail.word === 'resilient'),
+    '训练句点词把所选单词交给宿主页查词');
+  for (const speed of [1, 0.75]) {
+    training._playOriginal(speed);
+    const audio = audioInstances[audioInstances.length - 1];
+    audio.__fire('canplay');
+    audio.currentTime = 12.5;
+    audio.__fire('timeupdate');
+    assert(training.data.sweepIndex === 1, '播放器回调驱动当前词扫光，倍速 ' + speed);
+    const interrupted = training.pauseForLookup();
+    assert(audio.destroyed && interrupted.kind === (speed === 1 ? 'original' : 'slow'), '查词立即暂停训练音频');
+    training.resumeAfterLookup(interrupted);
+    const continued = audioInstances[audioInstances.length - 1];
+    assert(Math.abs(continued.startTime - 12.5) < 0.1, '关窗从中断位置恢复');
+    continued.__fire('canplay');
+    assert(continued.playbackRate === (speed === 1 ? 1 : 0.75), '关窗保留训练播放倍速');
+    training.onToggleLoop();
+    continued.__fire('ended');
+    const replay = audioInstances[audioInstances.length - 1];
+    replay.__fire('canplay');
+    replay.currentTime = 12;
+    replay.__fire('timeupdate');
+    assert(replay !== continued && training.data.sweepIndex === 0, '循环重播从首词扫光');
+    training._player.stop();
+    assert(training.data.sweepIndex === -1, '停止原声后清除扫光');
+    training.onToggleLoop();
+  }
+  cardDef.lifetimes.detached.call(training);
+
   // idle → recording（权限已授权 mock；互斥由 recorder 编排）
   rmStartOpts.length = 0;
   await card.onToggleRecording();

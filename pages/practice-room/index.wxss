@@ -1,7 +1,9 @@
 /* pages/practice-room — 题库式跟读训练室（根类自声明 color；深浅双轨令牌） */
 .pr-container {
-  min-height: 100vh;
-  /* 底边不声明：pb-page-bottom 统一避让（简写 padding 会覆盖其为 0） */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
   padding-top: 24rpx;
   padding-left: 32rpx;
   padding-right: 32rpx;
@@ -21,6 +23,7 @@
   color: var(--ink-900);
 }
 .pr-progress {
+  flex-shrink: 0;
   height: 10rpx;
   border-radius: var(--r-full, 999rpx);
   background-color: var(--fill-secondary, rgba(0, 0, 0, 0.06));
@@ -47,8 +50,13 @@
 }
 
 /* 4. 手动翻页 */
+.pr-question {
+  min-height: 0;
+  overflow-y: auto;
+}
 .pr-next {
-  margin: 32rpx 0 40rpx;
+  flex-shrink: 0;
+  margin: 20rpx 0 16rpx;
   padding: 28rpx 0;
   border-radius: var(--r-full, 999rpx);
   border: 2rpx solid var(--primary-600);

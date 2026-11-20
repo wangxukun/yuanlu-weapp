@@ -358,6 +358,13 @@ episodeFixtures = {
   tts.setQuotaHandler(null);
 
   // —— F：互斥总线双向 ——
+  youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/interrupt.mp3' } };
+  const previousCtx = lastCtx();
+  const interrupted = tts.speak('Interrupted by word lookup');
+  tts.stop();
+  await interrupted;
+  await new Promise(setImmediate);
+  assert(lastCtx() === previousCtx && tts.getState().playingText === null, '查词打断加载中的示范朗读，迟到回包不能起播');
   youdaoResponse = { statusCode: 200, data: { speakUrl: 'https://tts/mutex.mp3' } };
   await tts.speak('mutex');
   const ttsM = lastCtx();

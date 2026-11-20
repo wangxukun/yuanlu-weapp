@@ -300,14 +300,14 @@
   </view>
 
   <!-- ═══ 生词弹窗（A工程 成熟组件） ═══ -->
-  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+  <vocabulary-modal wx:if="{{wordModal.visible}}" visible="{{wordModal.visible}}" word="{{wordModal.word}}"
                     dict-data="{{wordModal.dictData}}"
                     corpus-examples="{{wordModal.corpusExamples}}"
                     loading="{{wordModal.loading}}"
                     saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
                     episode-title="{{clip ? clip.showTitle : ''}}"
                     bind:close="onVocabClose" bind:save="onVocabSave"
-                    bind:complete="onVocabComplete" bind:gopractice="onVocabGoPractice" />
+                    bind:complete="onVocabClose" bind:gopractice="onVocabGoPractice" />
 
   <!-- ═══ 句子笔记与标签完善抽屉 ═══ -->
   <sentence-tag-drawer sentence="{{drawerSentence}}" local="{{drawerLocal}}"

@@ -41,6 +41,7 @@ let clipGatewayPayload = {
 
 let semanticCalls = [];
 let semanticPayload = null;
+let captureRequest;
 global.wx = {
   getStorageSync: () => '',
   setStorageSync() {},
@@ -52,6 +53,7 @@ global.wx = {
   getMenuButtonBoundingClientRect: () => ({ bottom: 56 }),
   request(opts) {
     const url = opts.url;
+    if (captureRequest && captureRequest(opts)) return;
     let data = {};
     if (url.includes('/api/scenes/semantic-search')) {
       semanticCalls.push(opts.data && opts.data.q);
@@ -86,7 +88,7 @@ let page = null;
 global.Page = (cfg) => {
   page = Object.assign({}, cfg, {
     data: JSON.parse(JSON.stringify(cfg.data)),
-    setData(patch) { applyPatch(this.data, patch); },
+    setData(patch, done) { applyPatch(this.data, patch); if (done) done(); },
   });
 };
 
@@ -123,6 +125,16 @@ function assert(cond, msg) {
   assert(page.data.current.parts === undefined,
     'A 页级短句文本已除（无 parts 高亮，句子展示归 eval-card）');
   assert(page.data.current.evalSubtitle.textEn === page.data.items[0].textEn, 'A eval-card subtitle 同步当前题');
+  const tokens = page.data.current.evalSubtitle.sentenceTokens;
+  assert(tokens.map(t => t.before + t.text + t.after).join('') === 'Third compromise line.' &&
+    tokens.filter(t => t.target).map(t => t.text).join() === 'compromise',
+    'A 词级显示保留整句与标点，部分时间戳也能标出查询词');
+  assert(Math.abs(tokens[0].start - 0.2) < 1e-6 && Math.abs(tokens[1].start - 1.4) < 1e-6 &&
+    tokens[2].end === 4.8, 'A 保留真实词窗，缺失词窗覆盖余下句长');
+  const { buildSentenceTokens } = require('../pages/practice-room/sentence-tokens');
+  const repeated = buildSentenceTokens('“Art”—part of ART.', 'art', [], 0.5, 4.5);
+  assert(repeated.filter(t => t.target).map(t => t.text).join() === 'Art,ART' &&
+    repeated[0].start === 0.5 && repeated[3].end === 4.5, 'A 大小写、重复词、子串排除与无时间戳回退');
 
   // —— 场景 B：切片直链预取 + 词级时间轴 clipOffset 换算 ——
   await new Promise((r) => setTimeout(r, 0));
@@ -139,6 +151,48 @@ function assert(cond, msg) {
   // —— 场景 D：评测回填 + 手动翻页（禁自动连播） ——
   page.onEvaluate({ detail: { score: 87 } });
   assert(page.data.scores[0] === 87 && page.data.lastScore === 87, 'D 评测得分回填当前题');
+  const requests = [];
+  const resume = { kind: 'slow', position: 1.7 };
+  const resumed = [];
+  page.selectComponent = () => ({ pauseForLookup: () => resume, resumeAfterLookup: (state) => resumed.push(state) });
+  captureRequest = (opts) => {
+    if (!opts.url.includes('/api/dict/') && !opts.url.endsWith('/api/vocabulary/add')) return false;
+    requests.push(opts);
+    return true;
+  };
+  const oldLookup = page.onWordLookup({ detail: { word: 'Third' } });
+  assert(page.data.wordModal.loading && requests[0].url.endsWith('/api/dict/third'), '点普通词立即打开全屏查词');
+  page.onNext();
+  assert(page.data.current.clipid === 'c3', '查词弹窗打开时保留当前题');
+  page.onVocabClose();
+  const newLookup = page.onWordLookup({ detail: { word: 'Compromise' } });
+  requests[0].success({ statusCode: 200, data: { success: true, data: { word: 'third' } } });
+  await oldLookup;
+  assert(page.data.wordModal.loading && !page.data.wordModal.dictData, '关闭再查时丢弃旧词回包');
+  requests[1].success({ statusCode: 200, data: { success: true, data: { word: 'compromise' } } });
+  await newLookup;
+  assert(page.data.wordModal.dictData.word === 'compromise' && page.data.wordModal.examples[0].clipid === 'c3',
+    '查询词和当前训练句传入同一词典弹窗');
+  authStore.setState({ isLoggedIn: true, token: 'test' });
+  const saving = page.onVocabSave();
+  assert(requests[2].data.episodeid === 'ep2' && requests[2].data.contextSentence === page.data.current.textEn,
+    '收藏使用当前训练句上下文');
+  page.onHide();
+  requests[2].success({ statusCode: 200, data: { success: true } });
+  await saving;
+  assert(resumed.length === 1, '保存回包到达时后台不续播');
+  page.onShow();
+  assert(resumed.length === 2 && resumed[1] === resume && !page.data.wordModal &&
+    page.data.lastScore === 87 && page.data.current.clipid === 'c3', '返回训练保留当前题、得分及续播位置');
+  const limited = page.onWordLookup({ detail: { word: 'She’s' } });
+  assert(requests[3].url.endsWith("/api/dict/she's"), '弯撇号缩写按完整单词查询');
+  requests[3].success({ statusCode: 403, data: { code: 'DICTIONARY_QUOTA_EXCEEDED' } });
+  await limited;
+  assert(page.data.lookupQuota === 'dictionary_quota' && !page.data.wordModal.loading, '触及词典配额时结束加载并提示');
+  page.onLookupQuotaClose();
+  assert(page.data.wordModal && resumed.length === 2, '关闭配额提示后仍处于查词状态');
+  page.onVocabClose();
+  captureRequest = null;
   page.onNext();
   assert(page.data.index === 1 && page.data.lastScore === null, 'D 手动下一句（不自动连播，得分态复位）');
   assert(page.data.current.clipid === 'c1', 'D 第二题为置顶后的 c1');

@@ -489,7 +489,10 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
           },
         });
       };
-      ctx.onWordTap({ currentTarget: { dataset: { word: 'sentence,' } } });
+      const tapSentence = () => ctx.onWordTap({ currentTarget: { dataset: { word: 'sentence,' } } });
+      ctx._startPlayback(0);
+      tapSentence();
+      assert(!ctx.data.playing && ctx._player.getKind() === null, '点词立即暂停原声');
       assert(
         ctx.data.wordModal.word === 'sentence' && queriedDictUrl === '/api/dict/sentence',
         'F-B5 点击无时间戳 token 清洗标点后仅查该词'
@@ -503,7 +506,38 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
           initEx[0].parts.some((p) => p.hl === true && p.t.toLowerCase() === 'sentence'),
         'F3 点词即刻注入当前切片原声语境例句且命中词 hl=true'
       );
-      ctx.onVocabClose();
+      return Promise.resolve().then(async () => {
+        assert(!ctx.data.wordModal.loading && !ctx.data.playing, '查词结果返回后仍可安静阅读');
+        ctx.onHide();
+        ctx.onShow();
+        assert(!ctx.data.playing, '查词期间切回页面保持暂停');
+        ctx.onVocabClose();
+        assert(ctx.data.playing && lastPlayStartSec === 1.2, '关闭查词从中断处续播');
+        ctx.onTogglePlay();
+        const starts = playStartCount;
+        tapSentence();
+        ctx.onVocabClose();
+        assert(playStartCount === starts, '手动暂停后查词并关闭保持暂停');
+
+        ctx._audioMeta = null;
+        ctx._startPlayback(0);
+        tapSentence();
+        await new Promise(setImmediate);
+        assert(!ctx.data.audioLoading && playStartCount === starts, '查词期间原声加载回包不能起播');
+        ctx.onVocabSave();
+        await new Promise(setImmediate);
+        assert(!ctx.data.wordModal.visible && ctx.data.playing, '生词保存成功关闭弹窗并恢复播放');
+
+        tapSentence();
+        const beforePractice = playStartCount;
+        ctx.onVocabGoPractice({ detail: { example: { clipid: 'other-clip-1' } } });
+        ctx.onHide();
+        assert(playStartCount === beforePractice, '跳转训练室时没有短暂续播');
+        ctx.onShow();
+        assert(ctx.data.playing && lastPlayStartSec === 1.2, '从训练室返回后续播');
+      });
+    })
+    .then(() => {
 
       // F5: 切 Tab 隐藏记录在播状态与相对位置，回到 Tab 自动续播；有弹窗打开时不自动续播
       ctx._applyClip(0, { autoplay: true });

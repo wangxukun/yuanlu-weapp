@@ -64,6 +64,7 @@ Component({
     result: null,
     selectedWordIndex: null,
     playing: '', // '' | ai | original | slow | user | word_us | word_uk | word_original | word_me
+    sweepIndex: -1,
     loop: false,
     showCn: false,
     locked: false,
@@ -88,7 +89,8 @@ Component({
         this.setData({ amplitudes: this.data.amplitudes.concat(amp).slice(-AMP_WINDOW) });
       });
       this._player = clipPlayerFactory.createClipPlayer({
-        onPlaying: (k) => this.setData({ playing: k || '' }),
+        onPlaying: (k) => this.setData({ playing: k || '', sweepIndex: -1 }),
+        onTick: (position) => this._updateSweep(position),
         onEnded: (kind) => {
           // 单句循环：原声/慢速自然到窗终后自动重播
           if ((kind === 'original' || kind === 'slow') && this.data.loop) {
@@ -176,6 +178,36 @@ Component({
 
     /* ---------------- 顶部工具行 ---------------- */
 
+    onSentenceWordTap(e) {
+      const word = e.currentTarget.dataset.word;
+      if (!word || !/[a-z]/i.test(word)) return;
+      if (this.data.phase === 'recording') {
+        wx.showToast({ title: '结束录音后即可查词', icon: 'none' });
+        return;
+      }
+      this.triggerEvent('lookup', { word });
+    },
+
+    pauseForLookup() {
+      const kind = this._player.getKind();
+      const position = this._player.estimatedPos();
+      this._player.stop();
+      tts.stop();
+      return kind === 'original' || kind === 'slow' ? { kind, position } : null;
+    },
+
+    resumeAfterLookup(playback) {
+      this._playOriginal(playback.kind === 'slow' ? 0.75 : 1, playback.position);
+    },
+
+    _updateSweep(position) {
+      if (this.data.playing !== 'original' && this.data.playing !== 'slow') return;
+      const sub = this.data.subtitle;
+      if (!sub || !sub.sentenceTokens || !sub.sentenceTokens.length) return;
+      const sweep = core.computeWordSweep(sub.sentenceTokens, position, sub.start, sub.end);
+      if (this.data.sweepIndex !== sweep.idx) this.setData({ sweepIndex: sweep.idx });
+    },
+
     /** 发音示范（tts.js 全链：合成→下载中转→降级；状态/配额由 tts 编排） */
     onAiReading() {
       if (this.data.phase === 'processing') return;
@@ -190,7 +222,7 @@ Component({
     },
 
     /** 原声/慢速片段（speed 1.0 / 0.75；起点优先词级时间戳） */
-    _playOriginal(speed) {
+    _playOriginal(speed, position) {
       const sub = this.data.subtitle || {};
       const url = sub.audioUrl;
       if (!url || !sub.textEn) {
@@ -198,10 +230,11 @@ Component({
         return;
       }
       const words = sub.words || [];
-      const startSec = words.length ? words[0].start : sub.start;
-      const endSec = words.length ? words[words.length - 1].end : sub.end;
+      const useWordBounds = !sub.sentenceTokens && words.length;
+      const startSec = useWordBounds ? words[0].start : sub.start;
+      const endSec = useWordBounds ? words[words.length - 1].end : sub.end;
       this._player.playUrl(url, speed < 1 ? 'slow' : 'original', {
-        startSec, endSec, rate: speed,
+        startSec: position == null ? startSec : Math.max(startSec, position), endSec, rate: speed,
       });
     },
 

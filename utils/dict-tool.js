@@ -106,7 +106,43 @@ function dictHistoryClear(storage) {
   return [];
 }
 
+/** 当前切片优先，合并去重后的词典例句供「前往跟读」使用。 */
+function buildClipCorpusExamples(clip, word, apiExamples) {
+  const list = [];
+  if (clip && clip.textEn) {
+    list.push({
+      clipid: String(clip.id || clip.clipid || clip.episodeid || 'current-clip'),
+      enText: clip.textEn,
+      zh: clip.textCn || '',
+      parts: splitHighlight(clip.textEn, word),
+      isCurrentClip: true,
+    });
+  }
+  for (const example of buildCorpusExampleVms(apiExamples, word)) {
+    if (!list.some((it) => it.clipid === example.clipid || it.enText === example.enText)) {
+      list.push(example);
+    }
+  }
+  return list.slice(0, 2);
+}
+
+function clipVocabularyEntry(word, dict, clip) {
+  const d = dict || {};
+  return {
+    word,
+    definition: (d.definitions || []).map((x) => '[' + x.pos + '] ' + x.meaning_cn).join('; '),
+    contextSentence: clip.textEn || '',
+    translation: clip.textCn || '',
+    episodeid: clip.episodeid || clip.id || '',
+    timestamp: clip.start || 0,
+    speakUrl: (d.audio_urls && d.audio_urls.us) || '',
+    dictUrl: '', webUrl: '', mobileUrl: '',
+  };
+}
+
 module.exports = {
+  buildClipCorpusExamples,
+  clipVocabularyEntry,
   splitHighlight,
   buildCorpusExampleVms,
   pickSuggestions,

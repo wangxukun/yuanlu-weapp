@@ -1,6 +1,8 @@
 {
-  "navigationBarTitleText": "跟读训练室",
+  "navigationBarTitleText": "跟读训练",
   "usingComponents": {
-    "eval-card": "/components/voice/eval-card/index"
+    "eval-card": "/components/voice/eval-card/index",
+    "vocabulary-modal": "/components/vocabulary-modal/index",
+    "premium-modal": "/components/premium-modal/index"
   }
 }

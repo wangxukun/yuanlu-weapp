@@ -20,6 +20,7 @@
   --ec-surface-var: #f2efe8;
   --ec-outline: #e5e0d5;
   --ec-primary: #1f7a5c;
+  --ec-read: #1f7a5c;
   --ec-on-primary: #ffffff;
   --ec-secondary: #d98a17;
   --ec-tertiary: #4a7fa5;
@@ -50,6 +51,7 @@
 @media (prefers-color-scheme: dark) {
   .ec-card {
     --ec-bg: #151310;
+    --ec-read: #75c9a9;
     --ec-surface: #1e1b16;
     --ec-on-surface: #f1ede4;
     --ec-on-surface-var: #a79e8a;
@@ -63,6 +65,7 @@
 }
 .theme-dark {
   --ec-bg: #151310;
+  --ec-read: #75c9a9;
   --ec-surface: #1e1b16;
   --ec-on-surface: #f1ede4;
   --ec-on-surface-var: #a79e8a;
@@ -73,6 +76,9 @@
   --ec-outline-40: rgba(50, 45, 35, 0.4);
   --ec-outline-50: rgba(50, 45, 35, 0.5);
 }
+
+/* 手动主题类还用于页面根节点（100vh）；嵌入的评测卡按内容撑开。 */
+.ec-card.col { min-height: 0; }
 
 /* ---- 顶部工具行（五钮：AI 朗读/原声/慢速/书签/循环，圆钮 + 下方文字标签） ---- */
 .ec-actions {
@@ -124,6 +130,17 @@
   overflow-wrap: break-word;
 }
 /* 翻译图标：随文流排在句尾（inline 跟最后一个词换行，Web 同款） */
+.ec-target {
+  text-decoration: underline;
+  text-decoration-color: var(--ec-secondary);
+  text-underline-offset: 5rpx;
+}
+.ec-word-read { color: var(--ec-read); }
+.ec-word-current {
+  color: var(--ec-on-primary);
+  background-color: var(--ec-primary);
+  border-radius: 6rpx;
+}
 .ec-translate-ic {
   width: 34rpx;
   height: 34rpx;

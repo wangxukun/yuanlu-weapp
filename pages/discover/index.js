@@ -57,27 +57,6 @@ const DEEP_FALLBACK = {
   speakingTip: '注意喉头放松，腹式呼吸送气，重点实词重读，虚词快速带过。',
 };
 
-/** 组装当前切片的原声语境例句并合并词典接口返回的例句（命中词 hl=true） */
-function buildClipCorpusExamples(clip, word, apiExamples) {
-  const list = [];
-  if (clip && clip.textEn) {
-    list.push({
-      clipid: String(clip.id || clip.episodeid || 'current-clip'),
-      enText: clip.textEn,
-      zh: clip.textCn || '',
-      parts: dictTool.splitHighlight(clip.textEn, word),
-      isCurrentClip: true,
-    });
-  }
-  const extra = dictTool.buildCorpusExampleVms(apiExamples, word);
-  extra.forEach((ex) => {
-    if (!list.some((it) => it.clipid === ex.clipid || it.enText === ex.enText)) {
-      list.push(ex);
-    }
-  });
-  return list.slice(0, 2);
-}
-
 /** 分数分层（对齐 eval-card ec.wxs：≥85 good / ≥60 mid / <60 bad） */
 function scoreTier(score) {
   if (score >= 85) return 'good';
@@ -260,6 +239,8 @@ Page({
     this._evalToken = 0;
     this._resumeAfterEval = false;
     this._resumeAfterUserAudio = false;
+    this._lookupToken = 0;
+    this._lookupPlayback = null;
     this._resumeOnShow = false;
     this._deepToken = 0;
     this._deepCache = {};
@@ -345,6 +326,11 @@ Page({
       return;
     }
     this._commitPendingPage();
+    if (this._lookupPlayback) {
+      this._resumeOnShow = false;
+      this._resumeLookupPlayback();
+      return;
+    }
     if (this._resumeOnShow) {
       this._resumeOnShow = false;
       const modalOpen =
@@ -376,6 +362,8 @@ Page({
   },
 
   onUnload() {
+    this._lookupPlayback = null;
+    this._lookupToken++;
     this._prepToken++;
     this._feedGeneration++;
     this._hidden = true;
@@ -526,6 +514,7 @@ Page({
   },
 
   async _bootstrap(scan) {
+    this._lookupPlayback = null;
     const generation = ++this._feedGeneration;
     const filters = this._sessionState.filters || {};
     const filtered = !!filterKey(filters);
@@ -543,6 +532,7 @@ Page({
     this._hasMore = false;
     this.setData({
       feedLoading: true, feedState: '', refreshing: false, loadingMore: false, feedRetry: false,
+      'wordModal.visible': false,
       pullShift: 0, pullHintY: -60, sourceLocal: false, filterActive: filtered, clip: null,
       reels: [], index: 0, sentenceNumber: 0, canPrev: false, canNext: false,
       bgUrlA: '', bgUrlB: '', playing: false, playingUserAudio: false, audioLoading: false,
@@ -781,6 +771,7 @@ Page({
   _applyClip(idx, opts) {
     const clip = this._reels[idx];
     if (!clip) return;
+    this._lookupPlayback = null;
     const prevIdx = this.data.index;
     const autoplay = !opts || opts.autoplay !== false;
     this._relPos = 0;
@@ -824,6 +815,7 @@ Page({
     // U5：清理上一条与当前条的词级扫光路径字段
     const patch = {
       clip,
+      'wordModal.visible': false,
       index: idx,
       sentenceNumber: absoluteIdx + 1,
       canPrev: idx > 0,
@@ -927,7 +919,7 @@ Page({
   /** 窗口起播：fromRel 为切片内相对位置（暂停续播/换速保位复用） */
   _startPlayback(fromRel) {
     const clip = this.data.clip;
-    if (!clip || this._hidden || this.data.filterOpen) return;
+    if (!clip || this._hidden || this.data.filterOpen || this.data.wordModal.visible) return;
     this._atEnd = false;
 
     if (this._audioMeta) {
@@ -969,7 +961,7 @@ Page({
     if (!this.data.playing && !this.data.playingUserAudio &&
         !this.data.audioLoading && !this._player.getKind()) return;
     this._prepToken++;
-    if (this.data.playing) {
+    if (this.data.playing || this._player.getKind() === 'reel') {
       const meta = this._audioMeta;
       const clip = this.data.clip;
       const pos = this._player.estimatedPos();
@@ -1122,8 +1114,18 @@ Page({
     const clean = String(raw).replace(/^[^\w]+|[^\w]+$/g, ''); // B 的首尾标点清洗
     if (!clean) return;
 
+    const token = ++this._lookupToken;
+    if (!this.data.wordModal.visible) {
+      const kind = this._player.getKind();
+      this._lookupPlayback = {
+        resumeReel: kind === 'reel' || this.data.audioLoading || this._resumeAfterEval || this._resumeAfterUserAudio,
+        userPath: kind === 'user' ? this.data.evalUserAudioPath : '',
+        userPosition: kind === 'user' ? this._player.estimatedPos() : 0,
+      };
+      this._pausePlayback();
+    }
     const lower = clean.toLowerCase();
-    const initialCorpusExamples = buildClipCorpusExamples(clip, clean, null);
+    const initialCorpusExamples = dictTool.buildClipCorpusExamples(clip, clean, null);
     this.setData({
       wordModal: {
         visible: true,
@@ -1139,11 +1141,11 @@ Page({
     get('/api/dict/' + encodeURIComponent(lower), null, { showError: false })
       .then((body) => {
         const m = this.data.wordModal;
-        if (!m.visible || m.word !== clean) return; // 期间已换词/关闭则丢弃
+        if (!m.visible || token !== this._lookupToken) return;
         if (body && body.success && body.data) {
           this.setData({
             'wordModal.dictData': body.data,
-            'wordModal.corpusExamples': buildClipCorpusExamples(
+            'wordModal.corpusExamples': dictTool.buildClipCorpusExamples(
               clip,
               clean,
               body.data.corpusExamples
@@ -1156,7 +1158,7 @@ Page({
       })
       .catch((err) => {
         const m = this.data.wordModal;
-        if (!m.visible || m.word !== clean) return;
+        if (!m.visible || token !== this._lookupToken) return;
         this.setData({ 'wordModal.loading': false });
         if (err && err.code === 'DICTIONARY_QUOTA_EXCEEDED') {
           this.setData({ showPremiumModal: true, premiumSource: 'dictionary_quota' });
@@ -1166,29 +1168,36 @@ Page({
 
   onVocabClose() {
     this.setData({ 'wordModal.visible': false });
+    this._resumeLookupPlayback();
   },
 
-  onVocabComplete() {
-    this.setData({ 'wordModal.visible': false });
+  _resumeLookupPlayback() {
+    const playback = this._lookupPlayback;
+    if (!playback || this._hidden || this.data.wordModal.visible || this.data.showPremiumModal) return;
+    this._lookupPlayback = null;
+    if (!this.data.clip || this.data.isEvaluating) return;
+    if (playback.userPath && playback.userPath === this.data.evalUserAudioPath) {
+      this._resumeAfterUserAudio = playback.resumeReel;
+      this._player.playUrl(playback.userPath, 'user', { startSec: playback.userPosition || 0 });
+    } else if (playback.resumeReel) {
+      this._startPlayback(this._relPos);
+    }
   },
 
   /** 词典弹窗点击原声语境例句「前往跟读」：本切片直接关闭弹窗就地跟读，其他切片跳训练室 */
   onVocabGoPractice(e) {
     const example = e && e.detail && e.detail.example;
     const word = this.data.wordModal && this.data.wordModal.word;
-    this.setData({ 'wordModal.visible': false });
-    if (!example || example.isCurrentClip) {
+    if (!example || example.isCurrentClip || !example.clipid || !word) {
+      this.onVocabClose();
       return;
     }
-    if (example.clipid && word) {
-      wx.navigateTo({
-        url:
-          '/pages/practice-room/index?word=' +
-          encodeURIComponent(word) +
-          '&clipId=' +
-          encodeURIComponent(example.clipid),
-      });
-    }
+    this.setData({ 'wordModal.visible': false });
+    wx.navigateTo({
+      url: '/pages/practice-room/index?word=' + encodeURIComponent(word) +
+        '&clipId=' + encodeURIComponent(example.clipid),
+      fail: () => this._resumeLookupPlayback(),
+    });
   },
 
   /** 保存生词（登录门控 + 配额墙；真实切片带真实 episodeid） */
@@ -1201,38 +1210,23 @@ Page({
       return;
     }
     this.setData({ 'wordModal.saving': true });
-    const d = m.dictData || {};
-    const definition = (d.definitions || [])
-      .map((x) => '[' + x.pos + '] ' + x.meaning_cn)
-      .join('; ');
+    const token = this._lookupToken;
     const clip = this.data.clip || {};
 
     post(
       '/api/vocabulary/add',
-      {
-        word,
-        definition,
-        contextSentence: clip.textEn || '',
-        translation: clip.textCn || '',
-        episodeid: clip.episodeid || clip.id || '',
-        timestamp: clip.start || 0,
-        speakUrl: (d.audio_urls && d.audio_urls.us) || '',
-        dictUrl: '',
-        webUrl: '',
-        mobileUrl: '',
-      },
+      dictTool.clipVocabularyEntry(word, m.dictData, clip),
       { showError: false }
     )
       .then(() => {
         this._vocabSet[word.toLowerCase()] = true;
-        this.setData({
-          'wordModal.saving': false,
-          'wordModal.isSaved': true,
-          'wordModal.visible': false,
-        });
+        if (token !== this._lookupToken || !this.data.wordModal.visible) return;
+        this.setData({ 'wordModal.saving': false, 'wordModal.isSaved': true });
+        this.onVocabClose();
         wx.showToast({ title: '已加入生词本', icon: 'none' });
       })
       .catch((err) => {
+        if (token !== this._lookupToken || !this.data.wordModal.visible) return;
         this.setData({ 'wordModal.saving': false });
         if (err && err.statusCode === 400) {
           this._vocabSet[word.toLowerCase()] = true;
@@ -1278,6 +1272,7 @@ Page({
 
   onPremiumClose() {
     this.setData({ showPremiumModal: false });
+    this._resumeLookupPlayback();
   },
 
   /* ---------------- 深度透视（POST /api/clips/deep-dive） ---------------- */

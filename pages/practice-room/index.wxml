@@ -1,5 +1,5 @@
 <!-- pages/practice-room — 题库式跟读训练室：一题一屏、手动翻页（禁自动连播/手势滑动） -->
-<view class="pr-container pb-page-bottom {{themeClass}}">
+<view class="pr-container {{themeClass}}">
 
   <!-- 加载 / 错误 -->
   <view wx:if="{{loading}}" class="center" style="height: 50vh;">
@@ -37,17 +37,26 @@
     </view>
 
     <!-- 答题卡：eval-card（句子展示 + 原声/慢速/示范播放 + 录音评测一体） -->
-    <eval-card subtitle="{{current.evalSubtitle}}"
+    <view class="pr-question">
+      <eval-card id="training-card" subtitle="{{current.evalSubtitle}}" bind:lookup="onWordLookup"
                subtitle-id="{{current.subtitleId}}"
                episode-id="{{current.episodeId}}"
                episode-title="{{sourceLabel}}"
                eval-scenario="review"
                bind:evaluate="onEvaluate" bind:quota="onQuota"
                bind:phasechange="onPhaseChange" bind:bookmark="onBookmark" />
+    </view>
 
     <!-- 手动翻页（完成评测后由用户点击，禁止自动连播） -->
     <view class="pr-next center tap-scale {{lastScore != null ? 'pr-next--done' : ''}}" bindtap="onNext">
       <text class="pr-next-text">{{index + 1 >= total ? '完成本轮' : (lastScore != null ? '下一句（已得 ' + lastScore + ' 分）' : '跳到下一句')}}</text>
     </view>
   </block>
+  <vocabulary-modal wx:if="{{wordModal}}" visible="{{true}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.examples}}"
+                    episode-title="{{sourceLabel}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    bind:close="onVocabClose" bind:complete="onVocabClose"
+                    bind:save="onVocabSave" bind:gopractice="onVocabPractice" />
+  <premium-modal visible="{{!!lookupQuota}}" source="{{lookupQuota}}" bind:close="onLookupQuotaClose" />
 </view>

@@ -30,6 +30,7 @@ const { post } = require('./request');
 const audioBus = require('./audio-bus');
 
 let audioCtx = null;
+let generation = 0; // 停止后，在途的示范朗读请求及下载不能重新发声。
 let playingText = null; // TTS 合成朗读中的文本（高亮用，对齐 Web playingText）
 let playingUrl = null; // 词典发音直链播放中的 url（playUrl，toggle 用）
 let quotaHandler = null;
@@ -192,7 +193,7 @@ function playSrcAudio(src, onSrcError) {
  * ③ 播放 onError 且文本 ≤ DICTVOICE_MAX_LEN → 降级 dictvoice（同样下载中转，
  *    失败再流播）；长句跳过降级（dictvoice 长文本必 500）直接终态提示。
  */
-async function startPlay(url, text) {
+async function startPlay(url, text, requestId) {
   let src = url;
   try {
     src = await downloadAudio(url);
@@ -200,6 +201,7 @@ async function startPlay(url, text) {
     console.warn('[tts] download failed, fallback to stream:', url);
   }
   const allowDictvoice = String(text || '').length <= DICTVOICE_MAX_LEN;
+  if (requestId !== generation) return;
   playSrcAudio(src, (err) => {
     if (allowDictvoice) {
       const dvUrl = buildDictvoiceUrl(text);
@@ -209,8 +211,8 @@ async function startPlay(url, text) {
         notifyPlayError(err2 || err);
       };
       downloadAudio(dvUrl)
-        .then((file) => playSrcAudio(file, dvFail))
-        .catch(() => playSrcAudio(dvUrl, dvFail)); // dictvoice 下载失败：流播再试
+        .catch(() => dvUrl)
+        .then((file) => { if (requestId === generation) playSrcAudio(file, dvFail); });
       return;
     }
     stop();
@@ -238,6 +240,7 @@ function clearCtx() {
 }
 
 function stop() {
+  generation++;
   clearCtx();
   playingText = null;
   playingUrl = null;
@@ -272,6 +275,7 @@ async function playUrl(url, fallbackText) {
   audioBus.stopAll(TTS_STOP); // 停原声片段与全局播放器（互斥）
 
   playingUrl = normalized;
+  const requestId = generation;
   notify();
   // 下载中转（同 speak：规避真机直拉流 504；单词音频小，缓存后重播零网络）
   let src = normalized;
@@ -280,6 +284,7 @@ async function playUrl(url, fallbackText) {
   } catch (e) {
     console.warn('[tts] download failed, fallback to stream:', normalized);
   }
+  if (requestId !== generation) return false;
   const ctx = wx.createInnerAudioContext();
   audioCtx = ctx;
   ctx.src = src;
@@ -328,19 +333,22 @@ async function speak(text) {
   audioBus.stopAll(TTS_STOP); // 停原声片段与全局播放器（互斥）
 
   playingText = text; // 先置状态供按钮高亮（Web 同款：请求前置）
+  const requestId = generation;
   notify();
   try {
     const res = await post('/api/dictionary/youdao', { word: text });
+    if (requestId !== generation) return false;
     const speakUrl = normalizeUrl(res && res.speakUrl);
     if (!speakUrl) {
       // OpenAPI 未回传 speakUrl：直接用 dictvoice 音源（短文本才可能合成成功）
-      startPlay(buildDictvoiceUrl(text), text);
+      startPlay(buildDictvoiceUrl(text), text, requestId);
       return true;
     }
     // 降级链由 startPlay 编排：下载中转 → 流播兜底 → 短文本 dictvoice
-    startPlay(speakUrl, text);
+    startPlay(speakUrl, text, requestId);
     return true;
   } catch (err) {
+    if (requestId !== generation) return false;
     if (err && err.code === 'DICTIONARY_QUOTA_EXCEEDED') {
       // request.js 已 toast message（今日 30 次免费已用完…）；
       // 只负责打开会员转化弹窗（对齐 Web 口径：免费 30 次/日，PRO 无限）
