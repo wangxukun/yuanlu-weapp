@@ -25,6 +25,12 @@
   box-sizing: border-box;
 }
 
+/* 手动主题的全局根类带有 100vh 最小高度，嵌入卡片应由内容撑高。 */
+.spc-card.theme-light,
+.spc-card.theme-dark {
+  min-height: 0;
+}
+
 /* 深色双轨（vocab/sentence-notebook 同款已验证模式）：
  * ① 跟随系统：媒体查询平类覆盖；
  * ② 手动深色：.theme-dark（0,2,0）压过媒体查询；

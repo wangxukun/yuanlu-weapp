@@ -31,6 +31,12 @@
   box-sizing: border-box;
 }
 
+/* 手动主题的全局根类带有 100vh 最小高度，嵌入卡片应由内容撑高。 */
+.drc-card.theme-light,
+.drc-card.theme-dark {
+  min-height: 0;
+}
+
 /* 深色双轨（媒体查询 + 手动类；vocab/sentence 同款已验证模式） */
 @media (prefers-color-scheme: dark) {
   .drc-card {
