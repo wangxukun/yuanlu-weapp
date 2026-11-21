@@ -130,5 +130,15 @@ async function resolveLoad(p, body) {
   assert(!template.includes('daily.completedCount * 20'));
   assert(template.includes('daily.clips.length || 0'));
   assert(template.includes('刷新进度'));
-  console.log(JSON.stringify({ passed: true, requests: requests.length, scenarios: ['same-day', 'refresh', 'progress', 'partial', 'empty', 'history', 'offline', 'account-switch', 'midnight', 'expired-auth', 'legacy'] }));
+
+  // 预签直链时效：过期作废（今日挑战缓存固化旧签名 → OSS 403 播放失败的根因）
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  assert.equal(reels.freshAudioUrl('https://oss/x.aac?Expires=' + exp), true, '未过期直链可用');
+  assert.equal(reels.freshAudioUrl('https://oss/x.aac?Expires=' + exp + '&Signature=s'), true, '带签名参数仍可解析');
+  assert.equal(reels.freshAudioUrl('https://oss/x.aac?Expires=' + (exp - 3599)), false, '仅剩 1 秒视为过期（60s 余量）');
+  assert.equal(reels.freshAudioUrl('https://oss/x.aac?Expires=' + Math.floor(Date.now() / 1000)), false, '已到期直链过期');
+  assert.equal(reels.freshAudioUrl('https://oss/x.aac'), true, '无 Expires 参数按未过期（本地/相对路径）');
+  assert.equal(reels.freshAudioUrl(''), true, '空值不误判');
+
+  console.log(JSON.stringify({ passed: true, requests: requests.length, scenarios: ['same-day', 'refresh', 'progress', 'partial', 'empty', 'history', 'offline', 'account-switch', 'midnight', 'expired-auth', 'legacy', 'stale-audio-url'] }));
 })().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -1177,6 +1177,9 @@ Page({
         winEnd: clip.end,
       });
     }
+    // 预签直链仅 1 小时有效：过期作废回落懒取新签（当日缓存里固化的旧签名
+    // 会 OSS 403 → 按钮转播放态后无声并报「音频播放失败」——真机长期会话必现）
+    if (clip.clipAudioUrl && !reelsApi.freshAudioUrl(clip.clipAudioUrl)) clip.clipAudioUrl = null;
     if (clip.clipAudioUrl) {
       return Promise.resolve().then(() => Object.assign(
         { url: clip.clipAudioUrl }, sentenceWindow(clip, clip.clipOffset)

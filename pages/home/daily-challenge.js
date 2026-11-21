@@ -70,7 +70,9 @@ const methods = {
     this._applyShadowResults();
     record(owner, state.date, state.clips, false);
     state.clips.forEach((c) => { if (c.real && c.episodeid) this._fetchSavedKeys(c.episodeid, null, 'daily.clips'); });
-    const first = state.clips.find((c) => c && c.real && c.available !== false && !c.clipAudioUrl && c.id);
+    // 预热候选含「直链已固化过期」的卡：让它们重新拿到新签名（否则永远跳过）
+    const first = state.clips.find((c) => c && c.real && c.available !== false && c.id &&
+      (!c.clipAudioUrl || !reelsApi.freshAudioUrl(c.clipAudioUrl)));
     if (first && reelsApi.fetchClipAudio) {
       reelsApi.fetchClipAudio(first.id).then((r) => {
         if (!r || !r.url || !this.data.daily || this.data.daily.date !== state.date) return;

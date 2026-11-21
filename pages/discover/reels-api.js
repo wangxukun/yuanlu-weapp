@@ -160,6 +160,15 @@ async function fetchClipAudio(clipid) {
   return { exclusive: body && body.code === 'PREMIUM_REQUIRED' };
 }
 
+/** 预签直链是否仍在有效期（60s 安全余量；无 Expires 参数按未过期）。
+ *  切片签名仅 1 小时：今日挑战等长生命周期对象会把预热直链写进当日缓存，
+ *  过期后仍直接播 → OSS 403 → InnerAudioContext onError「音频播放失败」。 */
+function freshAudioUrl(url, nowMs) {
+  const m = /[?&]Expires=(\d+)/.exec(String(url || ''));
+  if (!m) return true;
+  return Number(m[1]) * 1000 - (nowMs == null ? Date.now() : nowMs) > 60000;
+}
+
 /** 句级语言学四维分析；失败/限流兜底返回 null（页面用本地兜底文案） */
 async function fetchDeepDive(sentence) {
   const body = await post('/api/clips/deep-dive', { sentence }, { showError: false });
@@ -225,4 +234,4 @@ async function fetchPresetIdeas() {
   return null;
 }
 
-module.exports = { fromFeedItem, fromLocalClip, tokenizeTextEn, buildFallbackPhoneticTip, fetchFeed, fetchClipAudio, fetchDeepDive, localReels, matchStudio, fetchPresetIdeas };
+module.exports = { fromFeedItem, fromLocalClip, tokenizeTextEn, buildFallbackPhoneticTip, fetchFeed, fetchClipAudio, freshAudioUrl, fetchDeepDive, localReels, matchStudio, fetchPresetIdeas };
