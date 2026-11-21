@@ -311,6 +311,17 @@ require('../components/review/ear-workout/index');
   global.Page = d => { page = { ...d, data: { ...d.data }, setData }; };
   require('../pages/review/index');
   assert.equal(page.data.tabs[page.data.activeTab].name, '盲听特训');
+  // 下拉刷新：json 开启 + refreshSeq 递增通知复习本重拉 + 立即收圈
+  assert.equal(JSON.parse(require('fs').readFileSync('pages/review/index.json', 'utf8')).enablePullDownRefresh, true,
+    'review 页 json 开启下拉刷新');
+  let pullStopped = 0;
+  wx.stopPullDownRefresh = () => { pullStopped++; };
+  page.data.isLoggedIn = true;
+  page._seq = page.data.refreshSeq || 0; // onLoad 未跑时补初始化（++undefined 会 NaN）
+  const seqBefore = page.data.refreshSeq;
+  page.onPullDownRefresh();
+  assert.equal(page.data.refreshSeq, seqBefore + 1, '下拉 → refreshSeq 递增（复习本重拉通道）');
+  assert.equal(pullStopped, 1, '立即收圈 stopPullDownRefresh');
   for (const [pending, name] of ['生词本', '句子本', '发音弱项本'].entries()) {
     wx.getStorageSync = key => key === 'review:pendingTab' ? pending : '';
     wx.removeStorageSync = () => {};

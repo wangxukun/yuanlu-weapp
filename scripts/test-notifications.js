@@ -300,14 +300,11 @@ function bodies(method, p) {
       '/episode/{id} 整集深链已退役（零整集导航）');
     assert(core.resolveTarget('/scene/sc123') === '/pages/intensive-listening/index?sceneId=sc123',
       '/scene/{id} → 微剧场精研页');
-    assert(core.resolveTarget('/charts') === '/pages/profile/learning-report/index',
-      '/charts → 学习报表页（存量口径保留）');
-    assert(core.resolveTarget('/charts?tab=week') === '/pages/profile/learning-report/index',
-      '/charts?query → 学习报表页（query 剥离）');
-    assert(core.resolveTarget('/library/learning-report') === '/pages/profile/learning-report/index',
-      '/library/learning-report → 学习报表页（2026-10 后端新口径）');
-    assert(core.resolveTarget('/library/learning-report?range=month') === '/pages/profile/learning-report/index',
-      '/library/learning-report?query → 学习报表页（query 剥离）');
+    assert(core.resolveTarget('/charts') === '' && core.resolveTarget('/charts?tab=week') === '',
+      '/charts → 不映射（学习报表页已删，点开仅标已读）');
+    assert(core.resolveTarget('/library/learning-report') === '' &&
+      core.resolveTarget('/library/learning-report?range=month') === '',
+      '/library/learning-report → 不映射（学习报表页已删）');
     assert(core.resolveTarget('https://example.com/promo') === '' &&
       core.resolveTarget(null) === '', '管理端任意 URL / 空 → 不映射');
   }
@@ -661,8 +658,14 @@ function bodies(method, p) {
     assert(WXML_MINE.indexOf('发音弱项本') < 0 && WXML_MINE.indexOf('>个人中心<') < 0,
       '需求红线：我的页不含「发音弱项本」「个人中心」菜单项');
     assert(WXML_MINE.indexOf('{{themeLabel}}') >= 0, '外观设置尾值绑定（跟随系统/浅色/深色）');
-    ['stats.listenMinutes', 'stats.wordsLearned', 'stats.savedSentences', 'stats.streakDays']
+    ['stats.streakDays', 'stats.wordsLearned', 'stats.bestPronunciation', 'stats.shadowingClips']
       .forEach((k) => assert(WXML_MINE.indexOf('{{' + k + '}}') >= 0, '学习成果四宫格绑定 ' + k));
+    assert(WXML_MINE.indexOf('收听分钟') < 0 && WXML_MINE.indexOf('收藏句子') < 0,
+      '旧四宫格（收听分钟/收藏句子）已退役');
+    assert(WXML_MINE.indexOf('跟读连胜') >= 0 && WXML_MINE.indexOf('发音最高分') >= 0 &&
+      WXML_MINE.indexOf('切片特训') >= 0, 'B 工程四宫格标签就位（跟读连胜/发音最高分/切片特训）');
+    assert(WXML_MINE.indexOf('战报海报') < 0 && WXML_MINE.indexOf('poster-card') < 0,
+      '战报海报卡已删（2026-11-21 用户批注）');
 
     assert(fs.existsSync(path.join(__dirname, '../assets/icons/notifications-ink.svg')),
       'notifications-ink.svg 资产在盘（通知页空态沿用）');
@@ -912,6 +915,53 @@ function bodies(method, p) {
     );
     assert(navigations.length === 1, '单次跳转无重复压栈');
     assert(toasts.length === 0, '占位 toast「订阅功能即将上线」已退役');
+  }
+
+  section('十八 B、学习成果四宫格数据装载（B 工程口径迁移）');
+  {
+    resetMock();
+    authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
+    // 今日挑战 90 天流水：3 句已练（1 句重复练习去重）+ 1 句仅下发未练
+    storage.set('studio_daily_history_v2', [
+      { key: '["ep1",1]', practicedOn: '2026-11-20' },
+      { key: '["ep1",1]', practicedOn: '2026-11-21' },
+      { key: '["ep2",5]', practicedOn: '2026-11-19' },
+      { key: '["ep3",9]', servedOn: '2026-11-21' },
+    ]);
+    let hit = 0;
+    requestHandler = (opts) => {
+      hit++;
+      if (opts.url.indexOf('/api/streak') >= 0) {
+        opts.success({ statusCode: 200, data: { success: true, data: { streakDays: 7 } } });
+      } else if (opts.url.indexOf('/api/user/stats/overview') >= 0) {
+        // overview 路由返回裸 stats 对象（无 success 包装，mapStats 直读）
+        opts.success({ statusCode: 200, data: {
+          totalHours: 2.5, streakDays: 99, wordsLearned: 12, bestPronunciation: 93,
+        } });
+      } else {
+        opts.success({ statusCode: 200, data: { success: true, data: {} } });
+      }
+    };
+    const page = makePage(mineConfig, { unsubscribeAuth: null });
+    page.onLoad();
+    page._loadStats();
+    await tick();
+    assert(page.data.stats.streakDays === 7, '跟读连胜取 /api/streak 跟读开口口径（非 overview 收听口径 99）');
+    assert(page.data.stats.wordsLearned === 12, '复习单词 = overview.wordsLearned');
+    assert(page.data.stats.bestPronunciation === 93, '发音最高分 = overview.bestPronunciation');
+    assert(page.data.stats.shadowingClips === 2, '切片特训 = 本地流水已练去重条数（3 练 1 重）');
+    assert(hit >= 2, 'streak 与 overview 双路请求已发出');
+    storage.delete('studio_daily_history_v2');
+
+    // 下拉刷新：三路重拉后收圈；json 已开启（深浅色动态校正不阻塞）
+    const MINE_JSON = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/mine/index.json'), 'utf8'));
+    assert(MINE_JSON.enablePullDownRefresh === true, 'mine 页 json 开启 enablePullDownRefresh');
+    pullRefreshStopped = 0;
+    await page.onPullDownRefresh();
+    await tick();
+    assert(pullRefreshStopped === 1, '下拉刷新 settle 后恰好一次 stopPullDownRefresh');
+    assert(hit >= 4, '下拉触发了 streak/overview 重拉（请求数再 +2）');
+    storage.delete('studio_daily_history_v2');
   }
 
   section('十九、用户卡角色角标（T5.4 真机联调：权威校正口径）');

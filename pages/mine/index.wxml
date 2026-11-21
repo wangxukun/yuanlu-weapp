@@ -30,33 +30,35 @@
   </view>
 
   <block wx:if="{{isLoggedIn}}">
-    <!-- 学习成果数据看板（1×4：收听分钟/掌握生词/收藏句子/连续打卡） -->
+    <!-- 学习成果数据看板（1×4，复刻 B 工程 ProfileView：跟读连胜/复习单词/发音最高分/切片特训） -->
     <view class="card stats-card mt-4 row">
-      <view class="stat col center flex-1">
-        <view class="row center-v stat-value-row">
-          <text class="stat-num">{{stats.listenMinutes}}</text>
-          <text class="stat-unit">m</text>
-        </view>
-        <text class="stat-label">收听分钟</text>
-      </view>
-      <view class="stat col center flex-1">
-        <view class="row center-v stat-value-row">
-          <text class="stat-num">{{stats.wordsLearned}}</text>
-        </view>
-        <text class="stat-label">掌握生词</text>
-      </view>
-      <view class="stat col center flex-1">
-        <view class="row center-v stat-value-row">
-          <text class="stat-num">{{stats.savedSentences}}</text>
-        </view>
-        <text class="stat-label">收藏句子</text>
-      </view>
       <view class="stat col center flex-1">
         <view class="row center-v stat-value-row">
           <text class="stat-num">{{stats.streakDays}}</text>
           <text class="stat-unit">天</text>
         </view>
-        <text class="stat-label">连续打卡</text>
+        <text class="stat-label">跟读连胜</text>
+      </view>
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.wordsLearned}}</text>
+          <text class="stat-unit">词</text>
+        </view>
+        <text class="stat-label">复习单词</text>
+      </view>
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.bestPronunciation}}</text>
+          <text class="stat-unit">分</text>
+        </view>
+        <text class="stat-label">发音最高分</text>
+      </view>
+      <view class="stat col center flex-1">
+        <view class="row center-v stat-value-row">
+          <text class="stat-num">{{stats.shadowingClips}}</text>
+          <text class="stat-unit">条</text>
+        </view>
+        <text class="stat-label">切片特训</text>
       </view>
     </view>
   </block>

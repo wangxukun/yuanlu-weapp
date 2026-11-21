@@ -140,18 +140,13 @@ function formatDistanceZh(iso, now) {
 /**
  * Web targetUrl → 小程序路由(后端 core/episode 产出 /episode/{id} 已退役不直达;
  * 微剧场 /scene/{id} 产出 /pages/intensive-listening/index?sceneId=;
- * achievements 产出 /library/learning-report——历史上曾误发 /charts 且 Web 端无该路由,
- * 存量通知仍需映射;管理端 send 可填任意 URL——不映射仅标已读)
+ * achievements 产出 /library/learning-report——小程序学习报表页已删（2026-11-21），
+ * 该深链与存量 /charts 不再映射，点开仅标已读;管理端 send 可填任意 URL——同不映射)
  */
 function resolveTarget(url) {
   if (typeof url !== 'string' || !url) return '';
   const sc = url.match(/\/(?:scene|scenes)\/([A-Za-z0-9_-]+)/);
   if (sc) return '/pages/intensive-listening/index?sceneId=' + sc[1];
-  const path = url.split('?')[0];
-  // 新口径 /library/learning-report + 存量 /charts 均落学习报表页
-  if (path === '/library/learning-report' || path === '/charts') {
-    return '/pages/profile/learning-report/index';
-  }
   return '';
 }
 

@@ -75,6 +75,25 @@ Page({
     if (this.data.isLoggedIn) {
       this.setData({ refreshSeq: ++this._seq });
     }
+    this._applyPullTheme();
+  },
+
+  /** 下拉刷新：经 refreshSeq 通知三大复习本重拉（常驻组件唯一刷新通道），
+   * 收圈不等各本拉完（各本自带加载态与静默失败口径），立即反馈 */
+  onPullDownRefresh() {
+    if (this.data.isLoggedIn) {
+      this.setData({ refreshSeq: ++this._seq });
+    }
+    wx.stopPullDownRefresh();
+  },
+
+  /** 下拉刷新区域跟随主题：浅色深圈/深色浅圈（json 静态配置的运行时校正） */
+  _applyPullTheme() {
+    const dark = theme.getEffective() === 'dark';
+    try {
+      wx.setBackgroundColor({ backgroundColor: dark ? '#151310' : '#faf8f3', fail: () => {} });
+      wx.setBackgroundTextStyle({ textStyle: dark ? 'light' : 'dark', fail: () => {} });
+    } catch (e) { /* 低版本无此 API 忽略 */ }
   },
 
   onHide() {

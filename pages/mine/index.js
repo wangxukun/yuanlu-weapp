@@ -6,6 +6,19 @@ const { get } = require('../../utils/request');
 const profileApi = require('../../utils/api/profile');
 const profileCore = require('../../utils/profile-core');
 
+/** 切片特训累计条数：今日挑战 90 天本地流水（studio_daily_history_v2，
+ * daily-challenge.js 的 history() 同 key 同结构）里 practicedOn 非空的去重句数 */
+function countPracticedClips() {
+  let rows;
+  try { rows = wx.getStorageSync('studio_daily_history_v2'); } catch (e) { return 0; }
+  if (!Array.isArray(rows)) return 0;
+  const keys = new Set();
+  for (const r of rows) {
+    if (r && r.practicedOn && r.key) keys.add(r.key);
+  }
+  return keys.size;
+}
+
 Page({
   data: {
     isLoggedIn: false,
@@ -19,12 +32,12 @@ Page({
     dark: false,
     unreadCount: 0,
     themeLabel: '跟随系统', // 外观设置行尾值（Android trailing：跟随系统/浅色/深色）
-    // 学习成果四宫格（overview 三字段 + 句子收藏列表计数）
+    // 学习成果四宫格（B 工程 ProfileView 口径：跟读连胜/复习单词/发音最高分/切片特训）
     stats: {
-      listenMinutes: 0,
+      streakDays: 0,
       wordsLearned: 0,
-      savedSentences: 0,
-      streakDays: 0
+      bestPronunciation: 0,
+      shadowingClips: 0
     }
   },
 
@@ -47,7 +60,30 @@ Page({
     // 外观根类：手动模式覆盖令牌（跟随系统返回空类走媒体查询）
     this.setData({ themeClass: theme.rootClass(), dark: theme.getEffective() === 'dark', themeLabel: theme.MODE_LABELS[theme.getMode()] });
     theme.applyChrome(); // 手动深/浅色下切回本 tab 时重申导航栏
+    this._applyPullTheme();
     this._loadStats();
+  },
+
+  /** 下拉刷新：重拉四宫格/会员态/未读角标，全部 settle 后收圈 */
+  async onPullDownRefresh() {
+    try {
+      await Promise.all([
+        this._loadStats(),
+        Promise.resolve(membershipStore.ensureFresh()),
+      ].map((p) => Promise.resolve(p).catch(() => { /* 静默：单项失败不阻塞收圈 */ })));
+      this.syncUnreadCount();
+    } finally {
+      wx.stopPullDownRefresh();
+    }
+  },
+
+  /** 下拉刷新区域跟随主题：浅色深圈/深色浅圈（json 静态配置的运行时校正） */
+  _applyPullTheme() {
+    const dark = theme.getEffective() === 'dark';
+    try {
+      wx.setBackgroundColor({ backgroundColor: dark ? '#151310' : '#faf8f3', fail: () => {} });
+      wx.setBackgroundTextStyle({ textStyle: dark ? 'light' : 'dark', fail: () => {} });
+    } catch (e) { /* 低版本无此 API 忽略 */ }
   },
 
   onUnload() {
@@ -99,26 +135,33 @@ Page({
   },
 
   /**
-   * 学习成果四宫格：overview（收听分钟=totalHours×60 取整/掌握生词/连续打卡）
-   * + 句子收藏全量列表计数（/api/sentences/list 裸数组长度）。双双静默失败
-   * 保持旧值，onShow 每次进页刷新（学习行为后返回即更新）。
+   * 学习成果四宫格（复刻 B 工程 ProfileView，生产真实口径）：
+   * - 跟读连胜：GET /api/streak（weapp_streak_log 跟读开口口径——与主页连胜卡
+   *   同源铁律；overview.streakDays 是网站收听 isActive 口径，不复用）
+   * - 复习单词：overview.wordsLearned（生词本词量 = SRS 复习对象规模）
+   * - 发音最高分：overview.bestPronunciation（speech_recognition 最高准确分）
+   * - 切片特训：本地 studio_daily_history_v2 已练句去重条数（今日挑战 90 天流水）
+   * 全部静默失败保持旧值，onShow 每次进页刷新。
    */
   _loadStats() {
-    if (!authStore.getState().isLoggedIn) return;
-    profileApi.getStatsOverview().then((raw) => {
-      const s = profileCore.mapStats(raw);
-      if (!s) return;
-      this.setData({
-        'stats.listenMinutes': Math.round(s.totalHours * 60),
-        'stats.wordsLearned': s.wordsLearned,
-        'stats.streakDays': s.streakDays
-      });
-    }).catch(() => { /* 静默：看板失败保持旧值 */ });
-    get('/api/sentences/list', null, { showError: false }).then((body) => {
-      if (body && body.success && Array.isArray(body.data)) {
-        this.setData({ 'stats.savedSentences': body.data.length });
-      }
-    }).catch(() => { /* 静默 */ });
+    if (!authStore.getState().isLoggedIn) return Promise.resolve();
+    const remote = [
+      profileApi.getStatsOverview().then((raw) => {
+        const s = profileCore.mapStats(raw);
+        if (!s) return;
+        this.setData({
+          'stats.wordsLearned': s.wordsLearned,
+          'stats.bestPronunciation': s.bestPronunciation
+        });
+      }),
+      get('/api/streak', null, { showError: false }).then((body) => {
+        if (body && body.success && body.data) {
+          this.setData({ 'stats.streakDays': body.data.streakDays || 0 });
+        }
+      }),
+    ].map((p) => p.catch(() => { /* 静默：看板单项失败保持旧值 */ }));
+    this.setData({ 'stats.shadowingClips': countPracticedClips() });
+    return Promise.all(remote);
   },
 
   /** 消息通知（未读角标随 onShow 静默刷新） */

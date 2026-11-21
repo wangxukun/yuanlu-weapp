@@ -5,8 +5,7 @@
  *   - GET  /api/user/profile                        裸 user_profile 行 + 嵌套 User（404=无
  *     profile 行，邮箱新注册常态 → 返回 null 交 mapProfile 走 toFallbackProfile 兜底）
  *   - GET  /api/user/stats/overview                 裸 { totalHours, streakDays, wordsLearned, ... }
- *   - GET  /api/user/stats/learning-report          { days:[{date,minutes,wordsLearned,
- *     isActive}], streakDays, dailyGoalMins }（服务端按会员切片 7/365 天）
+ *     （含 bestPronunciation 发音最高分；学习报表端点随页面下线已不再调用）
  *   - GET  /api/user/achievements                   裸数组 [{key, name, icon(emoji), unlocked, ...}]
  *   - POST /api/user/profile                        保存：JSON 纯文本 / multipart 带头像
  *     （后端 T1.1 别名；wx.uploadFile 无 method 参数只能 POST）
@@ -44,17 +43,31 @@ function getProfile() {
   );
 }
 
+function getStreakStatus() {
+  return get('/api/streak', null, { showError: false }).then(body => {
+    if (!body || !body.success || !Number.isInteger(body.data && body.data.streakDays)) {
+      throw new Error('连胜数据暂未同步');
+    }
+    return body.data;
+  });
+}
+
 function getStatsOverview() {
-  return get('/api/user/stats/overview', undefined, { showError: false });
+  return get('/api/user/stats/overview', { platform: 'weapp' }, { showError: false });
+}
+
+function getGoalProgress() {
+  return get('/api/user/stats/goal-progress', null, { showError: false }).then(progress => {
+    if (!progress || ![progress.todaySeconds, progress.weeklySeconds, progress.weeklyWords]
+      .every(value => Number.isInteger(value) && value >= 0)) {
+      throw new Error('学习进度暂未同步');
+    }
+    return progress;
+  });
 }
 
 function getAchievements() {
-  return get('/api/user/achievements', undefined, { showError: false });
-}
-
-/** 学习报表（服务端按会员切片：免费 7 天 / PRO 365 天，DTO 同 Web learning-report.service） */
-function getLearningReport() {
-  return get('/api/user/stats/learning-report', undefined, { showError: false });
+  return get('/api/user/achievements', { platform: 'weapp' }, { showError: false });
 }
 
 /**
@@ -142,7 +155,8 @@ function deleteSelfAccount() {
 module.exports = {
   getProfile,
   getStatsOverview,
-  getLearningReport,
+  getStreakStatus,
+  getGoalProgress,
   getAchievements,
   saveProfile,
   uploadProfileWithAvatar,
