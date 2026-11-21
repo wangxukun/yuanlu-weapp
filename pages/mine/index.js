@@ -2,22 +2,15 @@ const authStore = require('../../store/authStore');
 const membershipStore = require('../../store/membershipStore');
 const theme = require('../../utils/theme');
 const notificationBadge = require('../../utils/notification-badge');
-const { get } = require('../../utils/request');
 const profileApi = require('../../utils/api/profile');
-const profileCore = require('../../utils/profile-core');
 
-/** 切片特训累计条数：今日挑战 90 天本地流水（studio_daily_history_v2，
- * daily-challenge.js 的 history() 同 key 同结构）里 practicedOn 非空的去重句数 */
-function countPracticedClips() {
-  let rows;
-  try { rows = wx.getStorageSync('studio_daily_history_v2'); } catch (e) { return 0; }
-  if (!Array.isArray(rows)) return 0;
-  const keys = new Set();
-  for (const r of rows) {
-    if (r && r.practicedOn && r.key) keys.add(r.key);
-  }
-  return keys.size;
-}
+const EMPTY_STATS = {
+  streakDays: '—',
+  wordsLearned: '—',
+  savedSentenceCount: '—',
+  listeningTime: '—',
+  listeningUnit: '',
+};
 
 Page({
   data: {
@@ -32,19 +25,16 @@ Page({
     dark: false,
     unreadCount: 0,
     themeLabel: '跟随系统', // 外观设置行尾值（Android trailing：跟随系统/浅色/深色）
-    // 学习成果四宫格（B 工程 ProfileView 口径：跟读连胜/复习单词/发音最高分/切片特训）
-    stats: {
-      streakDays: 0,
-      wordsLearned: 0,
-      bestPronunciation: 0,
-      shadowingClips: 0
-    }
+    stats: { ...EMPTY_STATS },
   },
 
   onLoad() {
+    this._statsSeq = 0;
     // 监听 store 变化，保存返回的取消订阅函数
     this.unsubscribeAuth = authStore.subscribe(() => {
+      const previous = this._statsToken;
       this.syncStoreData();
+      if (this._statsToken && previous !== this._statsToken) this._loadStats();
     });
     // 会员态权威校正回调（付费后切回本 tab 角标即时收敛）
     this.unsubscribeMembership = membershipStore.subscribe(() => {
@@ -87,6 +77,7 @@ Page({
   },
 
   onUnload() {
+    this._statsSeq++;
     if (this.unsubscribeAuth) {
       this.unsubscribeAuth();
     }
@@ -119,6 +110,12 @@ Page({
       roleBadgeText,
       roleBadgeClass
     };
+    const token = state.isLoggedIn ? state.token : null;
+    if (token !== this._statsToken) {
+      this._statsToken = token;
+      this._statsSeq++;
+      patch.stats = { ...EMPTY_STATS };
+    }
     // 登出即清角标（登录态拉取在 syncUnreadCount）
     if (!state.isLoggedIn) patch.unreadCount = 0;
     this.setData(patch);
@@ -134,33 +131,30 @@ Page({
     }).catch(() => { /* 静默：角标失败保持旧值 */ });
   },
 
-  /**
-   * 学习成果四宫格（复刻 B 工程 ProfileView，生产真实口径）：
-   * - 跟读连胜：GET /api/streak（weapp_streak_log 跟读开口口径——与主页连胜卡
-   *   同源铁律；overview.streakDays 是网站收听 isActive 口径，不复用）
-   * - 复习单词：overview.wordsLearned（生词本词量 = SRS 复习对象规模）
-   * - 发音最高分：overview.bestPronunciation（speech_recognition 最高准确分）
-   * - 切片特训：本地 studio_daily_history_v2 已练句去重条数（今日挑战 90 天流水）
-   * 全部静默失败保持旧值，onShow 每次进页刷新。
-   */
+  /** 每次进入或下拉刷新时读取当前账号的统计；连胜与首页共用点亮记录。 */
   _loadStats() {
     if (!authStore.getState().isLoggedIn) return Promise.resolve();
+    const token = authStore.getState().token;
+    const seq = ++this._statsSeq;
+    const current = () => seq === this._statsSeq && token === authStore.getState().token;
     const remote = [
-      profileApi.getStatsOverview().then((raw) => {
-        const s = profileCore.mapStats(raw);
-        if (!s) return;
-        this.setData({
-          'stats.wordsLearned': s.wordsLearned,
-          'stats.bestPronunciation': s.bestPronunciation
-        });
-      }),
-      get('/api/streak', null, { showError: false }).then((body) => {
-        if (body && body.success && body.data) {
-          this.setData({ 'stats.streakDays': body.data.streakDays || 0 });
+      profileApi.getStatsOverview().then((stats) => {
+        if (!stats || !current()) return;
+        const patch = {};
+        if (Number.isInteger(stats.wordsLearned)) patch['stats.wordsLearned'] = stats.wordsLearned;
+        if (Number.isInteger(stats.savedSentenceCount)) patch['stats.savedSentenceCount'] = stats.savedSentenceCount;
+        const seconds = stats.totalListeningSeconds;
+        if (Number.isInteger(seconds) && seconds >= 0) {
+          const showSeconds = seconds > 0 && seconds < 60;
+          patch['stats.listeningTime'] = showSeconds ? seconds : Math.floor(seconds / 60);
+          patch['stats.listeningUnit'] = showSeconds ? '秒' : '分钟';
         }
+        if (Object.keys(patch).length) this.setData(patch);
+      }),
+      profileApi.getStreakStatus().then((streak) => {
+        if (current()) this.setData({ 'stats.streakDays': streak.streakDays });
       }),
     ].map((p) => p.catch(() => { /* 静默：看板单项失败保持旧值 */ }));
-    this.setData({ 'stats.shadowingClips': countPracticedClips() });
     return Promise.all(remote);
   },
 

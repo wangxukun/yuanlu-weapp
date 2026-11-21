@@ -88,7 +88,7 @@
               <text class="pf-badge-heading-title">学习成就馆 · 全息炫光勋章墙</text>
               <text wx:if="{{medals.length}}" class="pf-badge-count">已点亮 {{litCount}}/{{medals.length}}</text>
             </view>
-            <text wx:if="{{medalStats}}" class="pf-badge-summary">连胜 {{medalStats.streakDays}} 天 · 生词 {{medalStats.wordsLearned}} 词 · 85 分及以上 {{medalStats.speechHighScoreCount}} 次</text>
+            <text wx:if="{{medalStats}}" class="pf-badge-summary">{{medalStats.streakDays == null ? '连胜天数待更新' : '连胜 ' + medalStats.streakDays + ' 天'}}{{medalStats.wordsLearned == null ? '' : ' · 生词 ' + medalStats.wordsLearned + ' 词'}}{{medalStats.speechHighScoreCount == null ? '' : ' · 85 分及以上 ' + medalStats.speechHighScoreCount + ' 次'}}</text>
           </view>
         </view>
 
@@ -98,13 +98,11 @@
         </view>
         <view wx:if="{{medalsError}}" class="pf-badge-state">{{medalsError}}</view>
 
-        <scroll-view wx:if="{{medals.length}}" scroll-x class="pf-badge-filter-scroll">
-          <view class="pf-badge-filters">
+        <view wx:if="{{medals.length}}" class="pf-badge-filters">
             <button wx:for="{{medalFilters}}" wx:key="key"
                     class="pf-badge-filter {{medalDimension === item.key ? 'pf-badge-filter-active' : ''}}"
                     data-key="{{item.key}}" bindtap="onMedalFilter">{{item.label}}</button>
-          </view>
-        </scroll-view>
+        </view>
 
         <view wx:if="{{selectedMedal}}" class="pf-medal pf-medal-feature pf-medal-{{selectedMedal.color}}">
           <view class="pf-medal-glare"></view>
@@ -125,7 +123,7 @@
             </view>
             <view class="pf-medal-details">
               <text class="pf-medal-description">{{selectedMedal.description}}</text>
-              <view class="pf-medal-progress"><view style="width: {{selectedMedal.progress}}%;"></view></view>
+              <view wx:if="{{selectedMedal.unlocked || selectedMedal.progressText}}" class="pf-medal-progress"><view style="width: {{selectedMedal.progress}}%;"></view></view>
               <view class="pf-medal-foot">
                 <text wx:if="{{selectedMedal.progressText}}">当前进度 {{selectedMedal.progressText}}</text>
                 <text class="pf-medal-status">{{selectedMedal.status}}</text>
@@ -147,7 +145,7 @@
               <text wx:if="{{item.metric}}" class="pf-medal-metric">{{item.metric}}</text>
               <text class="pf-medal-title">{{item.title}}</text>
               <text class="pf-medal-caption">{{item.description}}</text>
-              <view class="pf-medal-progress"><view style="width: {{item.progress}}%;"></view></view>
+              <view wx:if="{{item.unlocked || item.progressText}}" class="pf-medal-progress"><view style="width: {{item.progress}}%;"></view></view>
               <view class="pf-medal-foot">
                 <text>{{item.unlocked ? '已点亮' : '冲刺中'}}</text>
                 <text>{{item.unlocked || item.progressText ? item.progress + '%' : '—'}}</text>

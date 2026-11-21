@@ -18,6 +18,8 @@ const storage = new Map();
 const uploads = [];
 let now = 0; // 可控时钟
 
+Date.now = () => now;
+
 global.wx = {
   getStorageSync: (k) => (storage.has(k) ? storage.get(k) : ''),
   setStorageSync: (k, v) => storage.set(k, v),
@@ -42,10 +44,12 @@ global.clearInterval = (id) => { if (timers[id]) timers[id].dead = true; };
 function advance(ms) {
   const ticks = Math.floor(ms / 1000); // 心跳 1s/次；advance(29999)=29 次防满批
   for (let t = 0; t < ticks; t += 1) {
+    now += 1000;
     timers.forEach((tm) => {
       if (!tm.dead && tm.type === 'i') tm.fn();
     });
   }
+  now += ms % 1000;
 }
 
 let passed = 0, failed = 0;
@@ -83,6 +87,15 @@ const reporter = require('../utils/listening-reporter');
   ok(uploadsFor().length === 4 && uploadsFor()[2].data.seconds === 30 && uploadsFor()[3].data.seconds === 30,
     '连续播放 65s → 两整批（余 5s 未报）：实际 ' + JSON.stringify(uploadsFor().map((u) => u.data.seconds)));
 
+  reporter._reset(); uploads.length = 0; timers.length = 0;
+  for (let i = 0; i < 2; i++) {
+    reporter.onPlaybackState(true);
+    advance(600);
+    reporter.onPlaybackState(false);
+    advance(5000);
+  }
+  ok(uploadsFor().length === 1 && uploadsFor()[0].data.seconds === 1, '短句累积毫秒，暂停间隔不计时');
+
   console.log('== 游客不计时 ==');
   reporter._reset(); uploads.length = 0; timers.length = 0;
   storage.delete('token');
@@ -108,8 +121,8 @@ const reporter = require('../utils/listening-reporter');
     'utils/audioManager.js 已退役（零后台整集播放内核）');
   // 新接线：精研页页内 clip-player 的 onPlayingChanged 翻转驱动心跳
   const intensiveSrc = fs.readFileSync(path.join(__dirname, '../pages/intensive-listening/index.js'), 'utf8');
-  ok(intensiveSrc.indexOf('listeningReporter.onPlaybackState(playing)') !== -1,
-    '精研页 _onPlayingChanged → onPlaybackState(playing)（起播计时/停止冲刷）');
+  ok(intensiveSrc.indexOf('onAudibleChange: (kind) => listeningReporter.onPlaybackState(!!kind)') !== -1,
+    '精研页按原生起播、缓冲和停止事件计时');
   ok(intensiveSrc.indexOf('this._player.stop()') !== -1,
     '页面卸载停止播放会话（联动冲刷余量）');
 

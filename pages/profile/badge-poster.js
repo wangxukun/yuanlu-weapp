@@ -51,10 +51,10 @@ function drawBadgePoster(canvas, themeKey, stats, medals) {
   ctx.globalAlpha = 1;
 
   const metrics = [
-    ['连续学习', stats ? stats.streakDays + ' 天' : '—'],
-    ['生词积累', stats ? stats.wordsLearned + ' 词' : '—'],
-    ['发音评测', stats ? stats.speechEvalCount + ' 次' : '—'],
-    ['85 分及以上', stats ? stats.speechHighScoreCount + ' 次' : '—'],
+    ['连续学习', stats && stats.streakDays != null ? stats.streakDays + ' 天' : '—'],
+    ['生词积累', stats && stats.wordsLearned != null ? stats.wordsLearned + ' 词' : '—'],
+    ['发音评测', stats && stats.speechEvalCount != null ? stats.speechEvalCount + ' 次' : '—'],
+    ['85 分及以上', stats && stats.speechHighScoreCount != null ? stats.speechHighScoreCount + ' 次' : '—'],
   ];
   metrics.forEach(([label, value], index) => {
     const x = 42 + index % 2 * 264;

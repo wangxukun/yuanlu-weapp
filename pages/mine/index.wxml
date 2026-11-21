@@ -30,7 +30,7 @@
   </view>
 
   <block wx:if="{{isLoggedIn}}">
-    <!-- 学习成果数据看板（1×4，复刻 B 工程 ProfileView：跟读连胜/复习单词/发音最高分/切片特训） -->
+    <!-- 当前账号的学习成果 -->
     <view class="card stats-card mt-4 row">
       <view class="stat col center flex-1">
         <view class="row center-v stat-value-row">
@@ -48,17 +48,17 @@
       </view>
       <view class="stat col center flex-1">
         <view class="row center-v stat-value-row">
-          <text class="stat-num">{{stats.bestPronunciation}}</text>
-          <text class="stat-unit">分</text>
+          <text class="stat-num">{{stats.savedSentenceCount}}</text>
+          <text class="stat-unit">句</text>
         </view>
-        <text class="stat-label">发音最高分</text>
+        <text class="stat-label">收藏句子</text>
       </view>
       <view class="stat col center flex-1">
         <view class="row center-v stat-value-row">
-          <text class="stat-num">{{stats.shadowingClips}}</text>
-          <text class="stat-unit">条</text>
+          <text class="stat-num">{{stats.listeningTime}}</text>
+          <text class="stat-unit">{{stats.listeningUnit}}</text>
         </view>
-        <text class="stat-label">切片特训</text>
+        <text class="stat-label">收听时长</text>
       </view>
     </view>
   </block>

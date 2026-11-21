@@ -197,6 +197,7 @@ Page({
     this._rate = presetDictate ? 0.8 : 1; // 听写降速 0.8 / 精读 1.0（深链预选含其中）
     this._audioUrl = ''; // 物理切片直链
     this._player = createClipPlayer({
+      onAudibleChange: (kind) => listeningReporter.onPlaybackState(!!kind),
       onPlaying: (k) => this._onPlayingChanged(!!k),
       onTick: (pos) => this._onTick(pos, this._playing),
       onEnded: () => this._onPlayingChanged(false),
@@ -204,6 +205,7 @@ Page({
     // 词块点读慢放坞（T4.1）：独立窗口播放器，与主播放器互停
     this._phraseSeq = null;
     this._phrasePlayer = createClipPlayer({
+      onAudibleChange: (kind) => listeningReporter.onPlaybackState(!!kind),
       onPlaying: (k) => this.setData({ phrasePlaying: k || '' }),
       onEnded: (k) => this._onPhraseEnded(k),
     });
@@ -218,8 +220,7 @@ Page({
     this._followSeq = (this._followSeq || 0) + 1; // 作废在途跟随测量回调
     if (this._unsubAuth) this._unsubAuth();
     if (this._toastTimer) clearTimeout(this._toastTimer);
-    // 页内播放会话随页面销毁结束（无跨页后台播放器；stop 会联动
-    // _onPlayingChanged(false) → listening-reporter 冲刷余量）
+    // 结束播放会话，同时上报剩余收听时间。
     if (this._player) this._player.stop();
     if (this._phrasePlayer) this._phrasePlayer.stop();
   },
@@ -416,7 +417,6 @@ Page({
   /** clip-player 播放态翻转 → 页面态同步 + 收听时长心跳 + 扫光预热/回落 */
   _onPlayingChanged(playing) {
     this._playing = playing;
-    listeningReporter.onPlaybackState(playing); // 打卡时长数据源（原全局播放器接线）
     if (playing === this.data.isPlaying) return;
     const patch = { isPlaying: playing };
     const idx = this.data.activeIndex;

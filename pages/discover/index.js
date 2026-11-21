@@ -30,6 +30,7 @@
 const theme = require('../../utils/theme');
 const authStore = require('../../store/authStore');
 const { get, post } = require('../../utils/request');
+const listeningReporter = require('../../utils/listening-reporter');
 const { createClipPlayer } = require('../../utils/clip-player');
 const { sentenceWindow } = require('../../utils/clip-window');
 const recorder = require('../../utils/recorder');
@@ -256,6 +257,7 @@ Page({
     this._player = createClipPlayer({
       // 循环重放路径 = stop→playUrl 重建，playing 瞬时 false→true 闪烁，
       // 120ms 去抖吞掉（真实暂停/播完的置 false 仅延迟 120ms，无感）
+      onAudibleChange: (kind) => listeningReporter.onPlaybackState(kind === 'reel'),
       onPlaying: (k) => {
         if (this._playingFalseTimer) {
           clearTimeout(this._playingFalseTimer);

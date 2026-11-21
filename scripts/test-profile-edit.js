@@ -152,6 +152,9 @@ const PROFILE_DTO = {
 };
 
 function serveAll(opts) {
+  if (opts.url.endsWith('/api/user/stats/goal-progress')) {
+    return respond(opts, 200, { todaySeconds: 301, weeklySeconds: 7199, weeklyWords: 20 });
+  }
   if (opts.method === 'GET' && opts.url.indexOf('/api/user/profile') >= 0) {
     return respond(opts, 200, PROFILE_DTO);
   }
@@ -225,6 +228,25 @@ function ok(cond, label) {
   ok(page.data.sliderActive === '#1f7a5c' && page.data.sliderTrack === '#e3ddcf', '浅色滑杆色（data 驱动）');
   page.onSwitchTab({ currentTarget: { dataset: { tab: 'goals' } } });
   ok(page.data.editTab === 'goals', '切到学习目标');
+  await settle();
+  ok(page.data.todayListenedMins === 5, '学习目标标签读取今日已同步收听时长');
+  ok(page.data.weekListeningText === '本周已听 119 / 120 分钟 · 还差 1 秒', '差一秒不提前完成');
+  page.onGoalSlide({ currentTarget: { dataset: { key: 'weeklyWordsGoal' } }, detail: { value: 20 } });
+  ok(page.data.weekWordsText === '本周新增 20 / 20 个生词 · 本周已完成', '调节生词目标独立预览达标');
+  requestHandler = opts => respond(opts, 200, { todaySeconds: 301, weeklySeconds: 7200, weeklyWords: 18 });
+  await page.loadGoalProgress();
+  ok(page.data.weekListeningText === '本周已听 120 / 120 分钟 · 本周已完成' &&
+    page.data.weekWordsText === '本周新增 18 / 20 个生词 · 还差 2 个', '满秒达标，生词仍差 2 个');
+  requestHandler = opts => respond(opts, 500, {});
+  await page.loadGoalProgress();
+  ok(page.data.progressState === 'error', '同步失败显示可重试状态');
+  requestHandler = opts => respond(opts, 200, { todaySeconds: 0, weeklySeconds: 0, weeklyWords: 0 });
+  await page.loadGoalProgress();
+  ok(page.data.progressState === 'ready' && page.data.weekListeningText === '本周已听 0 / 120 分钟 · 还差 120 分钟',
+    '重试后显示新周真实零进度');
+  requestHandler = serveAll;
+  page.onDailyPreset({ currentTarget: { dataset: { minutes: 60 } } });
+  ok(page.data.formDailyGoalMins === 60, '轻点预设可选择每天收听 60 分钟');
   page.onSwitchTab({ currentTarget: { dataset: { tab: 'goals' } } });
   ok(page.data.editTab === 'goals', '同 Tab 点击无操作');
   theme.setMode('dark');

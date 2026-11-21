@@ -58,8 +58,8 @@
 .pf-badge-action { background: rgba(217, 138, 23, 0.12); border-color: rgba(217, 138, 23, 0.22); }
 .pf-badge-action-poster { background: rgba(31, 122, 92, 0.12); border-color: rgba(31, 122, 92, 0.26); }
 .pf-badge-action[disabled], .pf-badge-filter[disabled] { opacity: 0.6; }
-.pf-badge-filter-scroll { margin: 23rpx 0 20rpx; white-space: nowrap; }
-.pf-badge-filters { display: inline-flex; align-items: center; gap: 8rpx; }
+.pf-badge-filters { display: flex; gap: 8rpx; margin: 23rpx 0 20rpx; }
+.pf-badge-filters .pf-badge-filter { flex: 1 1 0; min-width: 0; width: 0; padding: 0; box-sizing: border-box; }
 .pf-badge-filter { background: var(--page-bg); height: 52rpx; line-height: 50rpx; }
 .pf-badge-filter-active { background: #30251c; color: #fffbeb; }
 .pf-badge-wall-dark .pf-badge-filter-active, .theme-dark .pf-poster-themes .pf-badge-filter-active {

@@ -26,6 +26,7 @@ const audioBus = require('./audio-bus');
  * 创建一个私有播放器实例（组件/页面各持一个）。
  * @param {Object} [hooks]
  * @param {Function} [hooks.onPlaying] (kind|null) => void —— 播放态变化
+ * @param {Function} [hooks.onAudibleChange] (kind|null) => void —— 实际起播、缓冲与停止，用于收听计时
  * @param {Function} [hooks.onTick] (posSec) => void —— 50ms 位置回调（词级扫光用）
  * @param {Function} [hooks.onEnded] (kind) => void —— 自然到窗终/播完停止
  * @param {Function} [hooks.onError] (kind) => void —— 原生播放失败
@@ -44,6 +45,13 @@ function createClipPlayer(hooks) {
   let landingChecked = false;
   let lastReported = 0;
   let watchdog = null;
+
+  let audible = false;
+  function setAudible(value) {
+    if (audible === value) return;
+    audible = value;
+    if (cb.onAudibleChange) cb.onAudibleChange(value ? kind : null);
+  }
 
   function notifyPlaying(k) {
     if (typeof cb.onPlaying === 'function') {
@@ -103,12 +111,14 @@ function createClipPlayer(hooks) {
   function releaseAudio() {
     const ctx = audio;
     audio = null;
+    setAudible(false);
     clearWatchdog();
     if (ctx) {
       try {
         ctx.offCanplay(); ctx.offTimeUpdate(); ctx.offEnded(); ctx.offError();
         ctx.offPlay && ctx.offPlay();
         ctx.offWaiting && ctx.offWaiting();
+        ctx.offPause && ctx.offPause();
         ctx.offSeeked && ctx.offSeeked();
       } catch (e) { /* 低版本基础库 off* 缺失时忽略 */ }
       try { ctx.stop(); } catch (e) { /* 忽略 */ }
@@ -210,7 +220,11 @@ function createClipPlayer(hooks) {
     ctx.onPlay(() => {
       if (audio !== ctx) return;
       if (!anchorAt) anchorAt = Date.now();
+      if (!stalledAt) setAudible(true);
       syncRate(ctx);
+    });
+    ctx.onPause && ctx.onPause(() => {
+      if (audio === ctx) setAudible(false);
     });
     ctx.onSeeked && ctx.onSeeked(() => {
       if (audio === ctx && playRequested) syncRate(ctx);
@@ -243,6 +257,7 @@ function createClipPlayer(hooks) {
         anchorPos = reported;
         anchorAt = now;
       }
+      if (!stalledAt && reported > prevReported) setAudible(true);
       // 首帧落点纠偏（只做一次，零误报判据：比句首早 0.5s 以上才补 seek）
       if (!landingChecked) {
         landingChecked = true;
@@ -264,6 +279,7 @@ function createClipPlayer(hooks) {
       if (audio !== ctx || stalledAt) return;
       if (anchorAt) anchorPos = estimatedPos();
       stalledAt = Date.now();
+      setAudible(false);
     });
     ctx.onEnded(() => {
       if (audio !== ctx) return;

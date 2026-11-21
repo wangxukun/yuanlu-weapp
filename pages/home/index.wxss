@@ -3978,6 +3978,12 @@
   box-shadow: 0 8rpx 20rpx rgba(217, 138, 23, 0.35);
 }
 
+.st-sp-flame--pending {
+  filter: grayscale(1);
+  opacity: .55;
+  box-shadow: none;
+}
+
 .st-sp-flame-ic {
   font-size: 36rpx;
   line-height: 1;
@@ -4032,6 +4038,8 @@
 }
 
 .st-sp-days-lead {
+  display: block;
+  margin-top: 12rpx;
   font-size: 20rpx;
   font-weight: 700;
   color: var(--color-primary);
@@ -4044,6 +4052,11 @@
   background: linear-gradient(100deg, #f59e0b, #f97316);
   box-shadow: 0 6rpx 16rpx rgba(217, 138, 23, 0.3);
   flex-shrink: 0;
+}
+
+.st-sp-ignite--pending {
+  background: var(--text-secondary);
+  box-shadow: none;
 }
 
 .st-sp-ignite--on {

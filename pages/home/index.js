@@ -471,6 +471,10 @@ Page({
     if (this.data.dashboardStatus !== 'ready') return this.onDashboardRetry();
     if (this.data.streakSubmitting) return;
     if (!this._shadowToken()) return this._promptLogin('登录后点亮今日连胜');
+    if (!this.data.streakGoal) {
+      this._loadWeappStreak();
+      return wx.showToast({ title: '每日目标暂未同步，请稍后重试', icon: 'none' });
+    }
     this.setData({ streakSubmitting: true });
     post('/api/streak/ignite', {}, { showError: false })
       .then((body) => {
@@ -481,13 +485,18 @@ Page({
         if (body.data.justIgnited) this._streakCelebrate(false);
         else this._streakCheer('✨ 连胜能量满格！你已坚持连续 ' + body.data.streakDays + ' 天原声输入，保持这份热忱！');
       })
-      .catch((err) => wx.showToast({ title: err.message || '点亮失败，请重试', icon: 'none' }))
+      .catch((err) => {
+        this._loadWeappStreak();
+        wx.showToast({ title: err.message || '点亮失败，请重试', icon: 'none' });
+      })
       .then(() => this.setData({ streakSubmitting: false }));
   },
 
   /** 服务端连胜状态回填（ignite/GET 共用；week 真实 7 日链一并刷新） */
   _applyStreakData(d) {
+    this._streakReadSeq = (this._streakReadSeq || 0) + 1;
     this.setData({
+      streakGoal: d.dailyGoal || null,
       streakDays: d.streakDays || 0,
       streakIgnited: !!d.ignitedToday,
       streakPercentile: d.percentile || 0,
@@ -499,7 +508,7 @@ Page({
   /** 跟读开口自动验收（SPEECH 通道）：评测成功后携 recognitionId 点灯，
    *  失败静默（不影响评测主流程）；今日已点亮则不重复涨天（服务端幂等）。 */
   _igniteStreakBySpeech(recognitionId) {
-    if (!this._shadowToken() || !recognitionId) return;
+    if (!this._shadowToken() || !recognitionId || !this.data.streakGoal) return;
     post('/api/streak/ignite', { recognitionId }, { showError: false })
       .then((body) => {
         if (!body || !body.success || !body.data) return;

@@ -141,13 +141,17 @@ Page({
     if (this.data.medalsLoading) return;
     this.setData({ medalsLoading: true, medalsError: '' });
     try {
-      const [raw, stats] = await Promise.all([
+      const [raw, streak, stats] = await Promise.all([
         api.getAchievements(),
+        api.getStreakStatus().catch(() => null),
         api.getStatsOverview().then(core.mapStats).catch(() => null),
       ]);
       if (!Array.isArray(raw)) throw new Error('Bad achievements response');
       if (this._unloaded || !authStore.getState().isLoggedIn) return;
-      const medalStats = stats || this.data.medalStats;
+      const previous = this.data.medalStats;
+      const medalStats = stats || previous || streak ? {
+        ...(stats || previous), streakDays: streak ? streak.streakDays : previous && previous.streakDays,
+      } : null;
       const achievements = core.mapAchievements(raw);
       const medals = buildMedals(achievements.items, medalStats);
       const selected = this.data.selectedMedal;

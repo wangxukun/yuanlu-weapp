@@ -131,8 +131,9 @@ const ACH_DTO = [
 ];
 
 function serveAll(opts) {
+  if (opts.url.endsWith('/api/streak')) return respond(opts, 200, { success: true, data: { streakDays: 4 } });
   if (opts.url.indexOf('/api/user/profile') >= 0) return respond(opts, 200, PROFILE_DTO);
-  if (opts.url.indexOf('/api/user/stats/overview') >= 0) return respond(opts, 200, STATS_DTO);
+  if (opts.url.indexOf('/api/user/stats/overview') >= 0) return respond(opts, 200, { ...STATS_DTO, streakDays: 0 });
   if (opts.url.indexOf('/api/user/achievements') >= 0) return respond(opts, 200, ACH_DTO);
   respond(opts, 404, { error: 'not found' });
 }
@@ -176,7 +177,7 @@ function ok(cond, label) {
   await settle();
 
   ok(page.data.isLoading === false && page.data.needLogin === false, '首载完成退出骨架态');
-  ok(calls.request.length === 3 && ['/profile', '/stats/overview', '/achievements'].every((suffix) =>
+  ok(calls.request.length === 4 && ['/profile', '/stats/overview', '/achievements', '/streak'].every((suffix) =>
     calls.request.some((req) => req.url.endsWith(suffix))), '只拉取资料、里程统计和成就');
   const vm = page.data.profile;
   ok(vm && vm.displayName === '远路漫漫' && vm.levelLabel === '初级', 'mapProfile 展平：昵称/等级');
@@ -184,6 +185,12 @@ function ok(cond, label) {
   ok(vm.phoneMasked === '138****8000' && vm.hasPhone === true, '安全派生随卡就绪');
   ok(vm.joinDateText.length === 10 && /^\d{4}\/\d{2}\/\d{2}$/.test(vm.joinDateText), '加入日期 yyyy/MM/dd');
   ok(page.data.medalStats.streakDays === 4 && page.data.medalStats.speechHighScoreCount === 3, '勋章使用服务端统计');
+  ok(calls.request.find(req => req.url.endsWith('/achievements')).data.platform === 'weapp',
+    '勋章解锁与进度请求使用同一小程序连胜口径');
+  const { buildMedals } = require('../pages/profile/badge-wall');
+  const [seven] = buildMedals([{ key: 'STREAK_7', name: '七连胜' }], page.data.medalStats);
+  ok(seven.progress === 57 && seven.progressText === '4 / 7 天', '七日勋章展示 4 天和 57% 进度');
+  ok(!buildMedals([{ key: 'STREAK_7' }], {})[0].progressText, '缺少连胜字段时不显示虚假的零天');
   ok(page.data.litCount === 1 && page.data.shownMedals.length === 3, '全部徽章包含未解锁成就');
   ok(page.data.tabs.map((tab) => tab.label).join(',') === '勋章墙,账号与安全', '个人中心标签为勋章墙与账号安全');
   ok(page.data.activeTab === 'badges', '默认显示勋章墙');
@@ -209,7 +216,7 @@ function ok(cond, label) {
   calls.request.length = 0;
   page.onShow();
   await settle();
-  ok(calls.request.length === 3, 'profileDirty → 静默重拉三源');
+  ok(calls.request.length === 4, 'profileDirty → 静默重拉三源');
   ok(page.data.isLoading !== true, '静默刷新不回骨架态');
 
   /* ---------- 4. Tab 切换 ---------- */
@@ -239,7 +246,7 @@ function ok(cond, label) {
   };
   const refresh = page.onRefreshMedals();
   page.onRefreshMedals();
-  ok(calls.request.length - requestsBefore === 2 && page.data.medalsLoading, '刷新取统计和成就，进行中重复点击不会再发请求');
+  ok(calls.request.length - requestsBefore === 3 && page.data.medalsLoading, '刷新取统计和成就，进行中重复点击不会再发请求');
   respond(respondAchievements, 503, { error: 'unavailable' });
   await refresh;
   ok(page.data.medals.length === 3 && !!page.data.medalsError, '刷新失败保留上次勋章并提示重试');
@@ -385,7 +392,7 @@ function ok(cond, label) {
   calls.stopPull = 0;
   page.onPullDownRefresh();
   await settle();
-  ok(calls.request.length === 3 && calls.stopPull === 1, '下拉刷新重拉三源 + stopPullDownRefresh');
+  ok(calls.request.length === 4 && calls.stopPull === 1, '下拉刷新重拉三源 + stopPullDownRefresh');
 
   /* ---------- 7. profile 404 → 兜底合成 ---------- */
   console.log('== profile 404 兜底 ==');

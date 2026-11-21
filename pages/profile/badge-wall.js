@@ -31,7 +31,7 @@ function buildMedals(items, stats) {
     const order = FEATURED.indexOf(item.key);
     const rule = RULES.find((candidate) => candidate.key.test(item.key));
     const design = DESIGNS[FEATURED_DESIGNS[order] || (rule ? rule.design : 'star')];
-    const current = rule && stats ? Math.max(0, Number(stats[rule.field]) || 0) : null;
+    const current = rule && stats && stats[rule.field] != null ? Math.max(0, Number(stats[rule.field]) || 0) : null;
     const target = rule ? Number(item.key.match(rule.key)[1]) : 0;
     const percent = item.unlocked ? 100 : current == null ? 0 : Math.min(100, Math.floor(current / target * 100));
     const earnedDate = (item.unlockedAt || '').match(/^\d{4}-\d{2}-\d{2}/);

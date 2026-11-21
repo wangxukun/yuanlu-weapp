@@ -101,16 +101,24 @@
         <!-- 提示横幅（Web alert + FireIcon） -->
         <view class="edit-banner row">
           <image class="edit-banner-icon" src="/assets/icons/local-fire-department-accent.svg" mode="aspectFit" />
-          <text class="edit-banner-text">设定合理的每日目标有助于保持连胜纪录！</text>
+          <text class="edit-banner-text">每天在原声微流或精研中累计收听达标后，即可点亮今日火苗。目标保存后生效，每天按北京时间重新累计。</text>
         </view>
 
         <!-- 三组滑杆（值胶囊 + slider + 三段刻度） -->
         <view class="edit-goal" wx:for="{{goalSliders}}" wx:key="key">
+          <view wx:if="{{index === 1}}" class="goal-week-title">每周计划<text class="goal-note">按北京时间周一至周日累计。调整目标可预览进度，保存后生效。</text>
+            <text wx:if="{{progressState === 'loading'}}" class="goal-note">正在同步本周进度…</text>
+            <button wx:elif="{{progressState === 'error'}}" class="goal-retry" size="mini" bindtap="loadGoalProgress">进度未同步，点击重试</button>
+          </view>
           <view class="row between edit-goal-head">
             <view class="edit-goal-title">{{item.title}}</view>
             <view wx:if="{{item.key === 'dailyStudyGoalMins'}}" class="edit-goal-pill">{{formDailyGoalMins}} 分钟</view>
             <view wx:elif="{{item.key === 'weeklyListeningGoalHours'}}" class="edit-goal-pill">{{formWeeklyHours}} 小时</view>
             <view wx:else class="edit-goal-pill">{{formWeeklyWords}} 个</view>
+          </view>
+          <view wx:if="{{index === 0}}" class="goal-presets">
+            <button wx:for="{{dailyPresets}}" wx:for-item="mins" wx:key="*this" data-minutes="{{mins}}"
+                    class="goal-preset {{formDailyGoalMins === mins ? 'selected' : ''}}" bindtap="onDailyPreset">{{mins}} 分钟</button>
           </view>
           <slider
             class="edit-slider"
@@ -127,9 +135,10 @@
           />
           <view class="edit-ticks row between">
             <view class="edit-tick">{{item.minLabel}}</view>
-            <view class="edit-tick">{{item.midLabel}}</view>
             <view class="edit-tick">{{item.maxLabel}}</view>
           </view>
+          <text wx:if="{{index === 0 && todayListenedMins != null}}" class="goal-note">今日已收听 {{todayListenedMins}} 分钟 · {{todayListenedMins >= formDailyGoalMins ? '已达到所选目标' : '距所选目标还差 ' + (formDailyGoalMins - todayListenedMins) + ' 分钟'}}</text>
+          <text wx:if="{{index > 0 && progressState === 'ready'}}" class="goal-note">{{item.key === 'weeklyListeningGoalHours' ? weekListeningText : weekWordsText}}</text>
         </view>
       </block>
 

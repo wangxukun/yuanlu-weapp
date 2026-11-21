@@ -34,7 +34,7 @@ function emptyData() {
   return {
     dashboardStatus: 'guest', dashboardMessage: '登录后查看真实学习进度',
     // 连胜 = 小程序跟读开口口径（GET /api/streak），与网站收听打卡分离
-    streakDays: 0, streakIgnited: false, streakPercentile: 0,
+    streakGoal: null, streakDays: 0, streakIgnited: false, streakPercentile: 0,
     streakBadge: '🌱 从今天开始积累',
     streakMilestone: 14, streakRemain: 14, streakProgress: 0,
     streakWeek: defaultStreakWeek(), streakSubmitting: false,
@@ -117,13 +117,15 @@ const methods = {
     if (this._dashboardDisposed) return;
     const token = this._dashboardAuthToken();
     if (!token) return; // 未登录不发请求（401 会全局 toast）
-    get('/api/streak', null, { showError: false })
+    const seq = this._streakReadSeq = (this._streakReadSeq || 0) + 1;
+    return get('/api/streak', null, { showError: false })
       .then((body) => {
-        if (this._dashboardDisposed || token !== this._dashboardAuthToken()) return;
+        if (this._dashboardDisposed || seq !== this._streakReadSeq || token !== this._dashboardAuthToken()) return;
         if (!body || !body.success || !body.data) throw new Error('streak unavailable');
         const week = Array.isArray(body.data.week) && body.data.week.length === 7
           ? body.data.week : this.data.streakWeek;
         this.setData({
+          streakGoal: body.data.dailyGoal || null,
           streakDays: body.data.streakDays || 0,
           streakIgnited: !!body.data.ignitedToday,
           streakPercentile: body.data.percentile || 0,

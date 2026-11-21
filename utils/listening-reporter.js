@@ -19,16 +19,13 @@ const BATCH_SECONDS = 30;
 const TAG = '[listening-reporter]';
 
 let started = false;
-let loggedIn = false;
-let unsentSeconds = 0;   // 未上报的累计秒数（Web unsentSecondsRef）
-let tickTimer = null;    // 1s 心跳句柄
+let token = '';
+let pendingMs = 0;
+let lastTick = null;
+let tickTimer = null;
 
-function hasToken() {
-  try {
-    return !!wx.getStorageSync('token');
-  } catch (e) {
-    return false;
-  }
+function currentToken() {
+  try { return wx.getStorageSync('token') || ''; } catch (e) { return ''; }
 }
 
 function upload(seconds) {
@@ -41,73 +38,59 @@ function upload(seconds) {
     ));
 }
 
-/** 冲刷未满批次余量（暂停/停止/关闭时；0 为 no-op） */
+function accountElapsed() {
+  const current = currentToken();
+  const now = Date.now();
+  if (current !== token) {
+    pendingMs = 0;
+    token = current;
+  } else if (token && lastTick !== null) {
+    pendingMs += Math.max(0, now - lastTick);
+  }
+  lastTick = now;
+}
+
+function sendWholeSeconds() {
+  const seconds = Math.floor(pendingMs / 1000);
+  if (!seconds) return;
+  pendingMs -= seconds * 1000;
+  upload(seconds);
+}
+
 function flush() {
-  if (unsentSeconds > 0) {
-    const seconds = unsentSeconds;
-    unsentSeconds = 0;
-    console.log(TAG, '冲刷未满批次余量：', seconds + 's');
-    upload(seconds);
-  }
+  if (tickTimer !== null) accountElapsed();
+  sendWholeSeconds();
 }
 
-function startTicker() {
-  if (tickTimer !== null) return;
-  tickTimer = setInterval(() => {
-    unsentSeconds += 1;
-    if (unsentSeconds >= BATCH_SECONDS) {
-      const seconds = unsentSeconds;
-      unsentSeconds = 0;
-      upload(seconds);
-    }
-  }, 1000);
-}
-
-function stopTicker() {
-  if (tickTimer !== null) {
-    // 句柄可为 0（falsy），必须严格判 null——否则暂停分支永不清理定时器
-    clearInterval(tickTimer);
-    tickTimer = null;
-  }
-}
-
-/**
- * 播放状态入口（播放内核在起播/停止时调用；现为精研页页内 clip-player 接线）：
- * 播放中且登录 → 计时；否则停止计时并冲刷余量（登出/游客态余量丢弃）。
- */
 function onPlaybackState(isPlaying) {
-  const token = hasToken();
-  if (token !== loggedIn) {
-    loggedIn = token;
-    console.log(TAG, '登录态变更：loggedIn=' + loggedIn);
-  }
-  if (isPlaying && loggedIn) {
-    startTicker();
+  accountElapsed();
+  if (isPlaying && token) {
+    if (tickTimer !== null) return;
+    tickTimer = setInterval(() => {
+      accountElapsed();
+      if (pendingMs >= BATCH_SECONDS * 1000) sendWholeSeconds();
+    }, 1000);
   } else {
-    const wasTicking = tickTimer !== null;
-    stopTicker();
-    if (loggedIn && (wasTicking || unsentSeconds > 0)) {
-      flush(); // 暂停/停止/关闭播放器：冲刷余量
-    } else if (unsentSeconds > 0) {
-      console.warn(TAG, '非登录态丢弃未上报秒数：', unsentSeconds + 's');
-      unsentSeconds = 0;
-    }
+    if (tickTimer !== null) clearInterval(tickTimer);
+    tickTimer = null;
+    lastTick = null;
+    sendWholeSeconds();
   }
 }
 
-/** App onLaunch 启动（幂等） */
 function start() {
   if (started) return;
   started = true;
-  loggedIn = hasToken();
+  token = currentToken();
 }
 
-/** 单测隔离 */
 function _reset() {
-  stopTicker();
-  unsentSeconds = 0;
-  loggedIn = false;
   started = false;
+  if (tickTimer !== null) clearInterval(tickTimer);
+  tickTimer = null;
+  pendingMs = 0;
+  lastTick = null;
+  token = '';
 }
 
 module.exports = { start, onPlaybackState, flush, _reset, BATCH_SECONDS };

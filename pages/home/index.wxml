@@ -56,7 +56,7 @@
       <view class="st-sp-body">
         <view class="st-sp-top">
           <view class="st-sp-left">
-            <view class="st-sp-flame"><text class="st-sp-flame-ic">🔥</text></view>
+            <view class="st-sp-flame {{streakIgnited ? '' : 'st-sp-flame--pending'}}"><text class="st-sp-flame-ic">🔥</text></view>
             <view class="st-sp-info">
               <view class="st-sp-namerow">
                 <text class="st-sp-name">每日学习连胜</text>
@@ -65,14 +65,15 @@
               <view class="st-sp-days">
                 <text class="st-sp-days-n">{{dashboardStatus === 'ready' ? streakDays : '—'}}</text>
                 <text class="st-sp-days-u">天连续打卡</text>
-                <text class="st-sp-days-lead">{{dashboardStatus === 'ready' ? '• 领先全站 ' + streakPercentile + '% 语伴' : '• 开口跟读即自动点亮'}}</text>
               </view>
             </view>
           </view>
-          <view class="st-sp-ignite {{streakIgnited ? 'st-sp-ignite--on' : ''}}" catchtap="onStreakTap">
-            <text class="st-sp-ignite-text">🔥 {{streakIgnited ? '今日已点亮' : '点亮今日连胜'}}</text>
+          <view class="st-sp-ignite {{streakIgnited ? 'st-sp-ignite--on' : streakGoal && !streakGoal.remainingMinutes ? '' : 'st-sp-ignite--pending'}}" catchtap="onStreakTap">
+            <text class="st-sp-ignite-text">{{streakIgnited ? '今日已点亮' : streakGoal && streakGoal.remainingMinutes ? '目标待完成' : '点亮今日连胜'}}</text>
           </view>
         </view>
+
+        <text wx:if="{{dashboardStatus === 'ready'}}" class="st-sp-days-lead">{{streakIgnited ? '今日火苗已点亮' : streakGoal ? (streakGoal.remainingMinutes ? '今日收听目标 ' + streakGoal.minutes + ' 分钟 · 还差 ' + streakGoal.remainingMinutes + ' 分钟' : '今日收听目标已达成') : '收听达标后可点亮'}}</text>
 
         <!-- 7 日连胜火苗链：真实最近 7 天（真星期标签 + 当日有点亮才燃） -->
         <view wx:if="{{dashboardStatus === 'ready'}}" class="st-sp-week">

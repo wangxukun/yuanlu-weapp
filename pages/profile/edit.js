@@ -27,9 +27,9 @@ const api = require('../../utils/api/profile');
 
 /** 滑杆三组定义（min/max/步进/文案——GoalSlider 调用处口径钉死） */
 const GOAL_SLIDERS = [
-  { key: 'dailyStudyGoalMins', title: '每日学习时长目标', unit: ' 分钟', min: 10, max: 120, step: 5, minLabel: '10m', midLabel: '60m', maxLabel: '120m' },
-  { key: 'weeklyListeningGoalHours', title: '每周收听目标', unit: ' 小时', min: 1, max: 20, step: 1, minLabel: '1h', midLabel: '10h', maxLabel: '20h' },
-  { key: 'weeklyWordsGoal', title: '每周单词目标', unit: ' 个', min: 10, max: 200, step: 5, minLabel: '10', midLabel: '100', maxLabel: '200' },
+  { key: 'dailyStudyGoalMins', title: '每日原声收听', unit: ' 分钟', min: 10, max: 120, step: 5, minLabel: '10 分钟', maxLabel: '120 分钟' },
+  { key: 'weeklyListeningGoalHours', title: '每周收听目标', unit: ' 小时', min: 1, max: 20, step: 1, minLabel: '1 小时', maxLabel: '20 小时' },
+  { key: 'weeklyWordsGoal', title: '每周单词目标', unit: ' 个', min: 10, max: 200, step: 5, minLabel: '10 个', maxLabel: '200 个' },
 ];
 
 Page({
@@ -60,6 +60,11 @@ Page({
     bioError: '',
     levelChips: core.LEARN_LEVELS,
     goalSliders: GOAL_SLIDERS,
+    dailyPresets: [10, 20, 30, 60],
+    todayListenedMins: null,
+    progressState: 'loading',
+    weekListeningText: '',
+    weekWordsText: '',
     isSaving: false,
     // ---- 裁剪画布（隐藏，算术定寸） ----
     cropW: 0,
@@ -67,6 +72,7 @@ Page({
   },
 
   onLoad() {
+    this._progressRequest = 0;
     try {
       const win = wx.getSystemInfoSync();
       this.setData({ statusBarH: (win && win.statusBarHeight) || 20 });
@@ -90,9 +96,11 @@ Page({
       sliderTrack: dark ? '#38332a' : '#e3ddcf',
     });
     theme.applyChrome();
+    if (this.data.editTab === 'goals') this.loadGoalProgress();
   },
 
   onUnload() {
+    this._progressRequest++;
     if (wx.offKeyboardHeightChange && this._onKb) wx.offKeyboardHeightChange(this._onKb);
   },
 
@@ -113,7 +121,7 @@ Page({
 
   initForm(vm) {
     const httpAvatar = !!(vm.avatarUrl && vm.avatarUrl.indexOf('http') === 0);
-    this.setData({
+    this.setGoalData({
       loading: false,
       loadError: false,
       formNickname: vm.nickname || '',
@@ -142,7 +150,43 @@ Page({
 
   onSwitchTab(e) {
     const tab = e.currentTarget.dataset.tab === 'goals' ? 'goals' : 'profile';
+    if (tab === this.data.editTab) return;
     this.setData({ editTab: tab });
+    if (tab === 'goals') this.loadGoalProgress();
+  },
+
+  async loadGoalProgress() {
+    const request = ++this._progressRequest;
+    this._activity = null;
+    this.setData({ progressState: 'loading', todayListenedMins: null });
+    try {
+      const activity = await api.getGoalProgress();
+      if (request !== this._progressRequest) return;
+      this._activity = activity;
+      this.setGoalData({ progressState: 'ready', todayListenedMins: Math.floor(activity.todaySeconds / 60) });
+    } catch (err) {
+      if (request === this._progressRequest) this.setData({ progressState: 'error' });
+    }
+  },
+
+  setGoalData(patch) {
+    if (this._activity) {
+      const { weeklySeconds, weeklyWords } = this._activity;
+      const targetMinutes = (patch.formWeeklyHours || this.data.formWeeklyHours) * 60;
+      const targetWords = patch.formWeeklyWords || this.data.formWeeklyWords;
+      const secondsLeft = targetMinutes * 60 - weeklySeconds;
+      const listeningStatus = secondsLeft <= 0 ? '本周已完成' :
+        secondsLeft < 60 ? '还差 ' + secondsLeft + ' 秒' : '还差 ' + Math.ceil(secondsLeft / 60) + ' 分钟';
+      const wordsStatus = weeklyWords >= targetWords ? '本周已完成' : '还差 ' + (targetWords - weeklyWords) + ' 个';
+      patch.weekListeningText = '本周已听 ' + Math.floor(weeklySeconds / 60) + ' / ' + targetMinutes + ' 分钟 · ' + listeningStatus;
+      patch.weekWordsText = '本周新增 ' + weeklyWords + ' / ' + targetWords + ' 个生词 · ' + wordsStatus;
+    }
+    this.setData(patch);
+  },
+
+  onDailyPreset(e) {
+    const minutes = Number(e.currentTarget.dataset.minutes);
+    if (this.data.dailyPresets.includes(minutes)) this.setData({ formDailyGoalMins: minutes });
   },
 
   // ==================== 表单输入 ====================
@@ -177,7 +221,7 @@ Page({
       key === 'weeklyListeningGoalHours' ? 'formWeeklyHours' : 'formWeeklyWords';
     const patch = {};
     patch[field] = this.clampGoal(def, e.detail.value, def.min);
-    this.setData(patch);
+    this.setGoalData(patch);
   },
 
   // ==================== 头像选择与裁剪 ====================

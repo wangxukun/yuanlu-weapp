@@ -658,12 +658,10 @@ function bodies(method, p) {
     assert(WXML_MINE.indexOf('发音弱项本') < 0 && WXML_MINE.indexOf('>个人中心<') < 0,
       '需求红线：我的页不含「发音弱项本」「个人中心」菜单项');
     assert(WXML_MINE.indexOf('{{themeLabel}}') >= 0, '外观设置尾值绑定（跟随系统/浅色/深色）');
-    ['stats.streakDays', 'stats.wordsLearned', 'stats.bestPronunciation', 'stats.shadowingClips']
+    ['stats.streakDays', 'stats.wordsLearned', 'stats.savedSentenceCount', 'stats.listeningTime', 'stats.listeningUnit']
       .forEach((k) => assert(WXML_MINE.indexOf('{{' + k + '}}') >= 0, '学习成果四宫格绑定 ' + k));
-    assert(WXML_MINE.indexOf('收听分钟') < 0 && WXML_MINE.indexOf('收藏句子') < 0,
-      '旧四宫格（收听分钟/收藏句子）已退役');
-    assert(WXML_MINE.indexOf('跟读连胜') >= 0 && WXML_MINE.indexOf('发音最高分') >= 0 &&
-      WXML_MINE.indexOf('切片特训') >= 0, 'B 工程四宫格标签就位（跟读连胜/发音最高分/切片特训）');
+    assert(WXML_MINE.includes('>收藏句子<') && WXML_MINE.includes('>收听时长<') &&
+      !WXML_MINE.includes('发音最高分') && !WXML_MINE.includes('切片特训'), '显示收藏句子与收听时长');
     assert(WXML_MINE.indexOf('战报海报') < 0 && WXML_MINE.indexOf('poster-card') < 0,
       '战报海报卡已删（2026-11-21 用户批注）');
 
@@ -917,17 +915,12 @@ function bodies(method, p) {
     assert(toasts.length === 0, '占位 toast「订阅功能即将上线」已退役');
   }
 
-  section('十八 B、学习成果四宫格数据装载（B 工程口径迁移）');
+  section('十八 B、学习成果四宫格数据装载');
   {
     resetMock();
     authStore.setState({ isLoggedIn: true, token: 'T', userInfo: { role: 'USER' } });
-    // 今日挑战 90 天流水：3 句已练（1 句重复练习去重）+ 1 句仅下发未练
-    storage.set('studio_daily_history_v2', [
-      { key: '["ep1",1]', practicedOn: '2026-11-20' },
-      { key: '["ep1",1]', practicedOn: '2026-11-21' },
-      { key: '["ep2",5]', practicedOn: '2026-11-19' },
-      { key: '["ep3",9]', servedOn: '2026-11-21' },
-    ]);
+    let totalListeningSeconds = 9119;
+    let savedSentenceCount = 9;
     let hit = 0;
     requestHandler = (opts) => {
       hit++;
@@ -936,7 +929,7 @@ function bodies(method, p) {
       } else if (opts.url.indexOf('/api/user/stats/overview') >= 0) {
         // overview 路由返回裸 stats 对象（无 success 包装，mapStats 直读）
         opts.success({ statusCode: 200, data: {
-          totalHours: 2.5, streakDays: 99, wordsLearned: 12, bestPronunciation: 93,
+          totalHours: 2.5, streakDays: 99, wordsLearned: 12, totalListeningSeconds, savedSentenceCount,
         } });
       } else {
         opts.success({ statusCode: 200, data: { success: true, data: {} } });
@@ -948,10 +941,11 @@ function bodies(method, p) {
     await tick();
     assert(page.data.stats.streakDays === 7, '跟读连胜取 /api/streak 跟读开口口径（非 overview 收听口径 99）');
     assert(page.data.stats.wordsLearned === 12, '复习单词 = overview.wordsLearned');
-    assert(page.data.stats.bestPronunciation === 93, '发音最高分 = overview.bestPronunciation');
-    assert(page.data.stats.shadowingClips === 2, '切片特训 = 本地流水已练去重条数（3 练 1 重）');
+    assert(page.data.stats.savedSentenceCount === 9, '收藏句子取账号当前收藏总数');
+    assert(page.data.stats.listeningTime === 151 && page.data.stats.listeningUnit === '分钟', '累计直接按原始秒数换算整分钟');
     assert(hit >= 2, 'streak 与 overview 双路请求已发出');
-    storage.delete('studio_daily_history_v2');
+    savedSentenceCount = 8;
+    totalListeningSeconds = 9180;
 
     // 下拉刷新：三路重拉后收圈；json 已开启（深浅色动态校正不阻塞）
     const MINE_JSON = JSON.parse(fs.readFileSync(path.join(__dirname, '../pages/mine/index.json'), 'utf8'));
@@ -961,7 +955,16 @@ function bodies(method, p) {
     await tick();
     assert(pullRefreshStopped === 1, '下拉刷新 settle 后恰好一次 stopPullDownRefresh');
     assert(hit >= 4, '下拉触发了 streak/overview 重拉（请求数再 +2）');
-    storage.delete('studio_daily_history_v2');
+    assert(page.data.stats.savedSentenceCount === 8 && page.data.stats.listeningTime === 153,
+      '下拉后同步取消收藏和新增的收听时长');
+    totalListeningSeconds = 59;
+    await page._loadStats();
+    assert(page.data.stats.listeningTime === 59 && page.data.stats.listeningUnit === '秒', '首次不足一分钟按秒显示');
+    savedSentenceCount = 0;
+    totalListeningSeconds = 0;
+    await page._loadStats();
+    assert(page.data.stats.savedSentenceCount === 0 && page.data.stats.listeningTime === 0 &&
+      page.data.stats.listeningUnit === '分钟', '空账号的真实零值正确显示');
   }
 
   section('十九、用户卡角色角标（T5.4 真机联调：权威校正口径）');
