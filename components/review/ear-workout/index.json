@@ -1,1 +1,4 @@
-{ "component": true }
+{
+  "component": true,
+  "usingComponents": { "vocabulary-modal": "/components/vocabulary-modal/index" }
+}

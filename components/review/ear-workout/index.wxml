@@ -1,60 +1,105 @@
 <scroll-view class="ear-scroll" scroll-y enhanced show-scrollbar="{{false}}">
-  <view class="ear-card">
-    <view class="ear-head">
-      <view class="ear-badge"><image src="/assets/icons/ear-primary.svg" /></view>
-      <view class="ear-titles">
-        <text class="ear-title">原声听觉脱敏训练</text>
-        <text class="ear-sub">不看字幕，仅靠耳朵捕捉原生语流</text>
+  <form bindsubmit="submit">
+    <view class="ear-card">
+      <view class="ear-head">
+        <view class="ear-badge"><image src="/assets/icons/ear-primary.svg" /></view>
+        <view class="ear-titles">
+          <text class="ear-title">原声听觉脱敏训练</text>
+          <text class="ear-sub">不看字幕，仅靠耳朵捕捉原生语流</text>
+        </view>
+        <text wx:if="{{clip}}" class="ear-count">切片 #{{number}}</text>
       </view>
-      <text wx:if="{{clip}}" class="ear-count">切片 #{{number}}</text>
-    </view>
-    <block wx:if="{{clip}}">
-      <view class="ear-box">
-        <text class="ear-source">{{clip.showTitle}}{{clip.difficulty ? ' · ' + clip.difficulty : ''}}</text>
-        <view wx:if="{{stage === 'blind'}}" class="ear-mask">
-          <image class="ear-eye" src="/assets/icons/eye-off-muted.svg" />
-          <text class="ear-mask-title">[ 盲听模式 · 字幕已遮罩 ]</text>
-          <text class="ear-hint">仔细听句子里的重读、连读与弱读</text>
-        </view>
-        <view wx:elif="{{stage === 'quiz'}}" class="ear-quiz">
-          <text>你听到了什么？填入听到的核心词</text>
-          <input class="ear-input" value="{{input}}" bindinput="onInput" confirm-type="done" bindconfirm="submit"
-                 placeholder="键入你听到的单词或词组…" placeholder-style="color:#a8a29e" />
-        </view>
-        <view wx:else class="ear-answer">
-          <text class="ear-caption">完整透视原文</text>
-          <text class="ear-en">{{clip.textEn}}</text>
-          <text class="ear-zh">{{clip.textCn}}</text>
-          <text wx:if="{{clip.phoneticTip}}" class="ear-tip">{{clip.phoneticTip}}</text>
-        </view>
-        <button class="ear-play" bindtap="toggleAudio" disabled="{{recording !== 'idle' || loading}}">
-          <image src="{{audio === 'playing' ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled-ink.svg'}}" />
-          {{audio === 'playing' ? '暂停' : audio === 'loading' ? '取消加载' : '循环磨耳朵'}}
-        </button>
+      <view class="ear-options">
+        <picker range="{{levels}}" value="{{levelIndex}}" disabled="{{recording !== 'idle'}}" bindchange="changeLevel">
+          <text>难度 · {{levels[levelIndex]}} ▾</text>
+        </picker>
+        <text>今日 {{todayCount}} 题{{todayAverage ? ' · 均分 ' + todayAverage : ''}}</text>
       </view>
-      <button wx:if="{{stage === 'blind'}}" class="ear-btn ear-amber" bindtap="beginQuiz">听了 3 遍了，进入推测挑战 →</button>
-      <view wx:elif="{{stage === 'quiz'}}" class="ear-actions">
-        <button class="ear-btn ear-green" bindtap="submit">提交并揭晓答案</button>
-        <button class="ear-btn ear-muted" bindtap="reveal">直接揭晓</button>
-      </view>
-      <block wx:else>
-        <text wx:if="{{quizScore !== null}}" class="ear-score">核心词推测 · {{quizScore}} 分</text>
-        <button class="ear-btn {{recording === 'recording' ? 'ear-recording' : 'ear-muted'}}" bindtap="record"
-                disabled="{{recording === 'permission' || recording === 'scoring' || loading}}">
-          <image class="ear-mic" src="/assets/icons/mic-ink.svg" />
-          {{recording === 'recording' ? '录音中 · 点击结束' : recording === 'scoring' ? '正在评测…' : recording === 'permission' ? '正在准备麦克风…' : '录音跟读评测这句'}}
-        </button>
-        <view wx:if="{{result}}" class="ear-feedback">
-          <text class="ear-score">跟读得分 · {{result.score}} 分</text>
-          <text>{{result.feedback}}</text>
+      <block wx:if="{{clip}}">
+        <view class="ear-box">
+          <text class="ear-source">{{clip.showTitle}} · {{clip.difficulty || '难度待标注'}}</text>
+          <view wx:if="{{stage === 'blind'}}" class="ear-mask">
+            <image class="ear-eye" src="/assets/icons/eye-off-muted.svg" />
+            <text class="ear-mask-title">[ 盲听模式 · 字幕已遮罩 ]</text>
+            <text class="ear-hint">仔细听句子里的重读、连读与弱读</text>
+          </view>
+          <view wx:elif="{{stage === 'quiz'}}" class="ear-quiz">
+            <text>填入听到的词，用空格或逗号隔开，可以跳词</text>
+            <input class="ear-input" name="keywords" value="{{input}}" bindinput="onInput" maxlength="-1" confirm-type="done" bindconfirm="submit"
+                   placeholder="键入你听到的单词或词组…" placeholder-style="color:#a8a29e" />
+          </view>
+          <view wx:else class="ear-answer">
+            <view class="ear-caption-row">
+              <text class="ear-caption">完整透视原文</text>
+              <view class="ear-bookmark" bindtap="bookmark">
+                <image src="{{saved ? '/assets/icons/bookmark-filled-primary.svg' : '/assets/icons/bookmark-border-gray.svg'}}" />
+              </view>
+            </view>
+            <view class="ear-en"><block wx:for="{{parts}}" wx:key="i"><text data-word="{{item.key}}" bindtap="lookup" class="{{item.key && item.i === activeWord ? 'ear-active' : item.key && item.i <= pastWord ? 'ear-past' : ''}}">{{item.text}}</text><text wx:if="{{item.score !== null}}" class="ear-phone-score ear-{{item.tier}}">{{item.score}}</text></block><button wx:if="{{wavPath}}" class="ear-replay" aria-label="回听我的录音" bindtap="playRecording"><image src="/assets/icons/volume-up-white.svg" /></button></view>
+            <text class="ear-zh">{{clip.textCn}}</text>
+            <text class="ear-tip">{{tip}}</text>
+          </view>
+          <button class="ear-play" bindtap="toggleAudio" disabled="{{recording !== 'idle' || loading}}">
+            <image src="{{audio === 'playing' ? '/assets/icons/pause-filled.svg' : '/assets/icons/play-filled-ink.svg'}}" />
+            {{audio === 'playing' ? '暂停' : audio === 'loading' ? '取消加载' : '循环磨耳朵'}}
+          </button>
         </view>
-        <text wx:if="{{message}}" class="ear-sub">{{message}}</text>
-        <button class="ear-btn ear-green" disabled="{{loading || recording !== 'idle'}}" bindtap="next">{{loading ? '正在加载…' : last ? '再练一轮' : '下一段盲听切片 →'}}</button>
+        <button wx:if="{{stage === 'blind'}}" class="ear-btn ear-amber" bindtap="beginQuiz">进入核心词推测 →</button>
+        <view wx:elif="{{stage === 'quiz'}}" class="ear-actions">
+          <button class="ear-btn ear-green" form-type="submit">提交并揭晓答案</button>
+          <button class="ear-btn ear-muted" bindtap="reveal">直接揭晓</button>
+        </view>
+        <block wx:else>
+          <view wx:if="{{quiz}}" class="ear-feedback">
+            <text class="ear-score">盲听综合得分 · {{quiz.score}} 分</text>
+            <text>原句 {{quiz.originalCount}} 词 · 提交 {{quiz.submittedCount}} 词（均已去重）</text>
+            <text>提交准确率 {{quiz.precision}}% · 原句覆盖率 {{quiz.coverage}}%</text>
+            <view class="ear-word-row">
+              <text class="ear-word-label">命中 {{quiz.matched.length}}</text>
+              <text wx:for="{{quiz.matched}}" wx:key="*this">{{item}}</text>
+            </view>
+            <view class="ear-word-row">
+              <text class="ear-word-label">听错 {{quiz.incorrect.length}}</text>
+              <text wx:for="{{quiz.incorrect}}" wx:key="*this" class="ear-lookup" data-word="{{item}}" bindtap="lookup">{{item}}</text>
+            </view>
+            <view class="ear-word-row">
+              <text class="ear-word-label">漏听 {{quiz.omitted.length}}</text>
+              <text wx:for="{{quiz.omitted}}" wx:key="*this" class="ear-lookup" data-word="{{item}}" bindtap="lookup">{{item}}</text>
+            </view>
+          </view>
+          <text wx:if="{{quiz.incorrect.length || quiz.omitted.length}}" class="ear-sub">点听错或漏听的词可查释义、加入生词本。</text>
+          <view class="ear-actions ear-retest">
+            <button class="ear-btn ear-muted ear-retry" disabled="{{recording !== 'idle' || loading}}" bindtap="retryQuiz">
+              <image class="ear-mic" src="/assets/icons/refresh-gray.svg" />重新推测
+            </button>
+            <button class="ear-btn {{recording === 'recording' ? 'ear-recording' : 'ear-muted'}}" bindtap="record"
+                    disabled="{{recording === 'permission' || recording === 'scoring' || loading}}">
+              <image class="ear-mic" src="/assets/icons/mic-ink.svg" />
+              {{recording === 'recording' ? '录音中 · 读完点此送评' : recording === 'scoring' ? '正在评测…' : recording === 'permission' ? '正在准备麦克风…' : '录音跟读评测'}}
+            </button>
+          </view>
+          <text class="ear-sub">读完后再点一次。录满 {{recordLimit}} 秒会自动送评。</text>
+          <view wx:if="{{result}}" class="ear-feedback">
+            <text class="ear-score">最近一次跟读得分 · {{result.score}} 分</text>
+            <text>{{result.feedback}}</text>
+          </view>
+          <text wx:if="{{message}}" class="ear-sub">{{message}}</text>
+          <button class="ear-btn ear-green" disabled="{{loading || recording !== 'idle'}}" bindtap="next">{{loading ? '正在加载…' : last ? '再练一轮' : '下一段盲听切片 →'}}</button>
+        </block>
+        <button wx:if="{{canPrevious}}" class="ear-btn ear-muted" disabled="{{recording !== 'idle' || loading}}" bindtap="previous">← 上一段盲听切片</button>
       </block>
-    </block>
-    <view wx:else class="ear-empty">
-      <text>{{loading ? '正在加载原声切片…' : message}}</text>
-      <button wx:if="{{!loading}}" class="ear-btn ear-muted" bindtap="loadPage">重新加载</button>
+      <view wx:else class="ear-empty">
+        <text>{{loading ? '正在加载原声切片…' : message}}</text>
+        <button wx:if="{{!loading}}" class="ear-btn ear-muted" bindtap="loadPage">重新加载</button>
+      </view>
     </view>
-  </view>
+  </form>
 </scroll-view>
+<root-portal wx:if="{{wordModal}}">
+  <view class="ear-portal {{portalTheme}}">
+    <vocabulary-modal visible="{{true}}" word="{{wordModal.word}}" dict-data="{{wordModal.entry}}"
+      corpus-examples="{{wordModal.examples}}" loading="{{wordModal.loading}}" saving="{{wordModal.saving}}"
+      is-saved="{{wordModal.saved}}" episode-title="{{clip.showTitle}}" bind:close="closeLookup"
+      bind:complete="closeLookup" bind:gopractice="lookupPractice" bind:save="saveWord" />
+  </view>
+</root-portal>

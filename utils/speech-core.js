@@ -1,3 +1,4 @@
+const { LOW_SCORE_THRESHOLD } = require('./score-threshold');
 /**
  * utils/speech-core.js — 语音评测纯逻辑层
  *
@@ -304,14 +305,14 @@ function buildBlindBars(textEn) {
 /** 总分/评价与单词 chip 的双分界（>=85 primary / >=60 secondary / else error） */
 function scoreTier(score) {
   if (score >= 85) return 'good';
-  if (score >= 60) return 'mid';
+  if (score >= LOW_SCORE_THRESHOLD) return 'mid';
   return 'bad';
 }
 
 /** 评级词（Excellent! / Good Job! / Keep Trying!，阈值用生效线） */
 function ratingWord(score, threshold) {
   if (score >= threshold) return 'Excellent!';
-  if (score >= 60) return 'Good Job!';
+  if (score >= LOW_SCORE_THRESHOLD) return 'Good Job!';
   return 'Keep Trying!';
 }
 

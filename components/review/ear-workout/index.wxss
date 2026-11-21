@@ -43,13 +43,42 @@
 .ear-play { display: inline-flex; padding: 14rpx 28rpx; background: #34d399; color: #062d23; }
 .ear-play image, .ear-mic { width: 28rpx; height: 28rpx; }
 .ear-actions { gap: 12rpx; }
-.ear-actions .ear-green { flex: 1; }
+.ear-actions .ear-btn { flex: 1; width: auto; }
+.ear-retest .ear-retry { flex: .78; }
+.ear-caption-row { display: flex; align-items: center; justify-content: space-between; }
+.ear-bookmark { display: flex; align-items: center; justify-content: center; width: 56rpx; height: 56rpx; margin: -8rpx -6rpx -8rpx 0; }
+.ear-bookmark image { width: 36rpx; height: 36rpx; }
 .ear-amber { background: #f59e0b; color: #30200a; }
 .ear-green { background: #08795d; color: white; }
 .ear-muted { background: var(--color-base-200); color: var(--text-primary); }
-.ear-recording { background: #e34966; color: white; animation: ear-pulse 1s ease-in-out infinite alternate; }
+.ear-btn.ear-recording { background: #e34966; color: white; animation: ear-pulse 1s ease-in-out infinite alternate; }
 @keyframes ear-pulse { to { opacity: .72; } }
+.ear-answer, .ear-feedback { animation: ear-reveal .25s ease-out; }
+@keyframes ear-reveal { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .ear-answer, .ear-feedback, .ear-btn.ear-recording { animation: none; }
+}
 .ear-score { display: block; color: var(--color-primary); font-size: 26rpx; font-weight: 700; }
 .ear-feedback { background: var(--primary-100); }
+.ear-feedback text { display: block; }
+.ear-word-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4rpx 16rpx; margin-top: 12rpx; }
+.ear-word-row text { max-width: 100%; overflow-wrap: anywhere; }
+.ear-word-label { font-weight: 700; }
 .ear-empty { text-align: center; color: var(--text-secondary); padding: 32rpx 0; }
 .ear-empty .ear-btn { margin-top: 24rpx; }
+
+.ear-options { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font-size: 24rpx; }
+.ear-en { white-space: pre-wrap; }
+.ear-answer .ear-en text { display: inline; }
+.ear-active { background: #b6f4d5; color: #133f32; border-radius: 6rpx; }
+.ear-past { color: #a7f3d0; }
+.ear-phone-score { font-size: 19rpx; vertical-align: super; margin-left: 2rpx; }
+.ear-good { color: #6ee7b7; }
+.ear-mid { color: #fcd34d; }
+.ear-bad { color: #fda4af; }
+.ear-replay { display: inline-flex; padding: 6rpx; margin: 0 8rpx; background: transparent; vertical-align: middle; }
+.ear-replay image { width: 38rpx; height: 38rpx; }
+.ear-lookup { text-decoration: underline; }
+/* root-portal 脱离页面节点树：page 级令牌（--card-bg/--z-modal/圆角阶梯等）不再继承，
+   查词弹窗会失去底色。主题类恢复整套色板，这里补齐弹窗用到的结构变量。 */
+.ear-portal { --r-md: 12rpx; --r-xl: 24rpx; --r-full: 999rpx; --z-modal: 70; }

@@ -1,3 +1,4 @@
+const { LOW_SCORE_THRESHOLD } = require('./score-threshold');
 /**
  * utils/pron-core.js — 发音弱项本纯逻辑模型（REVIEW-TASK 阶段 4，T4.1）
  *
@@ -449,8 +450,8 @@ function diagnosticRows(stats, isPremium) {
         count: Number(src.count) || 0,
         lowScoreCount: Number(src.lowScoreCount) || 0,
         visible,
-        scoreTier: avgScore >= 80 ? 'good' : avgScore >= 60 ? 'mid' : 'low',
-        scoreClass: avgScore < 60 ? 'error' : 'warn',
+        scoreTier: avgScore >= 80 ? 'good' : avgScore >= LOW_SCORE_THRESHOLD ? 'mid' : 'low',
+        scoreClass: avgScore < LOW_SCORE_THRESHOLD ? 'error' : 'warn',
         barWidth: visible ? avgScore : Math.round(avgScore * 0.4),
         metaText: '评测 ' + (Number(src.count) || 0) + ' 次 · 低分 ' + (Number(src.lowScoreCount) || 0) + ' 次',
         tipText: tip.tip,
@@ -585,7 +586,7 @@ function drawTrendChart(node, cssW, cssH, trend, dpr) {
 function classifyScore(score) {
   const n = Math.round(Number(score) || 0);
   if (n >= 80) return 'good';
-  if (n >= 60) return 'mid';
+  if (n >= LOW_SCORE_THRESHOLD) return 'mid';
   return 'bad';
 }
 
