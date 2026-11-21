@@ -272,29 +272,18 @@ fireObserver(inst, 'popupOpen', false);
 await new Promise((r) => setTimeout(r, 150));
 assert(radarQueries > radarQueriesBefore, '弹窗关闭 → 画布重挂载后延时重绘（120ms 兜底）');
 
-// 导航：达人榜 / 闯关 / 弱项句行 by-clip 反查微剧场深链（2026-11-05 合规收敛）
+// 卡片直接传递目标，即使没有字幕 ID 也保留原句与时间。
 navCalls.length = 0;
-toastCalls.length = 0;
 inst.openLeaderboard();
 inst.openPractice();
-apiResponses['/api/scenes/by-clip'] = { success: true, data: { sceneid: 'sc1' } };
 inst.openSpeechEval({ currentTarget: { dataset: { index: 0 } } });
-inst.openSpeechEval({ currentTarget: { dataset: { index: 1 } } }); // subtitleId null → 不带 focus
-await new Promise((r) => setTimeout(r, 10));
-assert(
-  navCalls[0] === '/pages/review/leaderboard/index' && navCalls[1] === '/pages/review/practice/index',
-  '达人榜/闯关导航（T4.5 页面）',
-);
-assert(navCalls[2] === '/pages/speech-eval/index?sceneId=sc1&focus=55', '弱项句行深链 sceneId + focus=subtitleId（by-clip 反查）');
-assert(navCalls[3] === '/pages/speech-eval/index?sceneId=sc1', 'subtitleId null → 深链不带 focus');
-// 零场景剧集落空 → toast 承接零跳转（?id= 整集链路已退役）
-navCalls.length = 0;
-apiResponses['/api/scenes/by-clip'] = { success: true, data: {} };
-inst.openSpeechEval({ currentTarget: { dataset: { index: 0 } } });
-await new Promise((r) => setTimeout(r, 10));
-assert(navCalls.length === 0 && toastCalls.includes('这句所在的原声还未编排微剧场'),
-  '零场景剧集 → toast 承接零跳转（?id= 已退役）');
-delete apiResponses['/api/scenes/by-clip'];
+inst.openSpeechEval({ currentTarget: { dataset: { index: 1 } } });
+assert(navCalls[0] === '/pages/review/leaderboard/index' && navCalls[1] === '/pages/review/practice/index',
+  '达人榜/闯关导航');
+const targets = navCalls.slice(2).map(url => JSON.parse(decodeURIComponent(url.split('?weak=')[1])));
+assert(targets[0].subtitleId === 55 && targets[0].text === inst.data.rows[0].targetText, '精确传入所点句的 ID 和原文');
+assert(targets[1].subtitleId === null && targets[1].episodeid === 'ep2' && targets[1].timestamp === 88,
+  '缺字幕 ID 的旧记录保留原集和起点');
 navCalls.length = 0;
 inst.openSpeechEval({ currentTarget: { dataset: { index: 99 } } });
 await new Promise((r) => setTimeout(r, 10));

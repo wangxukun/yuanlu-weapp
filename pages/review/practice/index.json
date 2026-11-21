@@ -3,6 +3,7 @@
   "navigationBarTitleText": "发音闯关复习",
   "usingComponents": {
     "eval-card": "/components/voice/eval-card/index",
-    "premium-modal": "/components/premium-modal/index"
+    "premium-modal": "/components/premium-modal/index",
+    "vocabulary-modal": "/components/vocabulary-modal/index"
   }
 }

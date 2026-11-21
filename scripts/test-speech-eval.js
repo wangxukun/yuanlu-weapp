@@ -479,6 +479,7 @@ async function runRecordEvalSim() {
   loopCtx._fire('play');
   ok(store.playing === 'original', '原声播放态就绪');
   const replayed = page._maybeLoopReplay();
+  await Promise.resolve(); // 已解析音源复用同一个 Promise
   ok(replayed === true && store.playing === 'none' && lastCtx !== loopCtx,
     '循环重播：窗终不停，销毁旧 ctx 重播（新 ctx 已建，playing 待 canplay）');
   if (lastCtx) lastCtx._fire('canplay');
@@ -506,7 +507,8 @@ async function runRecordEvalSim() {
     '顶部圆钮组恰五钮（发音示范/原声播放/慢速播放/收藏书签/单句循环）');
 
   // 起录：onStart + 20 帧 × 3200B（2s，> 0.5s 下限）
-  recHandlers.start();
+  page._startRecording();
+  await new Promise((r) => setTimeout(r, 12));
   for (let i = 0; i < 20; i++) recHandlers.frame({ frameBuffer: new ArrayBuffer(3200) });
   ok(store.phase === 'recording', '录音中态（onStart）');
 
@@ -525,6 +527,138 @@ async function runRecordEvalSim() {
   await new Promise((r) => setTimeout(r, 60));
   ok(evalRequests.length === 1, 'onStop 迟到不重复评测（防重）');
   page.onUnload();
+
+  console.log('== 弱项句卡片深链、懒取原声与 AB 接龙 ==');
+  const originalRequest = wx.request;
+  const sceneClips = [
+    { subtitleId: 10, textEn: "I'm here.", start: 501, end: 503, words: [{ word: "I'm", start: 501.1, end: 501.6 }] },
+    { subtitleId: 11, textEn: 'Please sit down.', textCn: '请坐。', start: 504, end: 506 },
+    { subtitleId: 12, textEn: 'Thank you.', start: 507, end: 508 },
+  ];
+  let lazyCalls = 0;
+  wx.getSetting = ({ success }) => success({ authSetting: { 'scope.record': true } });
+  wx.request = (opt) => {
+    let data;
+    if (opt.url.includes('/api/scenes/s_dialog')) {
+      data = { scene: { episodeid: 'dialog', clips: sceneClips }, clipOffset: 501, clipAudioUrl: null };
+    } else if (opt.url.includes('/api/clips/s_dialog/audio')) {
+      lazyCalls++;
+      data = { url: 'https://oss/dialog.m4a', clipOffset: 500.75, duration: 8 };
+    } else if (opt.url.includes('/api/dict/')) {
+      data = { word: "i'm" };
+    } else return originalRequest(opt);
+    opt.success({ statusCode: 200, data: { success: true, data } });
+  };
+  const dialog = Object.assign(Object.create(rawPage), {
+    data: { ...rawPage.data },
+    setData(patch, cb) {
+      for (const [key, value] of Object.entries(patch)) {
+        const [top, field] = key.split('.');
+        if (field) this.data[top][field] = value;
+        else this.data[top] = value;
+      }
+      if (cb) cb();
+    },
+  });
+  dialog.onLoad({ sceneId: 's_dialog', focus: '11' });
+  await new Promise((r) => setTimeout(r, 20));
+  ok(dialog.data.index === 1 && lazyCalls === 0, '带 focus 从弱项句进入；未播放不触发懒切');
+  dialog.onPrev();
+  await dialog._playOriginal(0.75);
+  lastCtx._fire('canplay');
+  ok(lazyCalls === 1 && lastCtx.startTime === 0.25 && dialog.data.playing === 'slow',
+    '慢速播放使用懒取返回的真实偏移');
+  dialog._onSweepTick(1.1);
+  ok(dialog.data.sweepIdx === 1 && dialog.data.tokens[1].w === 'here',
+    '缺少词窗的 here 依然按句窗扫光');
+  await dialog.onWordTap({ currentTarget: { dataset: { word: "I'm" } } });
+  ok(dialog.data.wordModal.dictData.word === "i'm" && dialog.data.playing === 'none' &&
+    dialog.getLookupClip().start === 501, '点缩写查词时暂停，并保留原剧集时间');
+  dialog.onVocabClose();
+  await Promise.resolve();
+  lastCtx._fire('canplay');
+  ok(dialog.data.playing === 'slow', '关闭查词后续播慢速原声');
+
+  dialog.onToggleAbMode();
+  ok(dialog.data.abActive === 0 && dialog.data.abPairs.length === 2 && dialog.data.abIntent === '请坐。',
+    '进入接龙自动选中有效对话组并填充 B 提示');
+  await dialog.onAbStart();
+  lastCtx._fire('error');
+  ok(dialog.data.abPhase === 'idle' && !dialog._abCountTimer, 'A 播放错误可重试，绝不启动倒数');
+  await dialog.onAbStart();
+  lastCtx._fire('canplay');
+  dialog._onSweepTick(0.5);
+  ok(dialog.data.abPhase === 'playing' && dialog.data.sweepIdx === 0, 'A 原声沿当前播放时钟扫光');
+  lastCtx._fire('ended');
+  ok(dialog.data.abPhase === 'countdown' && dialog.data.abCountdown === 3, 'A 自然播完才进入三秒倒数');
+  dialog.onAbStop();
+  ok(dialog.data.abPhase === 'idle' && !dialog._abCountTimer, '取消倒数后不自动开麦');
+  await dialog.onAbStart();
+  lastCtx._fire('canplay');
+  lastCtx._fire('ended');
+  await new Promise((r) => setTimeout(r, 3100));
+  ok(dialog.data.abPhase === 'recording' && dialog.data.index === 1, '倒数结束且麦克风实际启动后录 B');
+  for (let i = 0; i < 20; i++) recHandlers.frame({ frameBuffer: new ArrayBuffer(3200) });
+  dialog.onAbStop();
+  ok(dialog.data.abPhase === 'evaluating', '手动收音后显示评测中');
+  await new Promise((r) => setTimeout(r, 40));
+  const result = dialog.data.abResult || {};
+  ok(evalRequests.at(-1).subtitleId === 11 && dialog.data.abPhase === 'result' &&
+    result.accuracy === 90 && result.fluency === 91 && result.wpmMatch === 100 && result.userSec === 2,
+    '按 B 的原句评测并显示准确度、流利度、语速吻合度');
+  dialog.onAbNext();
+  await new Promise((r) => setTimeout(r, 10));
+  ok(dialog.data.abActive === 1 && lastCtx.startTime === 3.25 && lazyCalls === 1, '下一组切到对应 A 句并复用场景切片');
+  dialog.onHide();
+  lastCtx._fire('ended');
+  ok(dialog.data.abPhase === 'idle' && !dialog._abCountTimer, '离页后迟到的 A 句回调不能开麦');
+  dialog.onShow();
+  dialog.onToggleAbMode();
+  dialog._sceneAudio = { clipId: 'missing-dialog-cut' };
+  dialog._sources.clear();
+  wx.request = (opt) => {
+    if (opt.url.includes('/api/clips/missing-dialog-cut/audio')) {
+      opt.success({ statusCode: 503, data: { success: false } });
+    } else if (opt.url.includes('/api/episode/subtitles')) {
+      opt.success({ statusCode: 200, data: { success: true, audioUrl: 'https://oss/full.m4a',
+        data: [{ id: 10, textEn: "I'm here.", start: 501, end: 503 }] } });
+    } else originalRequest(opt);
+  };
+  await dialog._playOriginal(1);
+  ok(lastCtx.src === 'https://oss/full.m4a' && lastCtx.startTime === 501,
+    '微剧场不可切且无单句切片时，按剧集字幕绝对窗口播放选中句');
+  dialog.onUnload();
+  // 同集有两个 Wow.，覆盖无微剧场、最近微剧场、指向错误微剧场以及精确命中。
+  const wow = { id: 43, start: 91, end: 91.7, textEn: 'Wow.', textCn: '哇！' };
+  for (const route of ['404', 'nearest', 'wrong', 'exact']) {
+    const target = { episodeid: 'wow-' + route, title: 'Podcast', text: 'Wow.',
+      subtitleId: route === 'nearest' ? null : 43, timestamp: 91.2 };
+    wx.request = opt => {
+      if (opt.url.includes('/api/scenes/by-clip')) {
+        opt.success({ statusCode: route === '404' ? 404 : 200,
+          data: { success: route !== '404', data: { sceneid: 'wow-scene', nearest: route === 'nearest' } } });
+      } else if (opt.url.includes('/api/scenes/wow-scene')) {
+        const clips = [{ subtitleId: 4, textEn: 'Hello.', start: 4, end: 6 }];
+        if (route === 'exact') clips.push({ ...wow, subtitleId: wow.id });
+        opt.success({ statusCode: 200, data: { success: true, data: { scene: { episodeid: target.episodeid, clips } } } });
+      } else if (opt.url.includes('/api/episode/subtitles')) {
+        opt.success({ statusCode: 200, data: { success: true, audioUrl: 'https://oss/wow.m4a',
+          data: [{ ...wow, id: 12, start: 3, end: 4 }, wow] } });
+      } else originalRequest(opt);
+    };
+    const weakPage = Object.assign(Object.create(rawPage), { data: { ...rawPage.data }, setData: dialog.setData });
+    weakPage.onLoad({ weak: encodeURIComponent(JSON.stringify(target)) });
+    await new Promise(r => setTimeout(r, 20));
+    ok(weakPage._subs[weakPage.data.index].id === 43 && weakPage.data.tokens[0].w === 'Wow' &&
+      weakPage.data.isSceneMode === (route === 'exact'), route + ' → 定位实际点击的 Wow. 并选择对应评测模式');
+    if (route !== 'exact') {
+      await weakPage._playOriginal(1);
+      ok(lastCtx.src === 'https://oss/wow.m4a' && lastCtx.startTime === 91 &&
+        weakPage.getLookupClip().end === 91.7, '无切片时播放正确的 Wow. 字幕窗口');
+    }
+    weakPage.onUnload();
+  }
+  wx.request = originalRequest;
 }
 
 async function runPlaybackSims() {

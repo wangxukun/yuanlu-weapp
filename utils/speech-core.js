@@ -403,7 +403,9 @@ function parseSceneData(body) {
       start: shift(c.start),
       end: shift(c.end != null ? c.end : (Number(c.start) || 0) + 3),
       speaker: c.speaker || null,
-      words: (Array.isArray(c.words) ? c.words : []).map(function (w) {
+      words: (Array.isArray(c.words) ? c.words : []).filter(function (w) {
+        return w && typeof w.word === 'string' && w.start != null && Number(w.end) > Number(w.start);
+      }).map(function (w) {
         return { word: w.word, start: shift(w.start), end: shift(w.end) };
       }),
     };
@@ -469,6 +471,16 @@ function computeWpmMatch(userSec, native, wordCount) {
   return Math.max(0, Math.min(100, Math.round(100 * Math.min(r, 1 / r))));
 }
 
+/**
+ * AB 接龙 B 句录音自动收音上限（秒）：学习者朗读远慢于母语窗口，
+ * 按「母语窗口 ×2 + 3 秒」给足时间（8 秒起）；58 秒封顶，赶在录音机
+ * 60s 硬限的 onStop 之前由页面主动收音，避免竞态双跑评测。
+ */
+function abRecordingCeilingSec(windowSec) {
+  var w = Number(windowSec) || 0;
+  return Math.min(58, Math.max(8, Math.round(w * 2 + 3)));
+}
+
 /** AB 配对表：[{aIdx, bIdx, label, bNativeWpm, bWindowSec}] */
 function buildAbPairs(subs, absWindows) {
   var pairs = [];
@@ -528,6 +540,7 @@ module.exports = {
   computeWordSweep: computeWordSweep,
   parseSceneData: parseSceneData,
   buildAbPairs: buildAbPairs,
+  abRecordingCeilingSec: abRecordingCeilingSec,
   computeWpmMatch: computeWpmMatch,
   blindHints: blindHints,
   nativeWpm: nativeWpm,

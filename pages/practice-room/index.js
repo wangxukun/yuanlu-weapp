@@ -17,10 +17,11 @@ const { get, post } = require('../../utils/request');
 const theme = require('../../utils/theme');
 const authStore = require('../../store/authStore');
 const audioClip = require('../../utils/audio-clip');
-const { buildSentenceTokens } = require('./sentence-tokens');
-const dictTool = require('../../utils/dict-tool');
+const { buildSentenceTokens } = require('../../utils/sentence-tokens');
+const trainingLookup = require('../../utils/training-word-lookup');
 
 Page({
+  ...trainingLookup,
   data: {
     themeClass: '',
     isLoggedIn: true,
@@ -264,112 +265,8 @@ Page({
 
   // ==================== 训练句点词查词 ====================
 
-  _syncSavedWords() {
-    const { token, isLoggedIn } = authStore.getState();
-    if (this._savedWords && token === this._vocabOwner) return;
-    this._vocabOwner = token;
-    const saved = this._savedWords = new Set();
-    if (this.data.wordModal) this.setData({ 'wordModal.isSaved': false, 'wordModal.saving': false });
-    if (!isLoggedIn) return;
-    get('/api/vocabulary/words', null, { showError: false }).then((body) => {
-      if (saved !== this._savedWords || !Array.isArray(body && body.data)) return;
-      body.data.forEach((word) => saved.add(String(word).toLowerCase()));
-      if (this.data.wordModal) this.setData({ 'wordModal.isSaved': saved.has(this.data.wordModal.word) });
-    }).catch(() => {});
-  },
-
-  async onWordLookup(e) {
-    const word = e.detail.word.toLowerCase().replace(/’/g, "'");
-    const clip = this.data.items[this.data.index];
-    if (!clip || !word || this._hidden || this.data.wordModal || this.data.finished) return;
-    const lookupId = ++this._lookupId;
-    const card = this.selectComponent('#training-card');
-    this._lookupPlayback = { clipid: clip.clipid, playback: card.pauseForLookup() };
-    this.setData({ wordModal: {
-      word, loading: true, saving: false, dictData: null, isSaved: this._savedWords.has(word),
-      examples: dictTool.buildClipCorpusExamples(clip, word),
-    } });
-    try {
-      const body = await get('/api/dict/' + encodeURIComponent(word), null, { showError: false });
-      if (lookupId !== this._lookupId) return;
-      const entry = body && body.success && body.data;
-      this.setData({
-        'wordModal.loading': false,
-        'wordModal.dictData': entry || null,
-        'wordModal.examples': dictTool.buildClipCorpusExamples(clip, word, entry && entry.corpusExamples),
-      });
-    } catch (err) {
-      if (lookupId !== this._lookupId) return;
-      this.setData({ 'wordModal.loading': false });
-      if (err.code === 'DICTIONARY_QUOTA_EXCEEDED') this.setData({ lookupQuota: 'dictionary_quota' });
-      else wx.showToast({ title: '查词失败，请重新点词', icon: 'none' });
-    }
-  },
-
-  async onVocabSave() {
-    const m = this.data.wordModal;
-    if (!m || m.saving || m.isSaved || m.loading) return;
-    if (!authStore.getState().isLoggedIn) {
-      wx.showModal({ title: '请先登录', content: '登录后可将这个词加入生词本', confirmText: '去登录',
-        success: (r) => { if (r.confirm) this.onGoLogin(); } });
-      return;
-    }
-    const lookupId = this._lookupId;
-    const saved = this._savedWords;
-    const entry = dictTool.clipVocabularyEntry(m.word, m.dictData, this.data.items[this.data.index]);
-    this.setData({ 'wordModal.saving': true });
-    try {
-      await post('/api/vocabulary/add', entry, { showError: false });
-      saved.add(m.word);
-      if (lookupId !== this._lookupId || saved !== this._savedWords) return;
-      wx.showToast({ title: '已加入生词本', icon: 'none' });
-      this.onVocabClose();
-    } catch (err) {
-      if (lookupId !== this._lookupId || saved !== this._savedWords) return;
-      this.setData({ 'wordModal.saving': false });
-      if (err.statusCode === 400 && err.body && err.body.data && err.body.data.word) {
-        saved.add(m.word);
-        this.setData({ 'wordModal.isSaved': true });
-      } else if (err.code === 'VOCABULARY_QUOTA_EXCEEDED' || err.code === 'VOCABULARY_DAILY_QUOTA_EXCEEDED') {
-        this.setData({ lookupQuota: err.code === 'VOCABULARY_QUOTA_EXCEEDED' ? 'vocabulary_total' : 'vocabulary_daily' });
-      } else {
-        wx.showToast({ title: '保存失败，请重试', icon: 'none' });
-      }
-    }
-  },
-
-  onLookupQuotaClose() {
-    this.setData({ lookupQuota: '' }, () => this._resumeLookupPlayback());
-  },
-
-  onVocabClose() {
-    this._lookupId++;
-    this.setData({ wordModal: null }, () => this._resumeLookupPlayback());
-  },
-
-  _resumeLookupPlayback() {
-    const resume = this._lookupPlayback;
-    if (!resume || this._hidden || this.data.wordModal || this.data.lookupQuota) return;
-    this._lookupPlayback = null;
-    if (resume.playback && this.data.current && this.data.current.clipid === resume.clipid) {
-      const card = this.selectComponent('#training-card');
-      if (card) card.resumeAfterLookup(resume.playback);
-    }
-  },
-
-  onVocabPractice(e) {
-    const example = e.detail.example;
-    if (!this.data.wordModal || !example) return;
-    if (example.isCurrentClip) return this.onVocabClose();
-    const word = this.data.wordModal.word;
-    wx.navigateTo({
-      url: '/pages/practice-room/index?word=' + encodeURIComponent(word) + '&clipId=' + encodeURIComponent(example.clipid),
-      success: () => {
-        this._lookupId++;
-        this.setData({ wordModal: null });
-      },
-      fail: () => wx.showToast({ title: '未能打开跟读训练', icon: 'none' }),
-    });
+  getLookupClip() {
+    return this.data.items[this.data.index];
   },
 
   // ==================== 评测回调 / 手动翻页（禁止自动连播） ====================
@@ -419,7 +316,4 @@ Page({
     wx.switchTab({ url: '/pages/home/index' });
   },
 
-  onGoLogin() {
-    wx.navigateTo({ url: '/pages/auth/index' });
-  },
 });

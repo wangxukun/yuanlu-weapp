@@ -64,6 +64,12 @@ console.log('━━━ A. speech-core AB 函数（T5.1） ━━━');
   ok(core.computeWpmMatch(2, 120, 8) === 50, 'A 吻合度 50%（2 倍快）');
   ok(core.computeWpmMatch(0.1, 120, 8) === 0, 'A 吻合度 0%（时长过短防御）');
 
+  // abRecordingCeilingSec：学习者录音上限 = 窗口×2 + 3s，8s 起 58s 封顶
+  ok(core.abRecordingCeilingSec(3) === 9, 'A 录音上限 3s 窗 → 9s（旧口径仅 4.8s）');
+  ok(core.abRecordingCeilingSec(6) === 15, 'A 录音上限 6s 窗 → 15s（旧口径仅 7.8s）');
+  ok(core.abRecordingCeilingSec(0.5) === 8, 'A 录音上限下限 8s');
+  ok(core.abRecordingCeilingSec(40) === 58, 'A 录音上限封顶 58s（先于录音机 60s onStop）');
+
   // blindHints
   ok(JSON.stringify(core.blindHints('I kind of wanted to ask about it', 2)) === JSON.stringify(['kind', 'wanted']),
     'A blindHints：前 2 个实词');

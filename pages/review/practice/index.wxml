@@ -76,7 +76,7 @@
             <text class="pr-settle-sub">还有 {{lockedCount}} 条弱项句子待攻克，继续闯关精准消灭发音弱点</text>
           </view>
         </view>
-        <eval-card
+        <eval-card id="training-card" bind:lookup="onWordLookup"
           key="{{cardKey}}"
           subtitle="{{subtitle}}"
           subtitle-id="{{subtitleId}}"
@@ -91,6 +91,7 @@
         />
         <view class="pr-card-tail"></view>
       </view>
+      <view wx:if="{{!subtitle}}" class="pr-center col"><view class="pr-spin"></view></view>
     </scroll-view>
 
     <!-- 底部导航（Surface tonalElevation 2dp）：上一题 | 下一题 / 完成复习 / 下一关·解锁 PRO -->
@@ -117,4 +118,11 @@
 
   <!-- 会员转化弹窗（锁定态解锁 CTA / 试用结算「下一关」） -->
   <premium-modal visible="{{showPremiumModal}}" source="pronunciation_locked" vars="{{premiumVars}}" bind:close="onPremiumClose" />
+  <vocabulary-modal wx:if="{{wordModal}}" visible="{{true}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.examples}}"
+                    episode-title="{{episodeTitle}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    bind:close="onVocabClose" bind:complete="onVocabClose"
+                    bind:save="onVocabSave" bind:gopractice="onVocabPractice" />
+  <premium-modal visible="{{!!lookupQuota}}" source="{{lookupQuota}}" bind:close="onLookupQuotaClose" />
 </view>

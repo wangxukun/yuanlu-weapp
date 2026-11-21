@@ -442,6 +442,50 @@ apiResponses['/api/speech/quota'] = {
   const abSvg = fs.readFileSync(path.join(__dirname, '../assets/icons/arrow-back-ink.svg'), 'utf8');
   assert(abSvg.includes('M20,11H7.83l5.59-5.59'), 'arrow_back：Material 官方 path');
 
+  section('无切片弱项、逐词时间与查词续播');
+  const text = 'Listen again.';
+  const oldRecord = makeRecord(8, {
+    episodeid: 'legacy', targetText: text, targetStartTime: 0, subtitleEnd: 94,
+    clipId: 'missing-cut', clipAudioUrl: '', subtitleWords: null,
+  });
+  apiResponses['/api/clips/missing-cut/audio'] = { __statusCode: 503 };
+  apiResponses['/api/episode/subtitles'] = {
+    success: true, audioUrl: 'https://oss/full.m4a', data: [
+      { id: 7, textEn: text, start: 4, end: 6 },
+      { id: oldRecord.subtitleId, textEn: text, start: 91, end: 94,
+        words: [{ word: 'Listen', start: 91.4, end: 92 }] },
+    ],
+  };
+  apiResponses['/api/speech/errors'] = { success: true, data: [oldRecord, R1] };
+  const legacy = makePage();
+  legacy.onLoad({});
+  await settle();
+  const sub = legacy.data.subtitle;
+  assert(sub.audioUrl === 'https://oss/full.m4a' && sub.start === 91 && sub.end === 94,
+    '切片 503、评测起点为 0 时，定位到同文重复句中正确的字幕 ID');
+  assert(sub.sentenceTokens[0].start === 91.4 && sub.sentenceTokens[1].start === 92 &&
+    sub.sentenceTokens[1].end === 94, '使用实际词窗，缺时间的词补至字幕句尾');
+  let resumed = null;
+  legacy.selectComponent = () => ({
+    pauseForLookup: () => ({ kind: 'slow', position: 92.3 }),
+    resumeAfterLookup: (playback) => { resumed = playback; },
+  });
+  await legacy.onWordLookup({ detail: { word: 'Listen' } });
+  assert(legacy.data.wordModal.word === 'listen' && legacy.getLookupClip().start === 91 &&
+    legacy.data.wordModal.examples[0].enText === text, '点词使用当前弱项原句及剧集绝对时间');
+  legacy.onVocabClose();
+  assert(resumed && resumed.kind === 'slow' && resumed.position === 92.3, '关闭词典按原速档及暂停位置续播');
+  assert(WXML.includes('bind:lookup="onWordLookup"') && JSON_CFG.usingComponents['vocabulary-modal'],
+    '闯关评测卡已接入查词弹窗');
+
+  const resolveSubtitle = require('../utils/review-subtitle').resolveReviewSubtitle;
+  const signed = await resolveSubtitle({
+    textEn: text, episodeAudioUrl: 'https://oss/signed.m4a', startTime: 81, endTime: 83,
+    subtitleWords: [{ word: 'Listen', start: '81.2', end: '81.9' }], weakRecord: true,
+  });
+  assert(signed.audioUrl === 'https://oss/signed.m4a' && signed.start === 81 &&
+    signed.sentenceTokens[0].start === 81.2, '仅有整集签名原声的弱项可播放，兼容旧版字符串词窗');
+
   /* ==================== 汇总 ==================== */
   console.log(`\n━━━ 汇总 ━━━`);
   console.log(`通过 ${passed} / 失败 ${failed}`);

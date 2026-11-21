@@ -263,6 +263,9 @@
 .se-page--dark .se-blind-bar {
   background: rgba(168, 162, 158, 0.18);
 }
+.se-page .se-blind-bar--current {
+  background: var(--se-sweep-bg);
+}
 /* 盲读「显示原文/重新遮挡」胶囊 */
 .se-blind-pill {
   align-self: flex-start;
@@ -836,6 +839,7 @@
   color: #ffffff;
 }
 .se-ab {
+  overflow-y: auto;
   position: fixed;
   left: 0;
   right: 0;
@@ -907,6 +911,28 @@
 }
 .se-ab-sent--b {
   color: var(--primary-600);
+}
+/* 句末工具图标（翻译/回放）：随文字行内排布，静息半透明、激活实色 */
+.se-ab-ic {
+  width: 30rpx;
+  height: 30rpx;
+  margin-left: 12rpx;
+  vertical-align: -4rpx;
+  opacity: .5;
+}
+.se-ab-ic--on {
+  opacity: 1;
+}
+.se-ab-ic--hint {
+  margin-left: 0;
+  align-self: center;
+}
+/* A/B 句中文翻译（点句末翻译图标展开） */
+.se-ab-zh {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 .se-ab-divider {
   height: 1rpx;

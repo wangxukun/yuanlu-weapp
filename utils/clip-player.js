@@ -1,8 +1,7 @@
 /**
  * utils/clip-player.js — 窗口化单实例音频播放内核（REVIEW-TASK T3.2）
  *
- * 参数化移植 pages/speech-eval 的 _playUrl（七轮真机验证结晶，页面本身
- * 暂不切换接入——短期两份并存，后续统一收口到本模块）：
+ * 语音评测页与评测卡共用同一播放时钟：
  *
  * 句界精度 = 重建"精确 currentPosition"（Android MediaPlayer 等价）：
  *   ① 起播锚定 ctx.startTime（等价 prepare→seekTo→start，无 seek 竞态）；
@@ -29,6 +28,8 @@ const audioBus = require('./audio-bus');
  * @param {Function} [hooks.onPlaying] (kind|null) => void —— 播放态变化
  * @param {Function} [hooks.onTick] (posSec) => void —— 50ms 位置回调（词级扫光用）
  * @param {Function} [hooks.onEnded] (kind) => void —— 自然到窗终/播完停止
+ * @param {Function} [hooks.onError] (kind) => void —— 原生播放失败
+ * @param {Function} [hooks.onInterrupt] 宿主注册到音频总线的停止函数，自身起播时跳过
  */
 function createClipPlayer(hooks) {
   const cb = hooks || {};
@@ -178,7 +179,7 @@ function createClipPlayer(hooks) {
       // 旧批次 mp3 的 seek 落点先天不准（新批次已迁 m4a），告警不阻断
       console.warn('[clip-player] 旧批次 mp3 音源，seek 精度可能不准：', url.slice(0, 80));
     }
-    audioBus.stopAll(); // 停全局播放器 / TTS / 原声片段（互斥总线）
+    audioBus.stopAll(cb.onInterrupt); // 停全局播放器 / TTS / 原声片段（互斥总线）
     stop();
     const o = opts || {};
     kind = playKind;
@@ -270,7 +271,8 @@ function createClipPlayer(hooks) {
     });
     ctx.onError(() => {
       if (audio !== ctx) return;
-      stop();
+      const failed = stop();
+      if (cb.onError) cb.onError(failed);
       wx.showToast({ title: '音频播放失败', icon: 'none' });
     });
     // 50ms 监控循环（对齐 Android monitorJob 的 delay(50)）

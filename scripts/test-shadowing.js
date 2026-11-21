@@ -308,6 +308,36 @@ apiResponses['/api/speech/quota'] = { success: true, data: { used: 2, limit: 5, 
   const methodCalls = WXML.match(/\{\{[^}]*\.(indexOf|includes|map|filter|slice|join|toLowerCase|trim)\(/g);
   assert(!methodCalls, 'WXML 绑定零方法调用（' + (methodCalls ? methodCalls.join(' ; ') : '无') + '）');
 
+  section('旧收藏字幕定位 / 查词 / 快速换句');
+  apiResponses['/api/episode/subtitles'] = { success: true, audioUrl: 'https://oss/old.m4a', data: [
+    { id: 91, textEn: 'One, two.', start: 61, end: 65 },
+  ] };
+  const old = makePage();
+  old._results = {};
+  old._sentences = [makeSentence(9, {
+    episodeid: 'old-shadow', enText: 'One, two!', startTime: 0, endTime: 0, subtitleId: null,
+  }), S1];
+  old.data.total = 2;
+  await old._applySentence();
+  const oldSub = old.data.subtitle;
+  assert(oldSub.start === 61 && oldSub.end === 65 && oldSub.audioUrl === 'https://oss/old.m4a',
+    '无切片、无保存窗口时沿用匹配字幕的起止秒');
+  assert(oldSub.sentenceTokens[0].after === ', ' && oldSub.sentenceTokens[1].start === 63,
+    '无词窗的老字幕在真实句窗内分配扫光，并保留标点');
+  const first = old._applySentence();
+  old.onNext();
+  await first;
+  await settle();
+  const clip = old.getLookupClip();
+  assert(old.data.episodeId === S1.episodeid && clip.start === S1.startTime &&
+    Math.abs(old.data.subtitle.sentenceTokens[0].start - 0.25) < 1e-6,
+    '快速换句丢弃旧回包，切片用相对时间扫光，查词语境用剧集绝对时间');
+  old.selectComponent = () => ({ pauseForLookup: () => null });
+  await old.onWordLookup({ detail: { word: 'Subtitle' } });
+  assert(old.data.wordModal.word === 'subtitle' && old.data.wordModal.examples[0].enText === S1.enText &&
+    WXML.includes('bind:lookup="onWordLookup"') && JSON_CFG.usingComponents['vocabulary-modal'],
+    '点影子跟读原句单词打开对应的查词弹窗');
+
   /* ---------- 汇总 ---------- */
 
   console.log(`\n========== 影子跟读 T3.4 测试：${passed} 通过 / ${failed} 失败 ==========`);

@@ -41,6 +41,29 @@ function resolveEpisode(episodeid) {
   return promise;
 }
 
+function findSubtitle(subs, p) {
+  const text = String((p && p.text) || '').trim();
+  const word = String((p && p.word) || '').toLowerCase();
+  const ts = p && typeof p.timestamp === 'number' && Number.isFinite(p.timestamp) ? p.timestamp : null;
+
+  const cleaned = subs.filter((s) => s && s.textEn);
+  const sameText = (s) => text && normalizeText(s.textEn) === normalizeText(text);
+  return (
+    (p.subtitleId != null && cleaned.find((s) => s.id === p.subtitleId && (!text || sameText(s)))) ||
+    (ts != null && cleaned.find((s) => Number(s.start) <= ts && ts < Number(s.end) && sameText(s))) ||
+    (text ? cleaned.find((s) => s.textEn.trim() === text) : null) ||
+    (text ? cleaned.find((s) => normalizeText(s.textEn) === normalizeText(text)) : null) ||
+    (ts != null && word
+      ? cleaned.find(
+          (s) =>
+            Number(s.start) <= ts &&
+            ts < Number(s.end) &&
+            (' ' + normalizeText(s.textEn) + ' ').includes(' ' + normalizeText(word) + ' '),
+        )
+      : null)
+  );
+}
+
 /**
  * 解析「语境句 → 整集窗口」。
  * @param {Object} p
@@ -54,23 +77,7 @@ async function resolveContext(p) {
   const episodeid = p && p.episodeid;
   if (!episodeid) throw new Error('缺少剧集信息');
   const { url, subs } = await resolveEpisode(episodeid);
-  const text = String((p && p.text) || '').trim();
-  const word = String((p && p.word) || '').toLowerCase();
-  const ts = p && typeof p.timestamp === 'number' && Number.isFinite(p.timestamp) ? p.timestamp : null;
-
-  const cleaned = subs.filter((s) => s && s.textEn);
-  const target =
-    (text ? cleaned.find((s) => s.textEn.trim() === text) : null) ||
-    (text ? cleaned.find((s) => normalizeText(s.textEn) === normalizeText(text)) : null) ||
-    (ts != null && word
-      ? cleaned.find(
-          (s) =>
-            Number(s.start) <= ts &&
-            ts < Number(s.end) &&
-            (' ' + normalizeText(s.textEn) + ' ').includes(' ' + normalizeText(word) + ' '),
-        )
-      : null);
-
+  const target = findSubtitle(subs, p);
   if (!target) throw new Error('未找到该句的原声语境');
   const start = Number(target.start) || 0;
   const end = Number(target.end) || 0;
@@ -83,4 +90,4 @@ async function resolveContext(p) {
   };
 }
 
-module.exports = { resolveEpisode, resolveContext };
+module.exports = { resolveEpisode, resolveContext, findSubtitle };

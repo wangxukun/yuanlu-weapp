@@ -25,7 +25,7 @@
     <!-- ══ 评测卡（换句 key 重挂） ══ -->
     <scroll-view class="sh-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view class="sh-card-holder col" wx:if="{{subtitle}}">
-        <eval-card
+        <eval-card id="training-card" bind:lookup="onWordLookup"
           key="{{cardKey}}"
           subtitle="{{subtitle}}"
           subtitle-id="{{subtitleId}}"
@@ -41,6 +41,7 @@
         />
       </view>
       <view class="sh-bottom-space"></view>
+      <view wx:if="{{!subtitle}}" class="sh-center col"><view class="sh-spin"></view></view>
     </scroll-view>
 
     <!-- ══ 底部导航：上一句 | 下一句 / 完成跟读 ══ -->
@@ -58,4 +59,11 @@
       </view>
     </view>
   </block>
+  <vocabulary-modal wx:if="{{wordModal}}" visible="{{true}}" word="{{wordModal.word}}"
+                    dict-data="{{wordModal.dictData}}" corpus-examples="{{wordModal.examples}}"
+                    episode-title="{{episodeTitle}}" loading="{{wordModal.loading}}"
+                    saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
+                    bind:close="onVocabClose" bind:complete="onVocabClose"
+                    bind:save="onVocabSave" bind:gopractice="onVocabPractice" />
+  <premium-modal visible="{{!!lookupQuota}}" source="{{lookupQuota}}" bind:close="onLookupQuotaClose" />
 </view>

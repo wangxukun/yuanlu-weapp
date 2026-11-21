@@ -48,14 +48,19 @@
     <!-- 当前组 -->
     <view class="se-ab-card col" wx:if="{{abActive >= 0}}">
       <view class="se-ab-role">A · 原声</view>
-      <text class="se-ab-sent">{{subs[abPairs[abActive].aIdx].textEn}}</text>
+      <view class="se-ab-sent"><block wx:for="{{subs[abPairs[abActive].aIdx].tokens}}" wx:key="offset"><text>{{item.before}}</text><text class="{{fmt.wordCls(index, sweepIdx, sweepOn, false)}}" bindtap="onAbWordTap" data-word="{{item.text}}" data-sub="{{abPairs[abActive].aIdx}}">{{item.text}}</text><text>{{item.after}}</text></block><image class="se-ab-ic {{abZhA ? 'se-ab-ic--on' : ''}}" src="{{abZhA ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}" bindtap="onToggleAbZh" data-side="a" /></view>
+      <text wx:if="{{abZhA}}" class="se-ab-zh">{{subs[abPairs[abActive].aIdx].textCn || '（本句暂无中文翻译）'}}</text>
       <view class="se-ab-divider"></view>
       <view class="se-ab-role">B · 由你接上{{blindMode ? '（只给意图与提示词）' : ''}}</view>
-      <text wx:if="{{!blindMode}}" class="se-ab-sent se-ab-sent--b">{{subs[abPairs[abActive].bIdx].textEn}}</text>
+      <block wx:if="{{!blindMode}}">
+        <view class="se-ab-sent se-ab-sent--b"><block wx:for="{{subs[abPairs[abActive].bIdx].tokens}}" wx:key="offset"><text>{{item.before}}</text><text bindtap="onAbWordTap" data-word="{{item.text}}" data-sub="{{abPairs[abActive].bIdx}}">{{item.text}}</text><text>{{item.after}}</text></block><image class="se-ab-ic {{abZhB ? 'se-ab-ic--on' : ''}}" src="{{abZhB ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}" bindtap="onToggleAbZh" data-side="b" /><image wx:if="{{abResult}}" class="se-ab-ic {{playing === 'ab-user' ? 'se-ab-ic--on' : ''}}" src="{{playing === 'ab-user' ? '/assets/icons/volume-up-accent.svg' : (dark ? '/assets/icons/volume-up-dark.svg' : '/assets/icons/volume-up-primary.svg')}}" bindtap="onAbReplayUser" /></view>
+        <text wx:if="{{abZhB}}" class="se-ab-zh">{{subs[abPairs[abActive].bIdx].textCn || '（本句暂无中文翻译）'}}</text>
+      </block>
       <block wx:else>
         <text class="se-ab-intent">{{abIntent}}</text>
         <view class="row se-ab-hints">
           <text class="se-ab-hint" wx:for="{{abHints}}" wx:key="*this">{{item}}</text>
+          <image wx:if="{{abResult}}" class="se-ab-ic se-ab-ic--hint {{playing === 'ab-user' ? 'se-ab-ic--on' : ''}}" src="{{playing === 'ab-user' ? '/assets/icons/volume-up-accent.svg' : (dark ? '/assets/icons/volume-up-dark.svg' : '/assets/icons/volume-up-primary.svg')}}" bindtap="onAbReplayUser" />
         </view>
       </block>
 
@@ -63,6 +68,9 @@
       <view class="se-ab-stage col center w-full">
         <block wx:if="{{abPhase === 'idle'}}">
           <view class="se-ab-go center tap-scale" bindtap="onAbStart">听 A 句，倒数后接 B 句</view>
+        </block>
+        <block wx:elif="{{abPhase === 'loading' || abPhase === 'starting' || abPhase === 'evaluating'}}">
+          <text class="se-ab-phase">{{abPhase === 'loading' ? '正在准备原声…' : abPhase === 'starting' ? '正在打开麦克风…' : '正在评测…'}}</text>
         </block>
         <block wx:elif="{{abPhase === 'playing'}}">
           <text class="se-ab-phase">A 原声播放中…</text>
@@ -88,13 +96,16 @@
               <text class="se-ab-m-key">流利度</text>
             </view>
             <view class="se-ab-metric col center flex-1">
-              <text class="se-ab-m-val">{{abResult.wpmMatch}}</text>
+              <text class="se-ab-m-val">{{abResult.wpmMatch}}%</text>
               <text class="se-ab-m-key">语速吻合</text>
             </view>
           </view>
+          <view class="se-mode-chip tap-scale" bindtap="onAbStart">再练一次</view>
           <text class="se-ab-note">你用了 {{abResult.userSec}}s · 母语者约 {{abResult.nativeWpm}} 词/分</text>
           <view class="se-ab-go se-ab-go--ghost center tap-scale" bindtap="onAbNext" wx:if="{{abActive < abPairs.length - 1}}">下一组</view>
         </block>
+        <view wx:if="{{abPhase === 'playing' || abPhase === 'loading' || abPhase === 'countdown'}}"
+              class="se-mode-chip tap-scale" bindtap="onAbStop">取消本轮</view>
       </view>
     </view>
     <view wx:else class="se-ab-empty col center">
@@ -120,7 +131,7 @@
     </view>
 
     <!-- 单句评测卡 -->
-    <scroll-view wx:else class="se-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+    <scroll-view wx:elif="{{!abMode}}" class="se-scroll" scroll-y enhanced show-scrollbar="{{false}}">
       <view class="se-card col">
 
         <!-- ── 顶部操作栏：发音示范 / 原声播放 / 慢速播放 / 收藏书签 / 单句循环 ── -->
@@ -163,7 +174,7 @@
           <!-- 盲读遮挡：按词长模糊条 + 句末翻译图标 -->
           <view wx:if="{{blindMasked}}" class="se-sentence-blind">
             <view wx:for="{{blindBars}}" wx:key="index"
-                  class="se-blind-bar" style="width: {{item.w}}rpx; height: {{item.h}}rpx"></view>
+                  class="se-blind-bar {{sweepOn && index === sweepIdx ? 'se-blind-bar--current' : ''}}" style="width: {{item.w}}rpx; height: {{item.h}}rpx"></view>
             <image class="se-translate-ic" src="{{showCn ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}"
                    bindtap="onToggleCn" />
           </view>
@@ -171,8 +182,8 @@
           <!-- 原文/音标：逐词 token（点词查词 + 原声扫光 + 已保存生词 primary） -->
           <view wx:else class="se-sentence {{fontSizeCls}}">
             <block wx:for="{{tokens}}" wx:for-item="tok" wx:for-index="wi" wx:key="wi">
-              <text class="{{fmt.wordCls(wi, sweepIdx, sweepOn, tok.sv)}}"
-                    bindtap="onWordTap" data-word="{{tok.w}}">{{tok.d}} </text>
+              <text>{{tok.before}}</text><text class="{{fmt.wordCls(wi, sweepIdx, sweepOn, tok.sv)}}"
+                    bindtap="onWordTap" data-word="{{tok.w}}">{{tok.d}}</text><text>{{tok.after}}</text>
             </block>
             <image class="se-translate-ic" src="{{showCn ? (dark ? '/assets/icons/translate-primarydark.svg' : '/assets/icons/translate-primary.svg') : (dark ? '/assets/icons/translate-graydark.svg' : '/assets/icons/translate-gray.svg')}}"
                    bindtap="onToggleCn" />
@@ -372,7 +383,7 @@
   </view>
 
   <!-- ══ 底部导航：上一句 | 进度 | 下一句 ══ -->
-  <view class="se-footer">
+  <view wx:if="{{!abMode}}" class="se-footer">
     <view class="se-footer-row row">
       <view class="se-nav-text row {{index <= 0 || phase === 'evaluating' ? 'se-nav-text--off' : ''}}" bindtap="onPrev">
         <image class="se-nav-arrow" src="{{dark ? '/assets/icons/keyboard-arrow-left-dark.svg' : '/assets/icons/keyboard-arrow-left-primary.svg'}}" />
@@ -397,11 +408,13 @@
                    bind:change="onSettingChange" bind:theme="onSetThemeMode" bind:close="onCloseSettings" />
 
   <!-- ══ 点词查词弹层（与精听页共用） ══ -->
-  <vocabulary-modal visible="{{wordModal.visible}}" word="{{wordModal.word}}"
+  <vocabulary-modal wx:if="{{wordModal}}" visible="{{true}}" corpus-examples="{{wordModal.examples}}" word="{{wordModal.word}}"
                     dict-data="{{wordModal.dictData}}" loading="{{wordModal.loading}}"
                     saving="{{wordModal.saving}}" is-saved="{{wordModal.isSaved}}"
                     episode-title="{{episodeTitle}}"
-                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabComplete" />
+                    bind:close="onVocabClose" bind:save="onVocabSave" bind:complete="onVocabClose" bind:gopractice="onVocabPractice" />
+
+  <premium-modal visible="{{!!lookupQuota}}" source="{{lookupQuota}}" bind:close="onLookupQuotaClose" />
 
   <!-- ══ 会员转化弹窗（评测/词典配额墙） ══ -->
   <premium-modal visible="{{showPremiumModal}}" source="{{premiumSource}}" bind:close="onPremiumClose" />

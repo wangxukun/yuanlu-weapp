@@ -84,7 +84,7 @@ function normalizeText(s) {
  * 两者皆无返回 null（零整集请求）。
  * @returns {Promise<{url,duration,offset}|null> | null}
  */
-function resolveClipSource(params) {
+function resolveClipSource(params, options) {
   if (!params) return null;
   if (params.clipAudioUrl) {
     return Promise.resolve({
@@ -96,7 +96,7 @@ function resolveClipSource(params) {
   if (params.clipId) {
     const id = String(params.clipId);
     if (!clipCache.has(id)) {
-      const p = get('/api/clips/' + encodeURIComponent(id) + '/audio')
+      const p = get('/api/clips/' + encodeURIComponent(id) + '/audio', null, options)
         .then((res) => {
           if (!res || !res.success || !res.data || !res.data.url) {
             throw new Error('clip fetch failed');

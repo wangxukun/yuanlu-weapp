@@ -24,12 +24,16 @@
 // - 解锁 CTA：Android 为 toast「订阅功能即将上线」+ 返回；小程序按 T4.4 权限
 //   表口径升级为 premium-modal(pronunciation_locked)
 const core = require('../../../utils/pron-core');
-const audioClip = require('../../../utils/audio-clip');
+const { resolveReviewSubtitle } = require('../../../utils/review-subtitle');
+const trainingLookup = require('../training-lookup');
 const theme = require('../../../utils/theme');
 const { get } = require('../../../utils/request');
 
 Page({
+  ...trainingLookup,
   data: {
+    wordModal: null,
+    lookupQuota: '',
     loading: true,
     isLocked: false,
     loadError: '',
@@ -81,10 +85,6 @@ Page({
       this.setData({ statusBarH: wx.getWindowInfo().statusBarHeight || 20 });
     } catch (e) { /* 基础库兜底 */ }
     this.load();
-  },
-
-  onShow() {
-    this._syncTheme();
   },
 
   _syncTheme() {
@@ -145,12 +145,11 @@ Page({
   },
 
   /** 换题（Android switchQuestion：phase IDLE / 结果清空 / 不缓存已答） */
-  _applyQuestion(index) {
+  async _applyQuestion(index) {
     const rec = this._records[index];
     if (!rec) return;
     // 换句先置空（eval-card observers 重置录音/结果态）
     this.setData({ subtitle: null });
-    const card = core.buildPracticeCard(rec);
     const completed = this._completed.has(index);
     const seq = (this._qSeq = (this._qSeq || 0) + 1);
     this.setData({
@@ -161,37 +160,17 @@ Page({
       isLast: index === this._records.length - 1,
       evaluating: false,
       prevDisabled: index <= 0,
-      subtitle: card.subtitle,
-      subtitleId: card.subtitleId,
-      episodeId: card.episodeId,
-      episodeTitle: card.episodeTitle,
+      subtitleId: rec.subtitleId != null ? rec.subtitleId : rec.recognitionid,
+      episodeId: rec.episodeid,
+      episodeTitle: rec.episodeTitle,
       cardKey: 'pr-' + rec.recognitionid,
     });
     this._syncSettlement();
-    if (!card.subtitle.audioUrl && card.clipId) {
-      const p = audioClip.resolveClipSource({ clipId: card.clipId });
-      if (p) {
-        p.then((resolved) => {
-          if (seq !== this._qSeq || !resolved || !resolved.url) return;
-          const off = typeof resolved.offset === 'number' ? resolved.offset : 0;
-          const start = Math.max(0, card.rawStart - off);
-          const end = Math.max(start + 0.5, card.rawEnd - off);
-          const words = (card.rawWords || []).map((w) => ({
-            word: w.word,
-            start: Math.max(0, (Number(w.start) || 0) - off),
-            end: Math.max(0, (Number(w.end) || 0) - off),
-          }));
-          this.setData({
-            subtitle: Object.assign({}, card.subtitle, {
-              audioUrl: resolved.url,
-              start,
-              end,
-              words,
-            }),
-          });
-        }).catch(() => {});
-      }
-    }
+    const subtitle = await resolveReviewSubtitle({
+      ...rec, textEn: rec.targetText, textCn: rec.subtitleTextCn,
+      startTime: rec.targetStartTime, endTime: rec.subtitleEnd, weakRecord: true,
+    });
+    if (!this._disposed && seq === this._qSeq) this.setData({ subtitle });
   },
 
   /* ---------------- 配额（Web [P3-c] 口径恢复） ---------------- */
@@ -266,11 +245,13 @@ Page({
   /* ---------------- 题目流转 ---------------- */
 
   onPrev() {
+    if (this.data.wordModal) return;
     if (this.data.index <= 0 || this.data.evaluating) return;
     this._applyQuestion(this.data.index - 1);
   },
 
   onNext() {
+    if (this.data.wordModal) return;
     if (this.data.evaluating) return;
     if (this.data.isLast) {
       // 试用结算（Web [P3-c] 成就先行）：末钮转 PRO → 会员转化；

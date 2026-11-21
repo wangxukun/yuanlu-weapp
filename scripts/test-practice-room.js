@@ -131,7 +131,7 @@ function assert(cond, msg) {
     'A 词级显示保留整句与标点，部分时间戳也能标出查询词');
   assert(Math.abs(tokens[0].start - 0.2) < 1e-6 && Math.abs(tokens[1].start - 1.4) < 1e-6 &&
     tokens[2].end === 4.8, 'A 保留真实词窗，缺失词窗覆盖余下句长');
-  const { buildSentenceTokens } = require('../pages/practice-room/sentence-tokens');
+  const { buildSentenceTokens } = require('../utils/sentence-tokens');
   const repeated = buildSentenceTokens('“Art”—part of ART.', 'art', [], 0.5, 4.5);
   assert(repeated.filter(t => t.target).map(t => t.text).join() === 'Art,ART' &&
     repeated[0].start === 0.5 && repeated[3].end === 4.5, 'A 大小写、重复词、子串排除与无时间戳回退');

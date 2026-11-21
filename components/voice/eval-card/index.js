@@ -272,8 +272,8 @@ Component({
       post('/api/sentences/toggle', {
         episodeid: this.data.episodeId,
         subtitleId: this.data.subtitleId,
-        startTime: sub.start,
-        endTime: sub.end,
+        startTime: sub.episodeStart != null ? sub.episodeStart : sub.start,
+        endTime: sub.episodeEnd != null ? sub.episodeEnd : sub.end,
         enText: sub.textEn,
         zhText: sub.textCn,
       }, { showError: false })

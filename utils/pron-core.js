@@ -643,6 +643,7 @@ function decorateWeakRow(record) {
     episodeTitle: src.episodeTitle || '未知出处',
     episodeCoverUrl: src.episodeCoverUrl || '',
     targetText: src.targetText || '',
+    targetStartTime: num(src.targetStartTime),
     subtitleId: typeof src.subtitleId === 'number' ? src.subtitleId : null,
     lastScore,
     tone: classifyScore(lastScore),

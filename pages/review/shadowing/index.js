@@ -11,13 +11,16 @@
 // - 完成/返回：navigateBack 前 globalData.deckFocusSubtitleId 带回句定位
 //   （deck onShow 消费后清空）
 const sentenceCore = require('../../../utils/sentence-core');
-const audioClip = require('../../../utils/audio-clip');
-const episodeContext = require('../../../utils/episode-context');
+const { resolveReviewSubtitle } = require('../../../utils/review-subtitle');
+const trainingLookup = require('../training-lookup');
 const theme = require('../../../utils/theme');
 const { get } = require('../../../utils/request');
 
 Page({
+  ...trainingLookup,
   data: {
+    wordModal: null,
+    lookupQuota: '',
     loading: true,
     isEmpty: false,
     index: 0,
@@ -41,10 +44,6 @@ Page({
     this._deepLinkSubtitleId = options && options.subtitleId ? String(options.subtitleId) : '';
     this._syncTheme();
     this.loadData();
-  },
-
-  onShow() {
-    this._syncTheme();
   },
 
   _syncTheme() {
@@ -77,7 +76,7 @@ Page({
       if (index < 0 && this._deepLinkSubtitleId) {
         index = this._sentences.findIndex((s) => String(s.subtitleId) === String(this._deepLinkSubtitleId));
       }
-      this.setData({ loading: false, index: index >= 0 ? index : 0 });
+      this.setData({ loading: false, total: this._sentences.length, index: index >= 0 ? index : 0 });
       await this._applySentence();
       this._preflightQuota();
     } catch (err) {
@@ -85,79 +84,21 @@ Page({
     }
   },
 
-  /** 组装当前句 subtitle prop（走语料切片直链 clipAudioUrl / clipId 懒解析，零整集请求） */
+  /** 优先使用物理切片，旧收藏按剧集字幕恢复原声。 */
   async _applySentence() {
     const s = this._sentences[this.data.index];
     if (!s) return;
     this.setData({ subtitle: null }); // 换句先置空（eval-card observers 重置态）
-    let audioUrl = '';
-    let off = typeof s.clipOffset === 'number' ? s.clipOffset : 0;
-    let rawWords = Array.isArray(s.clipWords) ? s.clipWords : [];
-    const textEn = s.enText;
-    const textCn = s.zhText;
-    const subtitleId = s.subtitleId;
-
-    const clipPromise = audioClip.resolveClipSource({
-      clipId: s.clipId,
-      clipAudioUrl: s.clipAudioUrl,
-      clipOffset: s.clipOffset,
-      clipDuration: s.clipDuration,
-    });
-    if (clipPromise) {
-      try {
-        const resolved = await clipPromise;
-        if (resolved && resolved.url) {
-          audioUrl = resolved.url;
-          off = typeof resolved.offset === 'number' ? resolved.offset : off;
-        }
-      } catch (e) {
-        // 切片解析失败：收藏句字段兜底（无原声，仍可录音评测）
-      }
-    }
-
-    // 非 clip 收藏句（缺切片数据）→ 2026-11-15 红线放开：整集字幕兜底。
-    // 签名整集 URL 时间轴=字幕绝对秒（off=0，下方换算原样透传）；有字幕
-    // 窗口直接用，否则按句文本三级匹配并取匹配行词级时间戳（绝对轴）。
-    if (!audioUrl && s.episodeid) {
-      try {
-        const hasWindow =
-          Number.isFinite(Number(s.startTime)) &&
-          Number(s.endTime) > Number(s.startTime);
-        const r = hasWindow
-          ? await episodeContext
-              .resolveEpisode(s.episodeid)
-              .then((ep) => ({ url: ep.url, words: [] }))
-          : await episodeContext.resolveContext({
-              episodeid: s.episodeid,
-              text: s.enText || '',
-            });
-        audioUrl = r.url;
-        off = 0;
-        if (Array.isArray(r.words) && r.words.length) rawWords = r.words;
-      } catch (e) {
-        // 整集兜底失败：无原声，仍可录音评测（原口径）
-      }
-    }
-
-    const start = audioUrl ? Math.max(0, (Number(s.startTime) || 0) - off) : (Number(s.startTime) || 0);
-    const rawEnd = Number(s.endTime) || (Number(s.startTime) || 0) + 3;
-    const end = audioUrl ? Math.max(start + 0.5, rawEnd - off) : rawEnd;
-    const words = audioUrl
-      ? rawWords.map((w) => ({
-          word: w.word,
-          start: Math.max(0, (Number(w.start) || 0) - off),
-          end: Math.max(0, (Number(w.end) || 0) - off),
-        }))
-      : rawWords;
-
+    const seq = this._qSeq = (this._qSeq || 0) + 1;
+    const subtitle = await resolveReviewSubtitle({ ...s, textEn: s.enText, textCn: s.zhText });
+    if (this._disposed || seq !== this._qSeq) return;
     this.setData({
-      subtitle: { textEn, textCn, words, audioUrl, start, end },
-      subtitleId,
+      subtitle,
+      subtitleId: s.subtitleId,
       episodeId: s.episodeid,
       episodeTitle: s.episodeTitle,
       previousResult: this._results[s.id] || null,
       cardKey: 'sh-' + s.id,
-      total: this._sentences.length,
       progressPercent: ((this.data.index + 1) / this._sentences.length) * 100,
     });
   },
@@ -197,12 +138,14 @@ Page({
   /* ---------------- 句导航 ---------------- */
 
   onPrev() {
+    if (this.data.wordModal) return;
     if (this.data.index <= 0) return;
     this.setData({ index: this.data.index - 1 });
     this._applySentence();
   },
 
   onNext() {
+    if (this.data.wordModal) return;
     if (this.data.index >= this.data.total - 1) {
       this.onFinish();
       return;
