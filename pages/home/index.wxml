@@ -1,3 +1,4 @@
+<import src="../../templates/login-guide.wxml" />
 <!--
   pages/home/index.wxml — 原声心念工坊（复刻 B工程 AIStudioView 首期范围）
 
@@ -10,7 +11,10 @@
           leaderboard = 风云榜英雄卡（三甲领奖台）+ 我的站位 + 达人榜列表
   弹窗层：透视 bottom-sheet + vocabulary-modal + premium-modal
 -->
-<view class="st-page {{themeClass}}">
+<view wx:if="{{!isLoggedIn}}" class="st-guest-page {{themeClass}}">
+  <template is="loginGuide" data="{{title: '登录后进入原声工坊', description: '完成今日挑战，参与跟读接力，查看你的学习进度。', hint: '使用你的账号同步练习记录'}}" />
+</view>
+<view wx:else class="st-page {{themeClass}}">
 
   <!-- ═══ 顶部模块（B Top Header，标题/描述随活动 tab 联动，文案已清洗） ═══ -->
   <view class="st-header">

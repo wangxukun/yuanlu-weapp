@@ -66,6 +66,58 @@ assert(!js.includes('images.unsplash.com') && !wxml.includes('images.unsplash.co
 });
 assert(!wxml.includes('搜索') || !wxml.includes('st-search'), 'E 旧搜索骨架清除');
 
+// 走真实页面生命周期和登录态订阅，记录工坊模块何时开始工作。
+{
+  const navigations = [];
+  let stopped = 0;
+  global.wx = {
+    navigateTo: ({ url }) => navigations.push(url),
+    stopPullDownRefresh: () => { stopped++; },
+    getStorageSync: () => '',
+  };
+  let config;
+  global.Page = value => { config = value; };
+  require('../pages/home/index');
+  const auth = require('../store/authStore');
+  const calls = [];
+  const page = { ...config, data: structuredClone(config.data),
+    setData(patch) { Object.assign(this.data, patch); },
+    _syncTheme() {},
+  };
+  for (const name of ['_initWorkshop', '_disposeWorkshop', '_loadDaily', '_loadDashboard',
+    '_loadSmartReview', '_syncShadowIdentity', '_tickDashboardClock', '_cancelShadowing',
+    '_pausePlayback', '_stopCompilation']) {
+    page[name] = () => calls.push(name);
+  }
+  page.onLoad();
+  page.onShow();
+  page.onPullDownRefresh();
+  assert(!page.data.isLoggedIn && !calls.length && stopped === 1, '游客进入和下拉均停留在引导页，未启动工坊');
+  page.onGoLogin();
+  page.onHide();
+  page.onShow();
+  assert(navigations.join() === '/pages/auth/index' && !page.data.isLoggedIn && !calls.length,
+    '点击去登录只入栈一次，取消返回仍显示引导');
+  page.onHide();
+  auth.setState({ isLoggedIn: true, token: 'user-a' });
+  assert(!calls.length, '登录表单尚在前台时不启动后台工坊');
+  page.onShow();
+  assert(page.data.isLoggedIn && calls.includes('_initWorkshop') && calls.includes('_loadDaily'),
+    '登录后返回工坊，自动加载认证内容');
+  page.onHide();
+  page.onShow();
+  assert(calls.filter(n => n === '_initWorkshop').length === 1, '切回已登录工坊不会重复初始化');
+  page.onHide();
+  auth.setState({ isLoggedIn: false, token: '' });
+  calls.length = 0;
+  page.onShow();
+  assert(!page.data.isLoggedIn && !calls.length, '退出账号后再进工坊恢复引导');
+  page.onUnload();
+  assert(wxml.includes('wx:if="{{!isLoggedIn}}"') && wxml.includes('<view wx:else class="st-page') &&
+    [wxml, read('pages/review/index.wxml')].every(t => t.includes('is="loginGuide"')),
+    '工坊和复习共用整页登录引导，仅登录后渲染工坊主体');
+}
+
 if (failed) {
   console.error('✗ ' + failed + ' 项失败');
   process.exit(1);

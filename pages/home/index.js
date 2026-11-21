@@ -232,6 +232,7 @@ Page({
   ...shadowing.methods,
   ...dailyChallenge.methods,
   data: {
+    isLoggedIn: false,
     themeClass: '',
     dark: false,
 
@@ -340,11 +341,45 @@ Page({
   /* ---------------- 生命周期 ---------------- */
 
   onLoad() {
+    this._workshopToken = '';
+    this._workshopAuthUnsub = authStore.subscribe(() => {
+      const token = this._shadowToken();
+      if (token !== this._workshopToken) this._syncWorkshopAccess();
+    });
+  },
+
+  onGoLogin() {
+    wx.navigateTo({ url: '/pages/auth/index' });
+  },
+
+  _syncWorkshopAccess() {
+    const token = this._shadowToken();
+    if (this._workshopToken && this._workshopToken !== token) {
+      this._disposeWorkshop();
+      this._workshopToken = '';
+      this.setData({ ...JSON.parse(this._initialWorkshopData), themeClass: this.data.themeClass, dark: this.data.dark });
+    }
+    if (!this._workshopVisible || !token) return;
+    if (!this._workshopToken) {
+      if (!this._initialWorkshopData) this._initialWorkshopData = JSON.stringify(this.data);
+      this._workshopToken = token;
+      this._initWorkshop();
+      this.setData({ isLoggedIn: true });
+    }
+    this._syncShadowIdentity();
+    this._loadDaily(false);
+    this._tickDashboardClock();
+    this._loadDashboard();
+    this._loadSmartReview();
+    if (!this._clockTimer) this._clockTimer = setInterval(() => this._tickDashboardClock(), 30000);
+  },
+
+  _initWorkshop() {
     this._rate = 1;
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
-    this._prepToken = 0;
+    this._prepToken = (this._prepToken || 0) + 1;
     this._audioMeta = null; // {url, offset, winStart, winEnd}
     this._activeKind = 'clip'; // 'clip' | 'scene' | 'daily' | 'relay'（同一私有播放器分时复用）
     this._lastSceneWord = -99;
@@ -381,9 +416,7 @@ Page({
 
     this._initShadowing();
     this._initDailyChallenge();
-    this._syncTheme();
     this._fetchVocabSet();
-    this._loadDaily(false);
     this._loadRelayRooms();
     this._loadPresetIdeas(); // [需求一] 启动时动态生成灵感预设
 
@@ -392,17 +425,14 @@ Page({
   },
 
   onShow() {
-    this._syncShadowIdentity();
-    this._loadDaily(false);
+    this._workshopVisible = true;
     this._syncTheme();
-    this._tickDashboardClock();
-    this._loadDashboard(); // 从真实复习/评测/收藏页面返回时同步
-    this._loadSmartReview();
-    if (!this._clockTimer) this._clockTimer = setInterval(() => this._tickDashboardClock(), 30000);
+    this._syncWorkshopAccess();
   },
 
   /** 下拉刷新：全模块真实数据一次拉齐（今日挑战走当日缓存口径保进度） */
   async onPullDownRefresh() {
+    if (!this._workshopToken) return wx.stopPullDownRefresh();
     this._pausePlayback();
     this._stopCompilation();
     await Promise.all([
@@ -416,6 +446,8 @@ Page({
   },
 
   onHide() {
+    this._workshopVisible = false;
+    if (!this._workshopToken) return;
     this._cancelShadowing();
     if (this._clockTimer) clearInterval(this._clockTimer);
     this._clockTimer = null;
@@ -424,6 +456,14 @@ Page({
   },
 
   onUnload() {
+    this._workshopVisible = false;
+    if (this._workshopAuthUnsub) this._workshopAuthUnsub();
+    if (this._workshopToken) this._disposeWorkshop();
+    this._workshopToken = '';
+  },
+
+  _disposeWorkshop() {
+    this._prepToken++;
     this._disposeShadowing();
     this._disposeDailyChallenge();
     this._disposeDashboard();
@@ -435,6 +475,7 @@ Page({
     if (this._batonTimer) clearTimeout(this._batonTimer);
     if (this._relayPrepTimer) clearInterval(this._relayPrepTimer);
     if (this._clockTimer) clearInterval(this._clockTimer);
+    this._clockTimer = null;
     if (this._cheerTimer) clearTimeout(this._cheerTimer);
     if (this._streakPopTimer) clearTimeout(this._streakPopTimer);
     if (this._streakCheerTimer) clearTimeout(this._streakCheerTimer);
@@ -713,6 +754,7 @@ Page({
    * 文案始终走 B 兜底模板（goal 插值）；plan.sourceLabel 标注选料来源。
    */
   async generate(queryText) {
+    const token = this._workshopToken;
     const goal = (queryText || this.data.inputIdea || '').trim();
     if (!goal || this.data.isGenerating) return;
 
@@ -727,6 +769,7 @@ Page({
     let matchKind = '';
     try {
       const m = await reelsApi.matchStudio(goal, levels);
+      if (token !== this._workshopToken) return;
       if (m && m.noMatch) {
         // [UX 2026-11-09] 后端语义快裁判「无相关语料」——诚实提示并终止，
         // 绝不降级到不相关的难度选料/本地语料（宁空勿歪）；仅网络失败才回落
@@ -755,6 +798,7 @@ Page({
         source = 'match';
       }
     } catch (e) {
+      if (token !== this._workshopToken) return;
       /* [铁律 7·2026-11-09] 网络失败/超时 → 诚实错误提示。
          原「难度选料 feed → 本地 mock」降级链已摘除——那正是
          「看起来有结果但语义全不相关」的假结果来源（宁空勿歪）。
@@ -863,6 +907,7 @@ Page({
 
   /** prefix: 'plan.clips'（默认）或 'daily.clips'——书签态回填双源共用 */
   _fetchSavedKeys(episodeid, clips, prefix) {
+    const token = this._workshopToken;
     const pfx = prefix || 'plan.clips';
     if (this._savedKeysByEp[episodeid]) {
       this._applySavedKeys(episodeid, this._savedKeysByEp[episodeid], clips, pfx);
@@ -870,7 +915,7 @@ Page({
     }
     get('/api/sentences/keys?episodeid=' + encodeURIComponent(episodeid), null, { showError: false })
       .then((body) => {
-        if (!body || !body.success || !body.data) return;
+        if (token !== this._workshopToken || !body || !body.success || !body.data) return;
         const ids = {};
         ((body.data.subtitleIds || []) || []).forEach((id) => {
           ids[episodeid + ':' + id] = true;
@@ -1664,6 +1709,8 @@ Page({
   /* ---------------- 跟读接力（yuanlu /api/relay/*；未登录/接口失败回落 relay-mock） ---------------- */
 
   async _loadRelayRooms(batch) {
+    const token = this._workshopToken;
+    if (!token) return;
     this._relayRecruitBatch = batch > 1 ? batch : 1;
     const auth = authStore.getState();
     const isAdmin = !!(auth.userInfo && auth.userInfo.role === 'ADMIN');
@@ -1680,13 +1727,13 @@ Page({
       relayTotalRecruiting: total != null ? total : rooms.filter((r) => r.status === 'recruiting').length,
       relayLoading: false,
     });
-    // 未登录不发请求（401 会全局 toast「登录已过期」），直接本地演示房兜底
-    if (!this._shadowToken()) return apply(relayMock.listRooms());
     try {
       const r = await relayApi.fetchRooms(this._relayRecruitBatch);
+      if (token !== this._workshopToken) return;
       apply(r.rooms, r.totalRecruiting);
       this.setData({ relayRecruitHasMore: r.recruitHasMore });
     } catch (e) {
+      if (token !== this._workshopToken) return;
       apply(relayMock.listRooms());
       this.setData({ relayRecruitHasMore: false });
     }
@@ -2235,6 +2282,8 @@ Page({
    * （B 客户端兜底同款）。userCount/userScore 仅 mock 路径消费。
    */
   async _loadLeaderboard(userCount, userScore) {
+    const token = this._workshopToken;
+    if (!token) return;
     const applyMock = () => {
       const d = this.data.daily;
       const count = userCount != null ? userCount : (d && (d.totalShadowingCount || d.completedCount)) || 0;
@@ -2242,13 +2291,13 @@ Page({
       this.setData({ leaderboard: lbMock.build(count, score), lbRefreshing: false });
       this._syncMetrics();
     };
-    if (!this._shadowToken()) return applyMock();
     try {
       const lb = await lbApi.fetchDaily();
+      if (token !== this._workshopToken) return;
       this.setData({ leaderboard: lb, lbRefreshing: false });
       this._syncMetrics(); // 榜名次/跟读数随之刷新（真实口径）
     } catch (e) {
-      applyMock();
+      if (token === this._workshopToken) applyMock();
     }
   },
 
@@ -2509,9 +2558,11 @@ Page({
   },
 
   _fetchVocabSet() {
-    if (!authStore.getState().isLoggedIn) return;
+    const token = this._workshopToken;
+    if (!token) return;
     get('/api/vocabulary/words', null, { showError: false })
       .then((body) => {
+        if (token !== this._workshopToken) return;
         const arr = body && body.success && Array.isArray(body.data) ? body.data : [];
         const set = {};
         arr.forEach((w) => {

@@ -1,3 +1,12 @@
+@import "../../templates/login-guide.wxss";
+
+.st-guest-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--page-bg);
+}
+
 /**
  * pages/home/index.wxss — 原声心念工坊（B工程 AIStudioView「自由定制」首期
  * 的 Tailwind v4 → WXSS）
