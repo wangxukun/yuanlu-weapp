@@ -26,8 +26,16 @@ feed.fetchClipAudio = async () => ({ url: 'clip.m4a', clipOffset: 39.5 });
 recorder.ensurePermission = async () => true;
 recorder.start = () => { opened++; bus.stopAll(); return true; };
 recorder.stop = async () => ({ base64: 'sample', duration: 2, wavPath: '/tmp/take.wav' });
+const displays = [];
+let displayOffline = false;
 request.post = async (url, body) => {
-  if (url === '/api/clips/blind-train') return { success: true };
+  if (url === '/api/clips/blind-train') {
+    if (body.event === 'display') {
+      if (displayOffline) throw new Error('offline');
+      displays.push(body.clipid);
+    }
+    return { success: true };
+  }
   if (url === '/api/sentences/toggle') return { success: true, data: { saved: true } };
   if (url === '/api/vocabulary/add') { assert.equal(body.word, 'healthcare'); return { success: true }; }
   assert.equal(url, '/api/speech/evaluate');
@@ -39,6 +47,7 @@ request.post = async (url, body) => {
   } } };
 };
 request.get = async url => {
+  if (url.startsWith('/api/clips/blind-train?')) return {success:true,data:{day:training.today(),items:[]}};
   if (url.startsWith('/api/sentences/keys')) return {success:true,data:{subtitleIds:[]}};
   if (url.startsWith('/api/dict/')) return {success:true,data:{ definitions:[] }};
   if (url === '/api/vocabulary/words') return {success:true,data:[]};
@@ -46,6 +55,7 @@ request.get = async url => {
 };
 const training = require('../components/review/ear-workout/training');
 const calls = [];
+const fetchRealBatch = training.fetchBatch;
 let failNextPage = false;
 training.fetchBatch = async (cursor, day, level) => {
   calls.push([cursor, level]);
@@ -54,12 +64,13 @@ training.fetchBatch = async (cursor, day, level) => {
 };
 const store = new Map();
 const messages = [];
-function setData(v) {
+function setData(v, callback) {
   for (const [key,value] of Object.entries(v)) {
     const [parent, child] = key.split('.');
     if (child) this.data[parent][child] = value;
     else this.data[parent] = value;
   }
+  if (callback) callback();
 }
 let def;
 global.Component = value => { def = value; };
@@ -94,11 +105,17 @@ require('../components/review/ear-workout/index');
     assert.deepEqual(quiz.incorrect, incorrect);
     assert.deepEqual(quiz.omitted, omitted);
   }
+  assert.equal(example.data.todayCount, 1);
+  assert.equal(example.data.todayAverage, 0, '最新一轮为零也计入成绩');
+  store.clear(); // 评分算例不属于下面的训练会话。
   const c = { ...def.methods, data: { ...def.data, active: true }, setData };
   const activate = (value) => { c.data.active = value; def.observers.active.call(c, value); };
   def.lifetimes.attached.call(c);
   await flush();
   assert.equal(c.data.clip.showTitle, 'StoryCorps');
+  assert.deepEqual(displays, ['c1'], '仅当前展示的切片上报');
+  assert.equal(c.data.todayCount, 0);
+  assert.equal(c.data.todayAverage, null);
   assert.equal(c.data.stage, 'blind');
   assert.equal(plays.length, 0);
   readyImmediately = false;
@@ -184,15 +201,16 @@ require('../components/review/ear-workout/index');
     score: 40, originalCount: 3, submittedCount: 2, precision: 50, coverage: 33,
     matched: ['matters'], incorrect: ['care'], omitted: ['global', 'healthcare'],
   });
-  assert.equal(c.data.todayCount, 3, '评分键 = 纯函数 example + c1 + c2');
+  assert.equal(c.data.todayCount, 2);
+  assert.equal(c.data.todayAverage, 60);
   c.retryQuiz();
   c.submit({ detail: { value: 'care' } });
   assert.equal(c.data.quiz.score, 0, '重测失手本轮记 0 分');
-  assert.equal(c.data.todayAverage, 73, '均分取各题当日最好：(100+80+40)/3');
+  assert.equal(c.data.todayAverage, 40, '同题重测取最新成绩：(80+0)/2');
   c.retryQuiz();
   c.submit({ detail: { value: 'global healthcare matters' } });
   assert.equal(c.data.quiz.score, 100);
-  assert.equal(c.data.todayAverage, 93, '重测取最好后 (100+80+100)/3');
+  assert.equal(c.data.todayAverage, 90);
   let resolvePermission;
   recorder.ensurePermission = () => new Promise(ok => { resolvePermission = ok; });
   const pending = c.record();
@@ -250,12 +268,12 @@ require('../components/review/ear-workout/index');
   def.lifetimes.attached.call(fixture);
   await flush();
   assert.equal(fixture.data.number, 3, '从当前题恢复');
-  assert.equal(fixture.data.todayCount,3, '两题评分 + 纯函数 example 键，跨等级合计');
-  assert.equal(fixture.data.todayAverage, 93, '均分沿用各题当日最好成绩');
+  assert.equal(fixture.data.todayCount,2);
+  assert.equal(fixture.data.todayAverage, 90);
   await fixture.changeLevel({detail:{value:3}});
   assert.deepEqual(calls.at(-1),['','B1']);
   assert.equal(fixture.data.number,1);
-  assert.equal(fixture.data.todayCount,3);
+  assert.equal(fixture.data.todayCount,2);
   feed.fetchClipAudio = async () => { throw Object.assign(new Error(), {statusCode:403}); };
   await fixture.toggleAudio();
   assert.match(messages.at(-1),/会员/);
@@ -265,12 +283,30 @@ require('../components/review/ear-workout/index');
   assert.equal(fixture.data.audio,'idle');
   assert.match(messages.at(-1),/加载失败/);
   def.lifetimes.detached.call(fixture);
-  // 直接揭晓：计入题数但不贡献 0 分。
+  // 直接揭晓保留练习进度，但不进入盲听评分统计。
   const revealOnly = { ...def.methods, data: { stage: 'quiz', clip: { id: 'c9', textEn: 'A B C.' } }, setData };
   revealOnly.reveal();
   const day = training.readDay();
-  assert.equal(day.seen.c9, 1, '直接揭晓计入题数');
+  revealOnly._refreshStats();
+  assert.equal(revealOnly.data.todayCount, 2);
+  assert.equal(revealOnly.data.todayAverage, 90);
   assert.ok(!('c9' in day.scores), '揭晓不贡献 0 分');
+  const originalNow = Date.now;
+  try {
+    Date.now = () => Date.parse('2026-11-22T15:59:59Z');
+    const oldDay = training.today();
+    training.writeDay({ day: oldDay, scores: { yesterday: 80 }, progress: {} });
+    displayOffline = true;
+    await assert.rejects(training.recordDisplay({clipid:'offline', day:oldDay, position:1, level:'', cursor:'abc'}));
+    Date.now = () => Date.parse('2026-11-22T16:00:00Z');
+    assert.notEqual(training.today(), oldDay);
+    revealOnly._refreshStats();
+    assert.equal(revealOnly.data.todayCount, 0);
+    assert.equal(revealOnly.data.todayAverage, null);
+    displayOffline = false;
+    await fetchRealBatch('',training.today(),'',true);
+    assert.equal(displays.at(-1),'offline','跨日取题补传实际展示过的切片');
+  } finally { Date.now = originalNow; }
   let page;
   global.Page = d => { page = { ...d, data: { ...d.data }, setData }; };
   require('../pages/review/index');

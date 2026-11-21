@@ -13,7 +13,7 @@
         <picker range="{{levels}}" value="{{levelIndex}}" disabled="{{recording !== 'idle'}}" bindchange="changeLevel">
           <text>难度 · {{levels[levelIndex]}} ▾</text>
         </picker>
-        <text>今日 {{todayCount}} 题{{todayAverage ? ' · 均分 ' + todayAverage : ''}}</text>
+        <text>今日已评分 {{todayCount}} 题 · 均分 {{todayCount ? todayAverage : '—'}}</text>
       </view>
       <block wx:if="{{clip}}">
         <view class="ear-box">

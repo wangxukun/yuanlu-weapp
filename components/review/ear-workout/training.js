@@ -3,6 +3,8 @@ const { fromFeedItem } = require('../../../pages/discover/reels-api');
 const { scoreTier } = require('../../../utils/speech-core');
 
 async function fetchBatch(cursor, day, level, resume) {
+  // 昨天未送达的展示记录须先补传，否则今天第一页可能再次抽到它。
+  await flushDisplays();
   const query = [ ['cursor', cursor], ['day', day], ['level', level], ['resume', resume ? '1' : '0'] ]
     .map(([key, value]) => key + '=' + encodeURIComponent(value || '')).join('&');
   const body = await get('/api/clips/blind-train?' + query, null, { showError: false });
@@ -63,8 +65,8 @@ function readDay() {
   let saved;
   try { saved = key && wx.getStorageSync(key); } catch (_) { /* 本地成绩不可读 */ }
   if (saved && saved.day === today())
-    return { day: saved.day, scores: saved.scores || {}, seen: saved.seen || {}, progress: saved.progress || {} };
-  return { day: today(), scores: {}, seen: {}, progress: {} };
+    return { day: saved.day, scores: saved.scores || {}, progress: saved.progress || {} };
+  return { day: today(), scores: {}, progress: {} };
 }
 
 function writeDay(saved) {
@@ -75,4 +77,50 @@ function writeDay(saved) {
 function logPractice(progress) {
   return post('/api/clips/blind-train', progress, { showError: false });
 }
-module.exports = { answerWords, fetchBatch, sentenceParts, readDay, writeDay, today, logPractice };
+
+const displayQueues = new Map();
+function displayQueue(owner) {
+  if (!displayQueues.has(owner)) {
+    let saved;
+    try { saved = wx.getStorageSync(owner + ':pending-displays'); } catch (_) { /* 仅内存重试 */ }
+    displayQueues.set(owner, { entries: Array.isArray(saved) ? saved : [], sending: null });
+  }
+  return displayQueues.get(owner);
+}
+
+function persistQueue(owner, queue) {
+  try { wx.setStorageSync(owner + ':pending-displays', queue.entries); } catch (_) { /* 保留内存队列 */ }
+}
+
+function flushDisplays() {
+  const owner = storageKey();
+  if (!owner) return Promise.resolve();
+  const queue = displayQueue(owner);
+  if (!queue.sending && queue.entries.length) {
+    queue.sending = (async () => {
+      while (queue.entries.length && storageKey() === owner) {
+        const entry = queue.entries[0];
+        if (Date.parse(today()) - Date.parse(entry.day) <= 7 * 86400000) {
+          const body = await logPractice(entry);
+          if (!body || !body.success) throw new Error('展示记录同步失败');
+        }
+        queue.entries.shift();
+        persistQueue(owner, queue);
+      }
+    })().finally(() => { queue.sending = null; });
+  }
+  return queue.sending || Promise.resolve();
+}
+
+function recordDisplay(progress) {
+  const entry = { ...progress, event: 'display' };
+  const owner = storageKey();
+  if (!owner) return logPractice(entry);
+  const queue = displayQueue(owner);
+  if (!queue.entries.some(e => e.day === entry.day && e.clipid === entry.clipid)) {
+    queue.entries.push(entry);
+    persistQueue(owner, queue);
+  }
+  return flushDisplays();
+}
+module.exports = { answerWords, fetchBatch, sentenceParts, readDay, writeDay, today, logPractice, recordDisplay };

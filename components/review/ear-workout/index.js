@@ -76,7 +76,7 @@ Component({
     loading: false, message: '', audio: 'idle', recording: 'idle', result: null,
     last: false, levels: ['全部', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'], levelIndex: 0,
     parts: [], activeWord: -1, pastWord: -1, canPrevious: false, saved: false, saving: false,
-    wavPath: '', wordModal: null, todayCount: 0, todayAverage: 0,
+    wavPath: '', wordModal: null, todayCount: 0, todayAverage: null,
   },
   lifetimes: {
     attached() {
@@ -107,10 +107,14 @@ Component({
   observers: {
     active(value) {
       if (!this._player) return;
+      if (value) this._refreshStats();
       if (!value) this._deactivate();
       else if (this._day && this._day !== training.today()) this._reset(this.data.levelIndex);
       else if (!this.data.clip && !this.data.loading) this.loadPage();
-      else if (this.data.clip) this._readBookmark();
+      else if (this.data.clip) {
+        this._readBookmark();
+        this._recordDisplay();
+      }
     },
   },
   methods: {
@@ -129,12 +133,11 @@ Component({
       this._audioFiles.clear();
     },
     _refreshStats() {
-      const { scores, seen } = training.readDay();
-      const values = Object.values(scores);
-      // 题数含直接揭晓的题；均分只统计提交过评分的题，揭晓不贡献 0 分。
+      const values = Object.values(training.readDay().scores)
+        .filter(score => Number.isFinite(score) && score >= 0 && score <= 100);
       this.setData({
-        todayCount: new Set([...Object.keys(scores), ...Object.keys(seen)]).size,
-        todayAverage: values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0,
+        todayCount: values.length,
+        todayAverage: values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null,
       });
     },
     _reset(levelIndex, restart = false) {
@@ -214,11 +217,14 @@ Component({
       this._window = null;
       this._position = null;
       const { clip, before, number } = this._items[index];
+      const epoch = this._epoch;
       const previous = this._history[index];
       this.setData({ clip, number, tip: listeningTip(clip), stage: 'blind', input: '', quiz: null,
         result: null, wavPath: '', parts: training.sentenceParts(clip), ...previous,
         recording: 'idle', loading: false, message: '', activeWord: -1, pastWord: -1,
-        saved: false, saving: false, canPrevious: index > 0, last: index === this._items.length - 1 && !this._hasMore });
+        saved: false, saving: false, canPrevious: index > 0, last: index === this._items.length - 1 && !this._hasMore }, () => {
+        if (epoch === this._epoch && this.data.active) this._recordDisplay();
+      });
       const local = training.readDay();
       local.progress[this.data.levelIndex ? this.data.levels[this.data.levelIndex] : ''] = { cursor: before, number };
       training.writeDay(local);
@@ -402,9 +408,7 @@ Component({
       this.setData({ stage: 'revealed', quiz });
       if (this.data.clip && this.data.clip.id) {
         const local = training.readDay();
-        // 同题多次推测只记当日最好成绩，重测失手不拉低均分。
-        local.scores[this.data.clip.id] = Math.max(local.scores[this.data.clip.id] || 0, quiz.score);
-        local.seen[this.data.clip.id] = 1;
+        local.scores[this.data.clip.id] = quiz.score;
         training.writeDay(local);
         this._refreshStats();
       }
@@ -413,19 +417,20 @@ Component({
     reveal() {
       if (this.data.stage !== 'quiz') return;
       this.setData({ stage: 'revealed', quiz: null });
-      if (this.data.clip && this.data.clip.id) {
-        // 直接揭晓也算练过一题：计入题数，但不贡献 0 分。
-        const local = training.readDay();
-        local.seen[this.data.clip.id] = 1;
-        training.writeDay(local);
-        this._refreshStats();
-      }
       this._logPractice();
+    },
+    _progress() {
+      return { clipid: this.data.clip.id, day: this._day, position: this.data.number,
+        level: this.data.levelIndex ? this.data.levels[this.data.levelIndex] : '', cursor: this.data.clip.ringKey };
+    },
+    _recordDisplay() {
+      training.recordDisplay(this._progress()).catch(() => {
+        // 保留展示队列，恢复页面或下次取题时重试。
+      });
     },
     _logPractice() {
       const epoch = this._epoch;
-      training.logPractice({ clipid: this.data.clip.id, day: this._day, position: this.data.number,
-        level: this.data.levelIndex ? this.data.levels[this.data.levelIndex] : '', cursor: this.data.clip.ringKey }).catch(() => {
+      training.logPractice(this._progress()).catch(() => {
         if (epoch === this._epoch) wx.showToast({ title: '练习记录同步失败', icon: 'none' });
       });
     },
