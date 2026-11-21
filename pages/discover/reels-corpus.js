@@ -9,7 +9,7 @@
  *   原 coffee_shop.ogg 的 5 条（story-01/02/03、ted-02、story-06）按序改挂
  *   SoundHelix-Song-1/2/3.mp3（B 语料本就使用的公测直链，DevTools 需保持
  *   「不校验合法域名」，真机需将 soundhelix.com 加入 downloadFile 白名单；
- *   封面/头像已全部本地化到 assets/covers|avatars，无外链图片域名）。
+ *   封面资产目录 assets/covers 已删（2026-11-22 用户指令，coverUrl 置空走渐变底兜底）；头像本地化保留。
  *
  * 迁移 yuanlu-weapp 时：本模块退役，改接生产端切片接口（词级时间戳口径
  * 对齐 /api/clips/[id]/audio 签链 + corpus 三库切片表）。
@@ -25,7 +25,7 @@ module.exports = [
     topic: '人生故事·人道医疗',
     difficulty: 'B2',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    coverUrl: '/assets/covers/cv-photo-1478737270239-2f02b77fc618.jpg',
+    coverUrl: '',
     start: 0.0,
     end: 4.2,
     textEn: "Welcome to today's episode of our English learning journey.",
@@ -50,7 +50,7 @@ module.exports = [
     topic: '深度思考·全球卫生',
     difficulty: 'B2',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    coverUrl: '/assets/covers/cv-photo-1505751172876-fa1923c5c528.jpg',
+    coverUrl: '',
     start: 4.3,
     end: 9.1,
     textEn: "Today we are diving into an intriguing question that affects global healthcare.",
@@ -78,7 +78,7 @@ module.exports = [
     topic: '人道援助·社会价值',
     difficulty: 'C1',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    coverUrl: '/assets/covers/cv-photo-1469571486292-0ba58a3f068b.jpg',
+    coverUrl: '',
     start: 9.2,
     end: 14.8,
     textEn: "For over two decades, international humanitarian programs have supported millions of patients.",
@@ -106,7 +106,7 @@ module.exports = [
     topic: '时事思辨·政策讨论',
     difficulty: 'B2',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    coverUrl: '/assets/covers/cv-photo-1590602847861-f357a9332bbc.jpg',
+    coverUrl: '',
     start: 14.9,
     end: 20.5,
     textEn: "However, shifting political priorities have sparked intense debate among health policymakers.",
@@ -133,7 +133,7 @@ module.exports = [
     topic: '发音精进·影子跟读',
     difficulty: 'B1',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    coverUrl: '/assets/covers/cv-photo-1516321318423-f06f85e504b3.jpg',
+    coverUrl: '',
     start: 20.6,
     end: 26.2,
     textEn: "Let's listen closely to the nuances in speech and practice shadowing each sentence together.",
@@ -190,7 +190,7 @@ module.exports = [
     topic: '商业经济·价格心理',
     difficulty: 'C1',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    coverUrl: '/assets/covers/cv-photo-1611974789855-9c2a0a7236a3.jpg',
+    coverUrl: '',
     start: 5.0,
     end: 10.8,
     textEn: "Consumers rarely evaluate price in isolation; they anchor their expectations on subtle environmental cues.",
@@ -219,7 +219,7 @@ module.exports = [
     topic: '创造思维·认知心理',
     difficulty: 'B2',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    coverUrl: '/assets/covers/cv-photo-1516321318423-f06f85e504b3.jpg',
+    coverUrl: '',
     start: 2.5,
     end: 8.5,
     textEn: "Creative thinking is not a mystical gift; it is a deliberate discipline of mindful observation.",
@@ -250,7 +250,7 @@ module.exports = [
     topic: '职场沟通·合作共赢',
     difficulty: 'B2',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    coverUrl: '/assets/covers/cv-photo-1521737604893-d14cc237f11d.jpg',
+    coverUrl: '',
     start: 1.0,
     end: 7.0,
     textEn: "When navigating complex team dynamics, active listening always bridges the gap between disparate viewpoints.",
@@ -280,7 +280,7 @@ module.exports = [
     topic: '人际沟通·共情交流',
     difficulty: 'B1',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    coverUrl: '/assets/covers/cv-photo-1573496359142-b8d87734a5a2.jpg',
+    coverUrl: '',
     start: 3.0,
     end: 8.5,
     textEn: "Genuine empathy requires setting aside our instinctive urge to immediately offer solutions.",
@@ -336,7 +336,7 @@ module.exports = [
     topic: '商业经济·创业思维',
     difficulty: 'B2',
     audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    coverUrl: '/assets/covers/cv-photo-1486406146926-c627a92ad1ab.jpg',
+    coverUrl: '',
     start: 2.0,
     end: 7.9,
     textEn: "Sustainable innovation rarely happens by accident; it stems from rigorous testing and customer empathy.",

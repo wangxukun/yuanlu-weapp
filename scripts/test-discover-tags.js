@@ -60,7 +60,7 @@ assert(!/\bAI\b/.test(js) && !/\bAI\b/.test(wxml), 'D 零「AI」字眼');
 assert(!js.includes('images.unsplash.com') && !wxml.includes('images.unsplash.com') &&
   !read('pages/discover/reels-corpus.js').includes('images.unsplash.com'),
   'D 零 unsplash 外链（封面/头像已本地化）');
-assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面资产目录存在');
+assert(!fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 封面资产目录已删（2026-11-22 退役，coverUrl 置空走渐变底兜底）');
 
 // —— 场景 E：零旧特训页残留 ——
 ['发音急救箱', '语境卡册', '今日微剧场听写', 'learning-paths/mine', 'speech/notebook',
@@ -589,6 +589,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         const cpMod = { exports: {} };
         const toasts = [];
         const playing = [];
+        const audible = [];
         const ended = [];
         let now = 1000;
         let watchdog;
@@ -653,6 +654,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         });
         const realCp = cpMod.exports.createClipPlayer({
           onPlaying: (k) => playing.push(k),
+          onAudibleChange: (k) => audible.push(k),
           onEnded: (k) => ended.push(k),
         });
         const url = 'https://example.com/a.m4a';
@@ -660,6 +662,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         const first = lastAudio;
         const firstWatchdog = watchdog;
         first._fire('canplay');
+        assert(audible.length === 0, '原声准备就绪时尚未开始计时');
         first._fire('play');
         now += 800;
         realCp.setRate(1.25);
@@ -695,6 +698,7 @@ assert(fs.existsSync(path.join(__dirname, '../assets/covers')), 'D 本地封面�
         slow.currentTime = 3.1;
         slow._fire('timeupdate');
         slow._fire('waiting');
+        assert(audible.join('|') === 'reel||reel||reel|', '原声按实际起播计时，换速与缓冲中止计时');
         now += 2000;
         realCp.setRate(1);
         const normal = lastAudio;
