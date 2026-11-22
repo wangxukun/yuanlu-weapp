@@ -10,6 +10,7 @@ global.Page = (page) => { definition = page; };
 require('../pages/discover/index');
 const api = require('../pages/discover/reels-api');
 const session = require('../pages/discover/reels-session');
+const expectedDefaults = { maxWords: 10, maxWpm: 100, level: 'A2,B1,B2' };
 const flush = () => new Promise(setImmediate);
 const key = (n) => n.toString(16).padStart(16, '0');
 
@@ -17,7 +18,7 @@ function batch(first, count = 12, hasMore = true) {
   const items = Array.from({ length: count }, (_, i) => {
     const n = first + i;
     return { id: 'clip-' + n, episodeid: 'ep', subtitleId: n, real: true, ringKey: key(n),
-      textEn: 'We can go there together again this morning.', words: [], wpm: 120, difficulty: 'B1' };
+      textEn: 'We can go there together again this morning.', words: [], wpm: 100, difficulty: 'B1' };
   });
   return { items, nextCursor: key(first + count - 1), hasMore, mode: 'ring' };
 }
@@ -263,10 +264,13 @@ async function filterPools() {
   const calls = [];
   api.fetchFeed = ({ cursor, filters }) => {
     calls.push({ cursor, filters });
-    const start = cursor.length === 8 ? (filters.level ? 101 : 1) : parseInt(cursor, 16) + 1;
-    return batch(start);
+    const start = cursor.length === 8 ? (filters.minWords ? 101 : 1) : parseInt(cursor, 16) + 1;
+    const result = batch(start);
+    if (filters.minWpm) result.items.forEach(clip => { clip.wpm = filters.minWpm; });
+    return result;
   };
   const page = await openPage();
+  assert.deepEqual(calls[0].filters, expectedDefaults);
   page.onNext();
   finish(page);
   page.onOpenFilters();
@@ -278,11 +282,12 @@ async function filterPools() {
   page.onCloseFilters();
   assert.equal(page.data.clip.subtitleId, 2);
   page.onOpenFilters();
-  assert.deepEqual(page.data.filterDraft, {});
+  assert.deepEqual(page.data.filterDraft, expectedDefaults);
+  assert.deepEqual(page.data.selectedLevels, { A2: true, B1: true, B2: true });
   for (const [field, value] of Object.entries({ minWords: 8, maxWords: 15, minWpm: 110, maxWpm: 145 })) {
     editField(page, field, String(value));
   }
-  for (const level of ['B1', 'A2']) page.onFilterLevel({ currentTarget: { dataset: { level } } });
+  page.onFilterLevel({ currentTarget: { dataset: { level: 'B2' } } });
   await page.onApplyFilters();
   const expected = { minWords: 8, maxWords: 15, minWpm: 110, maxWpm: 145, level: 'A2,B1' };
   assert.deepEqual(page._sessionState.filters, expected);
@@ -299,10 +304,20 @@ async function filterPools() {
   assert.deepEqual(calls.at(-1), { cursor: key(161), filters: expected });
   assert.equal(reopened.data.clip.subtitleId, 162);
   assert.ok(reopened._sessionState.seen.some(([seen]) => seen === 'ep:2'));
-  await reopened.onClearFilters();
-  assert.deepEqual(calls.at(-1), { cursor: key(2), filters: {} });
+  reopened.onOpenFilters();
+  reopened.onResetFilterDraft();
+  assert.deepEqual(reopened.data.filterDraft, expectedDefaults);
+  assert.deepEqual(reopened.data.selectedLevels, { A2: true, B1: true, B2: true });
+  assert.deepEqual(reopened._sessionState.filters, expected);
+  await reopened.onApplyFilters();
+  assert.deepEqual(calls.at(-1), { cursor: key(2), filters: expectedDefaults });
   assert.equal(reopened.data.clip.subtitleId, 3);
+  await reopened.onClearFilters();
+  assert.deepEqual(calls.at(-1).filters, {});
   reopened.onUnload();
+  const unrestricted = await openPage();
+  assert.deepEqual(calls.at(-1).filters, {});
+  unrestricted.onUnload();
 }
 
 async function filterRecovery() {
@@ -313,6 +328,7 @@ async function filterRecovery() {
   const page = await openPage();
   const openWithMin = (n) => {
     page.onOpenFilters();
+    editField(page, 'maxWords', '');
     editField(page, 'minWords', n);
     return page.onApplyFilters();
   };
@@ -368,7 +384,7 @@ async function enforceReturnedLimits() {
   final.items[1].wpm = 90;
   const cursors = [];
   api.fetchFeed = ({ cursor, filters }) => {
-    if (!filters.maxWords) return batch(1);
+    if (filters.maxWords === 10) return batch(1);
     assert.deepEqual(filters, { maxWords: 9, maxWpm: 100 });
     cursors.push(cursor);
     if (cursors.length === 1) return first;
@@ -380,6 +396,7 @@ async function enforceReturnedLimits() {
   page.onOpenFilters();
   editField(page, 'maxWords', '9');
   editField(page, 'maxWpm', '100');
+  page.onAllLevels();
   await page.onApplyFilters();
   await flush();
   assert.deepEqual(page._reels.map((c) => c.subtitleId), [113, 117, 121]);

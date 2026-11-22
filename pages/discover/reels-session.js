@@ -6,7 +6,7 @@
  */
 const { subject, hashHex8 } = require('../../utils/subject');
 
-const { parseFilters, filterKey } = require('./reels-filters');
+const { DEFAULT_FILTERS, parseFilters, filterKey } = require('./reels-filters');
 
 const VERSION = 1;
 const CAPACITY = 600;
@@ -63,7 +63,7 @@ function normalizeState(raw, owner, nowDay) {
       cursor: fallbackCursor,
       lap: 0,
       updatedAt: Date.now(),
-      filters: {},
+      filters: { ...DEFAULT_FILTERS },
       positions: {},
       seen: [],
     };
@@ -82,7 +82,7 @@ function normalizeState(raw, owner, nowDay) {
         .sort((a, b) => a[1] - b[1])
         .slice(-CAPACITY)
     : [];
-  return {
+  const state = {
     v: VERSION,
     cursor: validCursor(raw.cursor) ? raw.cursor : fallbackCursor,
     lap: Number.isInteger(raw.lap) && raw.lap >= 0 ? raw.lap : 0,
@@ -91,6 +91,12 @@ function normalizeState(raw, owner, nowDay) {
     positions: raw.positions && typeof raw.positions === 'object' ? raw.positions : {},
     seen,
   };
+  // 旧版从未切换过筛选的会话也存有空条件。保留不限池游标，再启用默认池。
+  // 主动清空过筛选的会话有切换记录，继续使用其不限偏好。
+  if (!filterKey(state.filters) && !Object.keys(state.positions).length) {
+    switchFilters(state, owner, { ...DEFAULT_FILTERS });
+  }
+  return state;
 }
 
 function loadSession(owner, nowMs) {

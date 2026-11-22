@@ -1,4 +1,5 @@
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const DEFAULT_FILTERS = Object.freeze({ maxWords: 10, maxWpm: 100, level: 'A2,B1,B2' });
 const RANGES = [
   ['minWords', 'maxWords', '单词数'],
   ['minWpm', 'maxWpm', '原声语速'],
@@ -46,4 +47,4 @@ function matchesFilters(clip, filters = {}) {
   return true;
 }
 
-module.exports = { LEVELS, parseFilters, filterKey, matchesFilters };
+module.exports = { LEVELS, DEFAULT_FILTERS, parseFilters, filterKey, matchesFilters };

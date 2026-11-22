@@ -124,6 +124,22 @@ const recovered = sessionMod.loadSession('user:u200', baseMs);
 assert.equal(recovered.cursor, sessionMod.initialCursor('user:u200'));
 assert.equal(recovered.seen.length, 0);
 
+// An untouched legacy session has no filter history. Keep its progress for
+// when the learner switches back to the unrestricted pool.
+const legacyOwner = 'user:legacy';
+for (const fields of [{}, { filters: {}, positions: {} }]) {
+  storage.set('reels_feed_v1:' + legacyOwner, {
+    v: 1, cursor: 'deadbeef', lap: 3, seen: reloaded.seen, ...fields,
+  });
+  const upgraded = sessionMod.loadSession(legacyOwner, baseMs);
+  assert.deepEqual({ ...upgraded.filters }, { maxWords: 10, maxWpm: 100, level: 'A2,B1,B2' });
+  assert.equal(upgraded.cursor, sessionMod.initialCursor(legacyOwner));
+  assert.equal(upgraded.seen.length, 5);
+  sessionMod.switchFilters(upgraded, legacyOwner, {});
+  assert.equal(upgraded.cursor, 'deadbeef');
+  assert.equal(upgraded.lap, 3);
+}
+
 console.log(
   JSON.stringify({
     passed: true,
@@ -136,6 +152,7 @@ console.log(
       'guest-to-user-migration',
       'pending-auth-guard',
       'corrupt-storage-recovery',
+      'legacy-defaults-and-unrestricted-cursor',
     ],
   })
 );

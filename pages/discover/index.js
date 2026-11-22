@@ -38,7 +38,7 @@ const speechCore = require('../../utils/speech-core');
 const dictTool = require('../../utils/dict-tool');
 const reelsApi = require('./reels-api');
 const reelsSession = require('./reels-session');
-const { LEVELS, parseFilters, filterKey, matchesFilters } = require('./reels-filters');
+const { LEVELS, DEFAULT_FILTERS, parseFilters, filterKey, matchesFilters } = require('./reels-filters');
 
 const RATES = [0.75, 1, 1.25];
 const SAVED_KEY = 'reels_saved_sentences'; // 本地 mock 句子本（真实切片走服务端）
@@ -570,7 +570,6 @@ Page({
 
   onOpenFilters() {
     if (this.data.filterOpen) return;
-    const draft = Object.assign({}, this._sessionState.filters);
     const kind = this._player.getKind();
     this._filterUserResume = kind === 'user' && this.data.evalUserAudioPath ? {
       path: this.data.evalUserAudioPath, position: this._player.estimatedPos() || 0,
@@ -579,9 +578,14 @@ Page({
     this._resumeAfterFilter = !!(this.data.playing || this.data.audioLoading ||
       kind === 'reel' || this._resumeAfterEval || this._resumeAfterUserAudio);
     this._pausePlayback();
+    this._setFilterDraft(this._sessionState.filters);
+  },
+
+  _setFilterDraft(filters) {
+    const draft = { ...filters };
     const selectedLevels = {};
     for (const level of (draft.level || '').split(',')) if (level) selectedLevels[level] = true;
-    this.setData({ filterOpen: true, filterDraft: draft, selectedLevels, filterError: '' });
+    this.setData({ filterOpen: true, filterDraft: draft, selectedLevels, filterError: '', filterErrorField: '' });
   },
 
   onFilterInput(e) {
@@ -603,7 +607,7 @@ Page({
   },
 
   onResetFilterDraft() {
-    this.setData({ filterDraft: {}, selectedLevels: {}, filterError: '' });
+    this._setFilterDraft(DEFAULT_FILTERS);
   },
 
   onCloseFilters() {
