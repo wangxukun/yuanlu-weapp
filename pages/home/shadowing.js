@@ -117,11 +117,22 @@ const methods = {
     return !!(this.data.shadowPreparingId || this.data.recordingClipId || this.data.evaluatingClipId);
   },
 
+  _practiceClip(ds) {
+    const plan = this.data.plan;
+    if (ds.source === 'scene') {
+      const scene = plan && plan.scenes[Number(ds.sci)];
+      return scene && scene.sentences[Number(ds.idx)];
+    }
+    if (ds.source === 'clip') return plan && plan.clips[Number(ds.idx)];
+    return this.data.daily && this.data.daily.clips[Number(ds.idx)];
+  },
+
   async onDailyShadowStart(e) {
-    const clip = this.data.daily && this.data.daily.clips[Number(e.currentTarget.dataset.idx)];
+    const target = e.currentTarget.dataset;
+    const clip = this._practiceClip(target);
     if (!clip) return;
     if (this.data.recordingClipId === clip.id) return this._finishDailyRecording();
-    if (this._shadowBusy()) return;
+    if (this._shadowBusy() || this.data.relayRecording || this.data.relaySubmitting || this.data.relayPrepCountdown || this.data.isGenerating) return;
     if (!this._shadowToken()) return this._promptLogin('登录后开始跟读并保存评测记录');
     if (clip.available === false) {
       wx.showToast({ title: '这条素材暂不可用，请练习其他内容', icon: 'none' });
@@ -152,7 +163,7 @@ const methods = {
       if (!current()) return;
       if (!permitted) throw new Error('需要麦克风权限才能跟读，请授权后重试');
       if (!recorder.start({ ensurePerm: false })) throw new Error('录音启动失败，请重试');
-      this._shadowRecording = { clip, seq, token, startedAt: Date.now() };
+      this._shadowRecording = { clip, target, seq, token, startedAt: Date.now() };
       this.setData({ recordingClipId: clip.id, recordingSeconds: 0, shadowAmplitude: 0 });
       this._shadowTimer = setInterval(() => {
         if (!current()) return;
@@ -176,7 +187,7 @@ const methods = {
     if (!recording || !this.data.recordingClipId) return;
     clearInterval(this._shadowTimer);
     this._shadowTimer = null;
-    const { clip, seq, token } = recording;
+    const { clip, target, seq, token } = recording;
     const current = () => !this._shadowDisposed && seq === this._shadowSeq && token === this._shadowToken();
     this.setData({ recordingClipId: '', evaluatingClipId: clip.id, shadowAmplitude: 0 });
     try {
@@ -191,7 +202,15 @@ const methods = {
       }, { showError: false, timeout: 60000 });
       if (!current()) return;
       const result = resultView(body);
-      if (result.recognitionId) {
+      if (target && target.source) {
+        const path = target.source === 'scene'
+          ? 'plan.scenes[' + Number(target.sci) + '].sentences[' + Number(target.idx) + ']'
+          : 'plan.clips[' + Number(target.idx) + ']';
+        const selected = this._practiceClip(target);
+        if (selected && selected.id === clip.id) {
+          this.setData({ [path + '.evalResult']: result, [path + '.completed']: !!result.recognitionId && result.score >= PASS_SCORE });
+        }
+      } else if (result.recognitionId) {
         if (this._recordDailyPractice) this._recordDailyPractice(clip);
         this._shadowResults[clip.id] = { text: clip.textEn, episodeid: clip.episodeid, result };
         this._shadowAttempts++;
@@ -199,6 +218,11 @@ const methods = {
           try { wx.setStorageSync(this._shadowCacheKey, { results: this._shadowResults, attempts: this._shadowAttempts }); } catch (e) { /* Server saved; storage failure must not discard the score. */ }
         }
         this._applyShadowResults();
+      } else {
+        const clips = this.data.daily.clips.map(c => c.id === clip.id ? { ...c, evalResult: result } : c);
+        this.setData({ daily: { ...this.data.daily, clips } });
+      }
+      if (result.recognitionId) {
         this._loadDashboard(true);
         // 开口跟读自动验收连胜（SPEECH 通道，当日幂等；失败静默）
         this._igniteStreakBySpeech(result.recognitionId);
@@ -211,10 +235,6 @@ const methods = {
             shadowError: '工具录音格式与云端评测不兼容（微信官方限制），评分恒为 0 分；录音与回放功能正常，真实评分请用真机预览',
           });
         }
-      } else {
-        // A real score without recognitionId means saving failed. Show it without granting completion.
-        const clips = this.data.daily.clips.map((c) => c.id === clip.id ? Object.assign({}, c, { evalResult: result }) : c);
-        this.setData({ daily: Object.assign({}, this.data.daily, { clips }) });
       }
     } catch (err) {
       if (!current()) return;
@@ -246,7 +266,7 @@ const methods = {
   },
 
   onPlayDailyRecording(e) {
-    const clip = this.data.daily && this.data.daily.clips[Number(e.currentTarget.dataset.idx)];
+    const clip = this._practiceClip(e.currentTarget.dataset);
     const audio = this._shadowReplay;
     if (!clip || !audio || audio.clipId !== clip.id || this._shadowBusy()) return;
     if (this._activeKind === 'shadow-user' && this.data.playing) return this._pausePlayback();
@@ -258,7 +278,7 @@ const methods = {
     // 我的发音回放与「听原声」互斥：清 daily 活动卡——否则听原声按钮残留
     // 「暂停」态，且回放结束后 _activeKind 仍为 shadow-user，点听原声会走进
     // _startPlayback 的 shadow-user 分支（取自由定制 tab 切片）而无效
-    this.setData({ dailyActiveIdx: -1, activeWordIndex: -1 });
+    this.setData({ dailyActiveIdx: -1, activeIdx: -1, sceneActiveIdx: -1, activeWordIndex: -1 });
     this._player.playUrl(audio.path, 'studio');
   },
 
@@ -274,7 +294,7 @@ const methods = {
   /** 点橙/红词：切换音素诊断面板（绿词与无音素词不响应，se-chip--click 同口径） */
   onShadowWordTap(e) {
     const ds = e.currentTarget.dataset;
-    const clip = this.data.daily && this.data.daily.clips[Number(ds.idx)];
+    const clip = this._practiceClip(ds);
     const sw = clip && clip.evalResult && clip.evalResult.words[Number(ds.wi)];
     if (!sw) return;
     if (sw.score >= 85 || !sw.phonemes.length) return;
@@ -295,7 +315,7 @@ const methods = {
     this._prepToken++;
     this._activeKind = 'shadow-word';
     this._audioMeta = null;
-    this.setData({ shadowWordPlay: kind, dailyActiveIdx: -1, activeWordIndex: -1 });
+    this.setData({ shadowWordPlay: kind, dailyActiveIdx: -1, activeIdx: -1, sceneActiveIdx: -1, activeWordIndex: -1 });
   },
 
   /** 有道词典发音：美音(type=2)/英音(type=1)，与 speech-eval onPlayDictVoice 同链 */
@@ -307,7 +327,7 @@ const methods = {
       this._pausePlayback();
       return;
     }
-    const clip = this.data.daily && this.data.daily.clips[Number(ds.idx)];
+    const clip = this._practiceClip(ds);
     const sw = clip && this._selectedShadowWord(clip);
     if (!sw) return;
     const url = 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(sw.word) + '&type=' + (us ? 2 : 1);
@@ -322,7 +342,7 @@ const methods = {
       this._pausePlayback();
       return;
     }
-    const clip = this.data.daily && this.data.daily.clips[Number(ds.idx)];
+    const clip = this._practiceClip(ds);
     const sw = clip && this._selectedShadowWord(clip);
     if (!sw || !clip.words || !clip.words.length) {
       wx.showToast({ title: '该句无词级时间戳', icon: 'none' });
@@ -344,13 +364,19 @@ const methods = {
       return;
     }
     this._shadowWordPlayStart('orig');
-    this._prepareAudio(clip).then((meta) => {
+    const seq = this._prepToken;
+    const original = clip.sceneId
+      ? this._prepareSceneAudio(this.data.plan.scenes[Number(ds.sci)], Number(ds.idx))
+      : this._prepareAudio(clip);
+    original.then((meta) => {
+      if (seq !== this._prepToken || this._activeKind !== 'shadow-word') return;
       const off = meta.offset || clip.clipOffset || 0;
       this._player.playUrl(meta.url, 'studio', {
         startSec: Math.max(0, hit.start - off),
         endSec: Math.max(0.3, hit.end - off),
       });
     }).catch(() => {
+      if (seq !== this._prepToken) return;
       this.setData({ shadowWordPlay: '' });
       wx.showToast({ title: '原声音频不可用', icon: 'none' });
     });
@@ -363,7 +389,7 @@ const methods = {
       this._pausePlayback();
       return;
     }
-    const clip = this.data.daily && this.data.daily.clips[Number(ds.idx)];
+    const clip = this._practiceClip(ds);
     const sw = clip && this._selectedShadowWord(clip);
     const audio = this._shadowReplay;
     if (!clip || !sw || !audio || audio.clipId !== clip.id || !audio.path) {

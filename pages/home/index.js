@@ -226,6 +226,24 @@ const DEEP_FALLBACK = {
   speakingTip: '注意喉头放松，腹式呼吸送气，重点实词重读，虚词快速带过。',
 };
 
+// 展示用游标按起点推进，词间或句间停顿保留上一项，直到下一项开始。
+function lastStartedIndex(items, time) {
+  if (!Array.isArray(items)) return -1;
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].start != null && items[i].start <= time) return i;
+  }
+  return -1;
+}
+
+function relayRoomState(rooms) {
+  const recruiting = rooms.filter(room => room.status === 'recruiting');
+  const relayInitMap = {};
+  for (const room of recruiting) {
+    if (room.isMine && room.starterClipId) relayInitMap[room.starterClipId] = true;
+  }
+  return { relayRooms: rooms, recruitingCount: recruiting.length, relayInitMap };
+}
+
 Page({
   ...dashboard.methods,
   ...smartReview.methods,
@@ -283,6 +301,7 @@ Page({
     showCreateRelay: false,
     newRelayTitle: '',
     selectedRelayClipId: '',
+    customRelayClip: null,
     relayRecording: '', // 'create' | roomId —— 录音中（真录音链，relayCountdown=已录秒数）
     relayCountdown: 0,
     relaySubmitting: false, // 录音已停、评测+建房/接棒提交中
@@ -313,7 +332,7 @@ Page({
     sceneActiveIdx: -1, // plan.scenes 下标（与 activeIdx/dailyActiveIdx 互斥）
     sceneLoadingIdx: -1, // 懒取场景音频中的卡（整段或句级共用）
     sceneSentLoop: -1, // 句级循环中的句下标（活动场景内；-1=整段连播模式）
-    sceneWordIdx: -1, // 场景内全局词序（跨句连续扫光）
+    sceneWordIdx: -1, // 当前句内的词序
     sceneActiveSent: -1, // 当前朗读句
 
     // ── 深析 bottom-sheet ──
@@ -382,8 +401,6 @@ Page({
     this._prepToken = (this._prepToken || 0) + 1;
     this._audioMeta = null; // {url, offset, winStart, winEnd}
     this._activeKind = 'clip'; // 'clip' | 'scene' | 'daily' | 'relay'（同一私有播放器分时复用）
-    this._lastSceneWord = -99;
-    this._lastSceneSent = -99;
     this._wordCtx = null; // 查词/收藏上下文（切片词/场景词共用）
     this._relayRecTimer = null; // 接力录音 3s 倒计时（create/join 共用）
     this._batonTimer = null; // 合集连播 5.2s 接力棒
@@ -756,7 +773,7 @@ Page({
   async generate(queryText) {
     const token = this._workshopToken;
     const goal = (queryText || this.data.inputIdea || '').trim();
-    if (!goal || this.data.isGenerating) return;
+    if (!goal || this.data.isGenerating || this._shadowBusy()) return;
 
     this.setData({ isGenerating: true, noMatch: false, searchError: false });
     // [2026-11-11] 全不选 = 池内不限（按四档池发请求），A1/C2 完全不进选料
@@ -830,10 +847,13 @@ Page({
     const planClips = clips.map((c, i) => ({
       idx: i,
       id: c.id,
+      looping: false,
       textEn: c.textEn,
       textCn: c.textCn,
       phoneticSecret: c.phoneticTip || '',
-      words: c.words || [],
+      words: (c.words || []).map((w, wi) => ({ ...w, wi })),
+      topic: c.topic || c.showTitle,
+      difficulty: c.difficulty || '',
       showTitle: c.showTitle,
       keyVocabulary: source === 'local' && c.keywords
         ? c.keywords.map((k) => ({
@@ -977,12 +997,20 @@ Page({
 
   /* ---------------- 微场景（连续语境 · 句×词两级卡拉OK） ---------------- */
 
-  /** 后端 scene → 视图模型（词打全局序 gi，跨句连续扫光；句带 subtitleId 收藏键） */
+  /** 后端 scene → 视图模型（句内词序用于扫光和节点复用；句带 subtitleId 收藏键） */
   _mapScene(s) {
-    let g = 0;
     const sentences = (s.sentences || []).map((x) => {
-      const words = ((x.words || []).map((w) => Object.assign({}, w, { gi: g++ })));
+      const words = (x.words || []).map((w, wi) => ({ ...w, wi }));
+      const key = Number.isSafeInteger(x.subtitleId) ? 's' + x.subtitleId : 't' + Math.round(x.start * 1000);
+      const id = 'ms:' + s.sceneid + ':' + key;
       return {
+        id,
+        relayClipId: x.clipid || id,
+        real: true,
+        episodeid: s.episodeid,
+        sceneId: s.sceneid,
+        topic: s.title,
+        difficulty: s.cefrLevel || '',
         textEn: x.textEn,
         textCn: x.textCn || '',
         subtitleId: x.subtitleId != null ? x.subtitleId : null,
@@ -1001,7 +1029,6 @@ Page({
       cefr: s.cefrLevel || '',
       duration: s.duration || 0,
       sentences,
-      totalWords: g,
     };
   },
 
@@ -1018,6 +1045,7 @@ Page({
       this.data.sceneActiveIdx === sci &&
       this.data.sceneSentLoop < 0
     ) {
+      if (this.data.sceneLoadingIdx === sci) return;
       if (this.data.playing) {
         this._pausePlayback();
       } else {
@@ -1034,8 +1062,6 @@ Page({
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
-    this._lastSceneWord = -99;
-    this._lastSceneSent = -99;
     this._prepToken += 1;
     this._audioMeta = null;
     this._activeKind = 'scene';
@@ -1043,6 +1069,7 @@ Page({
       sceneActiveIdx: sci,
       sceneSentLoop: -1,
       sceneLoadingIdx: sci,
+      loadingClipIdx: -1,
       activeIdx: -1,
       dailyActiveIdx: -1,
       activeWordIndex: -1,
@@ -1053,9 +1080,9 @@ Page({
   },
 
   /**
-   * 句级原声循环（场景卡内每句右侧按钮）：把场景物理切片的播放窗口收窄到
+   * 句级原声循环（场景句卡右下角按钮）：把场景物理切片的播放窗口收窄到
    * [句.start-offset, 句.end-offset]（临时 _audioMeta 窗口），暂停/续播/循环
-   * 全部复用 clip-player 既有窗口机制；词级扫光沿用场景 gi（仅该句点亮）。
+   * 全部复用 clip-player 既有窗口机制；词级扫光只读取所选句。
    */
   onSceneSentLoop(e) {
     const ds = e.currentTarget.dataset;
@@ -1070,6 +1097,7 @@ Page({
       this.data.sceneActiveIdx === sci &&
       this.data.sceneSentLoop === si
     ) {
+      if (this.data.sceneLoadingIdx === sci) return;
       if (this.data.playing) {
         this._pausePlayback();
       } else {
@@ -1081,8 +1109,6 @@ Page({
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
-    this._lastSceneWord = -99;
-    this._lastSceneSent = -99;
     this._prepToken += 1;
     this._audioMeta = null;
     this._activeKind = 'scene';
@@ -1090,36 +1116,18 @@ Page({
       sceneActiveIdx: sci,
       sceneSentLoop: si,
       sceneLoadingIdx: sci,
+      loadingClipIdx: -1,
       sceneActiveSent: si,
       activeIdx: -1,
       dailyActiveIdx: -1,
       activeWordIndex: -1,
       sceneWordIdx: -1,
     });
-    const token = this._prepToken;
-    this._prepareSceneAudio(sc)
-      .then((meta) => {
-        if (token !== this._prepToken) return;
-        const off = meta.offset;
-        const winStart = Math.max(0, sent.start - off);
-        const winEnd = Math.min(meta.winEnd, Math.max(winStart + 0.3, sent.end - off));
-        this._audioMeta = Object.assign({}, meta, { winStart, winEnd });
-        this.setData({ sceneLoadingIdx: -1 });
-        this._playWindow(this._audioMeta, 0);
-      })
-      .catch((err) => {
-        if (token !== this._prepToken) return;
-        this.setData({ sceneLoadingIdx: -1 });
-        if (err && err.exclusive) {
-          wx.showToast({ title: '该原声切片为会员专享', icon: 'none' });
-          return;
-        }
-        wx.showToast({ title: '切片加载失败，稍后再试', icon: 'none' });
-      });
+    this._startPlayback(0);
   },
 
   /** 场景音频懒取：/api/clips/{sceneid}/audio（15-45s 物理切片，同款协议） */
-  _prepareSceneAudio(sc) {
+  _prepareSceneAudio(sc, sentenceIndex) {
     return reelsApi.fetchClipAudio(sc.id).then((r) => {
       if (r && r.exclusive) {
         const err = new Error('PREMIUM_REQUIRED');
@@ -1127,12 +1135,12 @@ Page({
         throw err;
       }
       if (!r || !r.url) throw new Error('audio unavailable');
-      return {
-        url: r.url,
-        offset: r.clipOffset,
-        winStart: 0,
-        winEnd: r.duration || sc.duration + 1,
-      };
+      const duration = r.duration || sc.duration + 1;
+      const sent = sc.sentences[sentenceIndex];
+      const winStart = sent ? Math.max(0, sent.start - r.clipOffset) : 0;
+      const winEnd = sent ? Math.min(duration, sent.end - r.clipOffset) : duration;
+      if (!(winEnd > winStart)) throw new Error('empty scene window');
+      return { url: r.url, offset: r.clipOffset, winStart, winEnd };
     });
   },
 
@@ -1250,13 +1258,14 @@ Page({
     });
   },
 
-  /** 卡片播放键：非活动卡=起播并循环；活动卡=暂停/续播（B onClick 同款） */
+  /** 精选切片的听原声按钮：切换句子、暂停或续播。 */
   onClipPlay(e) {
     const idx = Number(e.currentTarget.dataset.idx);
     const clip = this.data.plan && this.data.plan.clips[idx];
     if (!clip) return;
 
     if (idx === this.data.activeIdx) {
+      if (this.data.loadingClipIdx === idx) return;
       if (this.data.playing) {
         this._pausePlayback();
       } else {
@@ -1271,11 +1280,10 @@ Page({
     const clips = this.data.plan.clips;
     const clip = clips[idx];
     if (!clip) return;
+    this._pausePlayback();
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
-    this._lastSceneWord = -99;
-    this._lastSceneSent = -99;
     this._prepToken += 1;
     this._audioMeta = null;
     this._activeKind = 'clip';
@@ -1283,6 +1291,7 @@ Page({
       activeIdx: idx,
       activeWordIndex: -1,
       sceneActiveIdx: -1,
+      sceneLoadingIdx: -1,
       sceneSentLoop: -1,
       sceneWordIdx: -1,
       sceneActiveSent: -1,
@@ -1301,8 +1310,6 @@ Page({
     this._relPos = 0;
     this._atEnd = false;
     this._lastWordIdx = -99;
-    this._lastSceneWord = -99;
-    this._lastSceneSent = -99;
     this._prepToken += 1;
     this._audioMeta = null;
     this._activeKind = 'daily';
@@ -1351,7 +1358,7 @@ Page({
         ? { dailyLoadingIdx: -1 }
         : { loadingClipIdx: -1 };
     this.setData(loadingPatch);
-    const prepare = isScene ? this._prepareSceneAudio(sc) : this._prepareAudio(clip);
+    const prepare = isScene ? this._prepareSceneAudio(sc, this.data.sceneSentLoop) : this._prepareAudio(clip);
     prepare
       .then((meta) => {
         if (token !== this._prepToken) return;
@@ -1372,17 +1379,26 @@ Page({
 
   _playWindow(meta, fromRel) {
     const rel = Math.min(Math.max(fromRel || 0, 0), Math.max(0, meta.winEnd - meta.winStart - 0.05));
+    const startSec = meta.winStart + rel;
+    if (this._activeKind === 'scene' || this._activeKind === 'clip' || this._activeKind === 'daily') {
+      this._sweepPos = startSec;
+      this._onTick(startSec);
+    }
     this._player.playUrl(meta.url, 'studio', {
-      startSec: meta.winStart + rel,
+      startSec,
       endSec: meta.winEnd,
       rate: this._rate !== 1 ? this._rate : 0,
     });
   },
 
   _pausePlayback() {
+    if (this.data.sceneLoadingIdx >= 0 || this.data.loadingClipIdx >= 0 || this.data.dailyLoadingIdx >= 0) {
+      this._prepToken++;
+      this.setData({ sceneLoadingIdx: -1, loadingClipIdx: -1, dailyLoadingIdx: -1 });
+    }
     if (this.data.recordingClipId || this.data.shadowPreparingId) this._cancelShadowing();
     this._stopReviewAudio(); // 同时取消尚未返回的原声请求，防止切页后自动起播
-    if (!this.data.playing) return;
+    if (!this.data.playing && !this._player.getKind()) return;
     const meta = this._audioMeta;
     const pos = this._player.estimatedPos();
     if (meta && pos != null) {
@@ -1404,7 +1420,12 @@ Page({
       }
       return;
     }
-    if (this.data.isLooping) {
+    let repeat = this.data.isLooping;
+    if (this._activeKind === 'clip') {
+      const clip = this.data.plan && this.data.plan.clips[this.data.activeIdx];
+      repeat = clip && clip.looping;
+    }
+    if (repeat) {
       this._startPlayback(0);
       return;
     }
@@ -1412,12 +1433,18 @@ Page({
     this._relPos = 0;
   },
 
-  /** 活动卡循环键（B: 仅 active 卡显示） */
+  onToggleClipLoop(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const clip = this.data.plan && this.data.plan.clips[idx];
+    if (clip) this.setData({ ['plan.clips[' + idx + '].looping']: !clip.looping });
+  },
+
+  /** 今日挑战活动卡的循环开关 */
   onToggleLoop() {
     this.setData({ isLooping: !this.data.isLooping });
   },
 
-  /** 词级扫光（offset 协议同 discover；切片=词窗判定，场景=跨句全局词序+句高亮） */
+  /** 词级扫光（offset 协议同 discover；自由定制按当前句内的词起点推进） */
   _onTick(pos) {
     const meta = this._audioMeta;
 
@@ -1446,70 +1473,27 @@ Page({
       return;
     }
 
-    if (this._activeKind === 'scene') {
-      const sc =
-        this.data.sceneActiveIdx >= 0
-          ? this.data.plan && this.data.plan.scenes && this.data.plan.scenes[this.data.sceneActiveIdx]
-          : null;
-      if (!sc) return;
-      const offset = meta ? meta.offset : 0;
-      const winEnd = meta ? meta.winEnd : sc.duration;
-      let gi = -1;
-      let si = -1;
-      if (pos >= winEnd) {
-        gi = sc.totalWords;
+    if (this._activeKind === 'scene' || this._activeKind === 'clip' || this._activeKind === 'daily') {
+      if (!meta || pos < this._sweepPos) return;
+      this._sweepPos = pos;
+      const time = Math.min(pos, meta.winEnd) + meta.offset;
+      const plan = this.data.plan;
+      if (this._activeKind === 'scene') {
+        const scene = plan && plan.scenes[this.data.sceneActiveIdx];
+        if (!scene) return;
+        const si = this.data.sceneSentLoop >= 0 ? this.data.sceneSentLoop : lastStartedIndex(scene.sentences, time);
+        const wi = si < 0 ? -1 : lastStartedIndex(scene.sentences[si].words, time);
+        if (si !== this.data.sceneActiveSent || wi !== this.data.sceneWordIdx) {
+          this.setData({ sceneActiveSent: si, sceneWordIdx: wi });
+        }
       } else {
-        for (let s = 0; s < sc.sentences.length; s++) {
-          const sent = sc.sentences[s];
-          if (pos < sent.start - offset || pos >= sent.end - offset) continue;
-          si = s;
-          for (let k = 0; k < sent.words.length; k++) {
-            const w = sent.words[k];
-            if (pos >= w.start - offset && pos < w.end - offset) {
-              gi = w.gi;
-              break;
-            }
-          }
-          break; // 命中句后不再跨句（词间隙 gi=-1，句保持高亮）
-        }
+        const clip = this._activeKind === 'daily'
+          ? this.data.daily && this.data.daily.clips[this.data.dailyActiveIdx]
+          : plan && plan.clips[this.data.activeIdx];
+        if (!clip) return;
+        const wi = lastStartedIndex(clip.words, time);
+        if (wi !== this.data.activeWordIndex) this.setData({ activeWordIndex: wi });
       }
-      const patch = {};
-      if (gi !== this._lastSceneWord) {
-        this._lastSceneWord = gi;
-        patch.sceneWordIdx = gi;
-      }
-      if (si >= 0 && si !== this._lastSceneSent) {
-        this._lastSceneSent = si;
-        patch.sceneActiveSent = si;
-      }
-      if (Object.keys(patch).length) this.setData(patch);
-      return;
-    }
-
-    const kind = this._activeKind;
-    const idx = kind === 'daily' ? this.data.dailyActiveIdx : this.data.activeIdx;
-    const clip =
-      kind === 'daily'
-        ? this.data.daily && this.data.daily.clips[idx]
-        : this.data.plan && this.data.plan.clips[idx];
-    if (!clip || !Array.isArray(clip.words) || !clip.words.length) return;
-    const offset = meta ? meta.offset : 0;
-    const winEnd = meta ? meta.winEnd : clip.end;
-    let wi = -1;
-    if (pos >= winEnd) {
-      wi = clip.words.length;
-    } else {
-      for (let i = 0; i < clip.words.length; i++) {
-        const w = clip.words[i];
-        if (pos >= w.start - offset && pos < w.end - offset) {
-          wi = i;
-          break;
-        }
-      }
-    }
-    if (wi !== this._lastWordIdx) {
-      this._lastWordIdx = wi;
-      this.setData({ activeWordIndex: wi });
     }
   },
 
@@ -1567,6 +1551,7 @@ Page({
     const clip = this.data.daily && this.data.daily.clips[idx];
     if (!clip) return;
     if (idx === this.data.dailyActiveIdx) {
+      if (this.data.dailyLoadingIdx === idx) return;
       if (this.data.playing) {
         this._pausePlayback();
       } else {
@@ -1716,13 +1701,7 @@ Page({
     const isAdmin = !!(auth.userInfo && auth.userInfo.role === 'ADMIN');
     const apply = (rooms, total) => this.setData({
       relayIsAdmin: isAdmin,
-      relayInitMap: rooms.reduce((m, r) => {
-        if (r.isMine && r.status === 'recruiting' && r.starterClipId) m[r.starterClipId] = true;
-        return m;
-      }, {}),
-      relayRooms: rooms,
-      // 角标口径（T16 并入）：窗口内可接数（我的招募+推荐层），非全站总数
-      recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
+      ...relayRoomState(rooms),
       // hero 副文案口径：全站真实招募总数（传递氛围不施压）
       relayTotalRecruiting: total != null ? total : rooms.filter((r) => r.status === 'recruiting').length,
       relayLoading: false,
@@ -1749,7 +1728,9 @@ Page({
   onToggleCreateRelay() {
     const next = !this.data.showCreateRelay;
     const patch = { showCreateRelay: next };
-    if (next && !this.data.selectedRelayClipId) {
+    if (next && !this.data.relayDraft && (!this.data.selectedRelayClipId || this.data.customRelayClip)) {
+      patch.customRelayClip = null;
+      patch.selectedRelayClipId = '';
       const first = this.data.daily && this.data.daily.clips[0];
       if (first) patch.selectedRelayClipId = first.id;
     }
@@ -1771,16 +1752,23 @@ Page({
 
   /** 今日挑战卡「发起接力」入口（B daily 卡 Radio 按钮：预选切片+命名+跳 tab 开面板） */
   onDailyRelayLaunch(e) {
-    const idx = Number(e.currentTarget.dataset.idx);
-    const clip = this.data.daily && this.data.daily.clips[idx];
-    if (!clip) return;
+    const ds = e.currentTarget.dataset;
+    const clip = this._practiceClip(ds);
+    if (!clip || this._shadowBusy() || this.data.relayRecording || this.data.relayPrepCountdown || this.data.relaySubmitting) return;
+    if (this.data.relayDraft) return wx.showToast({ title: '请先处理当前草稿', icon: 'none' });
+    const starterId = clip.relayClipId || clip.id;
+    if (this.data.relayInitMap[starterId]) return wx.showToast({ title: '这句话已有进行中的接力', icon: 'none' });
     this._pausePlayback();
     const meta = TAB_META.find((t) => t.key === 'relay');
     this.setData({
       activeTab: 'relay',
       header: meta,
       showCreateRelay: true,
-      selectedRelayClipId: clip.id,
+      customRelayClip: ds.source ? {
+        id: starterId, real: clip.real, episodeid: clip.episodeid, subtitleId: clip.subtitleId,
+        textEn: clip.textEn, textCn: clip.textCn, topic: clip.topic, difficulty: clip.difficulty,
+      } : null,
+      selectedRelayClipId: starterId,
       newRelayTitle: '《' + (clip.topic || '原声') + '》原声口语接力',
     });
     this._scrollAnchorToTop('#stTabsRow');
@@ -1861,8 +1849,7 @@ Page({
   _relayRoomCreated(room, recognitionId, isCreate) {
     const rooms = [room].concat(this.data.relayRooms.filter((r) => r.id !== room.id));
     this.setData({
-      relayRooms: rooms,
-      recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
+      ...relayRoomState(rooms),
       showCreateRelay: isCreate ? false : this.data.showCreateRelay,
       newRelayTitle: isCreate ? '' : this.data.newRelayTitle,
       relayDraft: null,
@@ -2018,7 +2005,7 @@ Page({
       return wx.showToast({ title: '这句话你已发起过接力，等语伴接棒或先撤销', icon: 'none' });
     }
     const clips = (this.data.daily && this.data.daily.clips) || [];
-    const clip = clips.find((c) => c.id === this.data.selectedRelayClipId) || clips[0];
+    const clip = this.data.customRelayClip || clips.find((c) => c.id === this.data.selectedRelayClipId);
     if (!clip) {
       wx.showToast({ title: '暂无切片可选，先去今日挑战看看', icon: 'none' });
       return;
@@ -2070,10 +2057,7 @@ Page({
         if (!res.confirm) return;
         relayApi.cancelRoom(rid).then(() => {
           const rooms = this.data.relayRooms.filter((r) => r.id !== rid);
-          this.setData({
-            relayRooms: rooms,
-            recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
-          });
+          this.setData(relayRoomState(rooms));
           if (this.data.playingRoomId === rid) this._stopCompilation();
           wx.showToast({ title: '已撤销', icon: 'success' });
         }).catch((err) => {
@@ -2098,10 +2082,7 @@ Page({
         if (!res.confirm) return;
         relayApi.adminDeleteRoom(rid).then(() => {
           const rooms = this.data.relayRooms.filter((r) => r.id !== rid);
-          this.setData({
-            relayRooms: rooms,
-            recruitingCount: rooms.filter((r) => r.status === 'recruiting').length,
-          });
+          this.setData(relayRoomState(rooms));
           if (this.data.playingRoomId === rid) this._stopCompilation();
           wx.showToast({ title: '已删除', icon: 'success' });
         }).catch((err) => {

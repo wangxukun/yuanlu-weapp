@@ -94,8 +94,107 @@ assert(js.includes('_appendDailyBonus') && js.includes('entry.featuredClip && en
   'E onLbPractice 加练分支接入');
 assert(read('pages/home/daily-challenge.js').includes('isBonus'), 'E 加练句 isBonus 标记');
 
-if (failed) {
-  console.error('✗ ' + failed + ' 项失败');
-  process.exit(1);
+// 用物理切片时间驱动页面的实际扫光回调。字幕使用整集绝对时间。
+async function testWorkshopPlaybackAndPractice() {
+  let page;
+  global.Page = config => { page = config; };
+  global.wx = { getStorageSync: () => '' };
+  require('../pages/home/index');
+  page.setData = patch => Object.assign(page.data, patch);
+  page._player = { playUrl() {} };
+  const scene = page._mapScene({ sentences: [100, 101, 102, 103].map(start => ({
+    start, end: start + 0.8, words: [
+      { word: 'go', start, end: start + 0.2 },
+      { word: 'go', start: start + 0.5, end: start + 0.7 },
+    ],
+  })) });
+  page.data.plan = { scenes: [scene], clips: [{ words: scene.sentences[0].words }] };
+  page._audioMeta = { offset: 100, winStart: 0, winEnd: 4 };
+  page._activeKind = 'scene';
+  page.data.sceneActiveIdx = 0;
+  page._playWindow(page._audioMeta, 0);
+  page._onTick(0.4);
+  assert(page.data.sceneActiveSent === 0 && page.data.sceneWordIdx === 0, '整段连播：词间静音保持前词');
+  page._onTick(0.9);
+  assert(page.data.sceneActiveSent === 0 && page.data.sceneWordIdx === 1, '整段连播：句间静音保持前句末词');
+  page._onTick(1.1);
+  assert(page.data.sceneActiveSent === 1 && page.data.sceneWordIdx === 0, '整段连播：新句从句内首词开始');
+  page.data.sceneSentLoop = 3;
+  page._audioMeta = { offset: 100, winStart: 3, winEnd: 3.8 };
+  page._playWindow(page._audioMeta, 0);
+  page._onTick(3.6);
+  page._onTick(3.1);
+  assert(page.data.sceneActiveSent === 3 && page.data.sceneWordIdx === 1, '单播第 4 句：延迟回调无法倒退游标');
+  const wordClass = wxmlHome.match(/class="st-word {{([^}]+)}}"/)[1];
+  const vm = require('node:vm');
+  const css = (si, wi) => vm.runInNewContext(wordClass, { ...page.data, playing: true, sci: 0, si, wi });
+  assert([0, 1, 2].every(si => !css(si, 0) && !css(si, 1)) && css(3, 0) === 'st-word--past' &&
+    css(3, 1) === 'st-word--cur', '第 4 句当前词与已读词只在本句着色');
+  page._playWindow(page._audioMeta, 0);
+  assert(page.data.sceneActiveSent === 3 && page.data.sceneWordIdx === 0, '单句循环回到所选句首');
+  page._activeKind = 'clip';
+  page.data.activeIdx = 0;
+  page._audioMeta = { offset: 100, winStart: 0, winEnd: 1 };
+  page._playWindow(page._audioMeta, 0);
+  page._onTick(0.4);
+  assert(page.data.activeWordIndex === 0, '精选切片：词间静音保持首词');
+  page._onTick(0.8);
+  page._onTick(0.3);
+  assert(page.data.activeWordIndex === 1, '精选切片：句尾及延迟回调保持末词');
+  page._playWindow(page._audioMeta, 0);
+  assert(page.data.activeWordIndex === 0, '精选切片循环正常复位');
+
+  page.data.daily = { clips: [{ id: 'daily', words: scene.sentences[0].words }] };
+  page._activeKind = 'daily';
+  page.data.dailyActiveIdx = 0;
+  page._playWindow(page._audioMeta, 0);
+  page._onTick(0.4);
+  assert(page.data.activeWordIndex === 0, '今日挑战词间停顿保持高亮');
+  page._onTick(0.8);
+  page._onTick(0.2);
+  assert(page.data.activeWordIndex === 1, '今日挑战的延迟回调不会倒退');
+  page._playWindow(page._audioMeta, 0);
+  assert(page.data.activeWordIndex === 0, '今日挑战循环从首词重新扫光');
+
+  const recorder = require('../utils/recorder');
+  recorder.ensurePermission = async () => true;
+  recorder.start = () => true;
+  recorder.stop = async () => ({ bytes: 32000, base64: 'audio', wavPath: 'test.wav' });
+  page._shadowToken = () => 'test';
+  page._syncShadowIdentity = page._pausePlayback = page._stopCompilation = page._scrollAnchorToTop = () => {};
+  page._loadDashboard = page._igniteStreakBySpeech = () => {};
+  page._shadowSeq = 0;
+  let target, evaluated;
+  page._relayRecordStart = opts => { target = opts; };
+  wx.request = opts => {
+    if (opts.url.endsWith('/api/speech/evaluate')) evaluated = opts.data;
+    opts.success({ statusCode: 200, data: { success: true, data: { score: 90, recognitionId: 7 } } });
+  };
+  page.data.plan.scenes = [page._mapScene({ sceneid: 'scene-a', episodeid: 'ep', sentences: [
+    { start: 100, end: 102, textEn: 'First.', subtitleId: 3, clipid: 'solo' },
+    { start: 102, end: 105, textEn: 'Second.', subtitleId: 4 },
+  ] })];
+  page.data.plan.clips = [{ id: 'solo', episodeid: 'ep', real: true, textEn: 'First.', subtitleId: 3 }];
+  for (const [ds, id, subtitleId, text, path] of [
+    [{ source: 'scene', sci: 0, idx: 1 }, 'ms:scene-a:s4', 4, 'Second.', 'plan.scenes[0].sentences[1]'],
+    [{ source: 'scene', sci: 0, idx: 0 }, 'solo', 3, 'First.', 'plan.scenes[0].sentences[0]'],
+    [{ source: 'clip', idx: 0 }, 'solo', 3, 'First.', 'plan.clips[0]'],
+  ]) {
+    const e = { currentTarget: { dataset: ds } };
+    page.onDailyRelayLaunch(e);
+    page.onStartCreateRelay();
+    assert(page.data.customRelayClip.textEn === text && target.clipId === id && target.subtitleId === subtitleId,
+      path + ' 接力预选及领读录音对应所点原句');
+    await page.onDailyShadowStart(e);
+    assert(page.data.recordingClipId === page._practiceClip(ds).id, path + ' 开始录音');
+    await page.onDailyShadowStart(e);
+    assert(evaluated.targetText === text && evaluated.subtitleId === subtitleId &&
+      page.data[path + '.evalResult'].score === 90, path + ' 按原句提交并回填评分');
+  }
+  assert(page.data.daily.clips.length === 1 && !page.data.daily.clips[0].evalResult, '自由定制练习独立于每日题目');
 }
-console.log('✓ home-recommend 全部通过');
+
+testWorkshopPlaybackAndPractice().then(() => {
+  if (failed) throw new Error(failed + ' 项失败');
+  console.log('✓ home-recommend 全部通过');
+}).catch(err => { console.error(err); process.exitCode = 1; });

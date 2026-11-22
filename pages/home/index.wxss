@@ -349,8 +349,8 @@
 
 /* 两列网格（3 行 × 2 列） */
 .st-preset-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12rpx;
 }
 
@@ -359,7 +359,7 @@
   align-items: center;
   gap: 6rpx;
   padding: 10rpx 0;
-  width: calc(50% - 6rpx); /* 两列等宽 */
+  min-width: 0;
   box-sizing: border-box;
   justify-content: center;
   border-radius: 16rpx;
@@ -375,6 +375,7 @@
 }
 
 .st-preset-text {
+  min-width: 0;
   font-size: 22rpx;
   color: var(--text-secondary);
   max-width: 280rpx;
@@ -605,8 +606,6 @@
 .st-word--cur {
   background: var(--accent-300);
   color: var(--ink-950);
-  font-weight: 700;
-  transform: scale(1.05);
 }
 
 .st-word--past {
@@ -676,16 +675,6 @@
   color: var(--accent-500);
 }
 
-/* 底栏动作 */
-.st-clip-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-  border-top: 1rpx solid var(--border-color);
-  padding-top: 20rpx;
-}
-
 .st-play-btn {
   display: flex;
   align-items: center;
@@ -726,20 +715,6 @@
   border: 4rpx solid rgba(46, 143, 111, 0.25);
   border-top-color: var(--primary-600);
   animation: st-spin 0.9s linear infinite;
-}
-
-.st-loop-btn {
-  padding: 10rpx;
-  border-radius: 16rpx;
-}
-
-.st-loop-btn--on {
-  background: var(--st-amber-tint);
-}
-
-.st-loop-ic {
-  width: 30rpx;
-  height: 30rpx;
 }
 
 /* ═══════════ 微场景（连续语境 · 句×词两级卡拉OK） ═══════════ */
@@ -836,25 +811,12 @@
   color: var(--text-tertiary);
 }
 
-/* 句级行动组（循环/透视/收藏，内构对齐切片卡 top-right 簇） */
-.st-sent-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16rpx;
-}
-
-.st-sent-row .st-sent-en {
-  flex: 1;
-  min-width: 0;
-}
-
+/* 让中英文占满句卡宽度，操作按钮随内容排在右下角。 */
 .st-sent-acts {
   display: flex;
-  flex-direction: column;
+  align-self: flex-end;
   align-items: center;
   gap: 10rpx;
-  flex-shrink: 0;
 }
 
 .st-sent-act {
@@ -875,6 +837,11 @@
 .st-sent-act--on {
   background: var(--st-green-tint);
   border-color: var(--st-green-tint-border);
+}
+
+.st-sent-act--rec {
+  background: var(--error-500);
+  border-color: var(--error-500);
 }
 
 .st-sent-ic {
@@ -1423,10 +1390,11 @@
 }
 
 /* 动作栏 */
-.st-dc-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.st-practice-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr);
+  width: 100%;
+  box-sizing: border-box;
   gap: 16rpx;
   border-top: 1rpx solid var(--border-color);
   padding-top: 20rpx;
@@ -2993,6 +2961,10 @@
 .st-a4--shadow-done {
   background: var(--st-seg-bg);
   box-shadow: none;
+}
+
+.st-sent-act .st-a4-emoji {
+  font-size: 26rpx;
 }
 
 /* 单句循环窄格（活动卡附属，仅图标垂直居中） */
